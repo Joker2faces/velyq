@@ -104,6 +104,16 @@ describe("canonical decimal strings", () => {
 });
 
 describe("market decimal value objects", () => {
+  it("generated bounds preserve probability and odds invariants", () => {
+    for (let index = 1; index < 100; index += 1) {
+      if (index % 10 === 0) continue;
+      const fraction = `0.${index}`;
+
+      expect(probability(fraction).ok).toBe(true);
+      expect(probability(`-${fraction}`).ok).toBe(false);
+      expect(decimalOdds(`1.${index}`).ok).toBe(true);
+    }
+  });
   it.each([
     ["0", true],
     ["0.5", true],
@@ -176,6 +186,15 @@ describe("market decimal value objects", () => {
 });
 
 describe("decimal boundary codecs", () => {
+  it("generated canonical strings serialize without loss", () => {
+    for (let index = 1; index < 100; index += 1) {
+      if (index % 10 === 0) continue;
+      const value = successful(parseDecimalString(`0.${index}`));
+
+      expect(successful(decimalStringToNumeric(value))).toBe(`0.${index}`);
+      expect(successful(decimalStringToJson(value))).toBe(`0.${index}`);
+    }
+  });
   it("round-trips canonical PostgreSQL NUMERIC and JSON strings", () => {
     const fromNumeric = successful(numericToDecimalString("123.45"));
     const fromJson = successful(jsonToDecimalString("0.125"));

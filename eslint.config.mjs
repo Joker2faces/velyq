@@ -102,6 +102,8 @@ const workspaceBoundaryPlugin = {
         const decimalTypeNames = new Set();
         const decimalObjectNames = new Set();
         const decimalScalarNames = new Set();
+        const decimalResultNames = new Set();
+        const ordinaryParameterScopes = [];
 
         function isKnownDecimalType(annotation) {
           return (
@@ -111,19 +113,36 @@ const workspaceBoundaryPlugin = {
           );
         }
 
+        function propertyName(node) {
+          if (!node.computed && node.property.type === "Identifier") {
+            return node.property.name;
+          }
+          if (node.computed && node.property.type === "Literal") {
+            return node.property.value;
+          }
+          return undefined;
+        }
+
+        function isDecimalResultValue(node) {
+          return (
+            node.type === "MemberExpression" &&
+            propertyName(node) === "value" &&
+            node.object.type === "Identifier" &&
+            decimalResultNames.has(node.object.name)
+          );
+        }
+
         function isDecimalField(node) {
           return (
             node.type === "MemberExpression" &&
-            node.object.type === "Identifier" &&
-            decimalObjectNames.has(node.object.name) &&
-            ((node.computed &&
-              node.property.type === "Literal" &&
-              (node.property.value === "value" ||
-                node.property.value === "amount")) ||
-              (!node.computed &&
-                node.property.type === "Identifier" &&
-                (node.property.name === "value" ||
-                  node.property.name === "amount")))
+            (propertyName(node) === "value" ||
+              propertyName(node) === "amount") &&
+            ((node.object.type === "Identifier" &&
+              decimalObjectNames.has(node.object.name) &&
+              !ordinaryParameterScopes.some((scope) =>
+                scope.has(node.object.name),
+              )) ||
+              isDecimalResultValue(node.object))
           );
         }
 
@@ -153,6 +172,20 @@ const workspaceBoundaryPlugin = {
               ) {
                 decimalTypeNames.add(specifier.local.name);
               }
+              if (
+                specifier.type === "ImportSpecifier" &&
+                [
+                  "decimalOdds",
+                  "probability",
+                  "fairProbability",
+                  "impliedProbability",
+                  "edge",
+                  "expectedValue",
+                  "marketLine",
+                ].includes(specifier.imported.name)
+              ) {
+                decimalResultNames.add(specifier.local.name);
+              }
             }
           },
           VariableDeclarator(node) {
@@ -161,6 +194,14 @@ const workspaceBoundaryPlugin = {
               isKnownDecimalType(node.id.typeAnnotation?.typeAnnotation)
             ) {
               decimalObjectNames.add(node.id.name);
+            }
+            if (
+              node.id.type === "Identifier" &&
+              node.init?.type === "CallExpression" &&
+              node.init.callee.type === "Identifier" &&
+              decimalResultNames.has(node.init.callee.name)
+            ) {
+              decimalResultNames.add(node.id.name);
             }
             if (
               node.id.type === "ObjectPattern" &&
@@ -179,6 +220,39 @@ const workspaceBoundaryPlugin = {
                 }
               }
             }
+          },
+          ":function"(node) {
+            const ordinaryNames = new Set();
+            for (const parameter of node.params) {
+              if (
+                parameter.type === "Identifier" &&
+                isKnownDecimalType(parameter.typeAnnotation?.typeAnnotation)
+              ) {
+                decimalObjectNames.add(parameter.name);
+              } else if (parameter.type === "Identifier") {
+                ordinaryNames.add(parameter.name);
+              }
+              if (
+                parameter.type === "ObjectPattern" &&
+                isKnownDecimalType(parameter.typeAnnotation?.typeAnnotation)
+              ) {
+                for (const property of parameter.properties) {
+                  if (
+                    property.type === "Property" &&
+                    property.key.type === "Identifier" &&
+                    (property.key.name === "value" ||
+                      property.key.name === "amount") &&
+                    property.value.type === "Identifier"
+                  ) {
+                    decimalScalarNames.add(property.value.name);
+                  }
+                }
+              }
+            }
+            ordinaryParameterScopes.push(ordinaryNames);
+          },
+          ":function:exit"() {
+            ordinaryParameterScopes.pop();
           },
           BinaryExpression(node) {
             if (
