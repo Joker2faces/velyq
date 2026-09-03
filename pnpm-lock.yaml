@@ -95,7 +95,11 @@ importers:
 
   packages/database: {}
 
-  packages/decimal: {}
+  packages/decimal:
+    dependencies:
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
 
   packages/domain: {}
 
@@ -125,9 +129,16 @@ packages:
       {
         integrity: sha512-cuadcxVFE8sDK6iWJbs8Sn0av2Nrh2QSGQhVlBW9AaAHqHwjWsZHT8LJ4hFGPh7ASBV2deFdM7H/DPjulmh8rg==,
       }
+
     engines: { node: ^12.22.0 || ^14.17.0 || >=16.0.0 }
     peerDependencies:
       eslint: ^6.0.0 || ^7.0.0 || >=8.0.0
+
+  decimal.js@10.6.0:
+    resolution:
+      {
+        integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==,
+      }
 
   "@eslint-community/regexpp@4.12.2":
     resolution:
@@ -2151,6 +2162,8 @@ snapshots:
     dependencies:
       eslint: 10.9.1
       eslint-visitor-keys: 3.4.3
+
+  decimal.js@10.6.0: {}
 
   "@eslint-community/regexpp@4.12.2": {}
 

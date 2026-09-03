@@ -84,6 +84,43 @@ const workspaceBoundaryPlugin = {
         };
       },
     },
+    "no-branded-decimal-arithmetic": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "disallow direct arithmetic on decimal value-object fields",
+        },
+        schema: [],
+        messages: {
+          directArithmetic:
+            "Use @velyq/decimal helpers instead of direct arithmetic on decimal fields.",
+        },
+      },
+      create(context) {
+        const arithmeticOperators = new Set(["+", "-", "*", "/", "%", "**"]);
+
+        function isDecimalField(node) {
+          return (
+            node.type === "MemberExpression" &&
+            !node.computed &&
+            node.property.type === "Identifier" &&
+            (node.property.name === "value" || node.property.name === "amount")
+          );
+        }
+
+        return {
+          BinaryExpression(node) {
+            if (
+              arithmeticOperators.has(node.operator) &&
+              (isDecimalField(node.left) || isDecimalField(node.right))
+            ) {
+              context.report({ node, messageId: "directArithmetic" });
+            }
+          },
+        };
+      },
+    },
   },
 };
 
@@ -92,6 +129,14 @@ const internalPackageImports = [
     group: ["@velyq/*/src/**"],
     message:
       "Import from a package public entry point, never its src internals.",
+  },
+];
+
+const decimalRuntimeForbiddenImports = [
+  {
+    name: "decimal.js",
+    message:
+      "Only @velyq/decimal may import decimal.js; use its public value objects and helpers.",
   },
 ];
 
@@ -149,8 +194,22 @@ export default tseslint.config(
       velyq: workspaceBoundaryPlugin,
     },
     rules: {
-      "no-restricted-imports": ["error", { patterns: internalPackageImports }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: decimalRuntimeForbiddenImports,
+          patterns: internalPackageImports,
+        },
+      ],
       "velyq/no-cross-package-relative-import": "error",
+      "velyq/no-branded-decimal-arithmetic": "error",
+    },
+  },
+  {
+    files: ["packages/decimal/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: internalPackageImports }],
+      "velyq/no-branded-decimal-arithmetic": "off",
     },
   },
   {
@@ -159,7 +218,7 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: domainForbiddenImports,
+          paths: [...decimalRuntimeForbiddenImports, ...domainForbiddenImports],
           patterns: [...internalPackageImports, ...domainForbiddenSubpaths],
         },
       ],

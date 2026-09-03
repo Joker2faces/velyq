@@ -86,4 +86,31 @@ describe("workspace dependency boundaries", () => {
       ),
     ).toBe(true);
   });
+
+  it("permits decimal.js only inside the decimal package", async () => {
+    const [outsideResult] = await lintFixture(
+      "decimal-js-import.fixture.ts",
+      "packages/analytics/src/fixture.ts",
+    );
+    const [insideResult] = await lintFixture(
+      "decimal-js-import.fixture.ts",
+      "packages/decimal/src/fixture.ts",
+    );
+
+    expect(outsideResult.errorCount).toBe(1);
+    expect(outsideResult.messages[0]?.ruleId).toBe("no-restricted-imports");
+    expect(insideResult.errorCount).toBe(0);
+  });
+
+  it("rejects direct arithmetic on decimal value fields", async () => {
+    const [result] = await lintFixture(
+      "decimal-value-arithmetic.fixture.ts",
+      "packages/analytics/src/fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-branded-decimal-arithmetic",
+    );
+  });
 });
