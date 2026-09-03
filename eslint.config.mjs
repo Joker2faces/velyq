@@ -320,8 +320,12 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["packages/*/test/*.ts"],
+          allowDefaultProject: [
+            "packages/*/test/*.ts",
+            "packages/database/drizzle.config.ts",
+          ],
           defaultProject: "tsconfig.json",
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
         },
         tsconfigRootDir: workspaceDirectory,
       },
