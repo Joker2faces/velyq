@@ -103,7 +103,14 @@ importers:
 
   packages/domain: {}
 
-  packages/market-semantics: {}
+  packages/market-semantics:
+    dependencies:
+      '@velyq/decimal':
+        specifier: workspace:*
+        version: link:../decimal
+      '@velyq/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/observability: {}
 
