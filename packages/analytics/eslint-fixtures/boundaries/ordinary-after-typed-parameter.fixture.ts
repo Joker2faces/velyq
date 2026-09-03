@@ -1,7 +1,7 @@
 import type { DecimalOdds } from "@velyq/decimal";
 
-export function typed(odds: DecimalOdds) {
-  return odds.value;
+export function typed({ value }: DecimalOdds) {
+  return value;
 }
 const odds = { value: "ordinary" };
 const { value } = odds;

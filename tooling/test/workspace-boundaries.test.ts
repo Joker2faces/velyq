@@ -1,26 +1,34 @@
-import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
 const rootDirectory = fileURLToPath(new URL("../..", import.meta.url));
+const linter = new ESLint({ cwd: rootDirectory, ignore: false });
 
-async function lintFixture(name: string, filePath: string) {
-  const source = await readFile(
-    new URL(`./fixtures/boundaries/${name}`, import.meta.url),
-    "utf8",
+async function lintFixture(
+  name: string,
+  workspaceUnit:
+    "analytics" | "application" | "decimal" | "domain" = "analytics",
+) {
+  return linter.lintFiles(
+    path.join(
+      rootDirectory,
+      "packages",
+      workspaceUnit,
+      "eslint-fixtures",
+      "boundaries",
+      name,
+    ),
   );
-  const linter = new ESLint({ cwd: rootDirectory });
-
-  return linter.lintText(source, { filePath });
 }
 
 describe("workspace dependency boundaries", () => {
   it("rejects a deep import into another package", async () => {
     const [result] = await lintFixture(
       "cross-package-internal.fixture.ts",
-      "packages/application/src/fixture.ts",
+      "application",
     );
 
     expect(result.errorCount).toBeGreaterThan(0);
@@ -34,7 +42,7 @@ describe("workspace dependency boundaries", () => {
   it("rejects a relative filesystem import into another package", async () => {
     const [result] = await lintFixture(
       "relative-cross-package-internal.fixture.ts",
-      "packages/application/src/fixture.ts",
+      "application",
     );
 
     expect(result.errorCount).toBe(1);
@@ -46,7 +54,7 @@ describe("workspace dependency boundaries", () => {
   it("rejects a literal dynamic import into another package", async () => {
     const [result] = await lintFixture(
       "dynamic-cross-package-internal.fixture.ts",
-      "packages/application/src/fixture.ts",
+      "application",
     );
 
     expect(result.errorCount).toBe(1);
@@ -58,7 +66,7 @@ describe("workspace dependency boundaries", () => {
   it("permits a relative filesystem import within the same package", async () => {
     const [result] = await lintFixture(
       "same-package-relative.fixture.ts",
-      "packages/application/src/fixture.ts",
+      "application",
     );
 
     expect(result.errorCount).toBe(0);
@@ -67,7 +75,7 @@ describe("workspace dependency boundaries", () => {
   it("permits a literal dynamic import within the same package", async () => {
     const [result] = await lintFixture(
       "dynamic-same-package-relative.fixture.ts",
-      "packages/application/src/fixture.ts",
+      "application",
     );
 
     expect(result.errorCount).toBe(0);
@@ -76,7 +84,7 @@ describe("workspace dependency boundaries", () => {
   it("rejects framework and adapter dependencies from the domain package", async () => {
     const [result] = await lintFixture(
       "domain-forbidden-dependency.fixture.ts",
-      "packages/domain/src/fixture.ts",
+      "domain",
     );
 
     expect(result.errorCount).toBe(5);
@@ -88,13 +96,10 @@ describe("workspace dependency boundaries", () => {
   });
 
   it("permits decimal.js only inside the decimal package", async () => {
-    const [outsideResult] = await lintFixture(
-      "decimal-js-import.fixture.ts",
-      "packages/analytics/src/fixture.ts",
-    );
+    const [outsideResult] = await lintFixture("decimal-js-import.fixture.ts");
     const [insideResult] = await lintFixture(
       "decimal-js-import.fixture.ts",
-      "packages/decimal/src/fixture.ts",
+      "decimal",
     );
 
     expect(outsideResult.errorCount).toBe(1);
@@ -103,10 +108,7 @@ describe("workspace dependency boundaries", () => {
   });
 
   it("rejects computed arithmetic on imported decimal value fields", async () => {
-    const [result] = await lintFixture(
-      "decimal-value-arithmetic.fixture.ts",
-      "packages/analytics/src/fixture.ts",
-    );
+    const [result] = await lintFixture("decimal-value-arithmetic.fixture.ts");
 
     expect(result.errorCount).toBe(1);
     expect(result.messages[0]?.ruleId).toBe(
@@ -117,7 +119,6 @@ describe("workspace dependency boundaries", () => {
   it("rejects destructured arithmetic on imported decimal value fields", async () => {
     const [result] = await lintFixture(
       "decimal-value-destructuring.fixture.ts",
-      "packages/analytics/src/fixture.ts",
     );
 
     expect(result.errorCount).toBe(1);
@@ -126,10 +127,24 @@ describe("workspace dependency boundaries", () => {
     );
   });
 
+  it("rejects arithmetic on the exported branded decimal scalar", async () => {
+    const [result] = await lintFixture("decimal-string-arithmetic.fixture.ts");
+
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-branded-decimal-arithmetic",
+    );
+  });
+
   it("allows arithmetic on unrelated value properties", async () => {
+    const [result] = await lintFixture("ordinary-value-arithmetic.fixture.ts");
+
+    expect(result.errorCount).toBe(0);
+  });
+
+  it("allows an unrelated local type alias named DecimalString", async () => {
     const [result] = await lintFixture(
-      "ordinary-value-arithmetic.fixture.ts",
-      "packages/analytics/src/fixture.ts",
+      "ordinary-decimal-string-alias.fixture.ts",
     );
 
     expect(result.errorCount).toBe(0);
@@ -140,10 +155,7 @@ describe("workspace dependency boundaries", () => {
     "decimal-destructured-parameter.fixture.ts",
     "decimal-result-chain-arithmetic.fixture.ts",
   ])("rejects scoped decimal arithmetic in %s", async (fixture) => {
-    const [result] = await lintFixture(
-      fixture,
-      "packages/analytics/src/fixture.ts",
-    );
+    const [result] = await lintFixture(fixture);
 
     expect(result.errorCount).toBe(1);
     expect(result.messages[0]?.ruleId).toBe(
@@ -152,10 +164,7 @@ describe("workspace dependency boundaries", () => {
   });
 
   it("allows a shadowed ordinary value parameter", async () => {
-    const [result] = await lintFixture(
-      "ordinary-shadowed-value.fixture.ts",
-      "packages/analytics/src/fixture.ts",
-    );
+    const [result] = await lintFixture("ordinary-shadowed-value.fixture.ts");
 
     expect(result.errorCount).toBe(0);
   });
@@ -164,9 +173,16 @@ describe("workspace dependency boundaries", () => {
     "decimal-money-result-arithmetic.fixture.ts",
     "decimal-inner-shadow.fixture.ts",
   ])("rejects type-branded arithmetic in %s", async (fixture) => {
+    const [result] = await lintFixture(fixture);
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-branded-decimal-arithmetic",
+    );
+  });
+
+  it("rejects a nested typed binding shadowing an ordinary outer binding", async () => {
     const [result] = await lintFixture(
-      fixture,
-      "packages/analytics/src/fixture.ts",
+      "decimal-nested-typed-shadow.fixture.ts",
     );
     expect(result.errorCount).toBe(1);
     expect(result.messages[0]?.ruleId).toBe(
@@ -178,10 +194,7 @@ describe("workspace dependency boundaries", () => {
     "ordinary-after-typed-parameter.fixture.ts",
     "ordinary-shadowed-result.fixture.ts",
   ])("allows ordinary scoped values in %s", async (fixture) => {
-    const [result] = await lintFixture(
-      fixture,
-      "packages/analytics/src/fixture.ts",
-    );
+    const [result] = await lintFixture(fixture);
     expect(result.errorCount).toBe(0);
   });
 });

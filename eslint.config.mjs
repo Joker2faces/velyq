@@ -2,10 +2,21 @@ import eslint from "@eslint/js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import globals from "globals";
+import ts from "typescript";
 import tseslint from "typescript-eslint";
 
 const workspaceDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceUnitDirectories = new Set(["apps", "packages", "workers"]);
+const decimalPackageDirectory = path.join(
+  workspaceDirectory,
+  "packages",
+  "decimal",
+);
+const typeAwareFiles = [
+  "apps/**/*.{ts,tsx,mts}",
+  "packages/**/*.{ts,tsx,mts}",
+  "workers/**/*.{ts,tsx,mts}",
+];
 
 function workspaceUnitDirectory(filePath) {
   const relativePath = path.relative(
@@ -100,185 +111,88 @@ const workspaceBoundaryPlugin = {
       create(context) {
         const arithmeticOperators = new Set(["+", "-", "*", "/", "%", "**"]);
         const parserServices = context.sourceCode.parserServices;
-        const checker = parserServices?.program?.getTypeChecker();
-        const decimalTypeNames = new Set();
-        const decimalObjectNames = new Set();
-        const decimalScalarNames = new Set();
-        const decimalResultNames = new Set();
-        const ordinaryParameterScopes = [];
-        const decimalParameterScopes = [];
+        const typeNodeMap = parserServices?.esTreeNodeToTSNodeMap;
 
-        function isKnownDecimalType(annotation) {
-          return (
-            annotation?.type === "TSTypeReference" &&
-            annotation.typeName.type === "Identifier" &&
-            decimalTypeNames.has(annotation.typeName.name)
+        if (!parserServices?.program || !typeNodeMap) {
+          throw new Error(
+            "velyq/no-branded-decimal-arithmetic requires TypeScript parser services.",
           );
         }
 
-        function propertyName(node) {
-          if (!node.computed && node.property.type === "Identifier") {
-            return node.property.name;
+        const checker = parserServices.program.getTypeChecker();
+
+        function belongsToDecimalString(declaration) {
+          if (
+            workspaceUnitDirectory(declaration.getSourceFile().fileName) !==
+            decimalPackageDirectory
+          ) {
+            return false;
           }
-          if (node.computed && node.property.type === "Literal") {
-            return node.property.value;
+
+          for (
+            let ancestor = declaration.parent;
+            ancestor && !ts.isSourceFile(ancestor);
+            ancestor = ancestor.parent
+          ) {
+            if (ts.isTypeAliasDeclaration(ancestor)) {
+              return ancestor.name.text === "DecimalString";
+            }
           }
-          return undefined;
+
+          return false;
         }
 
-        function isDecimalResultValue(node) {
-          return (
-            node.type === "MemberExpression" &&
-            propertyName(node) === "value" &&
-            node.object.type === "Identifier" &&
-            decimalResultNames.has(node.object.name)
-          );
-        }
+        function hasDecimalStringBrand(type, seenTypes = new Set()) {
+          if (seenTypes.has(type)) return false;
+          seenTypes.add(type);
 
-        function isDecimalField(node) {
-          return (
-            node.type === "MemberExpression" &&
-            (propertyName(node) === "value" ||
-              propertyName(node) === "amount") &&
-            ((node.object.type === "Identifier" &&
-              decimalObjectNames.has(node.object.name) &&
-              !ordinaryParameterScopes.some((scope) =>
-                scope.has(node.object.name),
-              )) ||
-              isDecimalResultValue(node.object))
-          );
-        }
+          if (
+            type.flags &
+            (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)
+          ) {
+            return false;
+          }
 
-        function isDecimalOperand(node) {
+          if (
+            type.isUnionOrIntersection() &&
+            type.types.some((part) => hasDecimalStringBrand(part, seenTypes))
+          ) {
+            return true;
+          }
+
+          if (
+            checker
+              .getPropertiesOfType(type)
+              .some((property) =>
+                property
+                  .getDeclarations()
+                  ?.some((declaration) => belongsToDecimalString(declaration)),
+              )
+          ) {
+            return true;
+          }
+
+          const constraint = checker.getBaseConstraintOfType(type);
           return (
-            isDecimalField(node) ||
-            (node.type === "Identifier" && decimalScalarNames.has(node.name))
+            constraint !== undefined &&
+            constraint !== type &&
+            hasDecimalStringBrand(constraint, seenTypes)
           );
         }
 
         function isBrandedDecimal(node) {
-          if (!checker || !parserServices?.esTreeNodeToTSNodeMap) return false;
-          const type = checker.getTypeAtLocation(
-            parserServices.esTreeNodeToTSNodeMap.get(node),
+          const typeNode = typeNodeMap.get(node);
+          return (
+            typeNode !== undefined &&
+            hasDecimalStringBrand(checker.getTypeAtLocation(typeNode))
           );
-          return checker.typeToString(type).includes("DecimalString");
         }
 
         return {
-          ImportDeclaration(node) {
-            if (node.source.value !== "@velyq/decimal") return;
-            for (const specifier of node.specifiers) {
-              if (
-                specifier.type === "ImportSpecifier" &&
-                [
-                  "DecimalOdds",
-                  "Probability",
-                  "FairProbability",
-                  "ImpliedProbability",
-                  "Edge",
-                  "ExpectedValue",
-                  "MarketLine",
-                  "Money",
-                ].includes(specifier.imported.name)
-              ) {
-                decimalTypeNames.add(specifier.local.name);
-              }
-              if (
-                specifier.type === "ImportSpecifier" &&
-                [
-                  "decimalOdds",
-                  "probability",
-                  "fairProbability",
-                  "impliedProbability",
-                  "edge",
-                  "expectedValue",
-                  "marketLine",
-                  "money",
-                ].includes(specifier.imported.name)
-              ) {
-                decimalResultNames.add(specifier.local.name);
-              }
-            }
-          },
-          VariableDeclarator(node) {
-            if (
-              node.id.type === "Identifier" &&
-              isKnownDecimalType(node.id.typeAnnotation?.typeAnnotation)
-            ) {
-              decimalObjectNames.add(node.id.name);
-            }
-            if (
-              node.id.type === "Identifier" &&
-              node.init?.type === "CallExpression" &&
-              node.init.callee.type === "Identifier" &&
-              decimalResultNames.has(node.init.callee.name)
-            ) {
-              decimalResultNames.add(node.id.name);
-            }
-            if (
-              node.id.type === "ObjectPattern" &&
-              node.init?.type === "Identifier" &&
-              decimalObjectNames.has(node.init.name)
-            ) {
-              for (const property of node.id.properties) {
-                if (
-                  property.type === "Property" &&
-                  property.key.type === "Identifier" &&
-                  (property.key.name === "value" ||
-                    property.key.name === "amount") &&
-                  property.value.type === "Identifier"
-                ) {
-                  decimalScalarNames.add(property.value.name);
-                }
-              }
-            }
-          },
-          ":function"(node) {
-            const ordinaryNames = new Set();
-            const decimalNames = new Set();
-            for (const parameter of node.params) {
-              if (
-                parameter.type === "Identifier" &&
-                isKnownDecimalType(parameter.typeAnnotation?.typeAnnotation)
-              ) {
-                decimalObjectNames.add(parameter.name);
-                decimalNames.add(parameter.name);
-              } else if (parameter.type === "Identifier") {
-                ordinaryNames.add(parameter.name);
-              }
-              if (
-                parameter.type === "ObjectPattern" &&
-                isKnownDecimalType(parameter.typeAnnotation?.typeAnnotation)
-              ) {
-                for (const property of parameter.properties) {
-                  if (
-                    property.type === "Property" &&
-                    property.key.type === "Identifier" &&
-                    (property.key.name === "value" ||
-                      property.key.name === "amount") &&
-                    property.value.type === "Identifier"
-                  ) {
-                    decimalScalarNames.add(property.value.name);
-                  }
-                }
-              }
-            }
-            ordinaryParameterScopes.push(ordinaryNames);
-            decimalParameterScopes.push(decimalNames);
-          },
-          ":function:exit"() {
-            ordinaryParameterScopes.pop();
-            for (const name of decimalParameterScopes.pop()) {
-              decimalObjectNames.delete(name);
-            }
-          },
           BinaryExpression(node) {
             if (
               arithmeticOperators.has(node.operator) &&
-              (isBrandedDecimal(node.left) ||
-                isBrandedDecimal(node.right) ||
-                isDecimalOperand(node.left) ||
-                isDecimalOperand(node.right))
+              (isBrandedDecimal(node.left) || isBrandedDecimal(node.right))
             ) {
               context.report({ node, messageId: "directArithmetic" });
             }
@@ -342,7 +256,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/.next/**",
       "**/node_modules/**",
-      "tooling/test/fixtures/**",
+      "**/eslint-fixtures/**",
     ],
   },
   eslint.configs.recommended,
@@ -367,6 +281,20 @@ export default tseslint.config(
         },
       ],
       "velyq/no-cross-package-relative-import": "error",
+    },
+  },
+  {
+    files: typeAwareFiles,
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ["packages/*/test/*.ts"],
+          defaultProject: "tsconfig.json",
+        },
+        tsconfigRootDir: workspaceDirectory,
+      },
+    },
+    rules: {
       "velyq/no-branded-decimal-arithmetic": "error",
     },
   },
