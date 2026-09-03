@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,6 +7,15 @@ import {
 } from "../src/index.js";
 
 describe("public environment parsing", () => {
+  it.each([
+    ["null", null],
+    ["array", []],
+    ["non-string defined value", { NEXT_PUBLIC_SUPABASE_URL: 42 }],
+    ["primitive", "not-an-environment-record"],
+  ])("rejects %s with a typed configuration error", (_name, environment) => {
+    expect(() => parsePublicEnvironment(environment)).toThrow(ZodError);
+  });
+
   it("rejects a server secret presented in the public environment", () => {
     expect(() =>
       parsePublicEnvironment({
@@ -30,6 +40,10 @@ describe("public environment parsing", () => {
 });
 
 describe("worker environment parsing", () => {
+  it("accepts unknown inputs at the boundary and rejects malformed records", () => {
+    expect(() => parseWorkerEnvironment(null)).toThrow(ZodError);
+  });
+
   it("rejects a worker configuration without its server-only database URL", () => {
     expect(() =>
       parseWorkerEnvironment({

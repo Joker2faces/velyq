@@ -1,6 +1,21 @@
 import { z } from "zod";
 
-type Environment = Record<string, string | undefined>;
+function isPlainEnvironmentRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+const environmentRecordSchema = z
+  .custom<Record<string, unknown>>(isPlainEnvironmentRecord, {
+    error: "Environment input must be a plain record.",
+  })
+  .pipe(z.record(z.string(), z.string().optional()));
 
 const publicKeys = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -22,11 +37,12 @@ export type PublicEnvironment = z.infer<typeof publicEnvironmentSchema>;
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 
 export function parsePublicEnvironment(
-  environment: Environment,
+  environment: unknown,
 ): PublicEnvironment {
-  const unexpectedKeys = Object.keys(environment).filter(
+  const parsedEnvironment = environmentRecordSchema.parse(environment);
+  const unexpectedKeys = Object.keys(parsedEnvironment).filter(
     (key) =>
-      environment[key] !== undefined &&
+      parsedEnvironment[key] !== undefined &&
       !publicKeys.includes(key as (typeof publicKeys)[number]),
   );
 
@@ -36,13 +52,15 @@ export function parsePublicEnvironment(
     );
   }
 
-  return publicEnvironmentSchema.parse(environment);
+  return publicEnvironmentSchema.parse(parsedEnvironment);
 }
 
 export function parseWorkerEnvironment(
-  environment: Environment,
+  environment: unknown,
 ): WorkerEnvironment {
-  return workerEnvironmentSchema.parse(environment);
+  return workerEnvironmentSchema.parse(
+    environmentRecordSchema.parse(environment),
+  );
 }
 
 export { publicKeys };

@@ -31,6 +31,27 @@ describe("workspace dependency boundaries", () => {
     ).toBe(true);
   });
 
+  it("rejects a relative filesystem import into another package", async () => {
+    const [result] = await lintFixture(
+      "relative-cross-package-internal.fixture.ts",
+      "packages/application/src/fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-cross-package-relative-import",
+    );
+  });
+
+  it("permits a relative filesystem import within the same package", async () => {
+    const [result] = await lintFixture(
+      "same-package-relative.fixture.ts",
+      "packages/application/src/fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(0);
+  });
+
   it("rejects framework and adapter dependencies from the domain package", async () => {
     const [result] = await lintFixture(
       "domain-forbidden-dependency.fixture.ts",
