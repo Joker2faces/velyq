@@ -70,6 +70,9 @@ const workspaceBoundaryPlugin = {
           ImportDeclaration(node) {
             checkSource(node.source);
           },
+          ImportExpression(node) {
+            checkSource(node.source);
+          },
           ExportAllDeclaration(node) {
             checkSource(node.source);
           },
