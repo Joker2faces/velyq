@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "provider-sequence.v1",
+  "sequenceName": "sequence-02-movement",
+  "contentHash": "sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "receivedAt": "2026-09-03T10:00:01Z",
+  "fixtures": [],
+  "odds": [
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000011",
+      "providerExternalId": "current-north-home-a",
+      "providerObservedAt": "2026-09-03T10:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "decimalOdds": "1.85",
+      "status": "ACTIVE",
+      "scenarioStates": ["CURRENT_PRICE", "RADAR_MOVEMENT"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000012",
+      "providerExternalId": "stale-east-home-b",
+      "providerObservedAt": "2026-09-03T08:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "bookmakerId": "45000000-0000-4000-8000-000000000002",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "decimalOdds": "2.25",
+      "status": "ACTIVE",
+      "scenarioStates": ["STALE_PRICE"]
+    }
+  ],
+  "lineups": [],
+  "scenarioStates": [
+    "CURRENT_PRICE",
+    "STALE_PRICE",
+    "MISSING_PRICE",
+    "WAIT_FOR_LINEUP",
+    "RADAR_MOVEMENT"
+  ]
+}

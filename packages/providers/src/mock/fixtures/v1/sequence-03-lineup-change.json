@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "provider-sequence.v1",
+  "sequenceName": "sequence-03-lineup-change",
+  "contentHash": "sha256:2f22cd5391b7cc4ae9a88892a5e722bb869adba7130dd590625c5f63638a7e1d",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "receivedAt": "2026-09-03T10:00:01Z",
+  "fixtures": [],
+  "odds": [],
+  "lineups": [
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000011",
+      "providerExternalId": "changed-north",
+      "providerObservedAt": "2026-09-03T10:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "status": "CHANGED",
+      "confidence": "0.9",
+      "playerLabels": ["Aster Vale (Synthetic)", "Juniper Moss (Synthetic)"],
+      "formation": "4-2-3-1",
+      "scenarioStates": ["CHANGED_LINEUP"]
+    },
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000012",
+      "providerExternalId": "official-south",
+      "providerObservedAt": "2026-09-03T10:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "teamId": "22000000-0000-4000-8000-000000000002",
+      "status": "OFFICIAL",
+      "confidence": "1",
+      "playerLabels": ["Rowan Quill (Synthetic)", "Silver Reed (Synthetic)"],
+      "formation": "3-4-2-1",
+      "scenarioStates": ["OFFICIAL_LINEUP"]
+    }
+  ],
+  "scenarioStates": ["CHANGED_LINEUP", "OFFICIAL_LINEUP", "INSUFFICIENT_DATA"]
+}

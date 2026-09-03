@@ -20,7 +20,7 @@
     "db:reset": "node tooling/scripts/database-stage.mjs reset",
     "db:test": "node tooling/scripts/database-stage.mjs test",
     "db:verify": "node tooling/scripts/database-stage.mjs verify",
-    "mock:replay": "node tooling/scripts/unsupported-stage.mjs mock:replay"
+    "mock:replay": "tsx packages/providers/src/cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -32,6 +32,7 @@
     "supabase": "2.116.0",
     "tailwindcss": "4.3.3",
     "turbo": "2.10.12",
+    "tsx": "4.23.13",
     "typescript": "6.0.3",
     "typescript-eslint": "8.69.0",
     "vitest": "4.1.11"

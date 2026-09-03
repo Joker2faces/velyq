@@ -52,24 +52,21 @@ VALUES (
 INSERT INTO catalog.participants (id, sport_id, type, code, display_name, created_at)
 VALUES
   ('22000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'TEAM', 'NORTH_CITY', 'North City (Synthetic)', '2026-01-01T00:00:00Z'),
-  ('22000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'TEAM', 'SOUTH_UNITED', 'South United (Synthetic)', '2026-01-01T00:00:00Z');
+  ('22000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'TEAM', 'SOUTH_UNITED', 'South United (Synthetic)', '2026-01-01T00:00:00Z'),
+  ('22000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000001', 'TEAM', 'EAST_BOROUGH', 'East Borough (Synthetic)', '2026-01-01T00:00:00Z'),
+  ('22000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000001', 'TEAM', 'WEST_HARBOR', 'West Harbor (Synthetic)', '2026-01-01T00:00:00Z');
 
 INSERT INTO catalog.events (id, sport_id, competition_id, season_label, starts_at, status, synthetic, created_at)
-VALUES (
-  '23000000-0000-4000-8000-000000000001',
-  '20000000-0000-4000-8000-000000000001',
-  '21000000-0000-4000-8000-000000000001',
-  'Synthetic 2026',
-  '2026-09-03T18:00:00Z',
-  'SCHEDULED',
-  true,
-  '2026-01-01T00:00:00Z'
-);
+VALUES
+  ('23000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '21000000-0000-4000-8000-000000000001', 'Synthetic 2026', '2026-09-03T18:00:00Z', 'SCHEDULED', true, '2026-01-01T00:00:00Z'),
+  ('23000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '21000000-0000-4000-8000-000000000001', 'Synthetic 2026', '2026-09-03T20:00:00Z', 'SCHEDULED', true, '2026-01-01T00:00:00Z');
 
 INSERT INTO catalog.event_participants (event_id, participant_id, role, created_at)
 VALUES
   ('23000000-0000-4000-8000-000000000001', '22000000-0000-4000-8000-000000000001', 'HOME', '2026-01-01T00:00:00Z'),
-  ('23000000-0000-4000-8000-000000000001', '22000000-0000-4000-8000-000000000002', 'AWAY', '2026-01-01T00:00:00Z');
+  ('23000000-0000-4000-8000-000000000001', '22000000-0000-4000-8000-000000000002', 'AWAY', '2026-01-01T00:00:00Z'),
+  ('23000000-0000-4000-8000-000000000002', '22000000-0000-4000-8000-000000000003', 'HOME', '2026-01-01T00:00:00Z'),
+  ('23000000-0000-4000-8000-000000000002', '22000000-0000-4000-8000-000000000004', 'AWAY', '2026-01-01T00:00:00Z');
 
 INSERT INTO operations.providers (id, code, display_name, is_synthetic, created_at)
 VALUES (
@@ -92,7 +89,7 @@ VALUES (
   '31000000-0000-4000-8000-000000000001',
   '30000000-0000-4000-8000-000000000001',
   'synthetic-fixtures.v1',
-  '{"providerMode":"SYNTHETIC","retainRaw":false,"retainNormalized":true,"displayAudiences":["CUSTOMER","ADMIN"],"redistribute":false,"modelTraining":false,"backtesting":true,"replay":true}'::jsonb,
+  '{"providerCode":"SYNTHETIC_FIXTURES","version":"synthetic-fixtures.v1","providerMode":"SYNTHETIC","effectiveFrom":"2026-01-01T00:00:00Z","effectiveTo":null,"grants":[{"action":"RETAIN_NORMALIZED","environments":["DEVELOPMENT","TEST"],"territories":["ZZ"],"dataCategories":["NORMALIZED_FIXTURE","NORMALIZED_ODDS","NORMALIZED_LINEUP"],"requiredAttribution":true,"retentionDays":3650},{"action":"DISPLAY","environments":["DEVELOPMENT","TEST"],"territories":["ZZ"],"dataCategories":["NORMALIZED_FIXTURE","NORMALIZED_ODDS","NORMALIZED_LINEUP"],"audiences":["CUSTOMER","ADMIN"],"requiredAttribution":true},{"action":"REPLAY","environments":["DEVELOPMENT","TEST"],"territories":["ZZ"],"dataCategories":["REPOSITORY_FIXTURE"],"requiredAttribution":true},{"action":"CACHE","environments":["DEVELOPMENT","TEST"],"territories":["ZZ"],"dataCategories":["REPOSITORY_FIXTURE"],"requiredAttribution":true,"retentionDays":3650},{"action":"BACKTEST","environments":["DEVELOPMENT","TEST"],"territories":["ZZ"],"dataCategories":["NORMALIZED_ODDS"],"requiredAttribution":true}]}'::jsonb,
   '2026-01-01T00:00:00Z',
   '2026-01-01T00:00:00Z'
 );
@@ -115,24 +112,11 @@ INSERT INTO operations.provider_sync_runs (
   accepted_count,
   rejected_count
 )
-VALUES (
-  '32000000-0000-4000-8000-000000000001',
-  '30000000-0000-4000-8000-000000000001',
-  'SYNTHETIC_REPLAY',
-  'COMPLETED',
-  'canonical-sequence.v1',
-  'packages/providers/src/mock/fixtures/v1',
-  'sha256:synthetic-run-v1',
-  'provider.v1',
-  'normalization.v1',
-  'mapping.v1',
-  '31000000-0000-4000-8000-000000000001',
-  '2026-09-03T10:00:00Z',
-  '2026-09-03T10:00:03Z',
-  3,
-  3,
-  0
-);
+VALUES
+  ('32000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', 'SYNTHETIC_REPLAY', 'COMPLETED', 'sequence-01-opening', 'packages/providers/src/mock/fixtures/v1/sequence-01-opening.json', 'sha256:4da5724ee6a5626f3295fa58453c6675a63603dbde12b43c35bbb6c185e2fefe', 'provider.v1', 'normalization.v1', 'mapping.v1', '31000000-0000-4000-8000-000000000001', '2026-09-03T09:00:01Z', '2026-09-03T09:00:02Z', 9, 9, 0),
+  ('32000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000001', 'SYNTHETIC_REPLAY', 'COMPLETED', 'sequence-02-movement', 'packages/providers/src/mock/fixtures/v1/sequence-02-movement.json', 'sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446', 'provider.v1', 'normalization.v1', 'mapping.v1', '31000000-0000-4000-8000-000000000001', '2026-09-03T10:00:01Z', '2026-09-03T10:00:02Z', 2, 2, 0),
+  ('32000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000001', 'SYNTHETIC_REPLAY', 'COMPLETED', 'sequence-03-lineup-change', 'packages/providers/src/mock/fixtures/v1/sequence-03-lineup-change.json', 'sha256:2f22cd5391b7cc4ae9a88892a5e722bb869adba7130dd590625c5f63638a7e1d', 'provider.v1', 'normalization.v1', 'mapping.v1', '31000000-0000-4000-8000-000000000001', '2026-09-03T10:00:01Z', '2026-09-03T10:00:02Z', 2, 2, 0),
+  ('32000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000001', 'SYNTHETIC_REPLAY', 'COMPLETED', 'sequence-04-repriced', 'packages/providers/src/mock/fixtures/v1/sequence-04-repriced.json', 'sha256:77fd47390e16b93efec2778f2a14094c9dda406586b5e9713ee630e7d999a7b6', 'provider.v1', 'normalization.v1', 'mapping.v1', '31000000-0000-4000-8000-000000000001', '2026-09-03T10:30:01Z', '2026-09-03T10:30:02Z', 2, 1, 1);
 
 INSERT INTO operations.source_observations (
   id,
@@ -148,9 +132,9 @@ INSERT INTO operations.source_observations (
   content_hash
 )
 VALUES
-  ('33000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000001', 'ODDS', 'opening-home', '2026-09-03T09:00:00Z', '2026-09-03T09:00:01Z', '2026-09-03T09:00:02Z', 'normalization.v1', 'mapping.v1', 'sha256:opening-home'),
-  ('33000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000001', 'ODDS', 'current-home', '2026-09-03T10:00:00Z', '2026-09-03T10:00:01Z', '2026-09-03T10:00:02Z', 'normalization.v1', 'mapping.v1', 'sha256:current-home'),
-  ('33000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000001', 'LINEUP', 'expected-home', '2026-09-03T09:30:00Z', '2026-09-03T09:30:01Z', '2026-09-03T09:30:02Z', 'normalization.v1', 'mapping.v1', 'sha256:expected-home');
+  ('33000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000001', 'ODDS', 'opening-north-home-a', '2026-09-03T09:00:00Z', '2026-09-03T09:00:01Z', '2026-09-03T09:00:02Z', 'normalization.v1', 'mapping.v1', 'sha256:d03718f58c0f020ad4e4692f3b9675b23176e53149ec9350e7e74e8efc2ecfc7'),
+  ('33000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000002', 'ODDS', 'current-north-home-a', '2026-09-03T10:00:00Z', '2026-09-03T10:00:01Z', '2026-09-03T10:00:02Z', 'normalization.v1', 'mapping.v1', 'sha256:45cd99e55bf84c192a11b289e64947f40c159a5baacff5e8c6f8026aa296bc29'),
+  ('33000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000001', '32000000-0000-4000-8000-000000000001', 'LINEUP', 'expected-north', '2026-09-03T09:00:00Z', '2026-09-03T09:00:01Z', '2026-09-03T09:00:02Z', 'normalization.v1', 'mapping.v1', 'sha256:1db101607dbb2b5d8551a07bca19a264892d80492d63a84972b78c5d55c77831');
 
 INSERT INTO market.market_definitions (
   id,
@@ -224,14 +208,9 @@ VALUES
   ('44000000-0000-4000-8000-000000000005', '43000000-0000-4000-8000-000000000002', '40000000-0000-4000-8000-000000000002', '41000000-0000-4000-8000-000000000005', 'market-key-v1|event=23000000-0000-4000-8000-000000000001|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|subject-id=-|line=2.5|outcome=UNDER|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1', '2026-09-03T09:00:02Z');
 
 INSERT INTO market.bookmakers (id, code, display_name, synthetic, market_classification, created_at)
-VALUES (
-  '45000000-0000-4000-8000-000000000001',
-  'SYNTHETIC_BOOK_A',
-  'Synthetic Book A',
-  true,
-  'SYNTHETIC',
-  '2026-01-01T00:00:00Z'
-);
+VALUES
+  ('45000000-0000-4000-8000-000000000001', 'SYNTHETIC_BOOK_A', 'Synthetic Book A', true, 'SYNTHETIC', '2026-01-01T00:00:00Z'),
+  ('45000000-0000-4000-8000-000000000002', 'SYNTHETIC_BOOK_B', 'Synthetic Book B', true, 'SYNTHETIC', '2026-01-01T00:00:00Z');
 
 INSERT INTO market.odds_observations (
   id,
@@ -273,8 +252,8 @@ VALUES (
   '0.8000000',
   '[]'::jsonb,
   '4-3-3',
-  '2026-09-03T09:30:00Z',
-  '2026-09-03T09:30:01Z'
+  '2026-09-03T09:00:00Z',
+  '2026-09-03T09:00:01Z'
 );
 
 INSERT INTO intelligence.data_quality_policy_versions (

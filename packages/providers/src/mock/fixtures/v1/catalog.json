@@ -1,0 +1,174 @@
+{
+  "schemaVersion": "synthetic-catalog.v1",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "provider": {
+    "id": "30000000-0000-4000-8000-000000000001",
+    "code": "SYNTHETIC_FIXTURES",
+    "displayName": "VELYQ Synthetic Fixtures"
+  },
+  "competition": {
+    "id": "21000000-0000-4000-8000-000000000001",
+    "code": "SYNTHETIC_LEAGUE",
+    "displayName": "Synthetic League"
+  },
+  "participants": [
+    {
+      "id": "22000000-0000-4000-8000-000000000001",
+      "code": "NORTH_CITY",
+      "displayName": "North City (Synthetic)",
+      "type": "TEAM"
+    },
+    {
+      "id": "22000000-0000-4000-8000-000000000002",
+      "code": "SOUTH_UNITED",
+      "displayName": "South United (Synthetic)",
+      "type": "TEAM"
+    },
+    {
+      "id": "22000000-0000-4000-8000-000000000003",
+      "code": "EAST_BOROUGH",
+      "displayName": "East Borough (Synthetic)",
+      "type": "TEAM"
+    },
+    {
+      "id": "22000000-0000-4000-8000-000000000004",
+      "code": "WEST_HARBOR",
+      "displayName": "West Harbor (Synthetic)",
+      "type": "TEAM"
+    }
+  ],
+  "events": [
+    {
+      "id": "23000000-0000-4000-8000-000000000001",
+      "providerExternalId": "fictional-event-north-south",
+      "startsAt": "2026-09-03T18:00:00Z",
+      "homeTeamId": "22000000-0000-4000-8000-000000000001",
+      "awayTeamId": "22000000-0000-4000-8000-000000000002"
+    },
+    {
+      "id": "23000000-0000-4000-8000-000000000002",
+      "providerExternalId": "fictional-event-east-west",
+      "startsAt": "2026-09-03T20:00:00Z",
+      "homeTeamId": "22000000-0000-4000-8000-000000000003",
+      "awayTeamId": "22000000-0000-4000-8000-000000000004"
+    }
+  ],
+  "bookmakers": [
+    {
+      "id": "45000000-0000-4000-8000-000000000001",
+      "code": "SYNTHETIC_BOOK_A",
+      "displayName": "Synthetic Book A",
+      "synthetic": true
+    },
+    {
+      "id": "45000000-0000-4000-8000-000000000002",
+      "code": "SYNTHETIC_BOOK_B",
+      "displayName": "Synthetic Book B",
+      "synthetic": true
+    }
+  ],
+  "mappingVersion": "mapping.v1",
+  "mappings": [
+    {
+      "id": "42000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
+      "canonicalOutcomeCode": "HOME",
+      "effectiveFrom": "2026-01-01T00:00:00Z",
+      "effectiveTo": null
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000002",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "draw",
+      "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
+      "canonicalOutcomeCode": "DRAW",
+      "effectiveFrom": "2026-01-01T00:00:00Z",
+      "effectiveTo": null
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000003",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "away",
+      "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
+      "canonicalOutcomeCode": "AWAY",
+      "effectiveFrom": "2026-01-01T00:00:00Z",
+      "effectiveTo": null
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000004",
+      "providerMarketKey": "ft_total",
+      "providerOutcomeKey": "over",
+      "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "canonicalOutcomeCode": "OVER",
+      "effectiveFrom": "2026-01-01T00:00:00Z",
+      "effectiveTo": null
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000005",
+      "providerMarketKey": "ft_total",
+      "providerOutcomeKey": "under",
+      "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "canonicalOutcomeCode": "UNDER",
+      "effectiveFrom": "2026-01-01T00:00:00Z",
+      "effectiveTo": null
+    }
+  ],
+  "policy": {
+    "providerCode": "SYNTHETIC_FIXTURES",
+    "version": "synthetic-fixtures.v1",
+    "providerMode": "SYNTHETIC",
+    "effectiveFrom": "2026-01-01T00:00:00Z",
+    "effectiveTo": null,
+    "grants": [
+      {
+        "action": "RETAIN_NORMALIZED",
+        "environments": ["DEVELOPMENT", "TEST"],
+        "territories": ["ZZ"],
+        "dataCategories": [
+          "NORMALIZED_FIXTURE",
+          "NORMALIZED_ODDS",
+          "NORMALIZED_LINEUP"
+        ],
+        "requiredAttribution": true,
+        "retentionDays": 3650
+      },
+      {
+        "action": "DISPLAY",
+        "environments": ["DEVELOPMENT", "TEST"],
+        "territories": ["ZZ"],
+        "dataCategories": [
+          "NORMALIZED_FIXTURE",
+          "NORMALIZED_ODDS",
+          "NORMALIZED_LINEUP"
+        ],
+        "audiences": ["CUSTOMER", "ADMIN"],
+        "requiredAttribution": true
+      },
+      {
+        "action": "REPLAY",
+        "environments": ["DEVELOPMENT", "TEST"],
+        "territories": ["ZZ"],
+        "dataCategories": ["REPOSITORY_FIXTURE"],
+        "requiredAttribution": true
+      },
+      {
+        "action": "CACHE",
+        "environments": ["DEVELOPMENT", "TEST"],
+        "territories": ["ZZ"],
+        "dataCategories": ["REPOSITORY_FIXTURE"],
+        "requiredAttribution": true,
+        "retentionDays": 3650
+      },
+      {
+        "action": "BACKTEST",
+        "environments": ["DEVELOPMENT", "TEST"],
+        "territories": ["ZZ"],
+        "dataCategories": ["NORMALIZED_ODDS"],
+        "requiredAttribution": true
+      }
+    ]
+  }
+}

@@ -31,6 +31,9 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      tsx:
+        specifier: 4.23.13
+        version: 4.23.13
       turbo:
         specifier: 2.10.12
         version: 2.10.12
@@ -94,7 +97,11 @@ importers:
         specifier: 4.5.4
         version: 4.5.4
 
-  packages/contracts: {}
+  packages/contracts:
+    dependencies:
+      "@velyq/decimal":
+        specifier: workspace:*
+        version: link:../decimal
 
   packages/database:
     dependencies:
@@ -131,7 +138,27 @@ importers:
 
   packages/observability: {}
 
-  packages/providers: {}
+  packages/providers:
+    dependencies:
+      "@velyq/contracts":
+        specifier: workspace:*
+        version: link:../contracts
+      "@velyq/decimal":
+        specifier: workspace:*
+        version: link:../decimal
+      "@velyq/domain":
+        specifier: workspace:*
+        version: link:../domain
+      "@velyq/market-semantics":
+        specifier: workspace:*
+        version: link:../market-semantics
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      "@types/node":
+        specifier: 26.4.1
+        version: 26.4.1
 
   packages/test-utils: {}
 
