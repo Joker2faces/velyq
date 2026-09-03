@@ -296,6 +296,57 @@ describe("settlement registry", () => {
       error: { code: "UNSUPPORTED_SETTLEMENT" },
     });
   });
+
+  it("does not void a duplicated 1X2 outcome set forged with an executable version", () => {
+    const fullTime = outcome("FOOTBALL_FULL_TIME_1X2", "HOME");
+    const forged = {
+      ...fullTime,
+      eventMarket: {
+        ...fullTime.eventMarket,
+        definition: {
+          ...fullTime.eventMarket.definition,
+          outcomeCodes: ["HOME", "HOME", "AWAY"],
+        },
+      },
+    };
+
+    expect(settleMarket(forged, { status: "ABANDONED" })).toMatchObject({
+      kind: "UNSUPPORTED",
+      error: { code: "UNSUPPORTED_SETTLEMENT" },
+    });
+  });
+
+  it("does not void a forbidden-line market forged with an empty line object", () => {
+    const fullTime = outcome("FOOTBALL_FULL_TIME_1X2", "HOME");
+    const emptyLine = {} as never;
+    const forged = {
+      ...fullTime,
+      eventMarket: { ...fullTime.eventMarket, line: emptyLine },
+      key: { ...fullTime.key, line: emptyLine },
+    };
+
+    expect(settleMarket(forged, { status: "ABANDONED" })).toMatchObject({
+      kind: "UNSUPPORTED",
+      error: { code: "UNSUPPORTED_SETTLEMENT" },
+    });
+  });
+
+  it("does not settle O/U 2.5 forged with an unbranded line object", () => {
+    const total = outcome("FOOTBALL_FULL_TIME_TOTAL", "OVER", {
+      line: line("2.5"),
+    });
+    const malformedLine = { value: "2.5" } as never;
+    const forged = {
+      ...total,
+      eventMarket: { ...total.eventMarket, line: malformedLine },
+      key: { ...total.key, line: malformedLine },
+    };
+
+    expect(settleMarket(forged, { status: "IN_PROGRESS" })).toMatchObject({
+      kind: "UNSUPPORTED",
+      error: { code: "UNSUPPORTED_SETTLEMENT" },
+    });
+  });
 });
 
 describe("future canonical identities", () => {

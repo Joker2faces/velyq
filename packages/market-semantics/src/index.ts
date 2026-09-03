@@ -1,4 +1,4 @@
-import type { MarketLine } from "@velyq/decimal";
+import { marketLine, type MarketLine } from "@velyq/decimal";
 import type { EventId, PlayerId, TeamId } from "@velyq/domain";
 
 export type SportCode = "FOOTBALL";
@@ -697,9 +697,52 @@ function exactOutcomeSet(
   actual: readonly MarketOutcomeCode[],
   expected: readonly MarketOutcomeCode[],
 ): boolean {
+  const actualSet = new Set(actual);
+  const expectedSet = new Set(expected);
+
   return (
-    actual.length === expected.length &&
-    actual.every((outcomeCode) => expected.includes(outcomeCode))
+    actualSet.size === actual.length &&
+    expectedSet.size === expected.length &&
+    actualSet.size === expectedSet.size &&
+    [...actualSet].every((outcomeCode) => expectedSet.has(outcomeCode)) &&
+    [...expectedSet].every((outcomeCode) => actualSet.has(outcomeCode))
+  );
+}
+
+function isValidMarketLine(value: unknown): value is MarketLine {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("kind" in value) ||
+    !("value" in value) ||
+    value.kind !== "MarketLine" ||
+    typeof value.value !== "string"
+  ) {
+    return false;
+  }
+
+  return marketLine(value.value).ok;
+}
+
+function matchesLineBinding(
+  keyLine: unknown,
+  eventLine: unknown,
+  binding: ExecutableMarketBinding,
+): boolean {
+  const keyHasLine = keyLine !== undefined;
+  const eventHasLine = eventLine !== undefined;
+
+  if (binding.lineValue === undefined) {
+    return !keyHasLine && !eventHasLine;
+  }
+
+  return (
+    keyHasLine &&
+    eventHasLine &&
+    isValidMarketLine(keyLine) &&
+    isValidMarketLine(eventLine) &&
+    keyLine.value === binding.lineValue &&
+    eventLine.value === binding.lineValue
   );
 }
 
@@ -730,8 +773,7 @@ function matchesExecutableMarket(
     key.settlementRuleVersion === binding.ruleVersion &&
     key.outcomeCode === outcome.outcomeCode &&
     binding.outcomeCodes.includes(outcome.outcomeCode) &&
-    key.line?.value === line?.value &&
-    line?.value === binding.lineValue
+    matchesLineBinding(key.line, line, binding)
   );
 }
 
