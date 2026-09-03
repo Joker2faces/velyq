@@ -99,21 +99,91 @@ const workspaceBoundaryPlugin = {
       },
       create(context) {
         const arithmeticOperators = new Set(["+", "-", "*", "/", "%", "**"]);
+        const decimalTypeNames = new Set();
+        const decimalObjectNames = new Set();
+        const decimalScalarNames = new Set();
+
+        function isKnownDecimalType(annotation) {
+          return (
+            annotation?.type === "TSTypeReference" &&
+            annotation.typeName.type === "Identifier" &&
+            decimalTypeNames.has(annotation.typeName.name)
+          );
+        }
 
         function isDecimalField(node) {
           return (
             node.type === "MemberExpression" &&
-            !node.computed &&
-            node.property.type === "Identifier" &&
-            (node.property.name === "value" || node.property.name === "amount")
+            node.object.type === "Identifier" &&
+            decimalObjectNames.has(node.object.name) &&
+            ((node.computed &&
+              node.property.type === "Literal" &&
+              (node.property.value === "value" ||
+                node.property.value === "amount")) ||
+              (!node.computed &&
+                node.property.type === "Identifier" &&
+                (node.property.name === "value" ||
+                  node.property.name === "amount")))
+          );
+        }
+
+        function isDecimalOperand(node) {
+          return (
+            isDecimalField(node) ||
+            (node.type === "Identifier" && decimalScalarNames.has(node.name))
           );
         }
 
         return {
+          ImportDeclaration(node) {
+            if (node.source.value !== "@velyq/decimal") return;
+            for (const specifier of node.specifiers) {
+              if (
+                specifier.type === "ImportSpecifier" &&
+                [
+                  "DecimalOdds",
+                  "Probability",
+                  "FairProbability",
+                  "ImpliedProbability",
+                  "Edge",
+                  "ExpectedValue",
+                  "MarketLine",
+                  "Money",
+                ].includes(specifier.imported.name)
+              ) {
+                decimalTypeNames.add(specifier.local.name);
+              }
+            }
+          },
+          VariableDeclarator(node) {
+            if (
+              node.id.type === "Identifier" &&
+              isKnownDecimalType(node.id.typeAnnotation?.typeAnnotation)
+            ) {
+              decimalObjectNames.add(node.id.name);
+            }
+            if (
+              node.id.type === "ObjectPattern" &&
+              node.init?.type === "Identifier" &&
+              decimalObjectNames.has(node.init.name)
+            ) {
+              for (const property of node.id.properties) {
+                if (
+                  property.type === "Property" &&
+                  property.key.type === "Identifier" &&
+                  (property.key.name === "value" ||
+                    property.key.name === "amount") &&
+                  property.value.type === "Identifier"
+                ) {
+                  decimalScalarNames.add(property.value.name);
+                }
+              }
+            }
+          },
           BinaryExpression(node) {
             if (
               arithmeticOperators.has(node.operator) &&
-              (isDecimalField(node.left) || isDecimalField(node.right))
+              (isDecimalOperand(node.left) || isDecimalOperand(node.right))
             ) {
               context.report({ node, messageId: "directArithmetic" });
             }

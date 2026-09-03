@@ -33,6 +33,7 @@ function successful<T>(result: {
 describe("canonical decimal strings", () => {
   it.each([
     ["0", true],
+    ["-0.1", true],
     ["-1.25", true],
     ["123456789.987654321", true],
     ["01", false],
@@ -50,8 +51,56 @@ describe("canonical decimal strings", () => {
     const left = successful(parseDecimalString("0.1"));
     const right = successful(parseDecimalString("0.2"));
 
-    expect(addDecimalStrings(left, right)).toBe("0.3");
+    expect(successful(addDecimalStrings(left, right))).toBe("0.3");
   });
+
+  it("rejects values beyond the documented generic precision and scale", () => {
+    expect(parseDecimalString("123456789012345678901234567890123456").ok).toBe(
+      true,
+    );
+    expect(
+      parseDecimalString("12345678901234567890123456789012345678901").ok,
+    ).toBe(false);
+    expect(parseDecimalString("0.123456789012345678901234567891").ok).toBe(
+      true,
+    );
+    expect(parseDecimalString("0.1234567890123456789012345678911").ok).toBe(
+      false,
+    );
+  });
+
+  it("rejects exact arithmetic whose canonical output overflows the generic bound", () => {
+    const maximum = successful(
+      parseDecimalString("999999999999999999999999999999999999"),
+    );
+    const one = successful(parseDecimalString("1"));
+
+    expect(addDecimalStrings(maximum, one).ok).toBe(false);
+  });
+
+  it.each([1.5, Number.NaN, Infinity, null, {}, []])(
+    "runtime-rejects non-string input: %o",
+    (input) => {
+      const constructors = [
+        parseDecimalString,
+        decimalOdds,
+        probability,
+        fairProbability,
+        impliedProbability,
+        edge,
+        expectedValue,
+        marketLine,
+        numericToDecimalString,
+        jsonToDecimalString,
+      ];
+
+      for (const constructor of constructors) {
+        expect(constructor(input as never).ok).toBe(false);
+      }
+
+      expect(money(input as never, "EUR").ok).toBe(false);
+    },
+  );
 });
 
 describe("market decimal value objects", () => {
@@ -98,6 +147,23 @@ describe("market decimal value objects", () => {
     expect(expectedValue("-1000000").ok).toBe(false);
   });
 
+  it.each([
+    [decimalOdds, "9999999999.99999999", true],
+    [decimalOdds, "10000000000", false],
+    [decimalOdds, "1.123456789", false],
+    [probability, "0.123456789012", true],
+    [probability, "0.1234567890123", false],
+    [edge, "-0.1", true],
+    [edge, "0.1234567890123", false],
+    [expectedValue, "-0.1", true],
+    [expectedValue, "0.1234567890123", false],
+    [marketLine, "99999999.9999", true],
+    [marketLine, "100000000", false],
+    [marketLine, "0.12345", false],
+  ])("enforces persistence-compatible bounds", (constructor, input, valid) => {
+    expect(constructor(input).ok).toBe(valid);
+  });
+
   it("creates immutable signed lines and validates ISO 4217 money", () => {
     const line = successful(marketLine("-2.25"));
     const validMoney = money("12.5", "EUR");
@@ -114,8 +180,13 @@ describe("decimal boundary codecs", () => {
     const fromNumeric = successful(numericToDecimalString("123.45"));
     const fromJson = successful(jsonToDecimalString("0.125"));
 
-    expect(decimalStringToNumeric(fromNumeric)).toBe("123.45");
-    expect(decimalStringToJson(fromJson)).toBe("0.125");
+    expect(successful(decimalStringToNumeric(fromNumeric))).toBe("123.45");
+    expect(successful(decimalStringToJson(fromJson))).toBe("0.125");
+  });
+
+  it("runtime-rejects non-string serialized decimal values", () => {
+    expect(decimalStringToNumeric(1.5 as never).ok).toBe(false);
+    expect(decimalStringToJson({} as never).ok).toBe(false);
   });
 
   it.each(["1e2", "1.0", "NaN", "Infinity"])(

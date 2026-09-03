@@ -1,17 +1,20 @@
 import { Decimal } from "decimal.js";
 
 /**
- * The sole decimal.js configuration for VELYQ. Forty significant digits and
- * bankers' rounding keep Phase 1 market calculations deterministic.
+ * Generic inputs allow at most 36 significant digits and 30 fractional digits.
+ * Precision 80 exceeds the largest exact intermediate public helper result.
  */
 const DecimalRuntime = Decimal.clone({
-  precision: 40,
+  precision: 80,
   rounding: Decimal.ROUND_HALF_EVEN,
   toExpNeg: -1_000_000,
   toExpPos: 1_000_000,
 });
 
-const CANONICAL_DECIMAL = /^(?:0|-[1-9]\d*|[1-9]\d*)(?:\.\d*[1-9])?$/;
+const CANONICAL_DECIMAL =
+  /^(?:(?:0|[1-9]\d*|-[1-9]\d*)(?:\.\d*[1-9])?|-0\.\d*[1-9])$/;
+const MAX_SIGNIFICANT_DIGITS = 36;
+const MAX_SCALE = 30;
 const EDGE_AND_EXPECTED_VALUE_LIMIT = new DecimalRuntime("999999.999999999999");
 const ZERO = new DecimalRuntime("0");
 const ONE = new DecimalRuntime("1");
@@ -91,11 +94,30 @@ function success<T>(value: T): DecimalSuccess<T> {
   return Object.freeze({ ok: true, value });
 }
 
-function decimalFromCanonical(input: string): DecimalResult<Decimal> {
+function decimalFromCanonical(input: unknown): DecimalResult<Decimal> {
+  if (typeof input !== "string") {
+    return failure("INVALID_DECIMAL", "Decimal values must be strings.");
+  }
+
   if (!CANONICAL_DECIMAL.test(input)) {
     return failure(
       "INVALID_DECIMAL",
       "Decimal values must be canonical plain base-10 strings.",
+    );
+  }
+
+  const unsigned = input.startsWith("-") ? input.slice(1) : input;
+  const [integerPart = "0", fractionalPart = ""] = unsigned.split(".");
+  const significantDigits =
+    (integerPart === "0" ? 0 : integerPart.length) + fractionalPart.length;
+
+  if (
+    significantDigits > MAX_SIGNIFICANT_DIGITS ||
+    fractionalPart.length > MAX_SCALE
+  ) {
+    return failure(
+      "OUT_OF_RANGE",
+      "Decimal exceeds the generic 36 significant-digit and 30-scale bound.",
     );
   }
 
@@ -112,8 +134,13 @@ function decimalFromCanonical(input: string): DecimalResult<Decimal> {
   }
 }
 
-function decimalStringFromDecimal(decimal: Decimal): DecimalString {
-  return decimal.toFixed() as DecimalString;
+function fitsNumeric(input: string, precision: number, scale: number): boolean {
+  const unsigned = input.startsWith("-") ? input.slice(1) : input;
+  const [integerPart = "0", fractionalPart = ""] = unsigned.split(".");
+
+  return (
+    integerPart.length <= precision - scale && fractionalPart.length <= scale
+  );
 }
 
 function valueObject<T>(kind: string, value: DecimalString): T {
@@ -127,11 +154,15 @@ function probabilityValue(input: string): DecimalResult<DecimalString> {
     return decimal;
   }
 
+  if (!fitsNumeric(input, 18, 12)) {
+    return failure("OUT_OF_RANGE", "Probability exceeds numeric(18,12).");
+  }
+
   if (decimal.value.lessThan(ZERO) || decimal.value.greaterThan(ONE)) {
     return failure("OUT_OF_RANGE", "Probability must be between 0 and 1.");
   }
 
-  return success(decimalStringFromDecimal(decimal.value));
+  return success(input as DecimalString);
 }
 
 export function parseDecimalString(
@@ -139,18 +170,20 @@ export function parseDecimalString(
 ): DecimalResult<DecimalString> {
   const decimal = decimalFromCanonical(input);
 
-  return decimal.ok
-    ? success(decimalStringFromDecimal(decimal.value))
-    : decimal;
+  return decimal.ok ? success(input as DecimalString) : decimal;
 }
 
 export function addDecimalStrings(
   left: DecimalString,
   right: DecimalString,
-): DecimalString {
-  return decimalStringFromDecimal(
-    new DecimalRuntime(left).plus(new DecimalRuntime(right)),
-  );
+): DecimalResult<DecimalString> {
+  const parsedLeft = decimalFromCanonical(left);
+  const parsedRight = decimalFromCanonical(right);
+
+  if (!parsedLeft.ok) return parsedLeft;
+  if (!parsedRight.ok) return parsedRight;
+
+  return parseDecimalString(parsedLeft.value.plus(parsedRight.value).toFixed());
 }
 
 export function decimalOdds(input: string): DecimalResult<DecimalOdds> {
@@ -160,15 +193,16 @@ export function decimalOdds(input: string): DecimalResult<DecimalOdds> {
     return decimal;
   }
 
+  if (!fitsNumeric(input, 18, 8)) {
+    return failure("OUT_OF_RANGE", "Decimal odds exceed numeric(18,8).");
+  }
+
   if (decimal.value.lessThanOrEqualTo(ONE)) {
     return failure("OUT_OF_RANGE", "Decimal odds must be greater than 1.");
   }
 
   return success(
-    valueObject<DecimalOdds>(
-      "DecimalOdds",
-      decimalStringFromDecimal(decimal.value),
-    ),
+    valueObject<DecimalOdds>("DecimalOdds", input as DecimalString),
   );
 }
 
@@ -217,6 +251,10 @@ export function edge(input: string): DecimalResult<Edge> {
     return decimal;
   }
 
+  if (!fitsNumeric(input, 18, 12)) {
+    return failure("OUT_OF_RANGE", "Edge exceeds numeric(18,12).");
+  }
+
   if (
     decimal.value.absoluteValue().greaterThan(EDGE_AND_EXPECTED_VALUE_LIMIT)
   ) {
@@ -226,9 +264,7 @@ export function edge(input: string): DecimalResult<Edge> {
     );
   }
 
-  return success(
-    valueObject<Edge>("Edge", decimalStringFromDecimal(decimal.value)),
-  );
+  return success(valueObject<Edge>("Edge", input as DecimalString));
 }
 
 export function expectedValue(input: string): DecimalResult<ExpectedValue> {
@@ -236,6 +272,10 @@ export function expectedValue(input: string): DecimalResult<ExpectedValue> {
 
   if (!decimal.ok) {
     return decimal;
+  }
+
+  if (!fitsNumeric(input, 18, 12)) {
+    return failure("OUT_OF_RANGE", "Expected value exceeds numeric(18,12).");
   }
 
   if (
@@ -248,23 +288,23 @@ export function expectedValue(input: string): DecimalResult<ExpectedValue> {
   }
 
   return success(
-    valueObject<ExpectedValue>(
-      "ExpectedValue",
-      decimalStringFromDecimal(decimal.value),
-    ),
+    valueObject<ExpectedValue>("ExpectedValue", input as DecimalString),
   );
 }
 
 export function marketLine(input: string): DecimalResult<MarketLine> {
   const decimal = decimalFromCanonical(input);
 
+  if (!decimal.ok) {
+    return decimal;
+  }
+
+  if (!fitsNumeric(input, 12, 4)) {
+    return failure("OUT_OF_RANGE", "Market line exceeds numeric(12,4).");
+  }
+
   return decimal.ok
-    ? success(
-        valueObject<MarketLine>(
-          "MarketLine",
-          decimalStringFromDecimal(decimal.value),
-        ),
-      )
+    ? success(valueObject<MarketLine>("MarketLine", input as DecimalString))
     : decimal;
 }
 
@@ -275,14 +315,14 @@ export function money(amount: string, currency: string): DecimalResult<Money> {
     return decimal;
   }
 
-  if (!ISO_4217_CURRENCIES.has(currency)) {
+  if (typeof currency !== "string" || !ISO_4217_CURRENCIES.has(currency)) {
     return failure("INVALID_CURRENCY", "Currency must be an ISO 4217 code.");
   }
 
   return success(
     Object.freeze({
       kind: "Money",
-      amount: decimalStringFromDecimal(decimal.value),
+      amount: amount as DecimalString,
       currency,
     }),
   );
@@ -296,8 +336,12 @@ export function numericToDecimalString(
 }
 
 /** Converts a validated decimal into the canonical PostgreSQL NUMERIC string. */
-export function decimalStringToNumeric(input: DecimalString): string {
-  return input;
+export function decimalStringToNumeric(
+  input: DecimalString,
+): DecimalResult<string> {
+  const decimal = parseDecimalString(input);
+
+  return decimal.ok ? success(decimal.value) : decimal;
 }
 
 /** Converts a JSON decimal string into a validated decimal. */
@@ -308,6 +352,10 @@ export function jsonToDecimalString(
 }
 
 /** Converts a validated decimal into the canonical JSON decimal string. */
-export function decimalStringToJson(input: DecimalString): string {
-  return input;
+export function decimalStringToJson(
+  input: DecimalString,
+): DecimalResult<string> {
+  const decimal = parseDecimalString(input);
+
+  return decimal.ok ? success(decimal.value) : decimal;
 }

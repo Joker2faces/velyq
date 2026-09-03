@@ -102,7 +102,7 @@ describe("workspace dependency boundaries", () => {
     expect(insideResult.errorCount).toBe(0);
   });
 
-  it("rejects direct arithmetic on decimal value fields", async () => {
+  it("rejects computed arithmetic on imported decimal value fields", async () => {
     const [result] = await lintFixture(
       "decimal-value-arithmetic.fixture.ts",
       "packages/analytics/src/fixture.ts",
@@ -112,5 +112,26 @@ describe("workspace dependency boundaries", () => {
     expect(result.messages[0]?.ruleId).toBe(
       "velyq/no-branded-decimal-arithmetic",
     );
+  });
+
+  it("rejects destructured arithmetic on imported decimal value fields", async () => {
+    const [result] = await lintFixture(
+      "decimal-value-destructuring.fixture.ts",
+      "packages/analytics/src/fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-branded-decimal-arithmetic",
+    );
+  });
+
+  it("allows arithmetic on unrelated value properties", async () => {
+    const [result] = await lintFixture(
+      "ordinary-value-arithmetic.fixture.ts",
+      "packages/analytics/src/fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(0);
   });
 });
