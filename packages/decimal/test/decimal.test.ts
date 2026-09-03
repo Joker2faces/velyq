@@ -186,6 +186,17 @@ describe("market decimal value objects", () => {
 });
 
 describe("decimal boundary codecs", () => {
+  it("generated canonical strings round-trip through every boundary codec", () => {
+    for (let index = 1; index < 100; index += 1) {
+      if (index % 10 === 0) continue;
+      const source = `0.${index}`;
+      const numeric = successful(numericToDecimalString(source));
+      const json = successful(jsonToDecimalString(source));
+
+      expect(successful(decimalStringToNumeric(numeric))).toBe(source);
+      expect(successful(decimalStringToJson(json))).toBe(source);
+    }
+  });
   it("generated canonical strings serialize without loss", () => {
     for (let index = 1; index < 100; index += 1) {
       if (index % 10 === 0) continue;

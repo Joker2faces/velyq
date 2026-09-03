@@ -99,11 +99,14 @@ const workspaceBoundaryPlugin = {
       },
       create(context) {
         const arithmeticOperators = new Set(["+", "-", "*", "/", "%", "**"]);
+        const parserServices = context.sourceCode.parserServices;
+        const checker = parserServices?.program?.getTypeChecker();
         const decimalTypeNames = new Set();
         const decimalObjectNames = new Set();
         const decimalScalarNames = new Set();
         const decimalResultNames = new Set();
         const ordinaryParameterScopes = [];
+        const decimalParameterScopes = [];
 
         function isKnownDecimalType(annotation) {
           return (
@@ -153,6 +156,14 @@ const workspaceBoundaryPlugin = {
           );
         }
 
+        function isBrandedDecimal(node) {
+          if (!checker || !parserServices?.esTreeNodeToTSNodeMap) return false;
+          const type = checker.getTypeAtLocation(
+            parserServices.esTreeNodeToTSNodeMap.get(node),
+          );
+          return checker.typeToString(type).includes("DecimalString");
+        }
+
         return {
           ImportDeclaration(node) {
             if (node.source.value !== "@velyq/decimal") return;
@@ -182,6 +193,7 @@ const workspaceBoundaryPlugin = {
                   "edge",
                   "expectedValue",
                   "marketLine",
+                  "money",
                 ].includes(specifier.imported.name)
               ) {
                 decimalResultNames.add(specifier.local.name);
@@ -223,12 +235,14 @@ const workspaceBoundaryPlugin = {
           },
           ":function"(node) {
             const ordinaryNames = new Set();
+            const decimalNames = new Set();
             for (const parameter of node.params) {
               if (
                 parameter.type === "Identifier" &&
                 isKnownDecimalType(parameter.typeAnnotation?.typeAnnotation)
               ) {
                 decimalObjectNames.add(parameter.name);
+                decimalNames.add(parameter.name);
               } else if (parameter.type === "Identifier") {
                 ordinaryNames.add(parameter.name);
               }
@@ -250,14 +264,21 @@ const workspaceBoundaryPlugin = {
               }
             }
             ordinaryParameterScopes.push(ordinaryNames);
+            decimalParameterScopes.push(decimalNames);
           },
           ":function:exit"() {
             ordinaryParameterScopes.pop();
+            for (const name of decimalParameterScopes.pop()) {
+              decimalObjectNames.delete(name);
+            }
           },
           BinaryExpression(node) {
             if (
               arithmeticOperators.has(node.operator) &&
-              (isDecimalOperand(node.left) || isDecimalOperand(node.right))
+              (isBrandedDecimal(node.left) ||
+                isBrandedDecimal(node.right) ||
+                isDecimalOperand(node.left) ||
+                isDecimalOperand(node.right))
             ) {
               context.report({ node, messageId: "directArithmetic" });
             }

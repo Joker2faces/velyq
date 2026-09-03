@@ -159,4 +159,29 @@ describe("workspace dependency boundaries", () => {
 
     expect(result.errorCount).toBe(0);
   });
+
+  it.each([
+    "decimal-money-result-arithmetic.fixture.ts",
+    "decimal-inner-shadow.fixture.ts",
+  ])("rejects type-branded arithmetic in %s", async (fixture) => {
+    const [result] = await lintFixture(
+      fixture,
+      "packages/analytics/src/fixture.ts",
+    );
+    expect(result.errorCount).toBe(1);
+    expect(result.messages[0]?.ruleId).toBe(
+      "velyq/no-branded-decimal-arithmetic",
+    );
+  });
+
+  it.each([
+    "ordinary-after-typed-parameter.fixture.ts",
+    "ordinary-shadowed-result.fixture.ts",
+  ])("allows ordinary scoped values in %s", async (fixture) => {
+    const [result] = await lintFixture(
+      fixture,
+      "packages/analytics/src/fixture.ts",
+    );
+    expect(result.errorCount).toBe(0);
+  });
 });
