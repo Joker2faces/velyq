@@ -20,18 +20,21 @@ export type IdentifierSuccess<T> = Readonly<{
 }>;
 export type IdentifierResult<T> = IdentifierSuccess<T> | IdentifierFailure;
 
+const canonicalUuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function identifier<T>(input: unknown, kind: string): IdentifierResult<T> {
-  if (typeof input !== "string" || input.trim().length === 0) {
+  if (typeof input !== "string" || !canonicalUuidPattern.test(input)) {
     return Object.freeze({
       ok: false,
       error: Object.freeze({
         code: "INVALID_IDENTIFIER" as const,
-        message: `${kind} identifiers must be non-empty strings.`,
+        message: `${kind} identifiers must use canonical UUID syntax.`,
       }),
     });
   }
 
-  return Object.freeze({ ok: true, value: input as T });
+  return Object.freeze({ ok: true, value: input.toLowerCase() as T });
 }
 
 export function eventId(input: unknown): IdentifierResult<EventId> {

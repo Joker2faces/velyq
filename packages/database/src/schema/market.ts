@@ -153,6 +153,14 @@ export const eventMarkets = marketSchema.table(
       table.id,
       table.marketDefinitionId,
     ),
+    unique("event_markets_natural_identity_unique")
+      .on(
+        table.eventId,
+        table.marketDefinitionId,
+        table.subjectParticipantId,
+        table.lineValue,
+      )
+      .nullsNotDistinct(),
     index("event_markets_event_id_market_definition_id_idx").on(
       table.eventId,
       table.marketDefinitionId,

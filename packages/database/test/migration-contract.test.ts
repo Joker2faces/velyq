@@ -196,6 +196,49 @@ describe("reviewed Phase 1 migration contract", () => {
     );
   });
 
+  it("enforces event-market natural identity across nullable components", () => {
+    const sql = migrationSql();
+
+    expect(sql).toMatch(
+      /constraint\s+"?event_markets_natural_identity_unique"?\s+unique\s+nulls\s+not\s+distinct\s*\(\s*"?event_id"?\s*,\s*"?market_definition_id"?\s*,\s*"?subject_participant_id"?\s*,\s*"?line_value"?\s*\)/,
+    );
+  });
+
+  it("keeps the natural-identity Supabase delta aligned with Drizzle", () => {
+    const drizzleDirectory = resolve(ROOT, "packages/database/drizzle");
+    const migrationDirectory = resolve(ROOT, "supabase/migrations");
+    const drizzleDelta = readFileSync(
+      resolve(
+        drizzleDirectory,
+        readdirSync(drizzleDirectory)
+          .filter((file) => /^0002_.+\.sql$/.test(file))
+          .toSorted()
+          .at(-1) ?? "missing-drizzle-natural-identity-delta.sql",
+      ),
+      "utf8",
+    );
+    const supabaseDelta = readFileSync(
+      resolve(
+        migrationDirectory,
+        readdirSync(migrationDirectory)
+          .filter((file) =>
+            file.endsWith("_canonicalize_persisted_uuid_identities.sql"),
+          )
+          .toSorted()
+          .at(-1) ?? "missing-supabase-natural-identity-delta.sql",
+      ),
+      "utf8",
+    );
+    const normalizedSupabase = normalizeSql(supabaseDelta);
+
+    for (const statement of drizzleDelta
+      .split(/-->\s*statement-breakpoint/)
+      .map(normalizeSql)
+      .filter(Boolean)) {
+      expect(normalizedSupabase).toContain(statement);
+    }
+  });
+
   it("keeps the reviewed Supabase schema delta aligned with Drizzle", () => {
     const drizzleDirectory = resolve(ROOT, "packages/database/drizzle");
     const migrationDirectory = resolve(ROOT, "supabase/migrations");

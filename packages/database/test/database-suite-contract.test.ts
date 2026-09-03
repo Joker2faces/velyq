@@ -143,6 +143,15 @@ describe("real pgTAP database suite", () => {
     expect(constraints).toContain(
       "line-based markets reject missing line values",
     );
+    for (const assertion of [
+      "duplicate identity with null subject and null line",
+      "duplicate identity with null subject and a valued line",
+      "duplicate identity with a non-null subject and valued line",
+      "a different subject remains a distinct natural identity",
+      "a different line remains a distinct natural identity",
+    ]) {
+      expect(constraints).toContain(assertion);
+    }
 
     for (const internalSchema of [
       "audit",

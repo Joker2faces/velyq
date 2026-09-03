@@ -1,7 +1,11 @@
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import { eventMarketOutcomes, jobs } from "../src/schema/index.js";
+import {
+  eventMarketOutcomes,
+  eventMarkets,
+  jobs,
+} from "../src/schema/index.js";
 
 describe("Drizzle integrity contracts", () => {
   it("models durable job causation, retry bounds, statuses, and lease states", () => {
@@ -42,5 +46,21 @@ describe("Drizzle integrity contracts", () => {
         "name" in column ? column.name : undefined,
       ),
     ).toEqual(["market_definition_id", "outcome_definition_id"]);
+  });
+
+  it("treats nullable event-market identity components as equal", () => {
+    const config = getTableConfig(eventMarkets);
+    const naturalIdentity = config.uniqueConstraints.find(
+      (constraint) =>
+        constraint.name === "event_markets_natural_identity_unique",
+    );
+
+    expect(naturalIdentity?.columns.map((column) => column.name)).toEqual([
+      "event_id",
+      "market_definition_id",
+      "subject_participant_id",
+      "line_value",
+    ]);
+    expect(naturalIdentity?.nullsNotDistinct).toBe(true);
   });
 });

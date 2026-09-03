@@ -66,6 +66,102 @@ function outcome(
 }
 
 describe("canonical market keys", () => {
+  it("collapses upper- and lowercase event UUID aliases to one persisted key", () => {
+    const lowercase = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent("23abcdef-89ab-4cde-8fab-0123456789ab"),
+        line: line("2.5"),
+      }),
+    );
+    const uppercase = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent("23ABCDEF-89AB-4CDE-8FAB-0123456789AB"),
+        line: line("2.5"),
+      }),
+    );
+
+    expect(serializeEventMarketKey(uppercase)).toBe(
+      serializeEventMarketKey(lowercase),
+    );
+    expect(
+      serializeMarketKey(
+        successful(createMarketOutcome(uppercase, "OVER")).key,
+      ),
+    ).toBe(
+      serializeMarketKey(
+        successful(createMarketOutcome(lowercase, "OVER")).key,
+      ),
+    );
+  });
+
+  it("collapses upper- and lowercase team and player UUID aliases", () => {
+    const event = footballEvent();
+    const cases = [
+      {
+        definition: canonicalMarketDefinitions.FOOTBALL_TEAM_TOTAL,
+        line: line("1.5"),
+        lowerSubject: {
+          type: "TEAM" as const,
+          role: "HOME_TEAM" as const,
+          id: successful(teamId("22abcdef-89ab-4cde-8fab-0123456789ab")),
+        },
+        upperSubject: {
+          type: "TEAM" as const,
+          role: "HOME_TEAM" as const,
+          id: successful(teamId("22ABCDEF-89AB-4CDE-8FAB-0123456789AB")),
+        },
+      },
+      {
+        definition: canonicalMarketDefinitions.FOOTBALL_PLAYER_SHOTS,
+        line: line("2.5"),
+        lowerSubject: {
+          type: "PLAYER" as const,
+          role: "NAMED_PLAYER" as const,
+          id: successful(playerId("24abcdef-89ab-4cde-8fab-0123456789ab")),
+        },
+        upperSubject: {
+          type: "PLAYER" as const,
+          role: "NAMED_PLAYER" as const,
+          id: successful(playerId("24ABCDEF-89AB-4CDE-8FAB-0123456789AB")),
+        },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const lowercase = successful(
+        createEventMarket({
+          definition: testCase.definition,
+          eventId: event,
+          line: testCase.line,
+          subject: testCase.lowerSubject,
+        }),
+      );
+      const uppercase = successful(
+        createEventMarket({
+          definition: testCase.definition,
+          eventId: event,
+          line: testCase.line,
+          subject: testCase.upperSubject,
+        }),
+      );
+
+      expect(serializeEventMarketKey(uppercase)).toBe(
+        serializeEventMarketKey(lowercase),
+      );
+      expect(
+        serializeMarketKey(
+          successful(createMarketOutcome(uppercase, "OVER")).key,
+        ),
+      ).toBe(
+        serializeMarketKey(
+          successful(createMarketOutcome(lowercase, "OVER")).key,
+        ),
+      );
+    }
+  });
+
   it("scopes persisted keys to an event instance and encodes no subject explicitly", () => {
     const first = successful(
       createEventMarket({
@@ -287,7 +383,7 @@ describe("canonical market keys", () => {
       subject: {
         type: "TEAM",
         role: "HOME_TEAM",
-        id: successful(teamId("team-fixture-home")),
+        id: successful(teamId("22000000-0000-4000-8000-000000000010")),
       },
     });
     const playerMarket = outcome("FOOTBALL_PLAYER_SHOTS", "OVER", {
@@ -295,7 +391,7 @@ describe("canonical market keys", () => {
       subject: {
         type: "PLAYER",
         role: "NAMED_PLAYER",
-        id: successful(playerId("player-fixture-9")),
+        id: successful(playerId("24000000-0000-4000-8000-000000000009")),
       },
     });
 
@@ -560,7 +656,7 @@ describe("future canonical identities", () => {
           ? {
               type: "PLAYER" as const,
               role: "NAMED_PLAYER" as const,
-              id: successful(playerId("player-fixture-10")),
+              id: successful(playerId("24000000-0000-4000-8000-000000000010")),
             }
           : undefined;
       const market = outcome(definitionCode, outcomeCode, {

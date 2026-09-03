@@ -1,5 +1,53 @@
 BEGIN;
-SELECT plan(9);
+SELECT plan(14);
+
+INSERT INTO market.market_definitions (
+  id,
+  sport_id,
+  code,
+  family_code,
+  period_code,
+  structure,
+  subject_type,
+  line_required,
+  line_rules,
+  settlement_rule_version,
+  label_key,
+  created_at
+)
+VALUES (
+  '70000000-0000-4000-8000-000000000020',
+  '20000000-0000-4000-8000-000000000001',
+  'TEST_TEAM_TOTAL',
+  'TEAM_TOTAL',
+  'FULL_TIME',
+  'TWO_WAY',
+  'TEAM',
+  true,
+  '{"increments":["0.5"]}'::jsonb,
+  'TEST_TEAM_TOTAL_FULL_TIME_V1',
+  'market.test.team_total',
+  '2026-09-03T12:00:00Z'
+);
+
+INSERT INTO market.event_markets (
+  id,
+  event_id,
+  market_definition_id,
+  subject_participant_id,
+  line_value,
+  canonical_key,
+  created_at
+)
+VALUES (
+  '70000000-0000-4000-8000-000000000021',
+  '23000000-0000-4000-8000-000000000001',
+  '70000000-0000-4000-8000-000000000020',
+  '22000000-0000-4000-8000-000000000001',
+  '1.5000',
+  'test-team-total-home-1.5',
+  '2026-09-03T12:00:01Z'
+);
 
 SELECT throws_ok(
   $$
@@ -200,6 +248,92 @@ SELECT throws_ok(
   '23514',
   'event market line presence must match its market definition',
   'line-based markets reject missing line values'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO market.event_markets (
+      id, event_id, market_definition_id, subject_participant_id, line_value, canonical_key
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000022',
+      '23000000-0000-4000-8000-000000000001',
+      '40000000-0000-4000-8000-000000000001',
+      NULL,
+      NULL,
+      'duplicate-null-subject-null-line'
+    )
+  $$,
+  '23505',
+  NULL,
+  'duplicate identity with null subject and null line is rejected'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO market.event_markets (
+      id, event_id, market_definition_id, subject_participant_id, line_value, canonical_key
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000023',
+      '23000000-0000-4000-8000-000000000001',
+      '40000000-0000-4000-8000-000000000002',
+      NULL,
+      '2.5000',
+      'duplicate-null-subject-valued-line'
+    )
+  $$,
+  '23505',
+  NULL,
+  'duplicate identity with null subject and a valued line is rejected'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO market.event_markets (
+      id, event_id, market_definition_id, subject_participant_id, line_value, canonical_key
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000024',
+      '23000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000020',
+      '22000000-0000-4000-8000-000000000001',
+      '1.5000',
+      'duplicate-non-null-subject-valued-line'
+    )
+  $$,
+  '23505',
+  NULL,
+  'duplicate identity with a non-null subject and valued line is rejected'
+);
+
+SELECT lives_ok(
+  $$
+    INSERT INTO market.event_markets (
+      id, event_id, market_definition_id, subject_participant_id, line_value, canonical_key
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000025',
+      '23000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000020',
+      '22000000-0000-4000-8000-000000000002',
+      '1.5000',
+      'different-subject-valued-line'
+    )
+  $$,
+  'a different subject remains a distinct natural identity'
+);
+
+SELECT lives_ok(
+  $$
+    INSERT INTO market.event_markets (
+      id, event_id, market_definition_id, subject_participant_id, line_value, canonical_key
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000026',
+      '23000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000020',
+      '22000000-0000-4000-8000-000000000001',
+      '2.5000',
+      'different-line-non-null-subject'
+    )
+  $$,
+  'a different line remains a distinct natural identity'
 );
 
 SELECT * FROM finish();
