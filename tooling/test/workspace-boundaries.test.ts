@@ -136,6 +136,36 @@ describe("workspace dependency boundaries", () => {
     );
   });
 
+  it("rejects unary numeric coercion of a branded decimal scalar", async () => {
+    const [result] = await lintFixture("decimal-unary-arithmetic.fixture.ts");
+
+    expect(result.errorCount).toBe(2);
+    expect(
+      result.messages.every(
+        (message) => message.ruleId === "velyq/no-branded-decimal-arithmetic",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects every arithmetic compound assignment with a branded decimal operand", async () => {
+    const [result] = await lintFixture(
+      "decimal-compound-assignment.fixture.ts",
+    );
+
+    expect(result.errorCount).toBe(6);
+    expect(
+      result.messages.every(
+        (message) => message.ruleId === "velyq/no-branded-decimal-arithmetic",
+      ),
+    ).toBe(true);
+  });
+
+  it("allows non-arithmetic decimal uses and ordinary arithmetic", async () => {
+    const [result] = await lintFixture("decimal-safe-operations.fixture.ts");
+
+    expect(result.errorCount).toBe(0);
+  });
+
   it("allows arithmetic on unrelated value properties", async () => {
     const [result] = await lintFixture("ordinary-value-arithmetic.fixture.ts");
 

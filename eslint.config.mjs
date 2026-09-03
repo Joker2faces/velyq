@@ -100,16 +100,32 @@ const workspaceBoundaryPlugin = {
         type: "problem",
         docs: {
           description:
-            "disallow direct arithmetic on decimal value-object fields",
+            "disallow arithmetic and numeric coercion on branded decimal values",
         },
         schema: [],
         messages: {
           directArithmetic:
-            "Use @velyq/decimal helpers instead of direct arithmetic on decimal fields.",
+            "Use @velyq/decimal helpers instead of direct arithmetic on branded decimal values.",
         },
       },
       create(context) {
-        const arithmeticOperators = new Set(["+", "-", "*", "/", "%", "**"]);
+        const binaryArithmeticOperators = new Set([
+          "+",
+          "-",
+          "*",
+          "/",
+          "%",
+          "**",
+        ]);
+        const unaryArithmeticOperators = new Set(["+", "-"]);
+        const compoundArithmeticOperators = new Set([
+          "+=",
+          "-=",
+          "*=",
+          "/=",
+          "%=",
+          "**=",
+        ]);
         const parserServices = context.sourceCode.parserServices;
         const typeNodeMap = parserServices?.esTreeNodeToTSNodeMap;
 
@@ -191,7 +207,23 @@ const workspaceBoundaryPlugin = {
         return {
           BinaryExpression(node) {
             if (
-              arithmeticOperators.has(node.operator) &&
+              binaryArithmeticOperators.has(node.operator) &&
+              (isBrandedDecimal(node.left) || isBrandedDecimal(node.right))
+            ) {
+              context.report({ node, messageId: "directArithmetic" });
+            }
+          },
+          UnaryExpression(node) {
+            if (
+              unaryArithmeticOperators.has(node.operator) &&
+              isBrandedDecimal(node.argument)
+            ) {
+              context.report({ node, messageId: "directArithmetic" });
+            }
+          },
+          AssignmentExpression(node) {
+            if (
+              compoundArithmeticOperators.has(node.operator) &&
               (isBrandedDecimal(node.left) || isBrandedDecimal(node.right))
             ) {
               context.report({ node, messageId: "directArithmetic" });
