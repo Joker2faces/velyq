@@ -63,6 +63,28 @@ function outcome(
 }
 
 describe("canonical market keys", () => {
+  it("serializes an event market with canonical v1 components minus the outcome", async () => {
+    const market = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent(),
+        line: line("2.5"),
+      }),
+    );
+    const marketSemantics = await import("../src/index.js");
+    const serializeEventMarketKey = Reflect.get(
+      marketSemantics,
+      "serializeEventMarketKey",
+    ) as ((eventMarket: typeof market) => string) | undefined;
+
+    expect(typeof serializeEventMarketKey).toBe("function");
+    if (!serializeEventMarketKey) return;
+
+    expect(serializeEventMarketKey(market)).toBe(
+      "market-key-v1|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|line=2.5|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+    );
+  });
+
   it("distinguishes full-time 1X2 from first-half 1X2", () => {
     const fullTime = outcome("FOOTBALL_FULL_TIME_1X2", "HOME");
     const firstHalf = outcome("FOOTBALL_FIRST_HALF_1X2", "HOME");

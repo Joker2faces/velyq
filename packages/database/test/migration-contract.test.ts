@@ -73,6 +73,13 @@ function migrationSql(): string {
   }
 }
 
+function normalizeSql(sql: string): string {
+  return sql
+    .replace(/--[^\n]*/g, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
 function createdTables(sql: string): string[] {
   return [
     ...sql.matchAll(
@@ -137,6 +144,105 @@ describe("reviewed Phase 1 migration contract", () => {
     expect(sql).toContain("enforce_event_market_identity");
     expect(sql).toContain(
       "event market line presence must match its market definition",
+    );
+  });
+
+  it("makes every canonical market identity immutable after creation", () => {
+    const sql = migrationSql();
+
+    expect(sql).toContain("reject_semantic_identity_mutation");
+
+    for (const trigger of [
+      "protect_market_definitions_semantic_identity",
+      "protect_outcome_definitions_semantic_identity",
+      "protect_event_markets_semantic_identity",
+      "protect_event_market_outcomes_semantic_identity",
+    ]) {
+      expect(sql).toContain(trigger);
+    }
+
+    expect(sql).toMatch(
+      /before update of\s+id,\s*sport_id,\s*code,\s*family_code,\s*period_code,\s*structure,\s*subject_type,\s*line_required,\s*line_rules,\s*settlement_rule_version\s+on market\.market_definitions/,
+    );
+    expect(sql).toMatch(
+      /before update of\s+id,\s*market_definition_id,\s*code\s+on market\.outcome_definitions/,
+    );
+    expect(sql).toMatch(
+      /before update of\s+id,\s*event_id,\s*market_definition_id,\s*subject_participant_id,\s*line_value,\s*canonical_key\s+on market\.event_markets/,
+    );
+    expect(sql).toMatch(
+      /before update of\s+id,\s*event_market_id,\s*market_definition_id,\s*outcome_definition_id,\s*canonical_key\s+on market\.event_market_outcomes/,
+    );
+  });
+
+  it("adds durable job invariants and the event-outcome composite child index", () => {
+    const sql = migrationSql();
+
+    expect(sql).toMatch(/add column "?causation_id"?\s+uuid/);
+    expect(sql).toMatch(/alter column "?causation_id"?\s+set not null/);
+
+    for (const constraint of [
+      "jobs_attempt_count_nonnegative_check",
+      "jobs_max_attempts_positive_check",
+      "jobs_attempt_count_within_max_check",
+      "jobs_status_check",
+      "jobs_state_check",
+    ]) {
+      expect(sql).toContain(constraint);
+    }
+
+    expect(sql).toMatch(
+      /create index "?event_market_outcomes_definition_outcome_idx"?[^;]+\("?market_definition_id"?,\s*"?outcome_definition_id"?\)/,
+    );
+  });
+
+  it("keeps the reviewed Supabase schema delta aligned with Drizzle", () => {
+    const drizzleDirectory = resolve(ROOT, "packages/database/drizzle");
+    const migrationDirectory = resolve(ROOT, "supabase/migrations");
+    const drizzleDelta = readFileSync(
+      resolve(
+        drizzleDirectory,
+        readdirSync(drizzleDirectory)
+          .filter((file) => /^0001_.+\.sql$/.test(file))
+          .toSorted()
+          .at(-1) ?? "missing-drizzle-delta.sql",
+      ),
+      "utf8",
+    );
+    const supabaseDelta = readFileSync(
+      resolve(
+        migrationDirectory,
+        readdirSync(migrationDirectory)
+          .filter((file) =>
+            file.endsWith("_enforce_database_integrity_contracts.sql"),
+          )
+          .toSorted()
+          .at(-1) ?? "missing-supabase-delta.sql",
+      ),
+      "utf8",
+    );
+    const normalizedSupabase = normalizeSql(supabaseDelta);
+
+    for (const statement of drizzleDelta
+      .split(/-->\s*statement-breakpoint/)
+      .map(normalizeSql)
+      .filter(Boolean)) {
+      expect(normalizedSupabase).toContain(statement);
+    }
+
+    expect(
+      normalizedSupabase.indexOf('addcolumn"causation_id"uuid'),
+    ).toBeLessThan(
+      normalizedSupabase.indexOf('altercolumn"causation_id"setnotnull'),
+    );
+    expect(
+      normalizedSupabase.indexOf(
+        'constraint"event_markets_id_market_definition_id_unique"',
+      ),
+    ).toBeLessThan(
+      normalizedSupabase.indexOf(
+        'constraint"event_market_outcomes_event_market_definition_fk"',
+      ),
     );
   });
 

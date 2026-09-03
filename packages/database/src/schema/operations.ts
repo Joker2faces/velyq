@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -141,6 +143,7 @@ export const jobs = operationsSchema.table(
     availableAt: timestamp("available_at", { withTimezone: true }).notNull(),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     correlationId: uuid("correlation_id").notNull(),
+    causationId: uuid("causation_id").notNull(),
     lastError: jsonb("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -153,5 +156,27 @@ export const jobs = operationsSchema.table(
     index("jobs_status_available_at_idx").on(table.status, table.availableAt),
     index("jobs_lease_expires_at_idx").on(table.leaseExpiresAt),
     index("jobs_correlation_id_idx").on(table.correlationId),
+    check(
+      "jobs_attempt_count_nonnegative_check",
+      sql`${table.attemptCount} >= 0`,
+    ),
+    check("jobs_max_attempts_positive_check", sql`${table.maxAttempts} > 0`),
+    check(
+      "jobs_attempt_count_within_max_check",
+      sql`${table.attemptCount} <= ${table.maxAttempts}`,
+    ),
+    check(
+      "jobs_status_check",
+      sql`${table.status} in ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')`,
+    ),
+    check(
+      "jobs_state_check",
+      sql`(
+        (${table.status} = 'PENDING' and ${table.leaseExpiresAt} is null and ${table.completedAt} is null)
+        or (${table.status} = 'RUNNING' and ${table.leaseExpiresAt} is not null and ${table.startedAt} is not null and ${table.completedAt} is null)
+        or (${table.status} = 'COMPLETED' and ${table.leaseExpiresAt} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is null)
+        or (${table.status} = 'FAILED' and ${table.leaseExpiresAt} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is not null)
+      )`,
+    ),
   ],
 );

@@ -139,10 +139,11 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$
     INSERT INTO market.event_market_outcomes (
-      id, event_market_id, outcome_definition_id, canonical_key
+      id, event_market_id, market_definition_id, outcome_definition_id, canonical_key
     ) VALUES (
       '70000000-0000-4000-8000-000000000006',
       '43000000-0000-4000-8000-000000000001',
+      '40000000-0000-4000-8000-000000000001',
       '41000000-0000-4000-8000-000000000004',
       'invalid-cross-market-outcome'
     )

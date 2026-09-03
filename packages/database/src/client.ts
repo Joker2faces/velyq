@@ -20,6 +20,17 @@ export interface DatabaseClient {
   close(): Promise<void>;
 }
 
+export type PrivilegedVelyqDatabase = VelyqDatabase &
+  Readonly<{ __access: "privileged-server" }>;
+
+export interface PrivilegedDatabaseClient extends Omit<
+  DatabaseClient,
+  "database"
+> {
+  readonly access: "privileged-server";
+  readonly database: PrivilegedVelyqDatabase;
+}
+
 export function createDatabaseClient(config: PoolConfig): DatabaseClient {
   const pool = new Pool(config);
   const database = drizzle(pool, { schema: databaseSchema });
@@ -30,5 +41,17 @@ export function createDatabaseClient(config: PoolConfig): DatabaseClient {
     close: async () => {
       await pool.end();
     },
+  };
+}
+
+export function createPrivilegedDatabaseClient(
+  config: PoolConfig,
+): PrivilegedDatabaseClient {
+  const client = createDatabaseClient(config);
+
+  return {
+    ...client,
+    access: "privileged-server",
+    database: client.database as PrivilegedVelyqDatabase,
   };
 }

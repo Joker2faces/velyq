@@ -500,15 +500,51 @@ export function createMarketOutcome(
   );
 }
 
+type SerializableMarketIdentity = Readonly<{
+  readonly sportCode: SportCode;
+  readonly familyCode: MarketFamilyCode;
+  readonly periodCode: PeriodCode;
+  readonly structure: MarketStructure;
+  readonly subjectType: SubjectType;
+  readonly subjectRole: SubjectRole;
+  readonly line?: MarketLine;
+}>;
+
+function serializeMarketIdentityComponents(
+  identity: SerializableMarketIdentity,
+): readonly string[] {
+  return [
+    `sport=${identity.sportCode}`,
+    `family=${identity.familyCode}`,
+    `period=${identity.periodCode}`,
+    `structure=${identity.structure}`,
+    `subject=${identity.subjectType}:${identity.subjectRole}`,
+    `line=${identity.line?.value ?? "-"}`,
+  ];
+}
+
+export function serializeEventMarketKey(market: EventMarket): string {
+  const { definition } = market;
+
+  return [
+    "market-key-v1",
+    ...serializeMarketIdentityComponents({
+      sportCode: definition.sportCode,
+      familyCode: definition.familyCode,
+      periodCode: definition.periodCode,
+      structure: definition.structure,
+      subjectType: definition.subjectType,
+      subjectRole: market.subject?.role ?? requiredRole(definition.subjectType),
+      ...(market.line === undefined ? {} : { line: market.line }),
+    }),
+    `rule=${definition.settlementRuleVersion}`,
+  ].join("|");
+}
+
 export function serializeMarketKey(key: MarketKey): string {
   return [
     "market-key-v1",
-    `sport=${key.sportCode}`,
-    `family=${key.familyCode}`,
-    `period=${key.periodCode}`,
-    `structure=${key.structure}`,
-    `subject=${key.subjectType}:${key.subjectRole}`,
-    `line=${key.line?.value ?? "-"}`,
+    ...serializeMarketIdentityComponents(key),
     `outcome=${key.outcomeCode}`,
     `rule=${key.settlementRuleVersion}`,
   ].join("|");

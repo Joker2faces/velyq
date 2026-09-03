@@ -149,6 +149,10 @@ export const eventMarkets = marketSchema.table(
   },
   (table) => [
     unique("event_markets_canonical_key_unique").on(table.canonicalKey),
+    unique("event_markets_id_market_definition_id_unique").on(
+      table.id,
+      table.marketDefinitionId,
+    ),
     index("event_markets_event_id_market_definition_id_idx").on(
       table.eventId,
       table.marketDefinitionId,
@@ -170,12 +174,9 @@ export const eventMarketOutcomes = marketSchema.table(
   "event_market_outcomes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventMarketId: uuid("event_market_id")
-      .notNull()
-      .references(() => eventMarkets.id, { onDelete: "restrict" }),
-    outcomeDefinitionId: uuid("outcome_definition_id")
-      .notNull()
-      .references(() => outcomeDefinitions.id, { onDelete: "restrict" }),
+    eventMarketId: uuid("event_market_id").notNull(),
+    marketDefinitionId: uuid("market_definition_id").notNull(),
+    outcomeDefinitionId: uuid("outcome_definition_id").notNull(),
     canonicalKey: text("canonical_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -185,6 +186,23 @@ export const eventMarketOutcomes = marketSchema.table(
     unique("event_market_outcomes_canonical_key_unique").on(table.canonicalKey),
     unique("event_market_outcomes_market_outcome_unique").on(
       table.eventMarketId,
+      table.outcomeDefinitionId,
+    ),
+    foreignKey({
+      name: "event_market_outcomes_event_market_definition_fk",
+      columns: [table.eventMarketId, table.marketDefinitionId],
+      foreignColumns: [eventMarkets.id, eventMarkets.marketDefinitionId],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "event_market_outcomes_definition_outcome_fk",
+      columns: [table.marketDefinitionId, table.outcomeDefinitionId],
+      foreignColumns: [
+        outcomeDefinitions.marketDefinitionId,
+        outcomeDefinitions.id,
+      ],
+    }).onDelete("restrict"),
+    index("event_market_outcomes_definition_outcome_idx").on(
+      table.marketDefinitionId,
       table.outcomeDefinitionId,
     ),
     index("event_market_outcomes_outcome_definition_id_idx").on(

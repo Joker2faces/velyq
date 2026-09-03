@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(10);
+SELECT plan(11);
 
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.profiles'::regclass),
@@ -98,6 +98,13 @@ SELECT ok(
     AND NOT has_table_privilege('authenticated', 'public.profiles', 'DELETE')
     AND NOT has_table_privilege('anon', 'public.profiles', 'SELECT'),
   'profile browser grants are explicit and minimal'
+);
+
+SELECT ok(
+  has_table_privilege('service_role', 'public.profiles', 'INSERT')
+    AND NOT has_table_privilege('authenticated', 'public.profiles', 'INSERT')
+    AND NOT has_table_privilege('anon', 'public.profiles', 'INSERT'),
+  'only the privileged server role can insert profiles directly'
 );
 
 SELECT * FROM finish();
