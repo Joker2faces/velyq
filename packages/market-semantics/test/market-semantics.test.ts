@@ -8,8 +8,11 @@ import {
   createEventMarket,
   createMarketOutcome,
   createMarketDefinition,
+  serializeEventMarketKey,
   serializeMarketKey,
+  serializeMarketTemplateKey,
   settleMarket,
+  toMarketTemplateKey,
 } from "../src/index.js";
 
 function successful<T>(result: {
@@ -25,8 +28,8 @@ function successful<T>(result: {
   return result.value;
 }
 
-function footballEvent() {
-  return successful(eventId("event-fixture-001"));
+function footballEvent(value = "23000000-0000-4000-8000-000000000001") {
+  return successful(eventId(value));
 }
 
 function line(value: string) {
@@ -63,7 +66,179 @@ function outcome(
 }
 
 describe("canonical market keys", () => {
-  it("serializes an event market with canonical v1 components minus the outcome", async () => {
+  it("scopes persisted keys to an event instance and encodes no subject explicitly", () => {
+    const first = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent(),
+        line: line("2.5"),
+      }),
+    );
+    const sameInstance = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent(),
+        line: line("2.5"),
+      }),
+    );
+    const second = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent("23000000-0000-4000-8000-000000000002"),
+        line: line("2.5"),
+      }),
+    );
+    const firstOutcome = successful(createMarketOutcome(first, "OVER"));
+    const sameOutcome = successful(createMarketOutcome(sameInstance, "OVER"));
+    const secondOutcome = successful(createMarketOutcome(second, "OVER"));
+
+    expect(serializeEventMarketKey(first)).toBe(
+      "market-key-v1|event=23000000-0000-4000-8000-000000000001|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|subject-id=-|line=2.5|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+    );
+    expect(serializeMarketKey(firstOutcome.key)).toBe(
+      "market-key-v1|event=23000000-0000-4000-8000-000000000001|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|subject-id=-|line=2.5|outcome=OVER|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+    );
+    expect(serializeEventMarketKey(first)).toBe(
+      serializeEventMarketKey(sameInstance),
+    );
+    expect(serializeMarketKey(firstOutcome.key)).toBe(
+      serializeMarketKey(sameOutcome.key),
+    );
+    expect(serializeEventMarketKey(first)).not.toBe(
+      serializeEventMarketKey(second),
+    );
+    expect(serializeMarketKey(firstOutcome.key)).not.toBe(
+      serializeMarketKey(secondOutcome.key),
+    );
+  });
+
+  it("scopes team-market keys to the team UUID", () => {
+    const first = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_TEAM_TOTAL,
+        eventId: footballEvent(),
+        line: line("1.5"),
+        subject: {
+          type: "TEAM",
+          role: "HOME_TEAM",
+          id: successful(teamId("22000000-0000-4000-8000-000000000001")),
+        },
+      }),
+    );
+    const second = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_TEAM_TOTAL,
+        eventId: footballEvent(),
+        line: line("1.5"),
+        subject: {
+          type: "TEAM",
+          role: "HOME_TEAM",
+          id: successful(teamId("22000000-0000-4000-8000-000000000002")),
+        },
+      }),
+    );
+
+    expect(serializeEventMarketKey(first)).toBe(
+      "market-key-v1|event=23000000-0000-4000-8000-000000000001|sport=FOOTBALL|family=TEAM_TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=TEAM:HOME_TEAM|subject-id=22000000-0000-4000-8000-000000000001|line=1.5|rule=FOOTBALL_TEAM_TOTAL_FULL_TIME_V1",
+    );
+    expect(serializeEventMarketKey(first)).not.toBe(
+      serializeEventMarketKey(second),
+    );
+    expect(
+      serializeMarketKey(successful(createMarketOutcome(first, "OVER")).key),
+    ).not.toBe(
+      serializeMarketKey(successful(createMarketOutcome(second, "OVER")).key),
+    );
+  });
+
+  it("scopes player-market keys to the player UUID", () => {
+    const first = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_PLAYER_SHOTS,
+        eventId: footballEvent(),
+        line: line("2.5"),
+        subject: {
+          type: "PLAYER",
+          role: "NAMED_PLAYER",
+          id: successful(playerId("24000000-0000-4000-8000-000000000001")),
+        },
+      }),
+    );
+    const second = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_PLAYER_SHOTS,
+        eventId: footballEvent(),
+        line: line("2.5"),
+        subject: {
+          type: "PLAYER",
+          role: "NAMED_PLAYER",
+          id: successful(playerId("24000000-0000-4000-8000-000000000002")),
+        },
+      }),
+    );
+
+    expect(serializeEventMarketKey(first)).toBe(
+      "market-key-v1|event=23000000-0000-4000-8000-000000000001|sport=FOOTBALL|family=PLAYER_SHOTS|period=FULL_TIME|structure=TWO_WAY|subject=PLAYER:NAMED_PLAYER|subject-id=24000000-0000-4000-8000-000000000001|line=2.5|rule=FOOTBALL_PLAYER_SHOTS_FULL_TIME_V1",
+    );
+    expect(serializeEventMarketKey(first)).not.toBe(
+      serializeEventMarketKey(second),
+    );
+    expect(
+      serializeMarketKey(successful(createMarketOutcome(first, "OVER")).key),
+    ).not.toBe(
+      serializeMarketKey(successful(createMarketOutcome(second, "OVER")).key),
+    );
+  });
+
+  it("requires explicit template projection for cross-instance grouping", () => {
+    const firstMarket = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent(),
+        line: line("2.5"),
+      }),
+    );
+    const secondMarket = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent("23000000-0000-4000-8000-000000000002"),
+        line: line("2.5"),
+      }),
+    );
+    const otherLineMarket = successful(
+      createEventMarket({
+        definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
+        eventId: footballEvent(),
+        line: line("3.5"),
+      }),
+    );
+    const first = successful(createMarketOutcome(firstMarket, "OVER"));
+    const second = successful(createMarketOutcome(secondMarket, "OVER"));
+    const otherLine = successful(createMarketOutcome(otherLineMarket, "OVER"));
+    const otherOutcome = successful(createMarketOutcome(firstMarket, "UNDER"));
+
+    const firstTemplate = serializeMarketTemplateKey(
+      toMarketTemplateKey(first.key),
+    );
+
+    expect(firstTemplate).toBe(
+      "market-template-key-v1|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|line=2.5|outcome=OVER|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+    );
+    expect(firstTemplate).toBe(
+      serializeMarketTemplateKey(toMarketTemplateKey(second.key)),
+    );
+    expect(serializeMarketKey(first.key)).not.toBe(
+      serializeMarketKey(second.key),
+    );
+    expect(firstTemplate).not.toBe(
+      serializeMarketTemplateKey(toMarketTemplateKey(otherLine.key)),
+    );
+    expect(firstTemplate).not.toBe(
+      serializeMarketTemplateKey(toMarketTemplateKey(otherOutcome.key)),
+    );
+  });
+
+  it("rejects interchanging template and persisted instance serializers", () => {
     const market = successful(
       createEventMarket({
         definition: canonicalMarketDefinitions.FOOTBALL_FULL_TIME_TOTAL,
@@ -71,18 +246,14 @@ describe("canonical market keys", () => {
         line: line("2.5"),
       }),
     );
-    const marketSemantics = await import("../src/index.js");
-    const serializeEventMarketKey = Reflect.get(
-      marketSemantics,
-      "serializeEventMarketKey",
-    ) as ((eventMarket: typeof market) => string) | undefined;
+    const persisted = successful(createMarketOutcome(market, "OVER")).key;
+    const template = toMarketTemplateKey(persisted);
 
-    expect(typeof serializeEventMarketKey).toBe("function");
-    if (!serializeEventMarketKey) return;
-
-    expect(serializeEventMarketKey(market)).toBe(
-      "market-key-v1|sport=FOOTBALL|family=TOTAL|period=FULL_TIME|structure=TWO_WAY|subject=EVENT:NONE|line=2.5|rule=FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+    expect(() => serializeMarketKey(template as never)).toThrow(TypeError);
+    expect(() => serializeMarketTemplateKey(persisted as never)).toThrow(
+      TypeError,
     );
+    expect(() => toMarketTemplateKey(template as never)).toThrow(TypeError);
   });
 
   it("distinguishes full-time 1X2 from first-half 1X2", () => {

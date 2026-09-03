@@ -89,8 +89,7 @@ export type EventMarket = Readonly<{
   readonly subject?: MarketSubject;
 }>;
 
-export type MarketKey = Readonly<{
-  readonly kind: "MarketKey";
+export type MarketTemplateIdentity = Readonly<{
   readonly sportCode: SportCode;
   readonly familyCode: MarketFamilyCode;
   readonly periodCode: PeriodCode;
@@ -102,11 +101,21 @@ export type MarketKey = Readonly<{
   readonly settlementRuleVersion: string;
 }>;
 
+export type MarketTemplateKey = MarketTemplateIdentity &
+  Readonly<{ readonly kind: "MarketTemplateKey" }>;
+
+export type EventMarketOutcomeKey = MarketTemplateIdentity &
+  Readonly<{
+    readonly kind: "EventMarketOutcomeKey";
+    readonly eventId: EventId;
+    readonly subjectId: TeamId | PlayerId | null;
+  }>;
+
 export type MarketOutcome = Readonly<{
   readonly kind: "MarketOutcome";
   readonly eventMarket: EventMarket;
   readonly outcomeCode: MarketOutcomeCode;
-  readonly key: MarketKey;
+  readonly key: EventMarketOutcomeKey;
 }>;
 
 export type MarketSemanticsErrorCode =
@@ -478,13 +487,15 @@ export function createMarketOutcome(
   const subjectRole =
     market.subject?.role ?? requiredRole(market.definition.subjectType);
   const key = Object.freeze({
-    kind: "MarketKey" as const,
+    kind: "EventMarketOutcomeKey" as const,
+    eventId: market.eventId,
     sportCode: market.definition.sportCode,
     familyCode: market.definition.familyCode,
     periodCode: market.definition.periodCode,
     structure: market.definition.structure,
     subjectType: market.definition.subjectType,
     subjectRole,
+    subjectId: market.subject?.id ?? null,
     ...(market.line === undefined ? {} : { line: market.line }),
     outcomeCode: outcomeCode as MarketOutcomeCode,
     settlementRuleVersion: market.definition.settlementRuleVersion,
@@ -519,6 +530,24 @@ function serializeMarketIdentityComponents(
     `period=${identity.periodCode}`,
     `structure=${identity.structure}`,
     `subject=${identity.subjectType}:${identity.subjectRole}`,
+  ];
+}
+
+type SerializableMarketInstanceIdentity = SerializableMarketIdentity &
+  Readonly<{
+    readonly eventId: EventId;
+    readonly subjectId: TeamId | PlayerId | null;
+  }>;
+
+function serializeMarketInstanceComponents(
+  identity: SerializableMarketInstanceIdentity,
+): readonly string[] {
+  return [
+    `event=${encodeURIComponent(identity.eventId)}`,
+    ...serializeMarketIdentityComponents(identity),
+    `subject-id=${
+      identity.subjectId === null ? "-" : encodeURIComponent(identity.subjectId)
+    }`,
     `line=${identity.line?.value ?? "-"}`,
   ];
 }
@@ -528,23 +557,64 @@ export function serializeEventMarketKey(market: EventMarket): string {
 
   return [
     "market-key-v1",
-    ...serializeMarketIdentityComponents({
+    ...serializeMarketInstanceComponents({
+      eventId: market.eventId,
       sportCode: definition.sportCode,
       familyCode: definition.familyCode,
       periodCode: definition.periodCode,
       structure: definition.structure,
       subjectType: definition.subjectType,
       subjectRole: market.subject?.role ?? requiredRole(definition.subjectType),
+      subjectId: market.subject?.id ?? null,
       ...(market.line === undefined ? {} : { line: market.line }),
     }),
     `rule=${definition.settlementRuleVersion}`,
   ].join("|");
 }
 
-export function serializeMarketKey(key: MarketKey): string {
+export function toMarketTemplateKey(
+  key: EventMarketOutcomeKey,
+): MarketTemplateKey {
+  if (key?.kind !== "EventMarketOutcomeKey") {
+    throw new TypeError("Expected an event-market outcome key");
+  }
+
+  return Object.freeze({
+    kind: "MarketTemplateKey" as const,
+    sportCode: key.sportCode,
+    familyCode: key.familyCode,
+    periodCode: key.periodCode,
+    structure: key.structure,
+    subjectType: key.subjectType,
+    subjectRole: key.subjectRole,
+    ...(key.line === undefined ? {} : { line: key.line }),
+    outcomeCode: key.outcomeCode,
+    settlementRuleVersion: key.settlementRuleVersion,
+  });
+}
+
+export function serializeMarketTemplateKey(key: MarketTemplateKey): string {
+  if (key?.kind !== "MarketTemplateKey") {
+    throw new TypeError("Expected a market template key");
+  }
+
+  return [
+    "market-template-key-v1",
+    ...serializeMarketIdentityComponents(key),
+    `line=${key.line?.value ?? "-"}`,
+    `outcome=${key.outcomeCode}`,
+    `rule=${key.settlementRuleVersion}`,
+  ].join("|");
+}
+
+export function serializeMarketKey(key: EventMarketOutcomeKey): string {
+  if (key?.kind !== "EventMarketOutcomeKey") {
+    throw new TypeError("Expected an event-market outcome key");
+  }
+
   return [
     "market-key-v1",
-    ...serializeMarketIdentityComponents(key),
+    ...serializeMarketInstanceComponents(key),
     `outcome=${key.outcomeCode}`,
     `rule=${key.settlementRuleVersion}`,
   ].join("|");
