@@ -105,10 +105,10 @@ importers:
 
   packages/market-semantics:
     dependencies:
-      '@velyq/decimal':
+      "@velyq/decimal":
         specifier: workspace:*
         version: link:../decimal
-      '@velyq/domain':
+      "@velyq/domain":
         specifier: workspace:*
         version: link:../domain
 

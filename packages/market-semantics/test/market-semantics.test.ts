@@ -187,6 +187,26 @@ describe("market-definition validation", () => {
       error: { code: "INVALID_DEFINITION" },
     });
   });
+
+  it("rejects outcome codes outside the canonical outcome set", () => {
+    const result = createMarketDefinition({
+      code: "UNKNOWN_OUTCOME_CODES",
+      sportCode: "FOOTBALL",
+      familyCode: "TOTAL",
+      periodCode: "FULL_TIME",
+      structure: "TWO_WAY",
+      subjectType: "EVENT",
+      linePolicy: "REQUIRED",
+      allowedLineIncrement: "HALF",
+      outcomeCodes: ["ALPHA", "BETA"],
+      settlementRuleVersion: "FUTURE_RULE_V1",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_DEFINITION" },
+    });
+  });
 });
 
 describe("settlement registry", () => {
@@ -249,6 +269,33 @@ describe("settlement registry", () => {
       error: { code: "UNSUPPORTED_SETTLEMENT" },
     });
   });
+
+  it("does not void a first-half market forged with the full-time 1X2 version", () => {
+    const firstHalf = outcome("FOOTBALL_FIRST_HALF_1X2", "HOME");
+    const forged = {
+      ...firstHalf,
+      key: {
+        ...firstHalf.key,
+        settlementRuleVersion: "FOOTBALL_1X2_FULL_TIME_V1",
+      },
+    };
+
+    expect(settleMarket(forged, { status: "ABANDONED" })).toMatchObject({
+      kind: "UNSUPPORTED",
+      error: { code: "UNSUPPORTED_SETTLEMENT" },
+    });
+  });
+
+  it("does not leave full-time O/U 3.5 unsettled under the O/U 2.5 version", () => {
+    const total = outcome("FOOTBALL_FULL_TIME_TOTAL", "OVER", {
+      line: line("3.5"),
+    });
+
+    expect(settleMarket(total, { status: "IN_PROGRESS" })).toMatchObject({
+      kind: "UNSUPPORTED",
+      error: { code: "UNSUPPORTED_SETTLEMENT" },
+    });
+  });
 });
 
 describe("future canonical identities", () => {
@@ -256,6 +303,7 @@ describe("future canonical identities", () => {
     ["FOOTBALL_FULL_TIME_ASIAN_TOTAL", "OVER", "2.25", undefined],
     ["FOOTBALL_FULL_TIME_ASIAN_HANDICAP", "HOME", "-0.25", undefined],
     ["FOOTBALL_PLAYER_SHOTS", "OVER", "2.5", "PLAYER"],
+    ["FOOTBALL_PLAYER_SHOTS_ON_TARGET", "OVER", "1.5", "PLAYER"],
     ["FOOTBALL_GOALKEEPER_SAVES", "OVER", "3.5", "PLAYER"],
     ["FOOTBALL_ANYTIME_GOALSCORER", "YES", undefined, "PLAYER"],
     ["FOOTBALL_PLAYER_CARD", "YES", undefined, "PLAYER"],

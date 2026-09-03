@@ -9,6 +9,7 @@ export type MarketFamilyCode =
   | "ASIAN_HANDICAP"
   | "TEAM_TOTAL"
   | "PLAYER_SHOTS"
+  | "PLAYER_SHOTS_ON_TARGET"
   | "GOALKEEPER_SAVES"
   | "ANYTIME_GOALSCORER"
   | "PLAYER_CARD"
@@ -21,6 +22,16 @@ export type LinePolicy = "REQUIRED" | "FORBIDDEN";
 export type LineIncrement = "WHOLE" | "HALF" | "QUARTER";
 export type MarketOutcomeCode =
   "HOME" | "DRAW" | "AWAY" | "OVER" | "UNDER" | "YES" | "NO";
+
+const canonicalOutcomeCodes: ReadonlySet<string> = new Set([
+  "HOME",
+  "DRAW",
+  "AWAY",
+  "OVER",
+  "UNDER",
+  "YES",
+  "NO",
+]);
 
 export type MarketDefinitionInput = Readonly<{
   readonly code: string;
@@ -190,7 +201,7 @@ export function createMarketDefinition(
     !validOutcomeCount(input.structure, outcomeCodes.length) ||
     !outcomesAreDistinct ||
     outcomeCodes.some(
-      (outcomeCode) => !/^[A-Z][A-Z0-9_]*$/.test(outcomeCode),
+      (outcomeCode) => !canonicalOutcomeCodes.has(outcomeCode),
     ) ||
     (input.linePolicy === "REQUIRED" &&
       input.allowedLineIncrement === undefined) ||
@@ -316,6 +327,18 @@ export const canonicalMarketDefinitions = Object.freeze({
     allowedLineIncrement: "HALF",
     outcomeCodes: ["OVER", "UNDER"],
     settlementRuleVersion: "FOOTBALL_PLAYER_SHOTS_FULL_TIME_V1",
+  }),
+  FOOTBALL_PLAYER_SHOTS_ON_TARGET: canonicalDefinition({
+    code: "FOOTBALL_PLAYER_SHOTS_ON_TARGET",
+    sportCode: "FOOTBALL",
+    familyCode: "PLAYER_SHOTS_ON_TARGET",
+    periodCode: "FULL_TIME",
+    structure: "TWO_WAY",
+    subjectType: "PLAYER",
+    linePolicy: "REQUIRED",
+    allowedLineIncrement: "HALF",
+    outcomeCodes: ["OVER", "UNDER"],
+    settlementRuleVersion: "FOOTBALL_PLAYER_SHOTS_ON_TARGET_FULL_TIME_V1",
   }),
   FOOTBALL_GOALKEEPER_SAVES: canonicalDefinition({
     code: "FOOTBALL_GOALKEEPER_SAVES",
@@ -550,6 +573,52 @@ export const settlementRules: readonly SettlementRule[] = Object.freeze([
   }),
 ]);
 
+type ExecutableMarketBinding = Readonly<{
+  readonly ruleVersion: string;
+  readonly sportCode: SportCode;
+  readonly familyCode: MarketFamilyCode;
+  readonly periodCode: PeriodCode;
+  readonly structure: MarketStructure;
+  readonly subjectType: SubjectType;
+  readonly subjectRole: SubjectRole;
+  readonly linePolicy: LinePolicy;
+  readonly allowedLineIncrement?: LineIncrement;
+  readonly lineValue?: "2.5";
+  readonly outcomeCodes: readonly MarketOutcomeCode[];
+}>;
+
+const executableMarketBindings: readonly ExecutableMarketBinding[] =
+  Object.freeze([
+    Object.freeze({
+      ruleVersion: "FOOTBALL_1X2_FULL_TIME_V1",
+      sportCode: "FOOTBALL",
+      familyCode: "MATCH_RESULT",
+      periodCode: "FULL_TIME",
+      structure: "THREE_WAY",
+      subjectType: "EVENT",
+      subjectRole: "NONE",
+      linePolicy: "FORBIDDEN",
+      outcomeCodes: Object.freeze<MarketOutcomeCode[]>([
+        "HOME",
+        "DRAW",
+        "AWAY",
+      ]),
+    }),
+    Object.freeze({
+      ruleVersion: "FOOTBALL_TOTAL_2_5_FULL_TIME_V1",
+      sportCode: "FOOTBALL",
+      familyCode: "TOTAL",
+      periodCode: "FULL_TIME",
+      structure: "TWO_WAY",
+      subjectType: "EVENT",
+      subjectRole: "NONE",
+      linePolicy: "REQUIRED",
+      allowedLineIncrement: "HALF",
+      lineValue: "2.5",
+      outcomeCodes: Object.freeze<MarketOutcomeCode[]>(["OVER", "UNDER"]),
+    }),
+  ]);
+
 export type SettlementInput = Readonly<{
   readonly status: EventResultStatus;
   readonly homeScore?: number;
@@ -606,22 +675,83 @@ function finalScores(
   return [homeScore, awayScore];
 }
 
-function executableRule(version: string): SettlementRule | undefined {
-  return settlementRules.find((rule) => rule.version === version);
+function executableRule(version: string):
+  | Readonly<{
+      readonly rule: SettlementRule;
+      readonly binding: ExecutableMarketBinding;
+    }>
+  | undefined {
+  const rule = settlementRules.find(
+    (settlementRule) => settlementRule.version === version,
+  );
+  const binding = executableMarketBindings.find(
+    (marketBinding) => marketBinding.ruleVersion === version,
+  );
+
+  return rule === undefined || binding === undefined
+    ? undefined
+    : { rule, binding };
+}
+
+function exactOutcomeSet(
+  actual: readonly MarketOutcomeCode[],
+  expected: readonly MarketOutcomeCode[],
+): boolean {
+  return (
+    actual.length === expected.length &&
+    actual.every((outcomeCode) => expected.includes(outcomeCode))
+  );
+}
+
+function matchesExecutableMarket(
+  outcome: MarketOutcome,
+  binding: ExecutableMarketBinding,
+): boolean {
+  const { definition, line, subject } = outcome.eventMarket;
+  const { key } = outcome;
+
+  return (
+    definition.sportCode === binding.sportCode &&
+    definition.familyCode === binding.familyCode &&
+    definition.periodCode === binding.periodCode &&
+    definition.structure === binding.structure &&
+    definition.subjectType === binding.subjectType &&
+    definition.linePolicy === binding.linePolicy &&
+    definition.allowedLineIncrement === binding.allowedLineIncrement &&
+    definition.settlementRuleVersion === binding.ruleVersion &&
+    exactOutcomeSet(definition.outcomeCodes, binding.outcomeCodes) &&
+    subject === undefined &&
+    key.sportCode === binding.sportCode &&
+    key.familyCode === binding.familyCode &&
+    key.periodCode === binding.periodCode &&
+    key.structure === binding.structure &&
+    key.subjectType === binding.subjectType &&
+    key.subjectRole === binding.subjectRole &&
+    key.settlementRuleVersion === binding.ruleVersion &&
+    key.outcomeCode === outcome.outcomeCode &&
+    binding.outcomeCodes.includes(outcome.outcomeCode) &&
+    key.line?.value === line?.value &&
+    line?.value === binding.lineValue
+  );
 }
 
 export function settleMarket(
   outcome: MarketOutcome,
   input: SettlementInput,
 ): SettlementResult {
-  const rule = executableRule(outcome.key.settlementRuleVersion);
+  const executable = executableRule(outcome.key.settlementRuleVersion);
 
-  if (rule === undefined) {
+  if (
+    executable === undefined ||
+    !matchesExecutableMarket(outcome, executable.binding)
+  ) {
     return unsupported(
       "UNSUPPORTED_SETTLEMENT",
       `Settlement rule ${outcome.key.settlementRuleVersion} is not executable in Phase 1.`,
     );
   }
+
+  const { rule } = executable;
 
   if (rule.voidConditions.includes(input.status)) {
     return settled("VOID", rule.version);
@@ -652,13 +782,6 @@ export function settleMarket(
     return settled(
       outcome.outcomeCode === winningOutcome ? "WIN" : "LOSS",
       rule.version,
-    );
-  }
-
-  if (outcome.key.line?.value !== "2.5") {
-    return unsupported(
-      "UNSUPPORTED_SETTLEMENT",
-      "Only the full-time Over/Under 2.5 rule is executable in Phase 1.",
     );
   }
 
