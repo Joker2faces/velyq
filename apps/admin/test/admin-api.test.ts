@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Principal } from "@velyq/auth";
 import { createAdminApi, type AdminQueries } from "../app/admin-api.js";
 
 const principal = {
@@ -35,7 +36,7 @@ const queries: AdminQueries = {
   listAudit: async () => ({ items: [], nextCursor: null }),
 };
 
-function api(overrides: Partial<typeof principal> = {}) {
+function api(overrides: Partial<Principal> = {}) {
   return createAdminApi({
     authenticate: async () => ({ principal: { ...principal, ...overrides } }),
     queries,
