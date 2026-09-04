@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "provider-sequence.v1",
+  "sequenceName": "sequence-04-repriced",
+  "contentHash": "sha256:4efcf52964764f53695fc6ecb447bc2197f906e4d6e32ed1532fda7b9d420912",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "receivedAt": "2026-09-03T10:30:01Z",
+  "fixtures": [],
+  "odds": [
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000021",
+      "providerExternalId": "repriced-north-home-a",
+      "providerObservedAt": "2026-09-03T10:30:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "decimalOdds": "1.62",
+      "status": "ACTIVE",
+      "scenarioStates": ["CURRENT_PRICE", "EDGE_DISAPPEARED"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000022",
+      "providerExternalId": "unknown-fictional-market",
+      "providerObservedAt": "2026-09-03T10:30:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "bookmakerId": "45000000-0000-4000-8000-000000000002",
+      "providerMarketKey": "unmapped_fictional",
+      "providerOutcomeKey": "mystery",
+      "decimalOdds": "2.4",
+      "status": "ACTIVE",
+      "scenarioStates": ["INSUFFICIENT_DATA"]
+    }
+  ],
+  "lineups": [],
+  "scenarios": [
+    {
+      "id": "74000000-0000-4000-8000-000000000031",
+      "state": "EDGE_DISAPPEARED",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000021"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "PRICE", "value": "1.62" }
+    }
+  ]
+}
