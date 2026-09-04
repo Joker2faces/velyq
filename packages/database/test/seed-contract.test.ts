@@ -10,7 +10,9 @@ const seedPath = resolve(import.meta.dirname, "../../../supabase/seed.sql");
 
 function seedSql(): string {
   try {
-    return readFileSync(seedPath, "utf8").toLowerCase();
+    return readFileSync(seedPath, "utf8")
+      .replaceAll("\r\n", "\n")
+      .toLowerCase();
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return "";
