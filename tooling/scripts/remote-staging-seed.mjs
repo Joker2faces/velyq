@@ -75,29 +75,54 @@ if (
     `Expected linked Supabase project ${expectedProjectRef} was not confirmed.`,
   );
 }
-const seededRows = runCli([
-  "db",
-  "query",
-  "--linked",
-  "--output-format",
-  "json",
-  "select count(*) as row_count from catalog.sports;",
-]);
-if (!/\"row_count\"\s*:\s*0\b/.test(seededRows)) {
-  throw new Error("Refusing to run staging seed: catalog.sports is not empty.");
-}
 const tempDirectory = mkdtempSync(resolve(tmpdir(), "velyq-staging-seed-"));
 try {
-  for (const [index, statement] of statements.entries()) {
-    process.stdout.write(
-      `Applying staging seed statement ${index + 1}/${statements.length}...\n`,
-    );
-    const statementPath = resolve(tempDirectory, `statement-${index + 1}.sql`);
-    writeFileSync(statementPath, `${statement};\n`, "utf8");
-    runCli(["db", "query", "--linked", "--file", statementPath], {
-      stdio: "inherit",
-    });
+  const preflightPath = resolve(tempDirectory, "preflight.sql");
+  writeFileSync(
+    preflightPath,
+    `SELECT (SELECT count(*) FROM catalog.sports) AS sports,
+      (SELECT count(*) FROM catalog.events) AS events,
+      (SELECT count(*) FROM operations.providers) AS providers,
+      (SELECT count(*) FROM intelligence.predictions) AS predictions,
+      (SELECT count(*) FROM intelligence.score_results) AS score_results,
+      (SELECT count(*) FROM audit.admin_audit_events) AS audit_events;\n`,
+    "utf8",
+  );
+  const preflight = runCli([
+    "db",
+    "query",
+    "--linked",
+    "--output-format",
+    "json",
+    "--file",
+    preflightPath,
+  ]);
+  for (const sentinel of [
+    "sports",
+    "events",
+    "providers",
+    "predictions",
+    "score_results",
+    "audit_events",
+  ]) {
+    if (!new RegExp(`\"${sentinel}\"\\s*:\\s*0\\b`).test(preflight)) {
+      throw new Error(
+        `Refusing to run staging seed: ${sentinel} is not empty.`,
+      );
+    }
   }
+  const seedPath = resolve(tempDirectory, "seed.sql");
+  writeFileSync(
+    seedPath,
+    `BEGIN;\n${statements.map((statement) => `${statement};`).join("\n")}\nCOMMIT;\n`,
+    "utf8",
+  );
+  process.stdout.write(
+    `Applying atomic staging seed (${statements.length} statements)...\n`,
+  );
+  runCli(["db", "query", "--linked", "--file", seedPath], {
+    stdio: "inherit",
+  });
 } finally {
   rmSync(tempDirectory, { recursive: true, force: true });
 }
