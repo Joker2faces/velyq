@@ -73,6 +73,10 @@ function migrationSql(): string {
   }
 }
 
+function seedSql(): string {
+  return readFileSync(resolve(ROOT, "supabase/seed.sql"), "utf8");
+}
+
 function normalizeSql(sql: string): string {
   return sql
     .replace(/--[^\n]*/g, "")
@@ -136,6 +140,19 @@ describe("reviewed Phase 1 migration contract", () => {
     expect(sql).toMatch(/"?schema_version"?\s+text\s+not null/);
     expect(sql).toContain("lineup_observations_players_array_check");
     expect(sql).toMatch(/jsonb_typeof\s*\([^)]*"?players"?\)\s*=\s*'array'/);
+  });
+
+  it("documents the governed provider lineup status mapping", () => {
+    const seed = seedSql();
+
+    expect(seed).toContain(
+      "Phase 1 stores provider CHANGED/MISSING lineup states as the schema's",
+    );
+    expect(seed).toContain(
+      "UNAVAILABLE status; the original semantic states remain",
+    );
+    expect(seed).toMatch(/'changed-north'[\s\S]*'UNAVAILABLE'/);
+    expect(seed).toMatch(/'missing-east'[\s\S]*'UNAVAILABLE'/);
   });
 
   it("enforces canonical market line presence against the definition", () => {
