@@ -5,9 +5,7 @@ import { formatPercent, message } from "@velyq/ui";
 export default async function Radar() {
   const result = await loadCustomerToday();
   if (!result.ok)
-    return (
-      <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
-    );
+    return <CustomerShell>{message("customerUnavailable")}</CustomerShell>;
   const customerToday = result.value;
   return (
     <CustomerShell>

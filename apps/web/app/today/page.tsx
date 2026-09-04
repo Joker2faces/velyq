@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { loadCustomerToday } from "../customer-runtime";
 import { CustomerShell, Metric, Status } from "../customer-shell";
-import { formatPercent } from "@velyq/ui";
+import { formatPercent, message } from "@velyq/ui";
 export default async function Today() {
   const result = await loadCustomerToday();
   if (!result.ok)
-    return (
-      <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
-    );
+    return <CustomerShell>{message("customerUnavailable")}</CustomerShell>;
   const customerToday = result.value;
   const [primary, lineupWatch] = customerToday.matches;
   if (!primary) {
-    return <CustomerShell>Data is not available.</CustomerShell>;
+    return <CustomerShell>{message("dataUnavailable")}</CustomerShell>;
   }
   const freshMoves = customerToday.matches.filter(
     ({ openingOdds, currentOdds }) =>

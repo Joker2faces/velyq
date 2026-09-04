@@ -70,5 +70,9 @@ export function Status({
   children: ReactNode;
   tone?: string;
 }) {
-  return <span className={`status ${tone}`}>{children}</span>;
+  return (
+    <span className={`status ${tone}`} role="status" aria-live="polite">
+      {children}
+    </span>
+  );
 }

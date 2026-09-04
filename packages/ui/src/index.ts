@@ -44,6 +44,8 @@ export const messages = {
   noEvidence: "No evidence",
   radarMove: "Radar move",
   customerUnavailable: "Customer data is temporarily unavailable.",
+  customerLoading: "Loading customer intelligence…",
+  dataUnavailable: "Data is not available.",
   matchNotFound: "Match not found.",
 } as const;
 

@@ -12,9 +12,7 @@ const toneFor = (recommendation: string) =>
 export default async function Edge() {
   const result = await loadCustomerToday();
   if (!result.ok)
-    return (
-      <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
-    );
+    return <CustomerShell>{message("customerUnavailable")}</CustomerShell>;
   const customerToday = result.value;
   return (
     <CustomerShell>
