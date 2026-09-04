@@ -6,6 +6,7 @@ import {
   decideRecommendation,
   type DataQualityAssessment,
   type QualityInput,
+  type HeuristicFormula,
 } from "@velyq/analytics";
 import { divideDecimalStrings, type DecimalString } from "@velyq/decimal";
 import { and, eq, inArray, lte } from "drizzle-orm";
@@ -458,6 +459,7 @@ export interface EdgeInputReader {
     probabilityEdge: DecimalString;
     expectedValue: DecimalString;
     qualityScore: DecimalString;
+    formula?: HeuristicFormula;
   }> | null>;
 }
 
@@ -474,6 +476,11 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
       )
       .where(eq(predictions.id, input.predictionId))
       .limit(1);
+    const [definition] = await this.database
+      .select({ definition: scoreDefinitionVersions.definition })
+      .from(scoreDefinitionVersions)
+      .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
+      .limit(1);
     if (
       !row ||
       row.prediction.eventMarketOutcomeId !== input.eventMarketOutcomeId ||
@@ -487,10 +494,27 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
         ? ({ ok: true, value: qualityScore } as const)
         : divideDecimalStrings(qualityScore, "100" as DecimalString);
     if (!normalizedQuality.ok) return null;
+    const formula = definition?.definition;
+    const definitionRecord =
+      formula && typeof formula === "object"
+        ? (formula as Record<string, unknown>)
+        : {};
     return {
       probabilityEdge: row.prediction.edge as DecimalString,
       expectedValue: row.prediction.expectedValue as DecimalString,
       qualityScore: normalizedQuality.value,
+      formula: {
+        ...(definitionRecord["weights"] &&
+        typeof definitionRecord["weights"] === "object"
+          ? {
+              weights: definitionRecord["weights"] as Record<
+                string,
+                DecimalString
+              >,
+            }
+          : {}),
+        capsPenalties: {},
+      },
     };
   }
 }
@@ -645,6 +669,19 @@ export async function consumeQueuedRadarJob(
     ...input,
     asOf: payload.asOf,
     scoreVersion: payload.scoreDefinitionVersionId,
+    bookmakersMoving: input.bookmakerCoverage > 0 ? input.bookmakerCoverage : 0,
+    ...(input.openingObservedAt
+      ? {
+          movementWindowSeconds: Math.max(
+            0,
+            Math.floor(
+              (Date.parse(input.observedAt) -
+                Date.parse(input.openingObservedAt)) /
+                1000,
+            ),
+          ),
+        }
+      : {}),
   });
   if (!result.ok) throw new Error("RADAR_CALCULATION_FAILED");
   const output: ScoreWriteInput = {
@@ -657,11 +694,7 @@ export async function consumeQueuedRadarJob(
       ? result.value.movement.slice(1)
       : result.value.movement) as DecimalString,
     validationStatus: result.value.validationStatus,
-    components: {
-      openingOdds: result.value.openingOdds,
-      currentOdds: result.value.currentOdds,
-      movement: result.value.movement,
-    },
+    components: result.value.components,
     reasonCodes: result.value.reasonCodes,
     radarEvidence: {
       openingObservationId: payload.openingObservationId,

@@ -72,13 +72,23 @@ describe("durable job contract", () => {
     const first = repo.leaseNext("worker-a", 30_000);
     expect(first?.job.status).toBe("RUNNING");
     expect(
-      repo.fail(job.id, { code: "TEMPORARY", message: "retry" }).status,
+      repo.fail(job.id, "worker-a", { code: "TEMPORARY", message: "retry" })
+        .status,
     ).toBe("PENDING");
     const second = repo.leaseNext("worker-a", 30_000);
     expect(second?.job.attemptCount).toBe(2);
     expect(
-      repo.fail(job.id, { code: "PERMANENT", message: "stop" }).status,
+      repo.fail(job.id, "worker-a", { code: "PERMANENT", message: "stop" })
+        .status,
     ).toBe("FAILED");
+  });
+  it("rejects completion by a worker that does not own the lease", () => {
+    const repo = new InMemoryJobRepository(clock);
+    const job = repo.enqueue(input);
+    repo.leaseNext("worker-a", 30_000);
+    expect(() => repo.complete(job.id, "worker-b")).toThrow(
+      "JOB_LEASE_NOT_OWNED",
+    );
   });
   it("ingests a sequence once and creates one downstream job", async () => {
     const repo = new InMemoryJobRepository(clock);

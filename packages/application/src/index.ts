@@ -121,8 +121,12 @@ export interface JobRepository {
     }>,
   ): Job;
   leaseNext(workerId: string, leaseDurationMs: number): JobLease | null;
-  complete(jobId: string): Job;
-  fail(jobId: string, error: Readonly<{ code: string; message: string }>): Job;
+  complete(jobId: string, workerId: string): Job;
+  fail(
+    jobId: string,
+    workerId: string,
+    error: Readonly<{ code: string; message: string }>,
+  ): Job;
   getByIdempotencyKey(key: string): Job | null;
 }
 export interface ProviderRunRepository {
@@ -157,6 +161,7 @@ function newId() {
 }
 export class InMemoryJobRepository implements JobRepository {
   private readonly jobs = new Map<string, Job>();
+  private readonly leaseOwners = new Map<string, string>();
   constructor(
     private readonly clock: Clock = { now: () => new Date().toISOString() },
   ) {}
@@ -185,7 +190,7 @@ export class InMemoryJobRepository implements JobRepository {
     this.jobs.set(job.id, job);
     return job;
   }
-  leaseNext(_workerId: string, leaseDurationMs: number): JobLease | null {
+  leaseNext(workerId: string, leaseDurationMs: number): JobLease | null {
     const now = Date.parse(this.clock.now());
     const candidate = [...this.jobs.values()].find(
       (job) =>
@@ -204,16 +209,25 @@ export class InMemoryJobRepository implements JobRepository {
       startedAt: candidate.startedAt ?? this.clock.now(),
     });
     this.jobs.set(candidate.id, leased);
+    this.leaseOwners.set(candidate.id, workerId);
     return { job: leased, leaseExpiresAt };
   }
-  complete(jobId: string): Job {
+  complete(jobId: string, workerId: string): Job {
+    this.assertLeaseOwner(jobId, workerId);
+    this.leaseOwners.delete(jobId);
     return this.update(jobId, {
       status: "COMPLETED",
       leaseExpiresAt: null,
       completedAt: this.clock.now(),
     });
   }
-  fail(jobId: string, error: Readonly<{ code: string; message: string }>): Job {
+  fail(
+    jobId: string,
+    workerId: string,
+    error: Readonly<{ code: string; message: string }>,
+  ): Job {
+    this.assertLeaseOwner(jobId, workerId);
+    this.leaseOwners.delete(jobId);
     const job = this.require(jobId);
     const status = job.attemptCount >= job.maxAttempts ? "FAILED" : "PENDING";
     return this.update(jobId, {
@@ -233,6 +247,11 @@ export class InMemoryJobRepository implements JobRepository {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Unknown job ${jobId}`);
     return job;
+  }
+  private assertLeaseOwner(jobId: string, workerId: string) {
+    this.require(jobId);
+    if (this.leaseOwners.get(jobId) !== workerId)
+      throw new Error("JOB_LEASE_NOT_OWNED");
   }
   private update(jobId: string, patch: Partial<Job>) {
     const next = Object.freeze({ ...this.require(jobId), ...patch });

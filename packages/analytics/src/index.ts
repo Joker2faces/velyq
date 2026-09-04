@@ -64,12 +64,17 @@ export type EdgeHeuristic = Readonly<{
   components: Readonly<Record<string, DecimalString>>;
   reasonCodes: readonly string[];
 }>;
+export type HeuristicFormula = Readonly<{
+  weights?: Readonly<Record<string, DecimalString>>;
+  capsPenalties?: Readonly<Record<string, DecimalString>>;
+}>;
 export function calculateEdge(
   input: Readonly<{
     probabilityEdge: DecimalString;
     expectedValue: DecimalString;
     qualityScore: DecimalString;
     scoreVersion: string;
+    formula?: HeuristicFormula;
   }>,
 ): DecimalResult<EdgeHeuristic> {
   const score = edge(input.probabilityEdge);
@@ -78,17 +83,44 @@ export function calculateEdge(
   if (!quality.ok) return quality;
   const value = expectedValue(input.expectedValue);
   if (!value.ok) return value;
+  const components = {
+    probabilityEdge: score.value.value,
+    expectedValue: value.value.value,
+    quality: quality.value.value,
+  } as const;
+  const weights = input.formula?.weights ?? {};
+  const weighted = Object.entries(components).reduce<
+    DecimalResult<DecimalString>
+  >(
+    (sum, [key, component]) => {
+      const weight = weights[key] ?? ("1" as DecimalString);
+      if (!sum.ok) return sum;
+      const term = multiplyDecimalStrings(component, weight);
+      if (!term.ok) return term;
+      return addDecimalStrings(sum.value, term.value);
+    },
+    { ok: true, value: "0" as DecimalString },
+  );
+  if (!weighted.ok) return weighted;
+  const denominator = Object.keys(weights).length
+    ? Object.values(weights).reduce<DecimalResult<DecimalString>>(
+        (sum, weight) => {
+          if (!sum.ok) return sum;
+          return addDecimalStrings(sum.value, weight);
+        },
+        { ok: true, value: "0" as DecimalString },
+      )
+    : ({ ok: true, value: "3" as DecimalString } as const);
+  if (!denominator.ok) return denominator;
+  const aggregate = divideDecimalStrings(weighted.value, denominator.value);
+  if (!aggregate.ok) return aggregate;
   return {
     ok: true,
     value: {
       validationStatus: "DEVELOPMENT_HEURISTIC",
       scoreVersion: input.scoreVersion,
-      score: score.value.value,
-      components: {
-        probabilityEdge: score.value.value,
-        expectedValue: value.value.value,
-        quality: quality.value.value,
-      },
+      score: aggregate.value,
+      components,
       reasonCodes: ["OBSERVABLE_INPUTS_ONLY"],
     },
   };
@@ -103,6 +135,7 @@ export type RadarEvidence = Readonly<{
   coverage: string;
   freshness: string;
   reasonCodes: readonly string[];
+  components: Readonly<Record<string, DecimalString>>;
 }>;
 export function calculateRadar(
   input: Readonly<{
@@ -112,6 +145,8 @@ export function calculateRadar(
     observedAt: string;
     asOf: string;
     scoreVersion: string;
+    movementWindowSeconds?: number;
+    bookmakersMoving?: number;
   }>,
 ): DecimalResult<RadarEvidence> {
   const opening = decimalOdds(input.openingOdds);
@@ -122,6 +157,22 @@ export function calculateRadar(
   if (!movement.ok) return movement;
   const stale =
     Date.parse(input.asOf) - Date.parse(input.observedAt) > 15 * 60 * 1000;
+  const coverage = input.bookmakerCoverage > 0 ? "AVAILABLE" : "MISSING";
+  const velocity =
+    input.movementWindowSeconds && input.movementWindowSeconds > 0
+      ? divideDecimalStrings(
+          movement.value,
+          String(input.movementWindowSeconds) as DecimalString,
+        )
+      : ({ ok: true, value: movement.value } as const);
+  if (!velocity.ok) return velocity;
+  const reasonCodes = [
+    ...(movement.value === "0"
+      ? ["NO_MOVEMENT"]
+      : ["MARKET_MOVEMENT_DETECTED"]),
+    ...(stale ? ["STALE_EVIDENCE"] : []),
+    ...(coverage === "MISSING" ? ["INSUFFICIENT_COVERAGE"] : []),
+  ];
   return {
     ok: true,
     value: {
@@ -130,12 +181,16 @@ export function calculateRadar(
       openingOdds: opening.value.value,
       currentOdds: current.value.value,
       movement: movement.value,
-      coverage: input.bookmakerCoverage > 0 ? "AVAILABLE" : "MISSING",
+      coverage,
       freshness: stale ? "STALE" : "FRESH",
-      reasonCodes: [
-        "MARKET_MOVEMENT_DETECTED",
-        ...(stale ? ["STALE_EVIDENCE"] : []),
-      ],
+      reasonCodes,
+      components: {
+        movement: movement.value,
+        velocity: velocity.value,
+        coverage: String(input.bookmakerCoverage) as DecimalString,
+        consensus: String(input.bookmakerCoverage > 0 ? 1 : 0) as DecimalString,
+        divergence: String(input.bookmakersMoving ?? 0) as DecimalString,
+      },
     },
   };
 }

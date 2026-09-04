@@ -131,11 +131,15 @@ async function requireCustomerPageAccess() {
   if (denied) redirect("/sign-in");
 }
 
-export function unavailable() {
+export function unavailable(requestId: string = crypto.randomUUID()) {
   return {
     ok: false as const,
     code: "UNAVAILABLE" as const,
     messageKey: "customerUnavailable",
+    type: "https://velyq.dev/problems/customer-unavailable",
+    title: "Customer data is temporarily unavailable",
+    status: 503 as const,
+    requestId,
   };
 }
 
