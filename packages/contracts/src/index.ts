@@ -4,6 +4,7 @@ import {
   expectedValue,
   parseDecimalString,
   probability,
+  subtractDecimalStrings,
   type DecimalResult,
 } from "@velyq/decimal";
 import type {
@@ -700,6 +701,25 @@ function validateNullableCustomerDecimal(
   if (value !== null) validateCustomerDecimal(value, path, errors, parser);
 }
 
+function fairOddsDecimal(value: string): DecimalResult<unknown> {
+  const parsed = parseDecimalString(value);
+  if (!parsed.ok) return parsed;
+  const difference = subtractDecimalStrings(parsed.value, "1" as DecimalString);
+  if (
+    !difference.ok ||
+    difference.value === "0" ||
+    difference.value.startsWith("-")
+  )
+    return {
+      ok: false,
+      error: {
+        code: "OUT_OF_RANGE",
+        message: "Fair odds must be greater than 1.",
+      },
+    };
+  return parsed;
+}
+
 function validateCustomerMatchInput(input: unknown): string[] {
   const errors: string[] = [];
   if (!isObject(input)) return ["match must be an object"];
@@ -747,7 +767,7 @@ function validateCustomerMatchInput(input: unknown): string[] {
     input["fairOdds"],
     "fairOdds",
     errors,
-    (value) => parseDecimalString(value),
+    (value) => fairOddsDecimal(value),
   );
   validateNullableCustomerDecimal(
     input["currentOdds"],

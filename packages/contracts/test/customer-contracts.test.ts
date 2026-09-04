@@ -83,6 +83,8 @@ describe("customer API contracts", () => {
     ["modelProbability", 0.6],
     ["impliedProbability", "0.50"],
     ["fairOdds", "1.00"],
+    ["fairOdds", "1"],
+    ["fairOdds", "0"],
     ["expectedValue", "Infinity"],
   ] as const)("rejects malformed API decimal %s", (field, value) => {
     const result = validateCustomerMatchDto({ ...validMatch, [field]: value });
