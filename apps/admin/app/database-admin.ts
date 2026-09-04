@@ -1,9 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import {
-  createPrivilegedDatabaseClient,
   DatabasePermissionResolver,
   type PrivilegedVelyqDatabase,
 } from "@velyq/database";
+import { createPrivilegedDatabaseClient } from "@velyq/database/client";
 import {
   adminAuditEvents,
   dataQualityAssessments,
