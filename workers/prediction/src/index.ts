@@ -8,15 +8,19 @@ import {
   type QualityInput,
 } from "@velyq/analytics";
 import type { DecimalString } from "@velyq/decimal";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   DatabaseJobRepository,
   DatabasePredictionObservationReader,
   DatabasePredictionRepository,
   DatabaseQualityRepository,
+  DatabaseScoreRepository,
   type PrivilegedVelyqDatabase,
   calibrationVersions,
+  dataQualityAssessments,
   modelVersions,
+  oddsObservations,
+  predictions,
 } from "@velyq/database";
 import {
   validateJob,
@@ -290,6 +294,7 @@ export type ScoreWriteInput = Readonly<{
   scoreDefinitionVersionId: string;
   asOf: string;
   score: DecimalString;
+  predictionId?: string;
   validationStatus: "DEVELOPMENT_HEURISTIC";
   components: Readonly<Record<string, string>>;
   reasonCodes: readonly string[];
@@ -298,6 +303,9 @@ export type ScoreWriteInput = Readonly<{
     currentObservationId: string;
     openingOdds: DecimalString;
     currentOdds: DecimalString;
+    bookmakersObserved: number;
+    bookmakersMoving: number;
+    movementWindowSeconds: number;
   }>;
 }>;
 
@@ -313,12 +321,119 @@ export interface EdgeInputReader {
   }> | null>;
 }
 
+export class DatabaseEdgeInputReader implements EdgeInputReader {
+  constructor(private readonly database: PrivilegedVelyqDatabase) {}
+
+  async getInput(input: CalculateEdgePayload) {
+    const [row] = await this.database
+      .select({ prediction: predictions, quality: dataQualityAssessments })
+      .from(predictions)
+      .innerJoin(
+        dataQualityAssessments,
+        eq(predictions.dataQualityAssessmentId, dataQualityAssessments.id),
+      )
+      .where(eq(predictions.id, input.predictionId))
+      .limit(1);
+    if (
+      !row ||
+      row.prediction.eventMarketOutcomeId !== input.eventMarketOutcomeId ||
+      !row.prediction.edge ||
+      !row.prediction.expectedValue
+    )
+      return null;
+    return {
+      probabilityEdge: row.prediction.edge as DecimalString,
+      expectedValue: row.prediction.expectedValue as DecimalString,
+      qualityScore: row.quality.numericScore as DecimalString,
+    };
+  }
+}
+
+export class DatabaseRadarInputReader implements RadarInputReader {
+  constructor(private readonly database: PrivilegedVelyqDatabase) {}
+
+  async getInput(input: CalculateRadarPayload) {
+    const rows = await this.database
+      .select()
+      .from(oddsObservations)
+      .where(
+        and(
+          eq(oddsObservations.eventMarketOutcomeId, input.eventMarketOutcomeId),
+          inArray(oddsObservations.id, [
+            input.openingObservationId,
+            input.currentObservationId,
+          ]),
+        ),
+      );
+    const opening = rows.find((row) => row.id === input.openingObservationId);
+    const current = rows.find((row) => row.id === input.currentObservationId);
+    if (!opening || !current) return null;
+    return {
+      openingOdds: opening.decimalOdds as DecimalString,
+      currentOdds: current.decimalOdds as DecimalString,
+      bookmakerCoverage: new Set(rows.map((row) => row.bookmakerId)).size,
+      observedAt: current.providerObservedAt.toISOString(),
+      openingObservedAt: opening.providerObservedAt.toISOString(),
+    };
+  }
+}
+
+export class DatabaseScoreWriter implements ScoreWriter {
+  private readonly scores: DatabaseScoreRepository;
+  private readonly quality: DatabaseQualityRepository;
+
+  constructor(private readonly database: PrivilegedVelyqDatabase) {
+    this.scores = new DatabaseScoreRepository(database);
+    this.quality = new DatabaseQualityRepository(database);
+  }
+
+  async append(input: ScoreWriteInput): Promise<void> {
+    const quality = await this.quality.getLatestAsOf(
+      input.eventId,
+      new Date(input.asOf),
+      input.eventMarketOutcomeId,
+    );
+    if (!quality) throw new Error("QUALITY_ASSESSMENT_MISSING");
+    const scoreInput = {
+      scoreDefinitionVersionId: input.scoreDefinitionVersionId,
+      predictionId: input.predictionId ?? null,
+      eventMarketOutcomeId: input.eventMarketOutcomeId,
+      dataQualityAssessmentId: quality.id,
+      asOf: new Date(input.asOf),
+      score: input.score,
+      components: input.components,
+      weights: { mode: "IDENTITY", validationStatus: input.validationStatus },
+      capsPenalties: {},
+      reasonCodes: input.reasonCodes,
+      idempotencyKey: `score:${input.jobId}`,
+      createdAt: new Date(input.asOf),
+    } as const;
+    if (!input.radarEvidence) {
+      await this.scores.append(scoreInput);
+      return;
+    }
+    await this.scores.appendWithRadarEvidence(scoreInput, {
+      openingObservationId: input.radarEvidence.openingObservationId,
+      currentObservationId: input.radarEvidence.currentObservationId,
+      supportingObservationIds: [
+        input.radarEvidence.openingObservationId,
+        input.radarEvidence.currentObservationId,
+      ],
+      bookmakersObserved: input.radarEvidence.bookmakersObserved,
+      bookmakersMoving: input.radarEvidence.bookmakersMoving,
+      movementWindowSeconds: input.radarEvidence.movementWindowSeconds,
+      observableMetrics: input.components,
+    });
+  }
+}
+
 export interface RadarInputReader {
   getInput(input: CalculateRadarPayload): Promise<Readonly<{
     openingOdds: DecimalString;
     currentOdds: DecimalString;
     bookmakerCoverage: number;
     observedAt: string;
+    openingObservedAt?: string;
   }> | null>;
 }
 
@@ -345,6 +460,7 @@ export async function consumeQueuedEdgeJob(
     scoreDefinitionVersionId: payload.scoreDefinitionVersionId,
     asOf: payload.asOf,
     score: result.value.score,
+    predictionId: payload.predictionId,
     validationStatus: result.value.validationStatus,
     components: result.value.components,
     reasonCodes: result.value.reasonCodes,
@@ -376,7 +492,9 @@ export async function consumeQueuedRadarJob(
     eventMarketOutcomeId: payload.eventMarketOutcomeId,
     scoreDefinitionVersionId: payload.scoreDefinitionVersionId,
     asOf: payload.asOf,
-    score: result.value.movement,
+    score: (result.value.movement.startsWith("-")
+      ? result.value.movement.slice(1)
+      : result.value.movement) as DecimalString,
     validationStatus: result.value.validationStatus,
     components: {
       openingOdds: result.value.openingOdds,
@@ -389,6 +507,21 @@ export async function consumeQueuedRadarJob(
       currentObservationId: payload.currentObservationId,
       openingOdds: result.value.openingOdds,
       currentOdds: result.value.currentOdds,
+      bookmakersObserved: input.bookmakerCoverage,
+      bookmakersMoving:
+        result.value.openingOdds === result.value.currentOdds
+          ? 0
+          : input.bookmakerCoverage,
+      movementWindowSeconds: input.openingObservedAt
+        ? Math.max(
+            0,
+            Math.floor(
+              (Date.parse(input.observedAt) -
+                Date.parse(input.openingObservedAt)) /
+                1000,
+            ),
+          )
+        : 0,
     },
   };
   await writer.append(output);

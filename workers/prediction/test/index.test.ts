@@ -267,6 +267,7 @@ describe("prediction worker", () => {
       writer,
     );
     expect(edge.validationStatus).toBe("DEVELOPMENT_HEURISTIC");
+    expect(edge.predictionId).toBe("prediction-1");
     expect(writes).toHaveLength(1);
 
     const radarJob = {
@@ -296,6 +297,8 @@ describe("prediction worker", () => {
       writer,
     );
     expect(radar.radarEvidence?.openingObservationId).toBe("opening-1");
+    expect(radar.radarEvidence?.bookmakersObserved).toBe(2);
+    expect(radar.radarEvidence?.bookmakersMoving).toBe(2);
     expect(writes).toHaveLength(2);
   });
 });
