@@ -88,9 +88,7 @@ export class DatabaseJobRepository {
         .returning();
       void workerId;
       const job = updated[0] as unknown as Job | undefined;
-      return job
-        ? { job, leaseExpiresAt: leaseUntil.toISOString() }
-        : null;
+      return job ? { job, leaseExpiresAt: leaseUntil.toISOString() } : null;
     });
   }
 
