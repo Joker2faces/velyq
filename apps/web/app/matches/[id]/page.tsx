@@ -8,9 +8,16 @@ export default async function Match({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const match = await loadCustomerMatch(id);
-  if (!match)
-    return <CustomerShell>Match intelligence is not available.</CustomerShell>;
+  const result = await loadCustomerMatch(id);
+  if (!result.ok)
+    return (
+      <CustomerShell>
+        {result.code === "NOT_FOUND"
+          ? "Match not found."
+          : "Customer data is temporarily unavailable."}
+      </CustomerShell>
+    );
+  const match = result.value;
   const recommendation = match.recommendation.replaceAll("_", " ");
   const context =
     match.recommendation === "STRONG_EDGE"

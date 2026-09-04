@@ -1,4 +1,7 @@
-import { MappedCustomerQueryService } from "@velyq/application";
+import {
+  MappedCustomerQueryService,
+  type CustomerReadResult,
+} from "@velyq/application";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import {
@@ -103,16 +106,14 @@ export function customerService() {
 
 export async function loadCustomerToday() {
   const service = customerService();
-  if (!service) return null;
-  const result = await service.getToday(new Date());
-  return result.ok ? result.value : null;
+  if (!service) return unavailable() as CustomerReadResult<CustomerTodayDto>;
+  return service.getToday(new Date());
 }
 
 export async function loadCustomerMatch(eventId: string) {
   const service = customerService();
-  if (!service) return null;
-  const result = await service.getMatch(eventId, new Date());
-  return result.ok ? result.value : null;
+  if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
+  return service.getMatch(eventId, new Date());
 }
 
 export function unavailable() {

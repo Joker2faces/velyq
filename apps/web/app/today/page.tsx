@@ -3,11 +3,12 @@ import { loadCustomerToday } from "../customer-runtime";
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { formatPercent } from "@velyq/ui";
 export default async function Today() {
-  const customerToday = await loadCustomerToday();
-  if (!customerToday)
+  const result = await loadCustomerToday();
+  if (!result.ok)
     return (
       <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
     );
+  const customerToday = result.value;
   const [primary, lineupWatch] = customerToday.matches;
   if (!primary) {
     return <CustomerShell>Data is not available.</CustomerShell>;
