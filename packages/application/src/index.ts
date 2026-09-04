@@ -22,6 +22,64 @@ export interface CustomerReadRepository {
   ): Promise<CustomerMatchDto | null> | CustomerMatchDto | null;
 }
 
+export type CustomerReadResult<T> =
+  | Readonly<{ ok: true; value: T }>
+  | Readonly<{
+      ok: false;
+      code: "NOT_FOUND" | "UNAVAILABLE";
+      messageKey: string;
+    }>;
+
+export interface CustomerReadModelPort<TRaw> {
+  getToday(asOf: Date): Promise<TRaw>;
+  getMatch(eventId: string, asOf: Date): Promise<TRaw | null>;
+}
+
+export interface CustomerReadModelMapper<TRaw, TDto> {
+  mapToday(raw: TRaw): TDto;
+  mapMatch(raw: TRaw): TDto;
+}
+
+export class MappedCustomerQueryService<TRaw, TDto> {
+  constructor(
+    private readonly repository: CustomerReadModelPort<TRaw>,
+    private readonly mapper: CustomerReadModelMapper<TRaw, TDto>,
+  ) {}
+
+  async getToday(asOf: Date): Promise<CustomerReadResult<TDto>> {
+    try {
+      return {
+        ok: true,
+        value: this.mapper.mapToday(await this.repository.getToday(asOf)),
+      };
+    } catch {
+      return {
+        ok: false,
+        code: "UNAVAILABLE",
+        messageKey: "customerUnavailable",
+      };
+    }
+  }
+
+  async getMatch(
+    eventId: string,
+    asOf: Date,
+  ): Promise<CustomerReadResult<TDto>> {
+    try {
+      const raw = await this.repository.getMatch(eventId, asOf);
+      return raw
+        ? { ok: true, value: this.mapper.mapMatch(raw) }
+        : { ok: false, code: "NOT_FOUND", messageKey: "matchNotFound" };
+    } catch {
+      return {
+        ok: false,
+        code: "UNAVAILABLE",
+        messageKey: "customerUnavailable",
+      };
+    }
+  }
+}
+
 export class CustomerQueryService {
   constructor(private readonly repository: CustomerReadRepository) {}
 
