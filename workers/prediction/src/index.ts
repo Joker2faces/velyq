@@ -8,6 +8,16 @@ import {
   type QualityInput,
 } from "@velyq/analytics";
 import type { DecimalString } from "@velyq/decimal";
+import { and, eq } from "drizzle-orm";
+import {
+  DatabaseJobRepository,
+  DatabasePredictionObservationReader,
+  DatabasePredictionRepository,
+  DatabaseQualityRepository,
+  type PrivilegedVelyqDatabase,
+  calibrationVersions,
+  modelVersions,
+} from "@velyq/database";
 import {
   validateJob,
   type Job,
@@ -111,6 +121,130 @@ export type PredictionWorkerResult = Readonly<{
   jobId: string | null;
   errorCode?: string;
 }>;
+
+/** Durable production handler: calculates from persisted lineage and appends the result transactionally. */
+export class DatabasePredictionJobHandler {
+  private readonly observations: DatabasePredictionObservationReader;
+  private readonly predictions: DatabasePredictionRepository;
+  private readonly quality: DatabaseQualityRepository;
+
+  constructor(private readonly database: PrivilegedVelyqDatabase) {
+    this.observations = new DatabasePredictionObservationReader(database);
+    this.predictions = new DatabasePredictionRepository(database);
+    this.quality = new DatabaseQualityRepository(database);
+  }
+
+  async handle(job: Job): Promise<void> {
+    const validation = validateJob(job);
+    if (!validation.ok || job.type !== "GENERATE_PREDICTION")
+      throw new Error("INVALID_GENERATE_PREDICTION_JOB");
+    const payload = job.payload as PredictionInput;
+    const observations = await this.observations.getByIds(
+      payload.sourceObservationIds,
+    );
+    if (observations.length !== payload.sourceObservationIds.length)
+      throw new Error("PREDICTION_INPUTS_MISSING");
+    const computed = generatePrediction(
+      {
+        id: job.id,
+        idempotencyKey: job.idempotencyKey,
+        createdAt: job.createdAt,
+        correlationId: job.correlationId,
+        causationId: job.causationId,
+        payload,
+      },
+      new InMemoryPredictionRepository(),
+    ).prediction;
+    const quality = await this.quality.getLatestAsOf(
+      payload.eventId,
+      new Date(payload.featureCutoff),
+      payload.eventMarketOutcomeId,
+    );
+    if (!quality) throw new Error("QUALITY_ASSESSMENT_MISSING");
+    const [model] = await this.database
+      .select()
+      .from(modelVersions)
+      .where(eq(modelVersions.version, payload.modelVersion))
+      .limit(1);
+    const [calibration] = await this.database
+      .select()
+      .from(calibrationVersions)
+      .where(
+        and(
+          eq(calibrationVersions.version, payload.calibrationVersion),
+          model ? eq(calibrationVersions.modelVersionId, model.id) : undefined,
+        ),
+      )
+      .limit(1);
+    if (!model || !calibration) throw new Error("MODEL_CALIBRATION_MISSING");
+    await this.predictions.append({
+      run: {
+        modelVersionId: model.id,
+        calibrationVersionId: calibration.id,
+        eventId: payload.eventId,
+        featureCutoff: new Date(payload.featureCutoff),
+        status: "COMPLETED",
+        startedAt: new Date(job.createdAt),
+        completedAt: new Date(job.createdAt),
+        triggerJobId: job.id,
+      },
+      prediction: {
+        eventMarketOutcomeId: computed.eventMarketOutcomeId,
+        dataQualityAssessmentId: quality.id,
+        marketPriceObservationId: null,
+        decisionStatus: computed.decisionStatus,
+        modelProbability: computed.modelProbability,
+        confidence: computed.confidence,
+        fairOdds: computed.fairOdds,
+        marketImpliedProbability: computed.marketImpliedProbability,
+        edge: computed.edge,
+        expectedValue: computed.expectedValue,
+        reasonCodes: computed.reasonCodes,
+        structuredReasons: {
+          quality: computed.quality,
+          trace: computed.trace,
+        },
+        createdAt: new Date(computed.createdAt),
+      },
+      inputs: payload.sourceObservationIds.map((sourceObservationId) => ({
+        sourceObservationId,
+        inputRole: "ODDS",
+        createdAt: new Date(job.createdAt),
+      })),
+    });
+  }
+}
+
+export async function runDurablePredictionJobOnce(
+  config: Readonly<{
+    database: PrivilegedVelyqDatabase;
+    workerId: string;
+    now: Date;
+    leaseDurationMs: number;
+  }>,
+): Promise<PredictionWorkerResult> {
+  const queue = new DatabaseJobRepository(config.database);
+  const lease = await queue.leaseNext(
+    config.workerId,
+    config.now,
+    new Date(config.now.getTime() + config.leaseDurationMs),
+  );
+  if (!lease) return { leased: false, status: "IDLE", jobId: null };
+  try {
+    await new DatabasePredictionJobHandler(config.database).handle(lease.job);
+    await queue.complete(lease.job.id, config.now);
+    return { leased: true, status: "COMPLETED", jobId: lease.job.id };
+  } catch (error) {
+    const errorCode =
+      error instanceof Error ? error.message : "PREDICTION_FAILED";
+    await queue.fail(
+      lease.job.id,
+      { code: errorCode, message: "Prediction job processing failed." },
+      config.now,
+    );
+    return { leased: true, status: "FAILED", jobId: lease.job.id, errorCode };
+  }
+}
 
 /**
  * Processes one durable queue lease. No in-memory repository is created here:

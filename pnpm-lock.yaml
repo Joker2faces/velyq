@@ -80,12 +80,12 @@ importers:
 
   apps/web:
     dependencies:
-      "@velyq/auth":
-        specifier: workspace:*
-        version: link:../../packages/auth
       "@velyq/application":
         specifier: workspace:*
         version: link:../../packages/application
+      "@velyq/auth":
+        specifier: workspace:*
+        version: link:../../packages/auth
       "@velyq/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -235,9 +235,15 @@ importers:
       "@velyq/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
+      "@velyq/database":
+        specifier: workspace:*
+        version: link:../../packages/database
       "@velyq/decimal":
         specifier: workspace:*
         version: link:../../packages/decimal
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
 
 packages:
   "@drizzle-team/brocli@0.10.2":

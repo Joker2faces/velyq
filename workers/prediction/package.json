@@ -9,11 +9,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run test/index.test.ts"
+    "test": "vitest run test/index.test.ts",
+    "run:once": "node dist/src/cli.js"
   },
   "dependencies": {
     "@velyq/analytics": "workspace:*",
     "@velyq/contracts": "workspace:*",
-    "@velyq/decimal": "workspace:*"
+    "@velyq/database": "workspace:*",
+    "@velyq/decimal": "workspace:*",
+    "drizzle-orm": "0.45.2"
   }
 }

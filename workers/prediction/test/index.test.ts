@@ -7,6 +7,7 @@ import {
   processPredictionJobOnce,
   consumeQueuedEdgeJob,
   consumeQueuedRadarJob,
+  DatabasePredictionJobHandler,
   type PredictionJob,
 } from "../src/index.js";
 import type { DecimalString } from "@velyq/decimal";
@@ -46,6 +47,13 @@ function job(overrides: Partial<PredictionJob["payload"]> = {}): PredictionJob {
 }
 
 describe("prediction worker", () => {
+  it("rejects invalid jobs before touching the durable database", async () => {
+    const handler = new DatabasePredictionJobHandler({} as never);
+    await expect(
+      handler.handle({ type: "CALCULATE_EDGE" } as never),
+    ).rejects.toThrow("INVALID_GENERATE_PREDICTION_JOB");
+  });
+
   it("generates deterministic value metrics and trace metadata", () => {
     const repository = new InMemoryPredictionRepository();
     const result = consumePredictionJob(job(), repository);
