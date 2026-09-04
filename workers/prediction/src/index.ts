@@ -1,6 +1,8 @@
 import {
   assessDataQuality,
   calculateValue,
+  calculateEdge,
+  calculateRadar,
   decideRecommendation,
   type DataQualityAssessment,
   type QualityInput,
@@ -9,6 +11,8 @@ import type { DecimalString } from "@velyq/decimal";
 import {
   validateJob,
   type Job,
+  type CalculateEdgePayload,
+  type CalculateRadarPayload,
   type RecommendationStatus,
 } from "@velyq/contracts";
 
@@ -143,6 +147,118 @@ export async function processPredictionJobOnce(
     );
     return { leased: true, status: "FAILED", jobId: lease.job.id, errorCode };
   }
+}
+
+export type ScoreWriteInput = Readonly<{
+  jobId: string;
+  eventId: string;
+  eventMarketOutcomeId: string;
+  scoreDefinitionVersionId: string;
+  asOf: string;
+  score: DecimalString;
+  validationStatus: "DEVELOPMENT_HEURISTIC";
+  components: Readonly<Record<string, string>>;
+  reasonCodes: readonly string[];
+  radarEvidence?: Readonly<{
+    openingObservationId: string;
+    currentObservationId: string;
+    openingOdds: DecimalString;
+    currentOdds: DecimalString;
+  }>;
+}>;
+
+export interface ScoreWriter {
+  append(input: ScoreWriteInput): Promise<void>;
+}
+
+export interface EdgeInputReader {
+  getInput(input: CalculateEdgePayload): Promise<Readonly<{
+    probabilityEdge: DecimalString;
+    expectedValue: DecimalString;
+    qualityScore: DecimalString;
+  }> | null>;
+}
+
+export interface RadarInputReader {
+  getInput(input: CalculateRadarPayload): Promise<Readonly<{
+    openingOdds: DecimalString;
+    currentOdds: DecimalString;
+    bookmakerCoverage: number;
+    observedAt: string;
+  }> | null>;
+}
+
+export async function consumeQueuedEdgeJob(
+  job: Job,
+  reader: EdgeInputReader,
+  writer: ScoreWriter,
+): Promise<ScoreWriteInput> {
+  const validation = validateJob(job);
+  if (!validation.ok || job.type !== "CALCULATE_EDGE")
+    throw new Error("INVALID_CALCULATE_EDGE_JOB");
+  const payload = job.payload as CalculateEdgePayload;
+  const input = await reader.getInput(payload);
+  if (!input) throw new Error("EDGE_INPUTS_MISSING");
+  const result = calculateEdge({
+    ...input,
+    scoreVersion: payload.scoreDefinitionVersionId,
+  });
+  if (!result.ok) throw new Error("EDGE_CALCULATION_FAILED");
+  const output: ScoreWriteInput = {
+    jobId: job.id,
+    eventId: payload.eventId,
+    eventMarketOutcomeId: payload.eventMarketOutcomeId,
+    scoreDefinitionVersionId: payload.scoreDefinitionVersionId,
+    asOf: payload.asOf,
+    score: result.value.score,
+    validationStatus: result.value.validationStatus,
+    components: result.value.components,
+    reasonCodes: result.value.reasonCodes,
+  };
+  await writer.append(output);
+  return output;
+}
+
+export async function consumeQueuedRadarJob(
+  job: Job,
+  reader: RadarInputReader,
+  writer: ScoreWriter,
+): Promise<ScoreWriteInput> {
+  const validation = validateJob(job);
+  if (!validation.ok || job.type !== "CALCULATE_RADAR")
+    throw new Error("INVALID_CALCULATE_RADAR_JOB");
+  const payload = job.payload as CalculateRadarPayload;
+  const input = await reader.getInput(payload);
+  if (!input) throw new Error("RADAR_INPUTS_MISSING");
+  const result = calculateRadar({
+    ...input,
+    asOf: payload.asOf,
+    scoreVersion: payload.scoreDefinitionVersionId,
+  });
+  if (!result.ok) throw new Error("RADAR_CALCULATION_FAILED");
+  const output: ScoreWriteInput = {
+    jobId: job.id,
+    eventId: payload.eventId,
+    eventMarketOutcomeId: payload.eventMarketOutcomeId,
+    scoreDefinitionVersionId: payload.scoreDefinitionVersionId,
+    asOf: payload.asOf,
+    score: result.value.movement,
+    validationStatus: result.value.validationStatus,
+    components: {
+      openingOdds: result.value.openingOdds,
+      currentOdds: result.value.currentOdds,
+      movement: result.value.movement,
+    },
+    reasonCodes: result.value.reasonCodes,
+    radarEvidence: {
+      openingObservationId: payload.openingObservationId,
+      currentObservationId: payload.currentObservationId,
+      openingOdds: result.value.openingOdds,
+      currentOdds: result.value.currentOdds,
+    },
+  };
+  await writer.append(output);
+  return output;
 }
 
 export async function consumeQueuedPredictionJobWithInputs(

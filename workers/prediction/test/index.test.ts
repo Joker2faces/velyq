@@ -5,6 +5,8 @@ import {
   consumeQueuedPredictionJobWithInputs,
   InMemoryPredictionRepository,
   processPredictionJobOnce,
+  consumeQueuedEdgeJob,
+  consumeQueuedRadarJob,
   type PredictionJob,
 } from "../src/index.js";
 import type { DecimalString } from "@velyq/decimal";
@@ -217,5 +219,75 @@ describe("prediction worker", () => {
       "complete:job-prediction-1",
       "fail:job-prediction-1",
     ]);
+  });
+
+  it("orchestrates validated EDGE and RADAR jobs through the score writer", async () => {
+    const writes: unknown[] = [];
+    const writer = {
+      append: async (value: unknown) => void writes.push(value),
+    };
+    const edgeJob = {
+      ...job(),
+      id: "edge-job",
+      type: "CALCULATE_EDGE" as const,
+      contractVersion: "CALCULATE_EDGE.v1" as const,
+      status: "PENDING" as const,
+      attemptCount: 0,
+      maxAttempts: 3,
+      availableAt: "2026-09-03T11:00:00.000Z",
+      leaseExpiresAt: null,
+      lastError: null,
+      startedAt: null,
+      completedAt: null,
+      payload: {
+        eventId: "event-1",
+        eventMarketOutcomeId: "outcome-1",
+        predictionId: "prediction-1",
+        scoreDefinitionVersionId: "edge.v1",
+        asOf: "2026-09-03T11:00:00.000Z",
+      },
+    };
+    const edge = await consumeQueuedEdgeJob(
+      edgeJob,
+      {
+        getInput: async () => ({
+          probabilityEdge: asDecimal("0.1"),
+          expectedValue: asDecimal("0.2"),
+          qualityScore: asDecimal("1"),
+        }),
+      },
+      writer,
+    );
+    expect(edge.validationStatus).toBe("DEVELOPMENT_HEURISTIC");
+    expect(writes).toHaveLength(1);
+
+    const radarJob = {
+      ...edgeJob,
+      id: "radar-job",
+      type: "CALCULATE_RADAR" as const,
+      contractVersion: "CALCULATE_RADAR.v1" as const,
+      payload: {
+        eventId: "event-1",
+        eventMarketOutcomeId: "outcome-1",
+        scoreDefinitionVersionId: "radar.v1",
+        openingObservationId: "opening-1",
+        currentObservationId: "current-1",
+        asOf: "2026-09-03T11:00:00.000Z",
+      },
+    };
+    const radar = await consumeQueuedRadarJob(
+      radarJob,
+      {
+        getInput: async () => ({
+          openingOdds: asDecimal("2"),
+          currentOdds: asDecimal("1.8"),
+          bookmakerCoverage: 2,
+          observedAt: "2026-09-03T10:55:00.000Z",
+        }),
+      },
+      writer,
+    );
+    expect(radar.radarEvidence?.openingObservationId).toBe("opening-1");
+    expect(writes).toHaveLength(2);
   });
 });
