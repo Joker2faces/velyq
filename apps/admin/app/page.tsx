@@ -5,7 +5,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { runtime, authentication } = await getAdminContext("admin.access");
-  if (!runtime) return authentication ? <SignIn /> : <Unavailable />;
+  if (!runtime) {
+    if (authentication && "principal" in authentication) return <Denied />;
+    return authentication ? <SignIn /> : <Unavailable />;
+  }
   try {
     const runs = await runtime.queries.listProviderRuns({
       limit: 8,
@@ -149,6 +152,20 @@ function SignIn() {
           <button type="submit">Continue to admin</button>
         </form>
         <small>Admin permission is required after authentication.</small>
+      </div>
+    </main>
+  );
+}
+function Denied() {
+  return (
+    <main className="auth-page">
+      <div className="auth-card">
+        <p className="eyebrow">VELYQ // ADMIN STAGING</p>
+        <h1>Access denied.</h1>
+        <p>
+          Your Supabase identity is valid, but the required VELYQ admin
+          permission is not assigned.
+        </p>
       </div>
     </main>
   );
