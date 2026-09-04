@@ -146,7 +146,48 @@ export function adminProblemResponse(details: AdminProblemDetails) {
 }
 
 export function adminRequestId(request: Request) {
-  return request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const value = request.headers.get("x-request-id");
+  return value && /^[A-Za-z0-9._:-]{1,128}$/.test(value)
+    ? value
+    : crypto.randomUUID();
+}
+
+export function adminRedirectUrl(request: Request, pathname: string) {
+  const configured = process.env["VELYQ_APPLICATION_ORIGIN"]?.trim();
+  if (configured) {
+    try {
+      const origin = new URL(configured);
+      if (
+        (origin.protocol === "https:" || origin.protocol === "http:") &&
+        !origin.username &&
+        !origin.password
+      )
+        return new URL(pathname, origin.origin);
+    } catch {
+      // A malformed configured origin must fail closed.
+    }
+    return null;
+  }
+  try {
+    const requestOrigin = new URL(request.headers.get("origin") ?? request.url);
+    const originIsLocal =
+      requestOrigin.hostname === "localhost" ||
+      requestOrigin.hostname === "127.0.0.1" ||
+      requestOrigin.hostname === "[::1]";
+    const incoming = originIsLocal ? requestOrigin : new URL(request.url);
+    const localOrigin =
+      incoming.hostname === "localhost" ||
+      incoming.hostname === "127.0.0.1" ||
+      incoming.hostname === "[::1]";
+    const trustedEnvironment =
+      process.env["NODE_ENV"] !== "production" || localOrigin;
+    return trustedEnvironment &&
+      (incoming.protocol === "https:" || incoming.protocol === "http:")
+      ? new URL(pathname, incoming.origin)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function hasPermission(principal: Principal, permission: PermissionCode) {

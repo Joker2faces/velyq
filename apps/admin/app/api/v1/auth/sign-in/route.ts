@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { adminRedirectUrl, adminRequestId } from "../../../../admin-api";
 
 export async function POST(request: Request) {
   const form = await request.formData();
   const email = form.get("email");
   const password = form.get("password");
-  const requestId = crypto.randomUUID();
+  const requestId = adminRequestId(request);
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -43,7 +44,13 @@ export async function POST(request: Request) {
       { code: "AUTH_PROVIDER_RESPONSE_INVALID", requestId },
       { status: 502, headers: { "content-type": "application/problem+json" } },
     );
-  const next = NextResponse.redirect(new URL("/", request.url));
+  const redirect = adminRedirectUrl(request, "/");
+  if (!redirect)
+    return NextResponse.json(
+      { code: "APPLICATION_ORIGIN_NOT_CONFIGURED", requestId },
+      { status: 503, headers: { "content-type": "application/problem+json" } },
+    );
+  const next = NextResponse.redirect(redirect);
   next.cookies.set("velyq_access_token", tokens.access_token, {
     httpOnly: true,
     secure: true,

@@ -11,7 +11,7 @@ import {
 import { customerToday } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireCustomerSession } from "./api/auth";
+import { customerFixtureMode, requireCustomerSession } from "./api/auth";
 
 type CustomerService = {
   getToday: (asOf: Date) => Promise<
@@ -101,10 +101,7 @@ export function customerService() {
   if (database) {
     return databaseService(database);
   }
-  return process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true" ||
-    process.env["NODE_ENV"] !== "production"
-    ? fixtureService
-    : null;
+  return customerFixtureMode() ? fixtureService : null;
 }
 
 export async function loadCustomerToday() {
@@ -122,7 +119,7 @@ export async function loadCustomerMatch(eventId: string) {
 }
 
 async function requireCustomerPageAccess() {
-  if (!process.env["VELYQ_DATABASE_URL"]) return;
+  if (!process.env["VELYQ_DATABASE_URL"] && customerFixtureMode()) return;
   const cookieHeader = (await cookies()).toString();
   const request = new Request("https://velyq.local/customer", {
     headers: { cookie: cookieHeader },

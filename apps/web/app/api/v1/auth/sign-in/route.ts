@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { customerRedirectUrl, requestId } from "../../../auth";
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
         title: "Invalid sign-in request",
         status: 400,
         code: "INVALID_REQUEST",
-        requestId: crypto.randomUUID(),
+        requestId: requestId(request),
       },
       { status: 400 },
     );
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
         title: "Authentication is not configured",
         status: 503,
         code: "AUTH_NOT_CONFIGURED",
-        requestId: crypto.randomUUID(),
+        requestId: requestId(request),
       },
       { status: 503 },
     );
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
         title: "Sign-in failed",
         status: 401,
         code: "INVALID_CREDENTIALS",
-        requestId: crypto.randomUUID(),
+        requestId: requestId(request),
       },
       { status: 401 },
     );
@@ -63,11 +64,23 @@ export async function POST(request: Request) {
         title: "Authentication provider response was incomplete",
         status: 502,
         code: "AUTH_PROVIDER_RESPONSE_INVALID",
-        requestId: crypto.randomUUID(),
+        requestId: requestId(request),
       },
       { status: 502 },
     );
-  const next = NextResponse.redirect(new URL("/today", request.url));
+  const redirect = customerRedirectUrl(request, "/today");
+  if (!redirect)
+    return NextResponse.json(
+      {
+        type: "https://velyq.dev/problems/not-configured",
+        title: "Application origin is not configured",
+        status: 503,
+        code: "APPLICATION_ORIGIN_NOT_CONFIGURED",
+        requestId: requestId(request),
+      },
+      { status: 503 },
+    );
+  const next = NextResponse.redirect(redirect);
   next.cookies.set("velyq_access_token", tokens.access_token, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",

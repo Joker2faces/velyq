@@ -14,7 +14,46 @@ export function getCookie(request: Request, name: string) {
 }
 
 export function requestId(request: Request) {
-  return request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const value = request.headers.get("x-request-id");
+  return value && /^[A-Za-z0-9._:-]{1,128}$/.test(value)
+    ? value
+    : crypto.randomUUID();
+}
+
+export function customerFixtureMode() {
+  return (
+    process.env["NODE_ENV"] !== "production" ||
+    process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true"
+  );
+}
+
+export function customerRedirectUrl(request: Request, pathname: string) {
+  const configured = process.env["VELYQ_APPLICATION_ORIGIN"]?.trim();
+  if (configured) {
+    try {
+      const origin = new URL(configured);
+      if (
+        (origin.protocol === "https:" || origin.protocol === "http:") &&
+        !origin.username &&
+        !origin.password
+      ) {
+        return new URL(pathname, origin.origin);
+      }
+    } catch {
+      // A malformed configured origin is never replaced by request-controlled input.
+    }
+    return null;
+  }
+
+  if (!customerFixtureMode()) return null;
+  try {
+    const incoming = new URL(request.headers.get("origin") ?? request.url);
+    return incoming.protocol === "https:" || incoming.protocol === "http:"
+      ? new URL(pathname, incoming.origin)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function requireCustomerSession(request: Request) {
@@ -31,18 +70,24 @@ export async function requireCustomerSession(request: Request) {
         const user = (await response.json()) as { id?: string };
         if (!user.id) return unauthorized(request);
         const databaseUrl = process.env["VELYQ_DATABASE_URL"];
-        if (!databaseUrl) return null;
-        const client = createPrivilegedDatabaseClient({
-          connectionString: databaseUrl,
-        });
+        if (!databaseUrl)
+          return customerFixtureMode()
+            ? null
+            : authorizationUnavailable(request);
+        let client: ReturnType<typeof createPrivilegedDatabaseClient>;
         try {
+          client = createPrivilegedDatabaseClient({
+            connectionString: databaseUrl,
+          });
           const principal = await new DatabasePermissionResolver(
             client.database,
           ).resolve(user.id);
           if (hasPermission(principal, "customer.read")) return null;
           return forbidden(request);
+        } catch {
+          return authorizationUnavailable(request);
         } finally {
-          await client.close();
+          if (client!) await client.close().catch(() => undefined);
         }
       }
     } catch {
@@ -76,4 +121,33 @@ function forbidden(request: Request) {
     },
     { status: 403 },
   );
+}
+
+function authorizationUnavailable(request: Request) {
+  return NextResponse.json(
+    {
+      type: "https://velyq.dev/problems/authorization-unavailable",
+      title: "Authorization is temporarily unavailable",
+      status: 503,
+      code: "AUTHORIZATION_UNAVAILABLE",
+      requestId: requestId(request),
+    },
+    { status: 503 },
+  );
+}
+
+export async function revokeCustomerSupabaseSession(request: Request) {
+  const token = getCookie(request, "velyq_access_token");
+  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
+  const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
+  if (!token || !url || !publishableKey) return;
+  try {
+    await fetch(`${url}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    // Local cookies must still be cleared when provider revocation is unavailable.
+  }
 }
