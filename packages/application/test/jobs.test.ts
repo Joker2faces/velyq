@@ -192,4 +192,46 @@ describe("durable job contract", () => {
       currentOdds: "2",
     });
   });
+
+  it("delegates durable batches and downstream commands to one transaction boundary", async () => {
+    const jobs = new InMemoryJobRepository(clock);
+    const batch = {
+      fixtures: { observations: [], observationWindow: { from: "a", to: "b" } },
+      odds: { observations: [], observationWindow: { from: "a", to: "b" } },
+      lineups: { observations: [], observationWindow: { from: "a", to: "b" } },
+      quarantined: [],
+      scenarios: [],
+    } as never;
+    let calls = 0;
+    const sink = {
+      hasRun: () => false,
+      writeBatch: () => ({ accepted: 0, rejected: 0, duplicate: false }),
+      writeBatchAndEnqueue: async (
+        _batch: unknown,
+        runKey: string,
+        inputs: readonly unknown[],
+      ) => {
+        calls += 1;
+        expect(runKey).toBe(`sequence-atomic:${clock.now()}`);
+        expect(inputs).toHaveLength(0);
+        return {
+          accepted: 0,
+          rejected: 0,
+          duplicate: false,
+          downstreamJobs: [],
+        };
+      },
+    };
+    const result = await ingestProviderSequence({
+      sequenceName: "sequence-atomic",
+      fixedClock: clock.now(),
+      source: { replay: async () => batch },
+      sink,
+      jobs,
+      correlationId: "corr-1",
+      causationId: "cause-1",
+    });
+    expect(calls).toBe(1);
+    expect(result.downstreamJobs).toEqual([]);
+  });
 });

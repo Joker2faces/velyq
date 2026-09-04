@@ -314,6 +314,32 @@ export interface IngestionSink {
     runKey?: string,
   ): Readonly<{ accepted: number; rejected: number; duplicate: boolean }>;
 }
+export type IngestionJobInput = Readonly<{
+  type: Job["type"];
+  idempotencyKey: string;
+  payload: JobPayload;
+  correlationId: string;
+  causationId: string;
+}>;
+/**
+ * Durable adapters implement this method to commit accepted observations and
+ * their downstream commands in one database transaction. The legacy methods
+ * remain available for deterministic in-memory replay tests.
+ */
+export interface TransactionalIngestionSink extends IngestionSink {
+  writeBatchAndEnqueue(
+    batch: IngestionBatch,
+    runKey: string,
+    jobs: readonly IngestionJobInput[],
+  ): Promise<
+    Readonly<{
+      accepted: number;
+      rejected: number;
+      duplicate: boolean;
+      downstreamJobs: readonly Job[];
+    }>
+  >;
+}
 export type IngestionResult = Readonly<{
   accepted: number;
   rejected: number;
@@ -377,11 +403,6 @@ export async function ingestProviderSequence(
     sequenceName: input.sequenceName,
     fixedClock: input.fixedClock,
   });
-  const written = input.sink.writeBatch(
-    batch,
-    `${input.sequenceName}:${input.fixedClock}`,
-  );
-  if (written.duplicate) return { ...written, downstreamJobs: [] };
   const oddsBySourceId = new Map(
     batch.odds.observations.map((observation) => [
       observation.provenance.sourceObservationId,
@@ -394,7 +415,7 @@ export async function ingestProviderSequence(
       observation,
     ]),
   );
-  const downstreamJobs = (batch.scenarios ?? []).map((scenario) => {
+  const downstreamJobInputs = (batch.scenarios ?? []).map((scenario) => {
     const odds = scenario.sourceObservationIds
       .map((id) => oddsBySourceId.get(id))
       .find((observation) => observation !== undefined);
@@ -422,13 +443,29 @@ export async function ingestProviderSequence(
       calibrationVersion: "identity.v1",
       sourceObservationIds: scenario.sourceObservationIds,
     };
-    return input.jobs.enqueue({
+    return {
       type: "GENERATE_PREDICTION",
       idempotencyKey: `prediction:${input.sequenceName}:${scenario.id}`,
       payload,
       correlationId: input.correlationId,
       causationId: input.causationId,
-    });
+    } satisfies IngestionJobInput;
   });
+  const transactionalSink = input.sink as Partial<TransactionalIngestionSink>;
+  if (transactionalSink.writeBatchAndEnqueue) {
+    return transactionalSink.writeBatchAndEnqueue(
+      batch,
+      `${input.sequenceName}:${input.fixedClock}`,
+      downstreamJobInputs,
+    );
+  }
+  const written = input.sink.writeBatch(
+    batch,
+    `${input.sequenceName}:${input.fixedClock}`,
+  );
+  if (written.duplicate) return { ...written, downstreamJobs: [] };
+  const downstreamJobs = downstreamJobInputs.map((job) =>
+    input.jobs.enqueue(job),
+  );
   return { ...written, downstreamJobs };
 }
