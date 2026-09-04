@@ -144,6 +144,7 @@ describe("deterministic Phase 1 seed", () => {
     const sql = seedSql();
 
     for (const requiredValue of [
+      "customer.read",
       "admin.access",
       "provider_runs.read",
       "predictions.trace",
@@ -161,6 +162,9 @@ describe("deterministic Phase 1 seed", () => {
     }
 
     expect(sql).toContain("insert into operations.provider_policy_versions");
+    expect(sql).toContain(
+      "FROM private.permissions\nWHERE code = 'customer.read'",
+    );
     expect(sql).toContain(
       "insert into intelligence.data_quality_policy_versions",
     );
