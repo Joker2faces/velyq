@@ -166,7 +166,7 @@ export class InMemoryProviderRunRepository implements ProviderRunRepository {
     return run;
   }
   complete(input: Parameters<ProviderRunRepository["complete"]>[0]) {
-    const run = this.require(input.runId);
+    this.require(input.runId);
     return this.update(input.runId, {
       status: "COMPLETED",
       normalizedOutputHash: input.normalizedOutputHash,
