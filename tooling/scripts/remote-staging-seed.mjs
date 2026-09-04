@@ -164,7 +164,7 @@ try {
     "radar_evidence",
     "audit_events",
   ]) {
-    if (!new RegExp(`\"${sentinel}\"\\s*:\\s*0\\b`).test(preflight)) {
+    if (!new RegExp(`"${sentinel}"\\s*:\\s*0\\b`).test(preflight)) {
       throw new Error(
         `Refusing to run staging seed: ${sentinel} is not empty.`,
       );
