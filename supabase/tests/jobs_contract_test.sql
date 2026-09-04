@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
 
 SELECT ok(
   (
@@ -104,6 +104,24 @@ SELECT throws_ok(
   '23514',
   NULL,
   'running jobs require a start timestamp'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO operations.jobs (
+      id, type, contract_version, idempotency_key, payload, status,
+      attempt_count, max_attempts, available_at, lease_expires_at,
+      correlation_id, causation_id, created_at, started_at
+    ) VALUES (
+      '70000000-0000-4000-8000-000000000211', 'TEST.v1', 'v1', 'job-running-no-owner', '{}'::jsonb, 'RUNNING',
+      1, 3, '2026-09-03T12:00:00Z', '2026-09-03T12:05:00Z',
+      '70000000-0000-4000-8000-000000000291', '70000000-0000-4000-8000-000000000292',
+      '2026-09-03T12:00:00Z', '2026-09-03T12:01:00Z'
+    )
+  $$,
+  '23514',
+  NULL,
+  'running jobs require a lease owner'
 );
 
 SELECT throws_ok(
