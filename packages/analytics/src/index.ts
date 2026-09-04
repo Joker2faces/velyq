@@ -1,4 +1,5 @@
 import {
+  addDecimalStrings,
   decimalOdds,
   divideDecimalStrings,
   edge,
@@ -188,12 +189,26 @@ export function assessDataQuality(input: QualityInput): DataQualityAssessment {
     ...(input.lineup === "MISSING" ? ["MISSING_LINEUP"] : []),
     ...(input.mappingConfidence === "LOW" ? ["LOW_MAPPING_CONFIDENCE"] : []),
   ];
-  const total = Object.values(components).reduce(
-    (sum, value) => sum + Number(value),
-    0,
+  const total = Object.values(components).reduce<DecimalString>(
+    (sum, value) => {
+      const result = addDecimalStrings(sum, value as DecimalString);
+      if (!result.ok) throw new Error("QUALITY_SCORE_ARITHMETIC_FAILED");
+      return result.value;
+    },
+    "0" as DecimalString,
   );
+  const atLeast = (threshold: DecimalString) => {
+    const result = subtractDecimalStrings(total, threshold);
+    return result.ok && !result.value.startsWith("-");
+  };
   const score =
-    total >= 4.5 ? "1" : total >= 3.5 ? "0.75" : total >= 2.5 ? "0.5" : "0";
+    atLeast("4.5")
+      ? "1"
+      : atLeast("3.5")
+        ? "0.75"
+        : atLeast("2.5")
+          ? "0.5"
+          : "0";
   const grade: QualityGrade =
     score === "1" ? "A" : score === "0.75" ? "B" : score === "0.5" ? "C" : "F";
   return Object.freeze({

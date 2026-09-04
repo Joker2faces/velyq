@@ -30,6 +30,16 @@ describe("versioned data quality policy", () => {
       }),
     ).toBe("NO_BET");
   });
+
+  it("composes quality score with exact decimal arithmetic at thresholds", () => {
+    expect(
+      assessDataQuality({
+        ...base,
+        lineup: "EXPECTED",
+        mappingConfidence: "LOW",
+      }).score,
+    ).toBe("0.75");
+  });
   it.each([
     ["MISSING", "WAIT_FOR_LINEUP"],
     ["CHANGED", "WAIT_FOR_LINEUP"],
