@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { message } from "@velyq/ui";
 
 export function CustomerShell({ children }: { children: ReactNode }) {
+  const adminUrl =
+    process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ??
+    "https://velyq-admin-staging.vercel.app";
   const navigation = [
     [message("navToday"), "/today"],
     [message("navEdge"), "/edge"],
@@ -35,6 +38,9 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <br />
           <span>EXPERIMENTAL // DEVELOPMENT</span>
         </div>
+        <a className="admin-link" href={adminUrl}>
+          Admin console →
+        </a>
         <form action="/api/v1/auth/sign-out" method="post" className="sign-out">
           <button type="submit">{message("signOut")}</button>
         </form>
