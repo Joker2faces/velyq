@@ -483,6 +483,24 @@ body {
   padding: 13px;
   width: 100%;
 }
+.auth-card label {
+  color: #91aaa6;
+  display: block;
+  font:
+    11px "IBM Plex Mono",
+    monospace;
+  margin-top: 14px;
+}
+.auth-card input {
+  background: #0d1b20;
+  border: 1px solid #294247;
+  border-radius: 4px;
+  color: #e8f1ee;
+  display: block;
+  margin-top: 7px;
+  padding: 11px;
+  width: 100%;
+}
 .auth-card small {
   color: #718b87;
   display: block;
