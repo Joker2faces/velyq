@@ -56,6 +56,89 @@ export function calculateValue(
   };
 }
 
+export type EdgeHeuristic = Readonly<{
+  validationStatus: "DEVELOPMENT_HEURISTIC";
+  scoreVersion: string;
+  score: DecimalString;
+  components: Readonly<Record<string, DecimalString>>;
+  reasonCodes: readonly string[];
+}>;
+export function calculateEdge(
+  input: Readonly<{
+    probabilityEdge: DecimalString;
+    expectedValue: DecimalString;
+    qualityScore: DecimalString;
+    scoreVersion: string;
+  }>,
+): DecimalResult<EdgeHeuristic> {
+  const score = edge(input.probabilityEdge);
+  if (!score.ok) return score;
+  const quality = probability(input.qualityScore);
+  if (!quality.ok) return quality;
+  const value = expectedValue(input.expectedValue);
+  if (!value.ok) return value;
+  return {
+    ok: true,
+    value: {
+      validationStatus: "DEVELOPMENT_HEURISTIC",
+      scoreVersion: input.scoreVersion,
+      score: score.value.value,
+      components: {
+        probabilityEdge: score.value.value,
+        expectedValue: value.value.value,
+        quality: quality.value.value,
+      },
+      reasonCodes: ["OBSERVABLE_INPUTS_ONLY"],
+    },
+  };
+}
+
+export type RadarEvidence = Readonly<{
+  validationStatus: "DEVELOPMENT_HEURISTIC";
+  scoreVersion: string;
+  openingOdds: DecimalString;
+  currentOdds: DecimalString;
+  movement: DecimalString;
+  coverage: string;
+  freshness: string;
+  reasonCodes: readonly string[];
+}>;
+export function calculateRadar(
+  input: Readonly<{
+    openingOdds: DecimalString;
+    currentOdds: DecimalString;
+    bookmakerCoverage: number;
+    observedAt: string;
+    asOf: string;
+    scoreVersion: string;
+  }>,
+): DecimalResult<RadarEvidence> {
+  const opening = decimalOdds(input.openingOdds);
+  const current = decimalOdds(input.currentOdds);
+  if (!opening.ok) return opening;
+  if (!current.ok) return current;
+  const movement = subtractDecimalStrings(input.currentOdds, input.openingOdds);
+  if (!movement.ok) return movement;
+  const stale =
+    Date.parse(input.asOf) - Date.parse(input.observedAt) > 15 * 60 * 1000;
+  return {
+    ok: true,
+    value: {
+      validationStatus: "DEVELOPMENT_HEURISTIC",
+      scoreVersion: input.scoreVersion,
+      openingOdds: opening.value.value,
+      currentOdds: current.value.value,
+      movement: movement.value,
+      coverage: input.bookmakerCoverage > 0 ? "AVAILABLE" : "MISSING",
+      freshness: stale ? "STALE" : "FRESH",
+      reasonCodes: [
+        "MARKET_MOVEMENT_DETECTED",
+        ...(stale ? ["STALE_EVIDENCE"] : []),
+      ],
+    },
+  };
+}
+
 export type QualityGrade = "A" | "B" | "C" | "D" | "F";
 export type RecommendationStatus =
   | "NO_BET"
