@@ -89,28 +89,54 @@ export function calculateEdge(
     quality: quality.value.value,
   } as const;
   const weights = input.formula?.weights ?? {};
+  const capsPenalties = input.formula?.capsPenalties ?? {};
+  const boundedComponents = Object.fromEntries(
+    Object.entries(components).map(([key, component]) => {
+      const penalty = capsPenalties[`${key}Penalty`];
+      const cap = capsPenalties[`${key}Cap`];
+      const reduced = penalty
+        ? subtractDecimalStrings(component, penalty)
+        : ({ ok: true, value: component } as const);
+      if (!reduced.ok || !cap)
+        return [key, reduced.ok ? reduced.value : component];
+      const overCap = subtractDecimalStrings(
+        reduced.value,
+        cap as DecimalString,
+      );
+      return [
+        key,
+        overCap.ok && overCap.value.startsWith("-") ? reduced.value : cap,
+      ];
+    }),
+  ) as Record<string, DecimalString>;
   const weighted = Object.entries(components).reduce<
     DecimalResult<DecimalString>
   >(
-    (sum, [key, component]) => {
+    (sum, [key]) => {
       const weight = weights[key] ?? ("1" as DecimalString);
       if (!sum.ok) return sum;
-      const term = multiplyDecimalStrings(component, weight);
+      const term = multiplyDecimalStrings(
+        boundedComponents[key] ?? components[key as keyof typeof components],
+        weight,
+      );
       if (!term.ok) return term;
       return addDecimalStrings(sum.value, term.value);
     },
     { ok: true, value: "0" as DecimalString },
   );
   if (!weighted.ok) return weighted;
-  const denominator = Object.keys(weights).length
-    ? Object.values(weights).reduce<DecimalResult<DecimalString>>(
-        (sum, weight) => {
-          if (!sum.ok) return sum;
-          return addDecimalStrings(sum.value, weight);
-        },
-        { ok: true, value: "0" as DecimalString },
-      )
-    : ({ ok: true, value: "3" as DecimalString } as const);
+  const denominator = Object.keys(components).reduce<
+    DecimalResult<DecimalString>
+  >(
+    (sum, key) => {
+      if (!sum.ok) return sum;
+      return addDecimalStrings(
+        sum.value,
+        weights[key] ?? ("1" as DecimalString),
+      );
+    },
+    { ok: true, value: "0" as DecimalString },
+  );
   if (!denominator.ok) return denominator;
   const aggregate = divideDecimalStrings(weighted.value, denominator.value);
   if (!aggregate.ok) return aggregate;
@@ -134,6 +160,7 @@ export type RadarEvidence = Readonly<{
   movement: DecimalString;
   coverage: string;
   freshness: string;
+  score: DecimalString;
   reasonCodes: readonly string[];
   components: Readonly<Record<string, DecimalString>>;
 }>;
@@ -147,6 +174,7 @@ export function calculateRadar(
     scoreVersion: string;
     movementWindowSeconds?: number;
     bookmakersMoving?: number;
+    formula?: HeuristicFormula;
   }>,
 ): DecimalResult<RadarEvidence> {
   const opening = decimalOdds(input.openingOdds);
@@ -173,6 +201,47 @@ export function calculateRadar(
     ...(stale ? ["STALE_EVIDENCE"] : []),
     ...(coverage === "MISSING" ? ["INSUFFICIENT_COVERAGE"] : []),
   ];
+  const radarComponents = {
+    movement: movement.value.startsWith("-")
+      ? (movement.value.slice(1) as DecimalString)
+      : movement.value,
+    velocity: velocity.value.startsWith("-")
+      ? (velocity.value.slice(1) as DecimalString)
+      : velocity.value,
+    coverage: String(input.bookmakerCoverage) as DecimalString,
+    consensus: (input.bookmakerCoverage > 0 ? "1" : "0") as DecimalString,
+    divergence: String(input.bookmakersMoving ?? 0) as DecimalString,
+  } as const;
+  const weights = input.formula?.weights ?? {};
+  const weighted = Object.entries(radarComponents).reduce<
+    DecimalResult<DecimalString>
+  >(
+    (sum, [key, component]) => {
+      if (!sum.ok) return sum;
+      const term = multiplyDecimalStrings(
+        component,
+        weights[key] ?? ("1" as DecimalString),
+      );
+      return term.ok ? addDecimalStrings(sum.value, term.value) : term;
+    },
+    { ok: true, value: "0" as DecimalString },
+  );
+  if (!weighted.ok) return weighted;
+  const denominator = Object.keys(radarComponents).reduce<
+    DecimalResult<DecimalString>
+  >(
+    (sum, key) =>
+      sum.ok
+        ? addDecimalStrings(sum.value, weights[key] ?? ("1" as DecimalString))
+        : sum,
+    { ok: true, value: "0" as DecimalString },
+  );
+  if (!denominator.ok) return denominator;
+  const heuristicScore = divideDecimalStrings(
+    weighted.value,
+    denominator.value,
+  );
+  if (!heuristicScore.ok) return heuristicScore;
   return {
     ok: true,
     value: {
@@ -184,13 +253,8 @@ export function calculateRadar(
       coverage,
       freshness: stale ? "STALE" : "FRESH",
       reasonCodes,
-      components: {
-        movement: movement.value,
-        velocity: velocity.value,
-        coverage: String(input.bookmakerCoverage) as DecimalString,
-        consensus: String(input.bookmakerCoverage > 0 ? 1 : 0) as DecimalString,
-        divergence: String(input.bookmakersMoving ?? 0) as DecimalString,
-      },
+      components: radarComponents,
+      score: heuristicScore.value,
     },
   };
 }

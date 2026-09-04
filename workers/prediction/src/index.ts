@@ -513,7 +513,15 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
               >,
             }
           : {}),
-        capsPenalties: {},
+        ...(definitionRecord["capsPenalties"] &&
+        typeof definitionRecord["capsPenalties"] === "object"
+          ? {
+              capsPenalties: definitionRecord["capsPenalties"] as Record<
+                string,
+                DecimalString
+              >,
+            }
+          : {}),
       },
     };
   }
@@ -540,12 +548,31 @@ export class DatabaseRadarInputReader implements RadarInputReader {
     const opening = rows.find((row) => row.id === input.openingObservationId);
     const current = rows.find((row) => row.id === input.currentObservationId);
     if (!opening || !current) return null;
+    const [definition] = await this.database
+      .select({ definition: scoreDefinitionVersions.definition })
+      .from(scoreDefinitionVersions)
+      .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
+      .limit(1);
+    const definitionRecord =
+      definition?.definition && typeof definition.definition === "object"
+        ? (definition.definition as Record<string, unknown>)
+        : {};
     return {
       openingOdds: opening.decimalOdds as DecimalString,
       currentOdds: current.decimalOdds as DecimalString,
       bookmakerCoverage: new Set(rows.map((row) => row.bookmakerId)).size,
       observedAt: current.providerObservedAt.toISOString(),
       openingObservedAt: opening.providerObservedAt.toISOString(),
+      formula:
+        definitionRecord["weights"] &&
+        typeof definitionRecord["weights"] === "object"
+          ? {
+              weights: definitionRecord["weights"] as Record<
+                string,
+                DecimalString
+              >,
+            }
+          : {},
     };
   }
 }
@@ -619,6 +646,7 @@ export interface RadarInputReader {
     bookmakerCoverage: number;
     observedAt: string;
     openingObservedAt?: string;
+    formula?: HeuristicFormula;
   }> | null>;
 }
 
@@ -690,9 +718,7 @@ export async function consumeQueuedRadarJob(
     eventMarketOutcomeId: payload.eventMarketOutcomeId,
     scoreDefinitionVersionId: payload.scoreDefinitionVersionId,
     asOf: payload.asOf,
-    score: (result.value.movement.startsWith("-")
-      ? result.value.movement.slice(1)
-      : result.value.movement) as DecimalString,
+    score: result.value.score,
     validationStatus: result.value.validationStatus,
     components: result.value.components,
     reasonCodes: result.value.reasonCodes,
