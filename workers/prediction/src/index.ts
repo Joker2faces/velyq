@@ -7,7 +7,7 @@ import {
   type DataQualityAssessment,
   type QualityInput,
 } from "@velyq/analytics";
-import type { DecimalString } from "@velyq/decimal";
+import { divideDecimalStrings, type DecimalString } from "@velyq/decimal";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   DatabaseJobRepository,
@@ -341,10 +341,16 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
       !row.prediction.expectedValue
     )
       return null;
+    const qualityScore = row.quality.numericScore as DecimalString;
+    const normalizedQuality =
+      qualityScore === "0" || qualityScore.startsWith("0.")
+        ? ({ ok: true, value: qualityScore } as const)
+        : divideDecimalStrings(qualityScore, "100" as DecimalString);
+    if (!normalizedQuality.ok) return null;
     return {
       probabilityEdge: row.prediction.edge as DecimalString,
       expectedValue: row.prediction.expectedValue as DecimalString,
-      qualityScore: row.quality.numericScore as DecimalString,
+      qualityScore: normalizedQuality.value,
     };
   }
 }
