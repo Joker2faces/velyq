@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell, getAdminContext } from "../admin-page";
+export const dynamic = "force-dynamic";
 export default async function PredictionsPage() {
   const { runtime } = await getAdminContext("predictions.trace");
   if (!runtime)
