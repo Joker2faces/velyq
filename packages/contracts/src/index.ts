@@ -245,3 +245,80 @@ export type SyntheticReplayResult = SyntheticMetadata &
     readonly lineups: LineupObservationBatch;
     readonly quarantined: readonly QuarantinedProviderObservation[];
   }>;
+
+export const JOB_CONTRACT_VERSIONS = {
+  INGEST_PROVIDER_SEQUENCE: "INGEST_PROVIDER_SEQUENCE.v1",
+  GENERATE_PREDICTION: "GENERATE_PREDICTION.v1",
+  CALCULATE_EDGE: "CALCULATE_EDGE.v1",
+  CALCULATE_RADAR: "CALCULATE_RADAR.v1",
+} as const;
+
+export type JobType = keyof typeof JOB_CONTRACT_VERSIONS;
+export type JobStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+export type IngestProviderSequencePayload = Readonly<{
+  readonly sequenceName: string;
+  readonly fixedClock: string;
+}>;
+export type JobPayload = IngestProviderSequencePayload;
+export type Job = Readonly<{
+  readonly id: string;
+  readonly type: JobType;
+  readonly contractVersion: (typeof JOB_CONTRACT_VERSIONS)[JobType];
+  readonly idempotencyKey: string;
+  readonly payload: JobPayload;
+  readonly status: JobStatus;
+  readonly attemptCount: number;
+  readonly maxAttempts: number;
+  readonly availableAt: string;
+  readonly leaseExpiresAt: string | null;
+  readonly correlationId: string;
+  readonly causationId: string;
+  readonly lastError: Readonly<{
+    readonly code: string;
+    readonly message: string;
+  }> | null;
+  readonly createdAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+}>;
+export type JobValidation =
+  | Readonly<{ readonly ok: true; readonly value: Job }>
+  | Readonly<{ readonly ok: false; readonly errors: readonly string[] }>;
+export function validateJob(input: unknown): JobValidation {
+  if (typeof input !== "object" || input === null)
+    return { ok: false, errors: ["job must be an object"] };
+  const candidate = input as Partial<Job>;
+  const errors: string[] = [];
+  if (typeof candidate.id !== "string" || candidate.id.length === 0)
+    errors.push("id is required");
+  if (!(candidate.type && candidate.type in JOB_CONTRACT_VERSIONS))
+    errors.push("type is invalid");
+  if (
+    typeof candidate.idempotencyKey !== "string" ||
+    candidate.idempotencyKey.length === 0
+  )
+    errors.push("idempotencyKey is required");
+  if (
+    typeof candidate.correlationId !== "string" ||
+    candidate.correlationId.length === 0
+  )
+    errors.push("correlationId is required");
+  if (
+    typeof candidate.causationId !== "string" ||
+    candidate.causationId.length === 0
+  )
+    errors.push("causationId is required");
+  if (
+    !Number.isInteger(candidate.maxAttempts) ||
+    (candidate.maxAttempts ?? 0) < 1
+  )
+    errors.push("maxAttempts must be positive");
+  if (
+    !Number.isInteger(candidate.attemptCount) ||
+    (candidate.attemptCount ?? -1) < 0
+  )
+    errors.push("attemptCount must be non-negative");
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: Object.freeze(candidate as Job) };
+}
