@@ -19,7 +19,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     raw.participants.find(
       ({ eventParticipant }) => eventParticipant.role === "AWAY",
     )?.participant.displayName ?? "Away";
-  const outcome = raw.outcomes[0];
+  const outcome = selectOutcome(raw);
   const odds = outcome?.odds ?? [];
   const opening = odds[0]?.decimalOdds ?? null;
   const current = odds.at(-1)?.decimalOdds ?? null;
@@ -30,15 +30,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const stale = latestObservation
     ? raw.asOf.getTime() - latestObservation.getTime() > 60 * 60 * 1000
     : true;
-  const lineupStatuses = raw.lineups.map((item) => item.status);
-  const lineup =
-    lineupStatuses.length === 0
-      ? "MISSING"
-      : lineupStatuses.includes("OFFICIAL")
-        ? "OFFICIAL"
-        : lineupStatuses.includes("UNAVAILABLE")
-          ? "MISSING"
-          : "EXPECTED";
+  const lineup = deriveLineupState(raw);
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
@@ -84,6 +76,45 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
         prediction?.run.featureCutoff.toISOString() ?? raw.asOf.toISOString(),
     },
   };
+}
+
+/** Prefer the canonical match-result market and the outcome with persisted evidence. */
+export function selectOutcome(raw: CustomerRawMatch) {
+  return (
+    raw.outcomes.find(
+      ({ marketDefinition }) =>
+        marketDefinition.code === "MATCH_RESULT" ||
+        marketDefinition.code === "1X2",
+    ) ??
+    raw.outcomes.find(
+      ({ prediction, score }) => prediction !== null || score !== null,
+    ) ??
+    raw.outcomes[0]
+  );
+}
+
+export function deriveLineupState(
+  raw: CustomerRawMatch,
+): CustomerMatchDto["lineup"] {
+  const latestByTeam = new Map<string, (typeof raw.lineups)[number]>();
+  for (const lineup of raw.lineups) {
+    const existing = latestByTeam.get(lineup.teamParticipantId);
+    if (
+      !existing ||
+      lineup.providerObservedAt.getTime() >
+        existing.providerObservedAt.getTime()
+    ) {
+      latestByTeam.set(lineup.teamParticipantId, lineup);
+    }
+  }
+  const statuses = [...latestByTeam.values()].map(
+    (item) => item.status as string,
+  );
+  if (statuses.length === 0 || statuses.includes("UNAVAILABLE"))
+    return "MISSING";
+  if (statuses.includes("CHANGED")) return "CHANGED";
+  if (statuses.every((status) => status === "OFFICIAL")) return "OFFICIAL";
+  return "EXPECTED";
 }
 
 export const customerDatabaseMapper = {
