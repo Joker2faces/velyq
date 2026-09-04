@@ -392,7 +392,7 @@ export async function ingestProviderSequence(
       }): Promise<IngestionBatch>;
     }>;
     sink: IngestionSink;
-    jobs: JobRepository;
+    jobs?: JobRepository;
     correlationId: string;
     causationId: string;
   }>,
@@ -465,7 +465,11 @@ export async function ingestProviderSequence(
   );
   if (written.duplicate) return { ...written, downstreamJobs: [] };
   const downstreamJobs = downstreamJobInputs.map((job) =>
-    input.jobs.enqueue(job),
+    input.jobs
+      ? input.jobs.enqueue(job)
+      : (() => {
+          throw new Error("JOB_REPOSITORY_REQUIRED_FOR_NON_TRANSACTIONAL_SINK");
+        })(),
   );
   return { ...written, downstreamJobs };
 }

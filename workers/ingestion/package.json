@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@velyq/application": "workspace:*",
+    "@velyq/database": "workspace:*",
     "@velyq/providers": "workspace:*"
   },
   "devDependencies": {

@@ -207,6 +207,9 @@ importers:
       "@velyq/application":
         specifier: workspace:*
         version: link:../../packages/application
+      "@velyq/database":
+        specifier: workspace:*
+        version: link:../../packages/database
       "@velyq/providers":
         specifier: workspace:*
         version: link:../../packages/providers

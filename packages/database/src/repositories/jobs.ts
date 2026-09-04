@@ -56,7 +56,7 @@ export class DatabaseJobRepository {
     workerId: string,
     now: Date,
     leaseUntil: Date,
-  ): Promise<Job | null> {
+  ): Promise<Readonly<{ job: Job; leaseExpiresAt: string }> | null> {
     return this.database.transaction(async (transaction) => {
       const [candidate] = await transaction
         .select()
@@ -87,7 +87,10 @@ export class DatabaseJobRepository {
         )
         .returning();
       void workerId;
-      return (updated[0] as unknown as Job | undefined) ?? null;
+      const job = updated[0] as unknown as Job | undefined;
+      return job
+        ? { job, leaseExpiresAt: leaseUntil.toISOString() }
+        : null;
     });
   }
 
