@@ -1,4 +1,15 @@
-export * from "./client.js";
+export {
+  createDatabaseClient,
+  createPrivilegedDatabaseClient,
+} from "./client.js";
+export type {
+  DatabaseClient,
+  PrivilegedDatabaseClient,
+  PrivilegedVelyqDatabase,
+  RepositoryTransaction,
+  RepositoryTransactionRunner,
+  VelyqDatabase,
+} from "./client.js";
 export * from "./repositories/profiles.js";
 export * from "./repositories/jobs.js";
 export * from "./repositories/observations.js";
