@@ -86,9 +86,16 @@ export class DatabaseScoreRepository {
         movementWindowSeconds: input.movementWindowSeconds,
         observableMetrics: input.observableMetrics,
       })
+      .onConflictDoNothing({ target: radarEvidence.scoreResultId })
       .returning();
-    if (!row) throw new Error("RADAR_EVIDENCE_INSERT_FAILED");
-    return row;
+    if (row) return row;
+    const [existing] = await this.database
+      .select()
+      .from(radarEvidence)
+      .where(eq(radarEvidence.scoreResultId, input.scoreResultId))
+      .limit(1);
+    if (!existing) throw new Error("RADAR_EVIDENCE_INSERT_FAILED");
+    return existing;
   }
 
   async appendWithRadarEvidence(

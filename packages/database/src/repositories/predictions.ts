@@ -1,4 +1,4 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, lte } from "drizzle-orm";
 
 import type {
   PrivilegedVelyqDatabase,
@@ -9,6 +9,62 @@ import {
   predictionRuns,
   predictions,
 } from "../schema/intelligence.js";
+import {
+  eventMarketOutcomes,
+  eventMarkets,
+  oddsObservations,
+} from "../schema/market.js";
+import { sourceObservations } from "../schema/operations.js";
+
+export type PredictionObservationRead = Readonly<{
+  id: string;
+  eventId: string;
+  eventMarketOutcomeId: string;
+  receivedAt: string;
+}>;
+
+/**
+ * Reads persisted odds lineage for the prediction worker's cutoff guard.
+ * Only canonical market joins are returned; provider payloads never cross
+ * this adapter boundary.
+ */
+export class DatabasePredictionObservationReader {
+  constructor(private readonly database: PrivilegedVelyqDatabase) {}
+
+  async getByIds(
+    ids: readonly string[],
+  ): Promise<readonly PredictionObservationRead[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.database
+      .select({
+        id: oddsObservations.id,
+        eventId: eventMarkets.eventId,
+        eventMarketOutcomeId: oddsObservations.eventMarketOutcomeId,
+        receivedAt: oddsObservations.receivedAt,
+      })
+      .from(oddsObservations)
+      .innerJoin(
+        eventMarketOutcomes,
+        eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomes.id),
+      )
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        sourceObservations,
+        eq(oddsObservations.sourceObservationId, sourceObservations.id),
+      )
+      .where(inArray(oddsObservations.id, [...ids]));
+
+    return rows.map((row) => ({
+      id: row.id,
+      eventId: row.eventId,
+      eventMarketOutcomeId: row.eventMarketOutcomeId,
+      receivedAt: row.receivedAt.toISOString(),
+    }));
+  }
+}
 
 export type AppendPredictionInput = Readonly<{
   run: Readonly<{
@@ -60,9 +116,8 @@ type PredictionJoin = Readonly<{
  * Durable append-only prediction writer and as-of reader.
  *
  * The run, prediction, and lineage rows are committed in one transaction.
- * The schema has no unique constraint on trigger_job_id, so trigger-based
- * deduplication is a lookup/reuse guard; the database-enforced idempotency
- * boundary is the prediction run/outcome unique constraint.
+ * Trigger jobs and run/outcome pairs both have database-enforced uniqueness;
+ * lookup/reuse keeps retries observationally idempotent.
  */
 export class DatabasePredictionRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
