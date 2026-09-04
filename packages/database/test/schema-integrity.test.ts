@@ -5,18 +5,26 @@ import {
   eventMarketOutcomes,
   eventMarkets,
   jobs,
+  providerSyncRuns,
 } from "../src/schema/index.js";
 
 describe("Drizzle integrity contracts", () => {
   it("models durable job causation, retry bounds, statuses, and lease states", () => {
     const config = getTableConfig(jobs);
+    const providerRunConfig = getTableConfig(providerSyncRuns);
     const columns = config.columns.map((column) => column.name);
     const causation = config.columns.find(
       (column) => column.name === "causation_id",
     );
     const checks = config.checks.map((constraint) => constraint.name);
+    const replayIdentity = providerRunConfig.uniqueConstraints.find(
+      (constraint) =>
+        constraint.name === "provider_sync_runs_replay_identity_unique",
+    );
 
     expect(columns).toContain("causation_id");
+    expect(columns).toContain("lease_owner");
+    expect(replayIdentity).toBeDefined();
     expect(causation?.notNull).toBe(true);
     expect(checks).toEqual(
       expect.arrayContaining([
