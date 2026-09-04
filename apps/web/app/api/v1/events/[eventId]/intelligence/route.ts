@@ -7,7 +7,7 @@ export async function GET(
   context: { params: Promise<{ eventId: string }> },
 ) {
   const { eventId } = await context.params;
-  const denied = requireCustomerSession(_request);
+  const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   const match = findCustomerMatch(eventId);
   if (!match)
