@@ -8,7 +8,7 @@ import {
   type QualityInput,
 } from "@velyq/analytics";
 import { divideDecimalStrings, type DecimalString } from "@velyq/decimal";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import {
   DatabaseJobRepository,
   DatabasePredictionObservationReader,
@@ -365,6 +365,8 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       .where(
         and(
           eq(oddsObservations.eventMarketOutcomeId, input.eventMarketOutcomeId),
+          lte(oddsObservations.providerObservedAt, new Date(input.asOf)),
+          lte(oddsObservations.receivedAt, new Date(input.asOf)),
           inArray(oddsObservations.id, [
             input.openingObservationId,
             input.currentObservationId,
