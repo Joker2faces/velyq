@@ -40,4 +40,20 @@ describe("typed calculation job contracts", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("rejects an incomplete prediction payload", () => {
+    const result = validateJob({
+      ...base,
+      type: "GENERATE_PREDICTION",
+      contractVersion: "GENERATE_PREDICTION.v1",
+      payload: {
+        eventId: "event-1",
+        eventMarketOutcomeId: "outcome-1",
+        modelProbability: "0.5",
+        currentOdds: "2",
+        featureCutoff: "2026-09-04T10:00:00.000Z",
+      },
+    });
+    expect(result.ok).toBe(false);
+  });
 });

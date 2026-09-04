@@ -393,7 +393,17 @@ export function validateJob(input: unknown): JobValidation {
     typeof prediction["modelProbability"] === "string" &&
     typeof prediction["currentOdds"] === "string" &&
     typeof prediction["featureCutoff"] === "string" &&
-    !Number.isNaN(Date.parse(prediction["featureCutoff"]));
+    !Number.isNaN(Date.parse(prediction["featureCutoff"])) &&
+    typeof prediction["modelVersion"] === "string" &&
+    prediction["modelVersion"].length > 0 &&
+    typeof prediction["calibrationVersion"] === "string" &&
+    prediction["calibrationVersion"].length > 0 &&
+    Array.isArray(prediction["sourceObservationIds"]) &&
+    prediction["sourceObservationIds"].every(
+      (value) => typeof value === "string" && value.length > 0,
+    ) &&
+    typeof prediction["quality"] === "object" &&
+    prediction["quality"] !== null;
   const validEdgePayload =
     typeof payload === "object" &&
     payload !== null &&
