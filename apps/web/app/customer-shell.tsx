@@ -1,11 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { message } from "@velyq/ui";
+import { getConfiguredAdminUrl } from "./customer-config";
 
 export function CustomerShell({ children }: { children: ReactNode }) {
-  const adminUrl =
-    process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ??
-    "https://velyq-admin-staging.vercel.app";
+  const adminUrl = getConfiguredAdminUrl();
   const navigation = [
     [message("navToday"), "/today"],
     [message("navEdge"), "/edge"],
@@ -38,9 +37,11 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <br />
           <span>EXPERIMENTAL // DEVELOPMENT</span>
         </div>
-        <a className="admin-link" href={adminUrl}>
-          Admin console →
-        </a>
+        {adminUrl ? (
+          <a className="admin-link" href={adminUrl}>
+            Admin console →
+          </a>
+        ) : null}
         <form action="/api/v1/auth/sign-out" method="post" className="sign-out">
           <button type="submit">{message("signOut")}</button>
         </form>
@@ -48,7 +49,7 @@ export function CustomerShell({ children }: { children: ReactNode }) {
       <main id="main-content" className="customer-main">
         <header className="topbar">
           <span>PHASE 1 / CUSTOMER PREVIEW</span>
-          <span className="live-dot">● SYSTEM ONLINE</span>
+          <span className="live-dot">● SESSION ACTIVE</span>
         </header>
         {children}
       </main>

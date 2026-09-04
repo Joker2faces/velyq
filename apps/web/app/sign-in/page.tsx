@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { formatDateTime } from "@velyq/ui";
 export default function SignIn() {
   return (
     <main className="auth-page">
@@ -31,11 +29,6 @@ export default function SignIn() {
           <button type="submit">Continue with Supabase Auth</button>
         </form>
         <small>Protected by the VELYQ server-side session boundary.</small>
-        <Link href="/today">Preview synthetic workspace →</Link>
-        <small>
-          Latest synthetic snapshot:{" "}
-          {formatDateTime("2026-09-04T10:00:00.000Z")}
-        </small>
       </div>
     </main>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createPrivilegedDatabaseClient } from "@velyq/database";
+import { createPrivilegedDatabaseClient } from "@velyq/database/client";
 export async function GET() {
   const configured = Boolean(
     process.env["NEXT_PUBLIC_SUPABASE_URL"] &&

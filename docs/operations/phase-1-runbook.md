@@ -27,7 +27,9 @@ checkpoint.
 
 Vercel customer root: `apps/web`. Vercel admin root: `apps/admin`.
 Public environment names are `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Server-only names are
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional customer-to-admin link is
+configured with `NEXT_PUBLIC_VELYQ_ADMIN_URL`; it is a public URL, not a secret.
+Server-only names are
 `VELYQ_DATABASE_URL` and future provider credentials. Server-only values must
 be entered through the hosting secret store, never committed, and never
 prefixed with `NEXT_PUBLIC_`.

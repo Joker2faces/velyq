@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { loadCustomerToday } from "../customer-runtime";
 import { CustomerShell, Metric, Status } from "../customer-shell";
-import { formatPercent, message } from "@velyq/ui";
+import { formatDateTime, formatPercent, message } from "@velyq/ui";
 export default async function Today() {
   const result = await loadCustomerToday();
   if (!result.ok)
@@ -12,8 +12,8 @@ export default async function Today() {
     return <CustomerShell>{message("dataUnavailable")}</CustomerShell>;
   }
   const freshMoves = customerToday.matches.filter(
-    ({ openingOdds, currentOdds }) =>
-      openingOdds !== null && currentOdds !== null,
+    ({ freshness, openingOdds, currentOdds }) =>
+      freshness === "FRESH" && openingOdds !== null && currentOdds !== null,
   ).length;
   const qualityWarnings = customerToday.matches.filter(
     ({ quality }) => quality.grade === "F",
@@ -34,7 +34,10 @@ export default async function Today() {
               .toUpperCase()}
           </p>
           <h1>What needs your attention?</h1>
-          <p>Market intelligence, distilled into the next useful decision.</p>
+          <p>
+            Market intelligence, distilled into the next useful decision.{" "}
+            Snapshot as of {formatDateTime(customerToday.asOf)} UTC.
+          </p>
         </div>
         <Status tone="synthetic">
           {customerToday.syntheticLabel.toUpperCase()}

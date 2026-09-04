@@ -70,14 +70,14 @@ export async function POST(request: Request) {
   const next = NextResponse.redirect(new URL("/today", request.url));
   next.cookies.set("velyq_access_token", tokens.access_token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env["NODE_ENV"] === "production",
     sameSite: "lax",
     path: "/",
     maxAge: tokens.expires_in ?? 3600,
   });
   next.cookies.set("velyq_refresh_token", tokens.refresh_token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env["NODE_ENV"] === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
