@@ -21,6 +21,7 @@ export type PredictionObservationRead = Readonly<{
   eventId: string;
   eventMarketOutcomeId: string;
   receivedAt: string;
+  decimalOdds: string;
 }>;
 
 /**
@@ -37,10 +38,11 @@ export class DatabasePredictionObservationReader {
     if (ids.length === 0) return [];
     const rows = await this.database
       .select({
-        id: oddsObservations.id,
+        id: sourceObservations.id,
         eventId: eventMarkets.eventId,
         eventMarketOutcomeId: oddsObservations.eventMarketOutcomeId,
         receivedAt: oddsObservations.receivedAt,
+        decimalOdds: oddsObservations.decimalOdds,
       })
       .from(oddsObservations)
       .innerJoin(
@@ -55,13 +57,14 @@ export class DatabasePredictionObservationReader {
         sourceObservations,
         eq(oddsObservations.sourceObservationId, sourceObservations.id),
       )
-      .where(inArray(oddsObservations.id, [...ids]));
+      .where(inArray(sourceObservations.id, [...ids]));
 
     return rows.map((row) => ({
       id: row.id,
       eventId: row.eventId,
       eventMarketOutcomeId: row.eventMarketOutcomeId,
       receivedAt: row.receivedAt.toISOString(),
+      decimalOdds: row.decimalOdds,
     }));
   }
 }

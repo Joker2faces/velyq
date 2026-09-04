@@ -93,6 +93,7 @@ export type PredictionObservation = Readonly<{
   eventId: string;
   eventMarketOutcomeId: string;
   receivedAt: string;
+  decimalOdds?: DecimalString;
 }>;
 
 export interface PredictionObservationReader {
@@ -148,6 +149,25 @@ export class DatabasePredictionJobHandler {
     );
     if (observations.length !== payload.sourceObservationIds.length)
       throw new Error("PREDICTION_INPUTS_MISSING");
+    const cutoff = Date.parse(payload.featureCutoff);
+    if (
+      observations.some(
+        (observation) =>
+          observation.eventId !== payload.eventId ||
+          observation.eventMarketOutcomeId !== payload.eventMarketOutcomeId ||
+          Date.parse(observation.receivedAt) > cutoff ||
+          !observation.decimalOdds,
+      )
+    )
+      throw new Error("PREDICTION_INPUTS_OUTSIDE_CUTOFF");
+    const latestOdds = [...observations].sort((left, right) =>
+      right.receivedAt.localeCompare(left.receivedAt),
+    )[0]?.decimalOdds;
+    if (!latestOdds) throw new Error("PREDICTION_ODDS_MISSING");
+    const durablePayload = {
+      ...payload,
+      currentOdds: latestOdds as DecimalString,
+    };
     const computed = generatePrediction(
       {
         id: job.id,
@@ -155,7 +175,7 @@ export class DatabasePredictionJobHandler {
         createdAt: job.createdAt,
         correlationId: job.correlationId,
         causationId: job.causationId,
-        payload,
+        payload: durablePayload,
       },
       new InMemoryPredictionRepository(),
     ).prediction;
