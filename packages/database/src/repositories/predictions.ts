@@ -91,7 +91,11 @@ export class DatabasePredictionRepository {
           lte(predictionRuns.featureCutoff, asOf),
         ),
       )
-      .orderBy(desc(predictions.createdAt), desc(predictionRuns.featureCutoff))
+      .orderBy(
+        desc(predictions.createdAt),
+        desc(predictionRuns.featureCutoff),
+        desc(predictions.id),
+      )
       .limit(1);
 
     return joined ? this.withInputs(this.database, joined) : null;
@@ -108,6 +112,20 @@ export class DatabasePredictionRepository {
       input.prediction.eventMarketOutcomeId,
     );
     if (existing) return this.withInputs(transaction, existing);
+
+    const refusalWithNullMetrics =
+      input.prediction.decisionStatus === "INSUFFICIENT_DATA" ||
+      input.prediction.decisionStatus === "WAIT_FOR_LINEUP";
+    const hasAnyMetric = [
+      input.prediction.modelProbability,
+      input.prediction.confidence,
+      input.prediction.fairOdds,
+      input.prediction.marketImpliedProbability,
+      input.prediction.edge,
+      input.prediction.expectedValue,
+    ].some((value) => value !== null && value !== undefined);
+    if (refusalWithNullMetrics && hasAnyMetric)
+      throw new Error("INVALID_PREDICTION_REFUSAL_METRICS");
 
     const run = await this.findOrInsertRun(transaction, input.run);
     const inserted = await transaction
@@ -196,9 +214,12 @@ export class DatabasePredictionRepository {
         completedAt: input.completedAt ?? null,
         triggerJobId: input.triggerJobId ?? null,
       })
+      .onConflictDoNothing()
       .returning();
-    if (!run) throw new Error("PREDICTION_RUN_INSERT_FAILED");
-    return run;
+    const persistedRun =
+      run ?? (await this.findRun(transaction, input.id, input.triggerJobId));
+    if (!persistedRun) throw new Error("PREDICTION_RUN_INSERT_FAILED");
+    return persistedRun;
   }
 
   private async findRun(

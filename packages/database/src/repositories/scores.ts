@@ -16,6 +16,7 @@ export type PersistScoreInput = Readonly<{
   weights: Record<string, unknown>;
   capsPenalties: Record<string, unknown>;
   reasonCodes: readonly string[];
+  idempotencyKey: string;
   createdAt: Date;
 }>;
 
@@ -57,11 +58,19 @@ export class DatabaseScoreRepository {
         weights: input.weights,
         capsPenalties: input.capsPenalties,
         reasonCodes: [...input.reasonCodes],
+        idempotencyKey: input.idempotencyKey,
         createdAt: input.createdAt,
       })
+      .onConflictDoNothing({ target: scoreResults.idempotencyKey })
       .returning();
-    if (!row) throw new Error("SCORE_RESULT_INSERT_FAILED");
-    return row;
+    if (row) return row;
+    const [existing] = await transaction
+      .select()
+      .from(scoreResults)
+      .where(eq(scoreResults.idempotencyKey, input.idempotencyKey))
+      .limit(1);
+    if (!existing) throw new Error("SCORE_RESULT_INSERT_FAILED");
+    return existing;
   }
 
   async appendRadarEvidence(input: PersistRadarEvidenceInput) {
@@ -82,6 +91,25 @@ export class DatabaseScoreRepository {
     return row;
   }
 
+  async appendWithRadarEvidence(
+    input: PersistScoreInput,
+    evidence: Omit<PersistRadarEvidenceInput, "scoreResultId">,
+  ) {
+    return this.database.transaction(async (transaction) => {
+      const score = await this.appendInTransaction(transaction, input);
+      const [radar] = await transaction
+        .insert(radarEvidence)
+        .values({
+          scoreResultId: score.id,
+          ...evidence,
+          supportingObservationIds: [...evidence.supportingObservationIds],
+        })
+        .onConflictDoNothing({ target: radarEvidence.scoreResultId })
+        .returning();
+      return { score, radar: radar ?? null };
+    });
+  }
+
   async getLatestAsOf(eventMarketOutcomeId: string, asOf: Date) {
     const rows = await this.database
       .select()
@@ -92,7 +120,11 @@ export class DatabaseScoreRepository {
           lte(scoreResults.asOf, asOf),
         ),
       )
-      .orderBy(desc(scoreResults.asOf))
+      .orderBy(
+        desc(scoreResults.asOf),
+        desc(scoreResults.createdAt),
+        desc(scoreResults.id),
+      )
       .limit(1);
     return rows[0] ?? null;
   }

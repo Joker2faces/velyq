@@ -243,6 +243,7 @@ export const predictionRuns = intelligenceSchema.table(
       table.calibrationVersionId,
     ),
     index("prediction_runs_trigger_job_id_idx").on(table.triggerJobId),
+    unique("prediction_runs_trigger_job_id_unique").on(table.triggerJobId),
   ],
 );
 
@@ -426,6 +427,7 @@ export const scoreResults = intelligenceSchema.table(
     weights: jsonb("weights").notNull(),
     capsPenalties: jsonb("caps_penalties").notNull(),
     reasonCodes: text("reason_codes").array().notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -440,6 +442,7 @@ export const scoreResults = intelligenceSchema.table(
       table.asOf.desc(),
     ),
     index("score_results_prediction_id_idx").on(table.predictionId),
+    unique("score_results_idempotency_key_unique").on(table.idempotencyKey),
     index("score_results_data_quality_assessment_id_idx").on(
       table.dataQualityAssessmentId,
     ),
