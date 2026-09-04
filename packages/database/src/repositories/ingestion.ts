@@ -25,6 +25,7 @@ type DatabaseIngestionBatch = Readonly<{
   lineups: LineupObservationBatch;
   quarantined: readonly QuarantinedProviderObservation[];
   scenarios?: readonly SyntheticScenarioRecord[];
+  normalizedOutputHash?: string;
 }>;
 type DatabaseIngestionJobInput = Readonly<{
   type: Job["type"];
@@ -43,6 +44,7 @@ type DatabaseIngestionInput = Readonly<{
 }>;
 
 function normalizedBatchHash(batch: DatabaseIngestionBatch) {
+  if (batch.normalizedOutputHash) return batch.normalizedOutputHash;
   return `sha256:${createHash("sha256")
     .update(JSON.stringify(batch))
     .digest("hex")}`;

@@ -18,6 +18,7 @@ VALUES
 
 INSERT INTO private.permissions (id, code, description, created_at)
 VALUES
+  ('11000000-0000-4000-8000-000000000000', 'customer.read', 'Read approved customer intelligence', '2026-09-03T08:00:00Z'),
   ('11000000-0000-4000-8000-000000000001', 'admin.access', 'Access the admin application', '2026-09-03T08:00:00Z'),
   ('11000000-0000-4000-8000-000000000002', 'provider_runs.read', 'Read provider run traces', '2026-09-03T08:00:00Z'),
   ('11000000-0000-4000-8000-000000000003', 'predictions.trace', 'Read prediction lineage', '2026-09-03T08:00:00Z'),
@@ -28,6 +29,11 @@ VALUES
 INSERT INTO private.role_permissions (role_id, permission_id, created_at)
 SELECT '10000000-0000-4000-8000-000000000002'::uuid, id, '2026-09-03T08:00:00Z'::timestamptz
 FROM private.permissions;
+
+INSERT INTO private.role_permissions (role_id, permission_id, created_at)
+SELECT '10000000-0000-4000-8000-000000000001'::uuid, id, '2026-09-03T08:00:00Z'::timestamptz
+FROM private.permissions
+WHERE code = 'customer.read';
 
 INSERT INTO private.user_roles (user_id, role_id, granted_by, granted_at)
 VALUES

@@ -306,6 +306,7 @@ export type IngestionBatch = Readonly<{
   lineups: LineupObservationBatch;
   quarantined: readonly QuarantinedProviderObservation[];
   scenarios?: readonly SyntheticScenarioRecord[];
+  normalizedOutputHash?: string;
 }>;
 export interface IngestionSink {
   hasRun(sequenceName: string, fixedClock: string): boolean | Promise<boolean>;
