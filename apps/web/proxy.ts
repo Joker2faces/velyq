@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
-  if (!request.cookies.get("velyq_access_token")?.value)
+export function proxy(request: NextRequest) {
+  if (!request.cookies.get("velyq_access_token")?.value) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
+  }
   return NextResponse.next();
 }
 
