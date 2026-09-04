@@ -48,7 +48,7 @@ function providerRun(
     sequenceName: row.replaySequence ?? "unknown",
     status: row.status as ProviderRun["status"],
     sourceFixtureHash: row.contentHash ?? "unknown",
-    normalizedOutputHash: null,
+    normalizedOutputHash: row.normalizedOutputHash,
     receivedCount: row.receivedCount,
     acceptedCount: row.acceptedCount,
     rejectedCount: row.rejectedCount,

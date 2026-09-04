@@ -50,9 +50,7 @@ export class DatabaseProviderRunRepository {
       completedAt: Date;
     }>,
   ) {
-    // provider_sync_runs.content_hash is the source fixture hash; normalized
-    // output hashes belong to downstream replay/result metadata in Phase 1.
-    void input.normalizedOutputHash;
+    // Keep the source fixture hash and normalized output hash distinct.
     const updated = await this.database
       .update(providerSyncRuns)
       .set({
@@ -61,6 +59,7 @@ export class DatabaseProviderRunRepository {
         acceptedCount: input.acceptedCount,
         rejectedCount: input.rejectedCount,
         completedAt: input.completedAt,
+        normalizedOutputHash: input.normalizedOutputHash,
       })
       .where(eq(providerSyncRuns.id, runId))
       .returning();

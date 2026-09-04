@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import {
   JOB_CONTRACT_VERSIONS,
   type FixtureObservationBatch,
@@ -40,6 +41,12 @@ type DatabaseIngestionInput = Readonly<{
   sequenceName: string;
   fixedClock: string;
 }>;
+
+function normalizedBatchHash(batch: DatabaseIngestionBatch) {
+  return `sha256:${createHash("sha256")
+    .update(JSON.stringify(batch))
+    .digest("hex")}`;
+}
 
 /**
  * Atomic persistence adapter for a replay batch. The provider run is created
@@ -212,6 +219,7 @@ export class DatabaseTransactionalIngestionSink {
           acceptedCount: accepted,
           rejectedCount: batch.quarantined.length,
           completedAt: new Date(this.input.fixedClock),
+          normalizedOutputHash: normalizedBatchHash(batch),
         })
         .where(eq(providerSyncRuns.id, this.input.runId));
 

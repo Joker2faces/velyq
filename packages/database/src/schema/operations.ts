@@ -68,6 +68,7 @@ export const providerSyncRuns = operationsSchema.table(
     replaySequence: text("replay_sequence"),
     fixturePath: text("fixture_path"),
     contentHash: text("content_hash"),
+    normalizedOutputHash: text("normalized_output_hash"),
     providerSchemaVersion: text("provider_schema_version").notNull(),
     normalizationVersion: text("normalization_version").notNull(),
     mappingVersion: text("mapping_version").notNull(),
