@@ -7,7 +7,7 @@ export default async function ScorePage({
   params: Promise<{ scoreId: string }>;
 }) {
   const { scoreId } = await params;
-  const { runtime } = await getAdminContext();
+  const { runtime } = await getAdminContext("scores.inspect");
   if (!runtime)
     return (
       <main className="auth-page">

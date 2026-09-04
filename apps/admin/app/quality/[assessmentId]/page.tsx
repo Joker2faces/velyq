@@ -7,7 +7,7 @@ export default async function QualityPage({
   params: Promise<{ assessmentId: string }>;
 }) {
   const { assessmentId } = await params;
-  const { runtime } = await getAdminContext();
+  const { runtime } = await getAdminContext("quality.inspect");
   if (!runtime)
     return (
       <main className="auth-page">

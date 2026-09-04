@@ -185,7 +185,10 @@ function pageInput(request: Request, requestId: string) {
     } as const;
   }
   const cursor = url.searchParams.get("cursor");
-  if (cursor !== null && (cursor.length === 0 || cursor.length > 256)) {
+  if (
+    cursor !== null &&
+    (cursor.length === 0 || cursor.length > 256 || !/^\d+$/.test(cursor))
+  ) {
     return {
       problem: problem(
         requestId,

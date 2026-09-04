@@ -1,21 +1,11 @@
 import Link from "next/link";
-import { cookies, headers } from "next/headers";
-import { createDatabaseAdminRuntime } from "./database-admin";
-import { AdminShell, adminRequest } from "./admin-page";
+import { AdminShell, getAdminContext } from "./admin-page";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const runtime = createDatabaseAdminRuntime();
-  if (!runtime) return <Unavailable />;
-  const authentication = await runtime.authenticator(
-    await adminRequest(await headers(), await cookies()),
-    crypto.randomUUID(),
-  );
-  if ("problem" in authentication) {
-    await runtime.close();
-    return <SignIn />;
-  }
+  const { runtime, authentication } = await getAdminContext("admin.access");
+  if (!runtime) return authentication ? <SignIn /> : <Unavailable />;
   try {
     const runs = await runtime.queries.listProviderRuns({
       limit: 8,

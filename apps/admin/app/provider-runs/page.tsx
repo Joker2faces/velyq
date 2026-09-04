@@ -4,8 +4,8 @@ import { AdminShell, getAdminContext } from "../admin-page";
 export const dynamic = "force-dynamic";
 
 export default async function ProviderRunsPage() {
-  const { runtime, authentication } = await getAdminContext();
-  if (!runtime || !authentication || "problem" in authentication)
+  const { runtime } = await getAdminContext("provider_runs.read");
+  if (!runtime)
     return (
       <main className="auth-page">
         <div className="auth-card">

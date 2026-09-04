@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { createDatabaseAdminRuntime } from "./database-admin";
 import { cookies, headers } from "next/headers";
+import { hasPermission, type PermissionCode } from "@velyq/auth";
 
 type HeaderStore = Readonly<{ get(name: string): string | null }>;
 type CookieStore = Readonly<{ toString(): string }>;
@@ -15,7 +16,9 @@ export async function adminRequest(
   });
 }
 
-export async function getAdminContext() {
+export async function getAdminContext(
+  permission: PermissionCode = "admin.access",
+) {
   const runtime = createDatabaseAdminRuntime();
   if (!runtime) return { runtime: null, authentication: null } as const;
   const authentication = await runtime.authenticator(
@@ -23,6 +26,10 @@ export async function getAdminContext() {
     crypto.randomUUID(),
   );
   if ("problem" in authentication) {
+    await runtime.close();
+    return { runtime: null, authentication } as const;
+  }
+  if (!hasPermission(authentication.principal, permission)) {
     await runtime.close();
     return { runtime: null, authentication } as const;
   }

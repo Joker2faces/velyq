@@ -7,8 +7,8 @@ export default async function PredictionPage({
   params: Promise<{ predictionId: string }>;
 }) {
   const { predictionId } = await params;
-  const { runtime, authentication } = await getAdminContext();
-  if (!runtime || !authentication || "problem" in authentication)
+  const { runtime } = await getAdminContext("predictions.trace");
+  if (!runtime)
     return (
       <main className="auth-page">
         <div className="auth-card">

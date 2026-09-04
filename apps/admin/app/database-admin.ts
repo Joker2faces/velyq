@@ -30,7 +30,8 @@ const json = (value: unknown) => value as never;
 function cursorOffset(cursor: string | null) {
   if (cursor === null) return 0;
   const value = Number.parseInt(cursor, 10);
-  if (!Number.isInteger(value) || value < 0) throw new Error("INVALID_REQUEST");
+  if (!/^\d+$/.test(cursor) || !Number.isInteger(value) || value < 0)
+    throw new Error("INVALID_REQUEST");
   return value;
 }
 

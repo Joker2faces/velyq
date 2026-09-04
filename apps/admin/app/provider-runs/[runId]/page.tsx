@@ -7,8 +7,8 @@ export default async function ProviderRunDetail({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const { runtime, authentication } = await getAdminContext();
-  if (!runtime || !authentication || "problem" in authentication)
+  const { runtime } = await getAdminContext("provider_runs.read");
+  if (!runtime)
     return (
       <main className="auth-page">
         <div className="auth-card">

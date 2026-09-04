@@ -1,6 +1,17 @@
 import Link from "next/link";
-import { AdminShell } from "../admin-page";
-export default function ScoresPage() {
+import { AdminShell, getAdminContext } from "../admin-page";
+export default async function ScoresPage() {
+  const { runtime } = await getAdminContext("scores.inspect");
+  if (!runtime)
+    return (
+      <main className="auth-page">
+        <div className="auth-card">
+          <h1>Score access required.</h1>
+          <p>Admin permission is required.</p>
+        </div>
+      </main>
+    );
+  await runtime.close();
   return (
     <AdminShell>
       <section className="page-heading">

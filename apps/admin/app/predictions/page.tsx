@@ -1,6 +1,17 @@
 import Link from "next/link";
-import { AdminShell } from "../admin-page";
-export default function PredictionsPage() {
+import { AdminShell, getAdminContext } from "../admin-page";
+export default async function PredictionsPage() {
+  const { runtime } = await getAdminContext("predictions.trace");
+  if (!runtime)
+    return (
+      <main className="auth-page">
+        <div className="auth-card">
+          <h1>Trace access required.</h1>
+          <p>Admin permission is required.</p>
+        </div>
+      </main>
+    );
+  await runtime.close();
   return (
     <AdminShell>
       <section className="page-heading">
