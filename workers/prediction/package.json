@@ -8,6 +8,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run test/index.test.ts"
+  },
+  "dependencies": {
+    "@velyq/analytics": "workspace:*",
+    "@velyq/contracts": "workspace:*",
+    "@velyq/decimal": "workspace:*"
   }
 }

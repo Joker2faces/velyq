@@ -1,1 +1,164 @@
-export {};
+import {
+  assessDataQuality,
+  calculateValue,
+  decideRecommendation,
+  type DataQualityAssessment,
+  type QualityInput,
+} from "@velyq/analytics";
+import type { DecimalString } from "@velyq/decimal";
+import type { RecommendationStatus } from "@velyq/contracts";
+
+export type PredictionJob = Readonly<{
+  id: string;
+  idempotencyKey: string;
+  createdAt: string;
+  correlationId: string;
+  causationId: string;
+  payload: PredictionInput;
+}>;
+
+export type PredictionInput = Readonly<{
+  eventId: string;
+  eventMarketOutcomeId: string;
+  modelProbability: DecimalString;
+  currentOdds: DecimalString;
+  quality: QualityInput;
+  featureCutoff: string;
+  modelVersion: string;
+  calibrationVersion: string;
+  sourceObservationIds: readonly string[];
+}>;
+
+export type PredictionTrace = Readonly<{
+  triggerJobId: string;
+  correlationId: string;
+  causationId: string;
+  featureCutoff: string;
+  modelVersion: string;
+  calibrationVersion: string;
+  sourceObservationIds: readonly string[];
+}>;
+
+export type PredictionRecord = Readonly<{
+  id: string;
+  eventId: string;
+  eventMarketOutcomeId: string;
+  decisionStatus: RecommendationStatus;
+  quality: DataQualityAssessment;
+  modelProbability: DecimalString | null;
+  confidence: DecimalString | null;
+  fairOdds: DecimalString | null;
+  marketImpliedProbability: DecimalString | null;
+  edge: DecimalString | null;
+  expectedValue: DecimalString | null;
+  reasonCodes: readonly string[];
+  trace: PredictionTrace;
+  createdAt: string;
+}>;
+
+export type PredictionJobResult = Readonly<{
+  prediction: PredictionRecord;
+  duplicate: boolean;
+}>;
+
+export interface PredictionRepository {
+  getByIdempotencyKey(idempotencyKey: string): PredictionRecord | undefined;
+  save(idempotencyKey: string, prediction: PredictionRecord): PredictionRecord;
+}
+
+/** Deterministic repository seam; production wiring can implement this contract transactionally. */
+export class InMemoryPredictionRepository implements PredictionRepository {
+  private readonly predictions = new Map<string, PredictionRecord>();
+
+  getByIdempotencyKey(idempotencyKey: string) {
+    return this.predictions.get(idempotencyKey);
+  }
+
+  save(idempotencyKey: string, prediction: PredictionRecord) {
+    const existing = this.predictions.get(idempotencyKey);
+    if (existing) return existing;
+    this.predictions.set(idempotencyKey, prediction);
+    return prediction;
+  }
+}
+
+function isQualityGateRefusal(
+  quality: DataQualityAssessment,
+  input: PredictionInput,
+): boolean {
+  return (
+    quality.grade === "C" ||
+    quality.grade === "F" ||
+    quality.reasonCodes.includes("STALE_DATA") ||
+    quality.reasonCodes.includes("MISSING_PRICE") ||
+    quality.reasonCodes.includes("NO_BOOKMAKER_COVERAGE") ||
+    input.quality.lineup === "MISSING" ||
+    input.quality.lineup === "CHANGED" ||
+    !input.quality.edgeAvailable
+  );
+}
+
+export function generatePrediction(
+  job: PredictionJob,
+  repository: PredictionRepository,
+): PredictionJobResult {
+  const existing = repository.getByIdempotencyKey(job.idempotencyKey);
+  if (existing) return { prediction: existing, duplicate: true };
+
+  const quality = assessDataQuality(job.payload.quality);
+  const value = calculateValue(
+    job.payload.modelProbability,
+    job.payload.currentOdds,
+  );
+  const gateRefused = isQualityGateRefusal(quality, job.payload) || !value.ok;
+  const edgePresent = value.ok && job.payload.quality.edgePresent;
+  const recommendation = decideRecommendation({
+    quality,
+    lineup: job.payload.quality.lineup,
+    edgeAvailable: job.payload.quality.edgeAvailable,
+    edgePresent,
+  });
+  const accepted = !gateRefused && recommendation === "NO_BET" && edgePresent;
+  const decisionStatus: RecommendationStatus = accepted
+    ? "STRONG_EDGE"
+    : recommendation;
+  const reasonCodes = [
+    ...quality.reasonCodes,
+    ...(gateRefused && value.ok ? ["QUALITY_GATE_REFUSED"] : []),
+    ...(gateRefused && !value.ok ? ["INVALID_VALUE_INPUT"] : []),
+  ];
+  const metrics = accepted && value.ok ? value.value : null;
+  const prediction: PredictionRecord = Object.freeze({
+    id: `prediction:${job.idempotencyKey}`,
+    eventId: job.payload.eventId,
+    eventMarketOutcomeId: job.payload.eventMarketOutcomeId,
+    decisionStatus,
+    quality,
+    modelProbability: metrics ? job.payload.modelProbability : null,
+    confidence: metrics ? (quality.score as DecimalString) : null,
+    fairOdds: metrics ? metrics.fairOdds : null,
+    marketImpliedProbability: metrics ? metrics.impliedProbability : null,
+    edge: metrics ? metrics.probabilityEdge : null,
+    expectedValue: metrics ? metrics.expectedValue : null,
+    reasonCodes,
+    trace: Object.freeze({
+      triggerJobId: job.id,
+      correlationId: job.correlationId,
+      causationId: job.causationId,
+      featureCutoff: job.payload.featureCutoff,
+      modelVersion: job.payload.modelVersion,
+      calibrationVersion: job.payload.calibrationVersion,
+      sourceObservationIds: [...job.payload.sourceObservationIds],
+    }),
+    createdAt: job.createdAt,
+  });
+  const persisted = repository.save(job.idempotencyKey, prediction);
+  return { prediction: persisted, duplicate: persisted !== prediction };
+}
+
+export function consumePredictionJob(
+  job: PredictionJob,
+  repository = new InMemoryPredictionRepository(),
+): PredictionJobResult {
+  return generatePrediction(job, repository);
+}
