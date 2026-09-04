@@ -285,8 +285,26 @@ export type GeneratePredictionPayload = Readonly<{
   readonly calibrationVersion: string;
   readonly sourceObservationIds: readonly string[];
 }>;
+export type CalculateEdgePayload = Readonly<{
+  readonly eventId: string;
+  readonly eventMarketOutcomeId: string;
+  readonly predictionId: string;
+  readonly scoreDefinitionVersionId: string;
+  readonly asOf: string;
+}>;
+export type CalculateRadarPayload = Readonly<{
+  readonly eventId: string;
+  readonly eventMarketOutcomeId: string;
+  readonly scoreDefinitionVersionId: string;
+  readonly openingObservationId: string;
+  readonly currentObservationId: string;
+  readonly asOf: string;
+}>;
 export type JobPayload =
-  IngestProviderSequencePayload | GeneratePredictionPayload;
+  | IngestProviderSequencePayload
+  | GeneratePredictionPayload
+  | CalculateEdgePayload
+  | CalculateRadarPayload;
 export type Job = Readonly<{
   readonly id: string;
   readonly type: JobType;
@@ -376,13 +394,30 @@ export function validateJob(input: unknown): JobValidation {
     typeof prediction["currentOdds"] === "string" &&
     typeof prediction["featureCutoff"] === "string" &&
     !Number.isNaN(Date.parse(prediction["featureCutoff"]));
+  const validEdgePayload =
+    typeof payload === "object" &&
+    payload !== null &&
+    typeof payload["eventId"] === "string" &&
+    typeof payload["eventMarketOutcomeId"] === "string" &&
+    typeof payload["predictionId"] === "string" &&
+    typeof payload["scoreDefinitionVersionId"] === "string" &&
+    typeof payload["asOf"] === "string" &&
+    !Number.isNaN(Date.parse(payload["asOf"]));
+  const validRadarPayload =
+    typeof payload === "object" &&
+    payload !== null &&
+    typeof payload["eventId"] === "string" &&
+    typeof payload["eventMarketOutcomeId"] === "string" &&
+    typeof payload["scoreDefinitionVersionId"] === "string" &&
+    typeof payload["openingObservationId"] === "string" &&
+    typeof payload["currentObservationId"] === "string" &&
+    typeof payload["asOf"] === "string" &&
+    !Number.isNaN(Date.parse(payload["asOf"]));
   if (
     (candidate.type === "INGEST_PROVIDER_SEQUENCE" && !validIngestPayload) ||
     (candidate.type === "GENERATE_PREDICTION" && !validPredictionPayload) ||
-    ((candidate.type === "CALCULATE_EDGE" ||
-      candidate.type === "CALCULATE_RADAR") &&
-      !validPredictionPayload &&
-      !validIngestPayload)
+    (candidate.type === "CALCULATE_EDGE" && !validEdgePayload) ||
+    (candidate.type === "CALCULATE_RADAR" && !validRadarPayload)
   )
     errors.push("payload does not match the job contract");
   return errors.length
