@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 const ownerId = process.env.VELYQ_OWNER_USER_ID;
+const expectedProjectRef = process.env.VELYQ_EXPECTED_PROJECT_REF;
 if (
   !ownerId ||
   !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -11,6 +12,11 @@ if (
   )
 ) {
   throw new Error("Set VELYQ_OWNER_USER_ID to an existing auth.users UUID.");
+}
+if (!expectedProjectRef || !/^[a-z0-9]{20}$/i.test(expectedProjectRef)) {
+  throw new Error(
+    "Set VELYQ_EXPECTED_PROJECT_REF to the intended linked Supabase project ref.",
+  );
 }
 
 const seed = readFileSync(resolve("supabase/seed.sql"), "utf8");
@@ -47,6 +53,39 @@ const corepackJs = resolve(
   dirname(process.execPath),
   "node_modules/corepack/dist/corepack.js",
 );
+const runCli = (args, options = {}) =>
+  execFileSync(
+    process.execPath,
+    [corepackJs, "pnpm", "exec", "supabase", ...args],
+    {
+      cwd: resolve("."),
+      encoding: "utf8",
+      windowsHide: true,
+      ...options,
+    },
+  );
+const projectList = runCli(["projects", "list", "--output", "json"]);
+const projects = JSON.parse(projectList);
+if (
+  !projects.some(
+    (project) => project.ref === expectedProjectRef && project.linked === true,
+  )
+) {
+  throw new Error(
+    `Expected linked Supabase project ${expectedProjectRef} was not confirmed.`,
+  );
+}
+const seededRows = runCli([
+  "db",
+  "query",
+  "--linked",
+  "--output-format",
+  "json",
+  "select count(*) as row_count from catalog.sports;",
+]);
+if (!/\"row_count\"\s*:\s*0\b/.test(seededRows)) {
+  throw new Error("Refusing to run staging seed: catalog.sports is not empty.");
+}
 const tempDirectory = mkdtempSync(resolve(tmpdir(), "velyq-staging-seed-"));
 try {
   for (const [index, statement] of statements.entries()) {
@@ -55,25 +94,9 @@ try {
     );
     const statementPath = resolve(tempDirectory, `statement-${index + 1}.sql`);
     writeFileSync(statementPath, `${statement};\n`, "utf8");
-    execFileSync(
-      process.execPath,
-      [
-        corepackJs,
-        "pnpm",
-        "exec",
-        "supabase",
-        "db",
-        "query",
-        "--linked",
-        "--file",
-        statementPath,
-      ],
-      {
-        cwd: resolve("."),
-        stdio: "inherit",
-        windowsHide: true,
-      },
-    );
+    runCli(["db", "query", "--linked", "--file", statementPath], {
+      stdio: "inherit",
+    });
   }
 } finally {
   rmSync(tempDirectory, { recursive: true, force: true });
