@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCustomerSession } from "../../../../auth";
-import { customerService, unavailable } from "../../../../../customer-runtime";
+import {
+  customerOddsHistory,
+  customerService,
+  unavailable,
+} from "../../../../../customer-runtime";
 
 export async function GET(
   _request: Request,
@@ -10,12 +14,33 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
+  const history = await customerOddsHistory(eventId, new Date());
+  if (history && "unavailable" in history) {
+    return NextResponse.json(unavailable(), { status: 503 });
+  }
+  if (history) {
+    return NextResponse.json({
+      eventId,
+      syntheticLabel: "Synthetic data",
+      observations: history.observations.map((observation) => ({
+        observedAt: observation.providerObservedAt,
+        odds: observation.decimalOdds,
+      })),
+    });
+  }
   const service = customerService();
   if (!service) return NextResponse.json(unavailable(), { status: 503 });
   const result = await service.getMatch(eventId, new Date());
   if (!result.ok && result.code === "NOT_FOUND") return notFound();
   if (!result.ok) return NextResponse.json(result, { status: 503 });
   const match = result.value;
+  if (process.env["VELYQ_DATABASE_URL"]) {
+    return NextResponse.json({
+      eventId,
+      syntheticLabel: match.syntheticLabel,
+      observations: [],
+    });
+  }
   return NextResponse.json({
     eventId,
     syntheticLabel: match.syntheticLabel,

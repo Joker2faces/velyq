@@ -107,3 +107,19 @@ export function unavailable() {
     messageKey: "customerUnavailable",
   };
 }
+
+export async function customerOddsHistory(eventId: string, asOf: Date) {
+  const database = databaseCustomerQueries();
+  if (database) {
+    try {
+      const match = await database.getMatch(eventId, asOf);
+      const outcome = match?.outcomes[0];
+      return outcome
+        ? await database.getOddsHistory(eventId, outcome.outcome.id, asOf)
+        : null;
+    } catch {
+      return { unavailable: true as const };
+    }
+  }
+  return null;
+}

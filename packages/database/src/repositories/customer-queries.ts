@@ -17,6 +17,7 @@ import {
   scoreResults,
   sports,
   dataQualityAssessments,
+  lineupObservations,
 } from "../schema/index.js";
 
 /** The deliberately un-mapped database read model consumed by an application mapper. */
@@ -47,6 +48,7 @@ export type CustomerRawMatch = Readonly<{
   sport: typeof sports.$inferSelect;
   competition: typeof competitions.$inferSelect;
   participants: readonly CustomerRawParticipant[];
+  lineups: readonly (typeof lineupObservations.$inferSelect)[];
   outcomes: readonly CustomerRawOutcome[];
   asOf: Date;
 }>;
@@ -133,6 +135,20 @@ export class DatabaseCustomerQueryAdapter {
       )
       .where(eq(eventParticipants.eventId, eventId))
       .orderBy(asc(eventParticipants.role), asc(participants.id));
+
+    const lineups = await this.database
+      .select()
+      .from(lineupObservations)
+      .where(
+        and(
+          eq(lineupObservations.eventId, eventId),
+          lte(lineupObservations.providerObservedAt, asOf),
+        ),
+      )
+      .orderBy(
+        desc(lineupObservations.providerObservedAt),
+        asc(lineupObservations.id),
+      );
 
     const marketRows = await this.database
       .select({
@@ -249,6 +265,7 @@ export class DatabaseCustomerQueryAdapter {
     return {
       ...eventRow,
       participants: participantRows,
+      lineups,
       outcomes,
       asOf,
     };

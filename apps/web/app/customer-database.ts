@@ -30,7 +30,15 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const stale = latestObservation
     ? raw.asOf.getTime() - latestObservation.getTime() > 60 * 60 * 1000
     : true;
-  const lineup = "EXPECTED" as CustomerMatchDto["lineup"];
+  const lineupStatuses = raw.lineups.map((item) => item.status);
+  const lineup =
+    lineupStatuses.length === 0
+      ? "MISSING"
+      : lineupStatuses.includes("OFFICIAL")
+        ? "OFFICIAL"
+        : lineupStatuses.includes("UNAVAILABLE")
+          ? "MISSING"
+          : "EXPECTED";
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
@@ -51,7 +59,13 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     fairOdds: decimal(prediction?.prediction.fairOdds),
     currentOdds: decimal(current),
     openingOdds: decimal(opening),
-    movementPercent: null,
+    movementPercent:
+      opening !== null && current !== null
+        ? ((
+            (Number(current) - Number(opening)) /
+            Number(opening)
+          ).toString() as DecimalString)
+        : null,
     probabilityEdge: decimal(prediction?.prediction.edge),
     expectedValue: decimal(prediction?.prediction.expectedValue),
     lineup,
