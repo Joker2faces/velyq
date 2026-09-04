@@ -1,6 +1,10 @@
 # VELYQ workspace
 
-This repository is the Phase 1 VELYQ foundation. It contains no product behavior, no external-provider connection, and no credentials.
+VELYQ Phase 1 is a synthetic-only sports market intelligence staging system.
+It includes separate customer (`apps/web`) and operational admin (`apps/admin`)
+Next.js applications, governed replay/ingestion workers, exact decimal
+analytics, traceable predictions, and protected Supabase-backed BFF contracts.
+It contains no real-provider connection and no credentials.
 
 Use the pinned Node.js and pnpm runtimes, then install and run the available verification in one command:
 
@@ -8,9 +12,9 @@ Use the pinned Node.js and pnpm runtimes, then install and run the available ver
 corepack pnpm bootstrap
 ```
 
-`lint`, `typecheck`, `test`, and `build` are available now. `test:e2e` and
-`mock:replay` remain reserved for later milestones and deliberately return a
-nonzero result.
+The canonical local verification is `corepack pnpm verify`, followed by
+`corepack pnpm test:e2e`. The built replay CLI is available through
+`node workers/ingestion/dist/cli.js <fixed-iso-clock>`.
 
 Local database development uses the pinned project Supabase CLI and requires a
 running Docker Desktop installation. The database commands never target a
@@ -32,3 +36,8 @@ Use a direct PostgreSQL connection for migration tooling and the transaction
 pooler connection (`VELYQ_DATABASE_URL`) for later serverless application
 traffic. Credentials and remote connection values do not belong in source
 control.
+
+Deployment and rollback guidance is in
+`docs/operations/phase-1-runbook.md`. Customer and admin expose
+`/api/health` and `/api/ready`. Deployment protection remains enabled;
+production promotion and main-branch merge require explicit approval.
