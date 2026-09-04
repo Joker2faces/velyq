@@ -6,3 +6,6 @@ packages:
 allowBuilds:
   esbuild: true
   supabase: true
+
+overrides:
+  "@esbuild-kit/core-utils>esbuild": 0.25.12
