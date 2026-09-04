@@ -6,11 +6,15 @@ import {
 
 describe("customer evidence mapper", () => {
   it("prefers the canonical match-result market", () => {
-    const canonical = { marketDefinition: { code: "MATCH_RESULT" } };
+    const canonical = {
+      marketDefinition: { code: "MATCH_RESULT" },
+      prediction: {},
+      score: null,
+    };
     const raw = {
       outcomes: [
         { marketDefinition: { code: "TOTALS" }, prediction: null, score: null },
-        { ...canonical, prediction: null, score: null },
+        canonical,
       ],
     } as never;
     expect(selectOutcome(raw)?.marketDefinition.code).toBe("MATCH_RESULT");

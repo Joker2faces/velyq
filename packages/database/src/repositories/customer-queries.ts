@@ -143,6 +143,7 @@ export class DatabaseCustomerQueryAdapter {
         and(
           eq(lineupObservations.eventId, eventId),
           lte(lineupObservations.providerObservedAt, asOf),
+          lte(lineupObservations.receivedAt, asOf),
         ),
       )
       .orderBy(
@@ -245,6 +246,7 @@ export class DatabaseCustomerQueryAdapter {
             and(
               eq(eventMarketOutcomes.id, row.outcome.id),
               lte(oddsObservations.providerObservedAt, asOf),
+              lte(oddsObservations.receivedAt, asOf),
             ),
           )
           .orderBy(
@@ -302,6 +304,7 @@ export class DatabaseCustomerQueryAdapter {
         and(
           eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomeId),
           lte(oddsObservations.providerObservedAt, asOf),
+          lte(oddsObservations.receivedAt, asOf),
         ),
       )
       .orderBy(

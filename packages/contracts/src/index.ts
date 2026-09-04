@@ -403,7 +403,12 @@ export function validateJob(input: unknown): JobValidation {
       (value) => typeof value === "string" && value.length > 0,
     ) &&
     typeof prediction["quality"] === "object" &&
-    prediction["quality"] !== null;
+    prediction["quality"] !== null &&
+    validPredictionQuality(prediction["quality"]) &&
+    Array.isArray(prediction["sourceObservationIds"]) &&
+    prediction["sourceObservationIds"].length > 0 &&
+    new Set(prediction["sourceObservationIds"]).size ===
+      prediction["sourceObservationIds"].length;
   const validEdgePayload =
     typeof payload === "object" &&
     payload !== null &&
@@ -433,6 +438,29 @@ export function validateJob(input: unknown): JobValidation {
   return errors.length
     ? { ok: false, errors }
     : { ok: true, value: Object.freeze(candidate as Job) };
+}
+
+function validPredictionQuality(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const quality = value as Record<string, unknown>;
+  return (
+    typeof quality["policyVersion"] === "string" &&
+    quality["policyVersion"].length > 0 &&
+    typeof quality["asOf"] === "string" &&
+    !Number.isNaN(Date.parse(quality["asOf"])) &&
+    typeof quality["receivedAt"] === "string" &&
+    !Number.isNaN(Date.parse(quality["receivedAt"])) &&
+    Number.isInteger(quality["priceCount"]) &&
+    (quality["priceCount"] as number) >= 0 &&
+    Number.isInteger(quality["bookmakerCount"]) &&
+    (quality["bookmakerCount"] as number) >= 0 &&
+    ["EXPECTED", "OFFICIAL", "MISSING", "CHANGED"].includes(
+      quality["lineup"] as string,
+    ) &&
+    ["HIGH", "LOW"].includes(quality["mappingConfidence"] as string) &&
+    typeof quality["edgeAvailable"] === "boolean" &&
+    typeof quality["edgePresent"] === "boolean"
+  );
 }
 
 export type ProviderRunStatus = "RUNNING" | "COMPLETED" | "FAILED";

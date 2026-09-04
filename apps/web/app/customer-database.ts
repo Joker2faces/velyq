@@ -82,9 +82,10 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
 export function selectOutcome(raw: CustomerRawMatch) {
   return (
     raw.outcomes.find(
-      ({ marketDefinition }) =>
-        marketDefinition.code === "MATCH_RESULT" ||
-        marketDefinition.code === "1X2",
+      ({ marketDefinition, prediction, score }) =>
+        (marketDefinition.code === "MATCH_RESULT" ||
+          marketDefinition.code === "1X2") &&
+        (prediction !== null || score !== null),
     ) ??
     raw.outcomes.find(
       ({ prediction, score }) => prediction !== null || score !== null,
