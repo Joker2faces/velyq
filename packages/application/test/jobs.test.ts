@@ -77,4 +77,26 @@ describe("durable job contract", () => {
     expect(first.downstreamJobs).toHaveLength(1);
     expect(second.duplicate).toBe(true);
   });
+  it("uses the orchestration run identity for sink idempotency", async () => {
+    const repo = new InMemoryJobRepository(clock);
+    const sink = new InMemoryIngestionSink();
+    const batch = {
+      fixtures: { observationWindow: { from: "a", to: "b" }, observations: [] },
+      odds: { observationWindow: { from: "a", to: "b" }, observations: [] },
+      lineups: { observationWindow: { from: "a", to: "b" }, observations: [] },
+      quarantined: [],
+    } as never;
+    const source = { replay: async () => batch };
+    await ingestProviderSequence({
+      sequenceName: "sequence-a",
+      fixedClock: clock.now(),
+      source,
+      sink,
+      jobs: repo,
+      correlationId: "corr-1",
+      causationId: "cause-1",
+    });
+    expect(sink.hasRun("sequence-a", clock.now())).toBe(true);
+    expect(sink.hasRun("sequence-b", clock.now())).toBe(false);
+  });
 });

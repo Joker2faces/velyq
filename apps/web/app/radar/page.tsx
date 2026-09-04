@@ -1,4 +1,11 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
+import { customerToday } from "../customer-data";
+
+const movement = (opening: string | null, current: string | null) => {
+  if (!opening || !current) return "—";
+  return `${((Number(current) / Number(opening) - 1) * 100).toFixed(1)}%`;
+};
+
 export default function Radar() {
   return (
     <CustomerShell>
@@ -15,17 +22,37 @@ export default function Radar() {
           <h2>Market movement</h2>
           <span className="muted">Freshness-aware evidence</span>
         </div>
-        <div className="radar-row">
-          <div>
-            <strong>Northbridge · Home</strong>
-            <small>2 bookmakers moving · 3 observed</small>
+        {customerToday.matches.map((match) => (
+          <div className="radar-row" key={match.eventId}>
+            <div>
+              <strong>
+                {match.homeTeam} · {match.selection}
+              </strong>
+              <small>
+                {match.openingOdds && match.currentOdds
+                  ? "Observable price history"
+                  : "No price history available"}
+              </small>
+            </div>
+            <Metric label="Opening" value={match.openingOdds ?? "—"} />
+            <Metric label="Current" value={match.currentOdds ?? "—"} />
+            <Metric
+              label="Movement"
+              value={movement(match.openingOdds, match.currentOdds)}
+              tone="teal"
+            />
+            <Metric label="Freshness" value={match.freshness} />
+            <Status
+              tone={
+                match.freshness === "FRESH" && match.currentOdds
+                  ? "positive"
+                  : "neutral"
+              }
+            >
+              {match.currentOdds ? "RADAR MOVE" : "NO EVIDENCE"}
+            </Status>
           </div>
-          <Metric label="Opening" value="2.10" />
-          <Metric label="Current" value="1.85" />
-          <Metric label="Movement" value="−11.9%" tone="teal" />
-          <Metric label="Freshness" value="Fresh" />
-          <Status tone="positive">RADAR MOVE</Status>
-        </div>
+        ))}
       </section>
     </CustomerShell>
   );

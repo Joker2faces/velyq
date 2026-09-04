@@ -127,6 +127,7 @@ export interface IngestionSink {
   hasRun(sequenceName: string, fixedClock: string): boolean;
   writeBatch(
     batch: IngestionBatch,
+    runKey?: string,
   ): Readonly<{ accepted: number; rejected: number; duplicate: boolean }>;
 }
 export type IngestionResult = Readonly<{
@@ -142,8 +143,10 @@ export class InMemoryIngestionSink implements IngestionSink {
   hasRun(sequenceName: string, fixedClock: string) {
     return this.runs.has(`${sequenceName}:${fixedClock}`);
   }
-  writeBatch(batch: IngestionBatch) {
-    const runKey = `${batch.fixtures.observationWindow.from}:${batch.fixtures.observationWindow.to}`;
+  writeBatch(batch: IngestionBatch, requestedRunKey?: string) {
+    const runKey =
+      requestedRunKey ??
+      `${batch.fixtures.observationWindow.from}:${batch.fixtures.observationWindow.to}`;
     if (this.runs.has(runKey))
       return {
         accepted: 0,
@@ -190,7 +193,10 @@ export async function ingestProviderSequence(
     sequenceName: input.sequenceName,
     fixedClock: input.fixedClock,
   });
-  const written = input.sink.writeBatch(batch);
+  const written = input.sink.writeBatch(
+    batch,
+    `${input.sequenceName}:${input.fixedClock}`,
+  );
   if (written.duplicate) return { ...written, downstreamJobs: [] };
   const downstreamJobs = [
     input.jobs.enqueue({

@@ -1,4 +1,13 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
+import { customerToday } from "../customer-data";
+
+const toneFor = (recommendation: string) =>
+  recommendation === "STRONG_EDGE"
+    ? "positive"
+    : recommendation === "WAIT" || recommendation === "WAIT_FOR_LINEUP"
+      ? "amber"
+      : "neutral";
+
 export default function Edge() {
   return (
     <CustomerShell>
@@ -13,23 +22,28 @@ export default function Edge() {
       <section className="panel">
         <div className="panel-head">
           <h2>Current opportunities</h2>
-          <span className="muted">07 tracked · synthetic</span>
+          <span className="muted">
+            {customerToday.matches.length.toString().padStart(2, "0")} tracked ·{" "}
+            {customerToday.syntheticLabel.toLowerCase()}
+          </span>
         </div>
-        <div className="edge-row">
-          <strong>Northbridge United · Home</strong>
-          <Metric label="Odds" value="1.85" />
-          <Metric label="Model probability" value="60.0%" />
-          <Metric label="Fair odds" value="1.67" />
-          <Metric label="EV" value="+20.0%" />
-          <Status tone="positive">STRONG EDGE</Status>
-        </div>
-        <div className="edge-row">
-          <strong>Eastvale City · Draw</strong>
-          <Metric label="Odds" value="3.40" />
-          <Metric label="Model probability" value="—" />
-          <Metric label="Quality" value="F" />
-          <Status tone="neutral">NO BET</Status>
-        </div>
+        {customerToday.matches.map((match) => (
+          <div className="edge-row" key={match.eventId}>
+            <strong>
+              {match.homeTeam} · {match.selection}
+            </strong>
+            <Metric label="Odds" value={match.currentOdds ?? "—"} />
+            <Metric
+              label="Model probability"
+              value={match.modelProbability ?? "—"}
+            />
+            <Metric label="Fair odds" value={match.fairOdds ?? "—"} />
+            <Metric label="EV" value={match.expectedValue ?? "—"} />
+            <Status tone={toneFor(match.recommendation)}>
+              {match.recommendation.replaceAll("_", " ")}
+            </Status>
+          </div>
+        ))}
       </section>
     </CustomerShell>
   );
