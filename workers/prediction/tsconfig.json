@@ -1,5 +1,5 @@
 {
   "extends": "../../tooling/typescript/base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src/**/*.ts"]
+  "compilerOptions": { "rootDir": ".", "outDir": "dist" },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }
