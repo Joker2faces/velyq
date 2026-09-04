@@ -80,40 +80,42 @@ export class DatabaseJobRepository {
           status: "RUNNING",
           attemptCount: candidate.attemptCount + 1,
           leaseExpiresAt: leaseUntil,
+          leaseOwner: workerId,
           startedAt: candidate.startedAt ?? now,
         })
         .where(
           and(eq(jobs.id, candidate.id), eq(jobs.status, candidate.status)),
         )
         .returning();
-      void workerId;
       const job = updated[0] as unknown as Job | undefined;
       return job ? { job, leaseExpiresAt: leaseUntil.toISOString() } : null;
     });
   }
 
-  async complete(jobId: string, completedAt: Date): Promise<Job> {
+  async complete(jobId: string, workerId: string, completedAt: Date): Promise<Job> {
     const updated = await this.database
       .update(jobs)
       .set({
         status: "COMPLETED",
         leaseExpiresAt: null,
+        leaseOwner: null,
         completedAt,
         lastError: null,
       })
-      .where(eq(jobs.id, jobId))
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, "RUNNING"), eq(jobs.leaseOwner, workerId)))
       .returning();
-    if (!updated[0]) throw new Error("JOB_NOT_FOUND");
+    if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
     return updated[0] as unknown as Job;
   }
 
   async fail(
     jobId: string,
+    workerId: string,
     error: Readonly<{ code: string; message: string }>,
     failedAt: Date,
   ): Promise<Job> {
     const current = await this.database.query.jobs.findFirst({
-      where: eq(jobs.id, jobId),
+      where: and(eq(jobs.id, jobId), eq(jobs.leaseOwner, workerId)),
     });
     if (!current) throw new Error("JOB_NOT_FOUND");
     const terminal: JobStatus =
@@ -124,11 +126,13 @@ export class DatabaseJobRepository {
         status: terminal,
         availableAt: failedAt,
         leaseExpiresAt: null,
+        leaseOwner: null,
         completedAt: terminal === "FAILED" ? failedAt : null,
         lastError: error,
       })
-      .where(eq(jobs.id, jobId))
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, "RUNNING"), eq(jobs.leaseOwner, workerId)))
       .returning();
+    if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
     return updated[0] as unknown as Job;
   }
 }

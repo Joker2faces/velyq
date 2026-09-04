@@ -143,6 +143,7 @@ export const jobs = operationsSchema.table(
     maxAttempts: integer("max_attempts").notNull(),
     availableAt: timestamp("available_at", { withTimezone: true }).notNull(),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
     correlationId: uuid("correlation_id").notNull(),
     causationId: uuid("causation_id").notNull(),
     lastError: jsonb("last_error"),
@@ -173,10 +174,10 @@ export const jobs = operationsSchema.table(
     check(
       "jobs_state_check",
       sql`(
-        (${table.status} = 'PENDING' and ${table.leaseExpiresAt} is null and ${table.completedAt} is null)
-        or (${table.status} = 'RUNNING' and ${table.leaseExpiresAt} is not null and ${table.startedAt} is not null and ${table.completedAt} is null)
-        or (${table.status} = 'COMPLETED' and ${table.leaseExpiresAt} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is null)
-        or (${table.status} = 'FAILED' and ${table.leaseExpiresAt} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is not null)
+        (${table.status} = 'PENDING' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.completedAt} is null)
+        or (${table.status} = 'RUNNING' and ${table.leaseExpiresAt} is not null and ${table.leaseOwner} is not null and ${table.startedAt} is not null and ${table.completedAt} is null)
+        or (${table.status} = 'COMPLETED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is null)
+        or (${table.status} = 'FAILED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is not null)
       )`,
     ),
   ],

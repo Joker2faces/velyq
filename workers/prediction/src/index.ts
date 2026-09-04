@@ -112,9 +112,10 @@ export interface PredictionJobQueue {
     now: Date,
     leaseUntil: Date,
   ): Promise<PredictionQueueLease | null>;
-  complete(jobId: string, completedAt: Date): Promise<Job>;
+  complete(jobId: string, workerId: string, completedAt: Date): Promise<Job>;
   fail(
     jobId: string,
+    workerId: string,
     error: Readonly<{ code: string; message: string }>,
     failedAt: Date,
   ): Promise<Job>;
@@ -256,13 +257,14 @@ export async function runDurablePredictionJobOnce(
   if (!lease) return { leased: false, status: "IDLE", jobId: null };
   try {
     await new DatabasePredictionJobHandler(config.database).handle(lease.job);
-    await queue.complete(lease.job.id, config.now);
+    await queue.complete(lease.job.id, config.workerId, config.now);
     return { leased: true, status: "COMPLETED", jobId: lease.job.id };
   } catch (error) {
     const errorCode =
       error instanceof Error ? error.message : "PREDICTION_FAILED";
     await queue.fail(
       lease.job.id,
+      config.workerId,
       { code: errorCode, message: "Prediction job processing failed." },
       config.now,
     );
@@ -309,13 +311,14 @@ export async function runDurablePipelineJobOnce(
     } else {
       throw new Error("INVALID_PIPELINE_JOB_TYPE");
     }
-    await queue.complete(lease.job.id, config.now);
+    await queue.complete(lease.job.id, config.workerId, config.now);
     return { leased: true, status: "COMPLETED", jobId: lease.job.id };
   } catch (error) {
     const errorCode =
       error instanceof Error ? error.message : "PIPELINE_JOB_FAILED";
     await queue.fail(
       lease.job.id,
+      config.workerId,
       { code: errorCode, message: "Pipeline job processing failed." },
       config.now,
     );
@@ -346,13 +349,14 @@ export async function processPredictionJobOnce(
 
   try {
     await consumeQueuedPredictionJobWithInputs(lease.job, reader, repository);
-    await queue.complete(lease.job.id, input.now);
+    await queue.complete(lease.job.id, input.workerId, input.now);
     return { leased: true, status: "COMPLETED", jobId: lease.job.id };
   } catch (error) {
     const errorCode =
       error instanceof Error ? error.message : "PREDICTION_FAILED";
     await queue.fail(
       lease.job.id,
+      input.workerId,
       { code: errorCode, message: "Prediction job processing failed." },
       input.now,
     );
@@ -383,13 +387,14 @@ export async function processScoreJobOnce(
     else if (lease.job.type === "CALCULATE_RADAR")
       await consumeQueuedRadarJob(lease.job, radarReader, writer);
     else throw new Error("INVALID_SCORE_JOB_TYPE");
-    await queue.complete(lease.job.id, input.now);
+    await queue.complete(lease.job.id, input.workerId, input.now);
     return { leased: true, status: "COMPLETED", jobId: lease.job.id };
   } catch (error) {
     const errorCode =
       error instanceof Error ? error.message : "SCORE_PROCESSING_FAILED";
     await queue.fail(
       lease.job.id,
+      input.workerId,
       { code: errorCode, message: "Score job processing failed." },
       input.now,
     );
