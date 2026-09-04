@@ -17,10 +17,14 @@ const source = SyntheticReplaySource.fromRepository(context.value);
 const databaseUrl = process.env["VELYQ_DATABASE_URL"];
 const providerId = process.env["VELYQ_PROVIDER_ID"];
 const policyVersionId = process.env["VELYQ_PROVIDER_POLICY_VERSION_ID"];
+const qualityPolicyVersionId = process.env["VELYQ_QUALITY_POLICY_VERSION_ID"];
 const fixturePath = process.env["VELYQ_FIXTURE_PATH"] ?? "synthetic-replay";
-if (databaseUrl && (!providerId || !policyVersionId)) {
+if (
+  databaseUrl &&
+  (!providerId || !policyVersionId || !qualityPolicyVersionId)
+) {
   throw new Error(
-    "VELYQ_PROVIDER_ID and VELYQ_PROVIDER_POLICY_VERSION_ID are required when VELYQ_DATABASE_URL is configured",
+    "VELYQ_PROVIDER_ID, VELYQ_PROVIDER_POLICY_VERSION_ID, and VELYQ_QUALITY_POLICY_VERSION_ID are required when VELYQ_DATABASE_URL is configured",
   );
 }
 const databaseClient = databaseUrl
@@ -36,6 +40,7 @@ const results = await Promise.all(
           database: databaseClient.database,
           providerId: providerId!,
           policyVersionId: policyVersionId!,
+          qualityPolicyVersionId: qualityPolicyVersionId!,
           fixturePath,
         })
       : await runIngestion(sequenceName, fixedClock, source);

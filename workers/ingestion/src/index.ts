@@ -31,6 +31,7 @@ export async function runDurableIngestion(
     database: PrivilegedVelyqDatabase;
     providerId: string;
     policyVersionId: string;
+    qualityPolicyVersionId: string;
     fixturePath: string;
   }>,
 ) {
@@ -50,6 +51,7 @@ export async function runDurableIngestion(
   });
   const sink = new DatabaseTransactionalIngestionSink(config.database, {
     providerId: config.providerId,
+    qualityPolicyVersionId: config.qualityPolicyVersionId,
     runId: run.id,
     providerCode: batch.fixtures.providerCode,
     sequenceName,
@@ -61,6 +63,7 @@ export async function runDurableIngestion(
       fixedClock,
       source: { replay: async () => batch },
       sink,
+      qualityPolicyVersionId: config.qualityPolicyVersionId,
       correlationId: stableUuid(`ingestion:${sequenceName}:${fixedClock}`),
       causationId: stableUuid(`replay:${sequenceName}`),
     });

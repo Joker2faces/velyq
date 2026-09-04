@@ -9,6 +9,7 @@ import {
   consumeQueuedEdgeJob,
   consumeQueuedRadarJob,
   DatabasePredictionJobHandler,
+  generatePrediction,
   scoreDefinitionMetadata,
   type PredictionJob,
 } from "../src/index.js";
@@ -106,6 +107,35 @@ describe("prediction worker", () => {
     expect(result.prediction.edge).toBeNull();
     expect(result.prediction.reasonCodes).toContain("STALE_DATA");
     expect(result.prediction.reasonCodes).toContain("QUALITY_GATE_REFUSED");
+  });
+
+  it("uses the persisted quality assessment supplied by the durable handler", () => {
+    const result = generatePrediction(
+      job(),
+      new InMemoryPredictionRepository(),
+      {
+        policyVersion: "persisted-quality-policy",
+        asOf: "2026-09-03T10:55:00.000Z",
+        grade: "F",
+        score: asDecimal("0"),
+        components: {
+          freshness: asDecimal("1"),
+          priceCoverage: asDecimal("1"),
+          bookmakerCoverage: asDecimal("1"),
+          lineupCertainty: asDecimal("1"),
+          mappingConfidence: asDecimal("1"),
+          sourceAuthority: asDecimal("1"),
+          consistency: asDecimal("1"),
+        },
+        reasonCodes: ["PERSISTED_QUALITY_GATE"],
+      },
+    );
+
+    expect(result.prediction.quality.policyVersion).toBe(
+      "persisted-quality-policy",
+    );
+    expect(result.prediction.reasonCodes).toContain("PERSISTED_QUALITY_GATE");
+    expect(result.prediction.modelProbability).toBeNull();
   });
 
   it("persists one result per idempotency key and replays it", () => {

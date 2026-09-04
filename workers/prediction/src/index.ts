@@ -14,7 +14,7 @@ import {
   subtractDecimalStrings,
   type DecimalString,
 } from "@velyq/decimal";
-import { and, eq, lte } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import {
   DatabaseJobRepository,
   DatabasePredictionObservationReader,
@@ -31,6 +31,7 @@ import {
 } from "@velyq/database";
 import {
   validateJob,
+  JOB_CONTRACT_VERSIONS,
   type Job,
   type CalculateEdgePayload,
   type CalculateRadarPayload,
@@ -97,10 +98,11 @@ export interface PredictionRepository {
 
 export type PredictionObservation = Readonly<{
   id: string;
+  marketPriceObservationId?: string;
   eventId: string;
   eventMarketOutcomeId: string;
   receivedAt: string;
-  decimalOdds?: DecimalString;
+  decimalOdds?: string;
 }>;
 
 export interface PredictionObservationReader {
@@ -135,6 +137,36 @@ export type PredictionWorkerResult = Readonly<{
   errorCode?: string;
 }>;
 
+function persistedQualityAssessment(
+  row: typeof dataQualityAssessments.$inferSelect,
+  policyVersion: string,
+): DataQualityAssessment {
+  if (!["A", "B", "C", "D", "F"].includes(row.grade))
+    throw new Error("INVALID_PERSISTED_QUALITY_GRADE");
+  const numericScore = row.numericScore as DecimalString;
+  const numericValue = Number(numericScore);
+  if (!Number.isFinite(numericValue) || numericValue < 0)
+    throw new Error("INVALID_PERSISTED_QUALITY_SCORE");
+  const normalizedScore =
+    numericValue > 1
+      ? divideDecimalStrings(numericScore, "100" as DecimalString)
+      : ({ ok: true, value: numericScore } as const);
+  if (
+    !normalizedScore.ok ||
+    !Number.isFinite(Number(normalizedScore.value)) ||
+    Number(normalizedScore.value) > 1
+  )
+    throw new Error("INVALID_PERSISTED_QUALITY_SCORE");
+  return {
+    policyVersion,
+    asOf: row.asOf.toISOString(),
+    grade: row.grade as DataQualityAssessment["grade"],
+    score: normalizedScore.value,
+    components: row.components as DataQualityAssessment["components"],
+    reasonCodes: row.reasonCodes,
+  };
+}
+
 /** Durable production handler: calculates from persisted lineage and appends the result transactionally. */
 export class DatabasePredictionJobHandler {
   private readonly observations: DatabasePredictionObservationReader;
@@ -168,10 +200,26 @@ export class DatabasePredictionJobHandler {
       )
     )
       throw new Error("PREDICTION_INPUTS_OUTSIDE_CUTOFF");
-    const latestOdds = [...observations].sort((left, right) =>
+    const latestObservation = [...observations].sort((left, right) =>
       right.receivedAt.localeCompare(left.receivedAt),
-    )[0]?.decimalOdds;
-    if (!latestOdds) throw new Error("PREDICTION_ODDS_MISSING");
+    )[0];
+    const latestOdds = latestObservation?.decimalOdds;
+    if (!latestObservation || !latestOdds)
+      throw new Error("PREDICTION_ODDS_MISSING");
+    // A prediction must never be computed before the durable quality
+    // assessment it references has been made available by ingestion.
+    const quality = await this.quality.getLatestAsOf(
+      payload.eventId,
+      new Date(payload.featureCutoff),
+      payload.eventMarketOutcomeId,
+    );
+    if (!quality) throw new Error("QUALITY_ASSESSMENT_MISSING");
+    if (!latestObservation.marketPriceObservationId)
+      throw new Error("PREDICTION_MARKET_PRICE_LINK_MISSING");
+    const durableQuality = persistedQualityAssessment(
+      quality,
+      payload.quality.policyVersion,
+    );
     const durablePayload = {
       ...payload,
       currentOdds: latestOdds as DecimalString,
@@ -186,13 +234,8 @@ export class DatabasePredictionJobHandler {
         payload: durablePayload,
       },
       new InMemoryPredictionRepository(),
+      durableQuality,
     ).prediction;
-    const quality = await this.quality.getLatestAsOf(
-      payload.eventId,
-      new Date(payload.featureCutoff),
-      payload.eventMarketOutcomeId,
-    );
-    if (!quality) throw new Error("QUALITY_ASSESSMENT_MISSING");
     const [model] = await this.database
       .select()
       .from(modelVersions)
@@ -209,42 +252,137 @@ export class DatabasePredictionJobHandler {
       )
       .limit(1);
     if (!model || !calibration) throw new Error("MODEL_CALIBRATION_MISSING");
-    await this.predictions.append({
-      run: {
-        modelVersionId: model.id,
-        calibrationVersionId: calibration.id,
-        eventId: payload.eventId,
-        featureCutoff: new Date(payload.featureCutoff),
-        status: "COMPLETED",
-        startedAt: new Date(job.createdAt),
-        completedAt: new Date(job.createdAt),
-        triggerJobId: job.id,
-      },
-      prediction: {
-        eventMarketOutcomeId: computed.eventMarketOutcomeId,
-        dataQualityAssessmentId: quality.id,
-        marketPriceObservationId: null,
-        decisionStatus: computed.decisionStatus,
-        modelProbability: computed.modelProbability,
-        confidence: computed.confidence,
-        fairOdds: computed.fairOdds,
-        marketImpliedProbability: computed.marketImpliedProbability,
-        edge: computed.edge,
-        expectedValue: computed.expectedValue,
-        reasonCodes: computed.reasonCodes,
-        structuredReasons: {
-          quality: computed.quality,
-          trace: computed.trace,
+    const edgeDefinition =
+      computed.edge !== null && computed.expectedValue !== null
+        ? await this.findScoreDefinition(
+            "EDGE",
+            new Date(payload.featureCutoff),
+          )
+        : null;
+    const radarDefinition = await this.findScoreDefinition(
+      "RADAR",
+      new Date(payload.featureCutoff),
+    );
+    if (!radarDefinition) throw new Error("RADAR_SCORE_DEFINITION_MISSING");
+
+    // The prediction and its downstream commands share one commit. A retry
+    // reuses the append-only prediction and queue rows by their unique keys.
+    await this.database.transaction(async (transaction) => {
+      const persisted = await this.predictions.appendInTransaction(
+        transaction,
+        {
+          run: {
+            modelVersionId: model.id,
+            calibrationVersionId: calibration.id,
+            eventId: payload.eventId,
+            featureCutoff: new Date(payload.featureCutoff),
+            status: "COMPLETED",
+            startedAt: new Date(job.createdAt),
+            completedAt: new Date(job.createdAt),
+            triggerJobId: job.id,
+          },
+          prediction: {
+            eventMarketOutcomeId: computed.eventMarketOutcomeId,
+            dataQualityAssessmentId: quality.id,
+            marketPriceObservationId:
+              latestObservation.marketPriceObservationId,
+            decisionStatus: computed.decisionStatus,
+            modelProbability: computed.modelProbability,
+            confidence: computed.confidence,
+            fairOdds: computed.fairOdds,
+            marketImpliedProbability: computed.marketImpliedProbability,
+            edge: computed.edge,
+            expectedValue: computed.expectedValue,
+            reasonCodes: computed.reasonCodes,
+            structuredReasons: {
+              quality: computed.quality,
+              trace: computed.trace,
+            },
+            createdAt: new Date(computed.createdAt),
+          },
+          inputs: payload.sourceObservationIds.map((sourceObservationId) => ({
+            sourceObservationId,
+            inputRole: "ODDS",
+            createdAt: new Date(job.createdAt),
+          })),
         },
-        createdAt: new Date(computed.createdAt),
-      },
-      inputs: payload.sourceObservationIds.map((sourceObservationId) => ({
-        sourceObservationId,
-        inputRole: "ODDS",
-        createdAt: new Date(job.createdAt),
-      })),
+      );
+      const queue = new DatabaseJobRepository(this.database);
+      const downstreamJobBase = {
+        correlationId: job.correlationId,
+        causationId: job.id,
+        availableAt: new Date(job.createdAt),
+      } as const;
+
+      if (computed.edge !== null && computed.expectedValue !== null) {
+        if (!edgeDefinition) throw new Error("EDGE_SCORE_DEFINITION_MISSING");
+        await queue.enqueueInTransaction(transaction, {
+          ...downstreamJobBase,
+          type: "CALCULATE_EDGE",
+          contractVersion: JOB_CONTRACT_VERSIONS.CALCULATE_EDGE,
+          idempotencyKey: `edge:${persisted.prediction.id}`,
+          payload: {
+            eventId: payload.eventId,
+            eventMarketOutcomeId: persisted.prediction.eventMarketOutcomeId,
+            predictionId: persisted.prediction.id,
+            scoreDefinitionVersionId: edgeDefinition,
+            asOf: payload.featureCutoff,
+          },
+        });
+      }
+
+      await queue.enqueueInTransaction(transaction, {
+        ...downstreamJobBase,
+        type: "CALCULATE_RADAR",
+        contractVersion: JOB_CONTRACT_VERSIONS.CALCULATE_RADAR,
+        idempotencyKey: `radar:${persisted.prediction.id}`,
+        payload: {
+          eventId: payload.eventId,
+          eventMarketOutcomeId: persisted.prediction.eventMarketOutcomeId,
+          scoreDefinitionVersionId: radarDefinition,
+          openingObservationId: openingObservationId(observations),
+          currentObservationId: latestObservation.marketPriceObservationId,
+          asOf: payload.featureCutoff,
+        },
+      });
     });
   }
+
+  private async findScoreDefinition(
+    scoreType: "EDGE" | "RADAR",
+    asOf: Date,
+  ): Promise<string | null> {
+    const [definition] = await this.database
+      .select({ id: scoreDefinitionVersions.id })
+      .from(scoreDefinitionVersions)
+      .where(
+        and(
+          eq(scoreDefinitionVersions.scoreType, scoreType),
+          lte(scoreDefinitionVersions.effectiveFrom, asOf),
+        ),
+      )
+      .orderBy(
+        desc(scoreDefinitionVersions.effectiveFrom),
+        desc(scoreDefinitionVersions.createdAt),
+        desc(scoreDefinitionVersions.id),
+      )
+      .limit(1);
+    return definition?.id ?? null;
+  }
+}
+
+function openingObservationId(
+  observations: readonly Readonly<{
+    receivedAt: string;
+    marketPriceObservationId?: string;
+  }>[],
+): string {
+  const opening = [...observations].sort((left, right) =>
+    left.receivedAt.localeCompare(right.receivedAt),
+  )[0];
+  if (!opening?.marketPriceObservationId)
+    throw new Error("PREDICTION_MARKET_PRICE_LINK_MISSING");
+  return opening.marketPriceObservationId;
 }
 
 export async function runDurablePredictionJobOnce(
@@ -904,11 +1042,12 @@ function isQualityGateRefusal(
 export function generatePrediction(
   job: PredictionJob,
   repository: PredictionRepository,
+  persistedQuality?: DataQualityAssessment,
 ): PredictionJobResult {
   const existing = repository.getByIdempotencyKey(job.idempotencyKey);
   if (existing) return { prediction: existing, duplicate: true };
 
-  const quality = assessDataQuality(job.payload.quality);
+  const quality = persistedQuality ?? assessDataQuality(job.payload.quality);
   const value = calculateValue(
     job.payload.modelProbability,
     job.payload.currentOdds,

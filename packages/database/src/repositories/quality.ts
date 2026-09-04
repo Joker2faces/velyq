@@ -1,6 +1,12 @@
 import { and, desc, eq, lte } from "drizzle-orm";
-import type { PrivilegedVelyqDatabase } from "../client.js";
-import { dataQualityAssessments } from "../schema/intelligence.js";
+import type {
+  PrivilegedVelyqDatabase,
+  RepositoryTransaction,
+} from "../client.js";
+import {
+  dataQualityAssessments,
+  dataQualityPolicyVersions,
+} from "../schema/intelligence.js";
 
 export type PersistQualityAssessmentInput = Readonly<{
   policyVersionId: string;
@@ -18,7 +24,14 @@ export class DatabaseQualityRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
   async append(input: PersistQualityAssessmentInput) {
-    const [row] = await this.database
+    return this.appendInTransaction(this.database, input);
+  }
+
+  async appendInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    input: PersistQualityAssessmentInput,
+  ) {
+    const [row] = await database
       .insert(dataQualityAssessments)
       .values({
         policyVersionId: input.policyVersionId,
@@ -36,7 +49,21 @@ export class DatabaseQualityRepository {
   }
 
   async getLatestAsOf(eventId: string, asOf: Date, marketOutcomeId?: string) {
-    const rows = await this.database
+    return this.getLatestAsOfInTransaction(
+      this.database,
+      eventId,
+      asOf,
+      marketOutcomeId,
+    );
+  }
+
+  async getLatestAsOfInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    eventId: string,
+    asOf: Date,
+    marketOutcomeId?: string,
+  ) {
+    const rows = await database
       .select()
       .from(dataQualityAssessments)
       .where(
@@ -48,7 +75,41 @@ export class DatabaseQualityRepository {
             : undefined,
         ),
       )
-      .orderBy(desc(dataQualityAssessments.asOf))
+      .orderBy(
+        desc(dataQualityAssessments.asOf),
+        desc(dataQualityAssessments.createdAt),
+        desc(dataQualityAssessments.id),
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  async getPolicyVersion(
+    version: string,
+    asOf?: Date,
+  ): Promise<typeof dataQualityPolicyVersions.$inferSelect | null> {
+    return this.getPolicyVersionInTransaction(this.database, version, asOf);
+  }
+
+  async getPolicyVersionInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    version: string,
+    asOf?: Date,
+  ): Promise<typeof dataQualityPolicyVersions.$inferSelect | null> {
+    const rows = await database
+      .select()
+      .from(dataQualityPolicyVersions)
+      .where(
+        and(
+          eq(dataQualityPolicyVersions.version, version),
+          asOf ? lte(dataQualityPolicyVersions.effectiveFrom, asOf) : undefined,
+        ),
+      )
+      .orderBy(
+        desc(dataQualityPolicyVersions.effectiveFrom),
+        desc(dataQualityPolicyVersions.createdAt),
+        desc(dataQualityPolicyVersions.id),
+      )
       .limit(1);
     return rows[0] ?? null;
   }

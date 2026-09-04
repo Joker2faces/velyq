@@ -129,6 +129,9 @@ importers:
 
   packages/application:
     dependencies:
+      "@velyq/analytics":
+        specifier: workspace:*
+        version: link:../analytics
       "@velyq/contracts":
         specifier: workspace:*
         version: link:../contracts

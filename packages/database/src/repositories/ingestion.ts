@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import {
   JOB_CONTRACT_VERSIONS,
   type FixtureObservationBatch,
+  type GeneratePredictionPayload,
   type Job,
   type JobPayload,
   type LineupObservationBatch,
@@ -11,13 +12,14 @@ import {
   type SyntheticScenarioRecord,
 } from "@velyq/contracts";
 import type { PrivilegedVelyqDatabase } from "../client.js";
-import { eventMarketOutcomes } from "../schema/market.js";
+import { eventMarketOutcomes, eventMarkets } from "../schema/market.js";
 import { jobs, providerSyncRuns } from "../schema/operations.js";
 import {
   LineupObservationRepository,
   OddsObservationRepository,
   SourceObservationRepository,
 } from "./observations.js";
+import { DatabaseQualityRepository } from "./quality.js";
 
 type DatabaseIngestionBatch = Readonly<{
   fixtures: FixtureObservationBatch;
@@ -33,10 +35,22 @@ type DatabaseIngestionJobInput = Readonly<{
   payload: JobPayload;
   correlationId: string;
   causationId: string;
+  qualityAssessment?: Readonly<{
+    policyVersionId: string;
+    assessment: Readonly<{
+      policyVersion: string;
+      asOf: string;
+      grade: string;
+      score: string;
+      components: Readonly<Record<string, string>>;
+      reasonCodes: readonly string[];
+    }>;
+  }>;
 }>;
 
 type DatabaseIngestionInput = Readonly<{
   providerId: string;
+  qualityPolicyVersionId: string;
   runId: string;
   providerCode: string;
   sequenceName: string;
@@ -50,6 +64,12 @@ function normalizedBatchHash(batch: DatabaseIngestionBatch) {
     .digest("hex")}`;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 /**
  * Atomic persistence adapter for a replay batch. The provider run is created
  * by the composition root; this adapter commits all child observations and
@@ -59,6 +79,7 @@ export class DatabaseTransactionalIngestionSink {
   private readonly source: SourceObservationRepository;
   private readonly odds: OddsObservationRepository;
   private readonly lineups: LineupObservationRepository;
+  private readonly quality: DatabaseQualityRepository;
 
   constructor(
     private readonly database: PrivilegedVelyqDatabase,
@@ -67,6 +88,7 @@ export class DatabaseTransactionalIngestionSink {
     this.source = new SourceObservationRepository(database);
     this.odds = new OddsObservationRepository(database);
     this.lineups = new LineupObservationRepository(database);
+    this.quality = new DatabaseQualityRepository(database);
   }
 
   async hasRun(sequenceName: string, fixedClock: string): Promise<boolean> {
@@ -148,6 +170,10 @@ export class DatabaseTransactionalIngestionSink {
           accepted += 1;
       }
 
+      const oddsBySourceId = new Map<
+        string,
+        Readonly<{ id: string; eventMarketOutcomeId: string }>
+      >();
       for (const observation of batch.odds.observations) {
         const sourceObservationId = sourceIds.get(
           observation.provenance.sourceObservationId,
@@ -163,11 +189,15 @@ export class DatabaseTransactionalIngestionSink {
           throw new Error(
             `CANONICAL_OUTCOME_NOT_FOUND:${observation.outcomeKey}`,
           );
-        await this.odds.appendInTransaction(transaction, {
+        const persisted = await this.odds.appendInTransaction(transaction, {
           sourceObservationId,
           eventMarketOutcomeId: outcome.id,
           bookmakerId: observation.bookmakerId,
           observation,
+        });
+        oddsBySourceId.set(observation.provenance.sourceObservationId, {
+          id: persisted.row.id,
+          eventMarketOutcomeId: outcome.id,
         });
       }
 
@@ -183,8 +213,85 @@ export class DatabaseTransactionalIngestionSink {
         });
       }
 
-      const downstreamJobs: Job[] = [];
+      const durableJobs: DatabaseIngestionJobInput[] = [];
+      const qualityKeys = new Set<string>();
+      // Quality is a durable input to prediction and score jobs. Resolve the
+      // canonical outcome first, persist its assessment, and only then enqueue
+      // the prediction command in this same transaction.
       for (const job of jobInputs) {
+        if (job.type !== "GENERATE_PREDICTION") {
+          durableJobs.push(job);
+          continue;
+        }
+        const payload = job.payload as GeneratePredictionPayload;
+        const [canonicalOutcome] = await transaction
+          .select({
+            id: eventMarketOutcomes.id,
+            eventId: eventMarkets.eventId,
+          })
+          .from(eventMarketOutcomes)
+          .innerJoin(
+            eventMarkets,
+            eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+          )
+          .where(
+            and(
+              eq(eventMarkets.eventId, payload.eventId),
+              isUuid(payload.eventMarketOutcomeId)
+                ? or(
+                    eq(eventMarketOutcomes.id, payload.eventMarketOutcomeId),
+                    eq(
+                      eventMarketOutcomes.canonicalKey,
+                      payload.eventMarketOutcomeId,
+                    ),
+                  )
+                : eq(
+                    eventMarketOutcomes.canonicalKey,
+                    payload.eventMarketOutcomeId,
+                  ),
+            ),
+          )
+          .limit(1);
+        const sourceOutcome = payload.sourceObservationIds
+          .map((id) => oddsBySourceId.get(id))
+          .find((value) => value !== undefined);
+        const eventMarketOutcomeId =
+          canonicalOutcome?.id ?? sourceOutcome?.eventMarketOutcomeId;
+        // Lineup-only and missing-price scenarios do not identify a market
+        // outcome and therefore cannot produce a valid durable prediction.
+        if (!eventMarketOutcomeId) continue;
+
+        const qualityAssessment = job.qualityAssessment;
+        if (!qualityAssessment) throw new Error("QUALITY_ASSESSMENT_REQUIRED");
+        if (
+          qualityAssessment.policyVersionId !==
+          this.input.qualityPolicyVersionId
+        )
+          throw new Error("QUALITY_POLICY_VERSION_MISMATCH");
+        const quality = qualityAssessment.assessment;
+        const qualityKey = `${payload.eventId}:${eventMarketOutcomeId}:${quality.asOf}`;
+        if (!qualityKeys.has(qualityKey)) {
+          await this.quality.appendInTransaction(transaction, {
+            policyVersionId: qualityAssessment.policyVersionId,
+            eventId: payload.eventId,
+            marketOutcomeId: eventMarketOutcomeId,
+            asOf: new Date(quality.asOf),
+            grade: quality.grade,
+            numericScore: quality.score,
+            components: quality.components,
+            reasonCodes: quality.reasonCodes,
+          });
+          qualityKeys.add(qualityKey);
+        }
+
+        durableJobs.push({
+          ...job,
+          payload: { ...payload, eventMarketOutcomeId },
+        });
+      }
+
+      const downstreamJobs: Job[] = [];
+      for (const job of durableJobs) {
         const [inserted] = await transaction
           .insert(jobs)
           .values({

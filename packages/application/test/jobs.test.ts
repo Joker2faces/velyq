@@ -203,6 +203,73 @@ describe("durable job contract", () => {
     });
   });
 
+  it("passes the computed quality assessment to the durable ingestion boundary", async () => {
+    let captured: readonly { qualityAssessment?: unknown }[] = [];
+    const sink = {
+      hasRun: () => false,
+      writeBatch: () => ({ accepted: 0, rejected: 0, duplicate: false }),
+      writeBatchAndEnqueue: async (
+        _batch: unknown,
+        _runKey: string,
+        inputs: readonly { qualityAssessment?: unknown }[],
+      ) => {
+        captured = inputs;
+        return {
+          accepted: 0,
+          rejected: 0,
+          duplicate: false,
+          downstreamJobs: [],
+        };
+      },
+    };
+
+    await ingestProviderSequence({
+      sequenceName: "sequence-quality",
+      fixedClock: clock.now(),
+      qualityPolicyVersionId: "quality-policy-id",
+      source: {
+        replay: async () =>
+          ({
+            fixtures: {
+              observations: [],
+              observationWindow: { from: "a", to: "b" },
+            },
+            odds: {
+              observations: [],
+              observationWindow: { from: "a", to: "b" },
+              receivedAt: clock.now(),
+            },
+            lineups: {
+              observations: [],
+              observationWindow: { from: "a", to: "b" },
+            },
+            quarantined: [],
+            scenarios: [
+              {
+                id: "scenario-quality",
+                eventId: "event-quality",
+                outcomeKey: "outcome-quality",
+                sourceObservationIds: [],
+                state: "INSUFFICIENT_DATA",
+                evidence: { kind: "QUALITY", value: "persist" },
+                isSynthetic: true,
+                syntheticLabel: "Synthetic data",
+              },
+            ],
+          }) as never,
+      },
+      sink,
+      correlationId: "corr-quality",
+      causationId: "cause-quality",
+    });
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.qualityAssessment).toMatchObject({
+      policyVersionId: "quality-policy-id",
+      assessment: { reasonCodes: expect.arrayContaining(["MISSING_PRICE"]) },
+    });
+  });
+
   it("delegates durable batches and downstream commands to one transaction boundary", async () => {
     const jobs = new InMemoryJobRepository(clock);
     const batch = {

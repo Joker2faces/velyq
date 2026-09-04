@@ -12,6 +12,10 @@ import type {
   QuarantinedProviderObservation,
   SyntheticScenarioRecord,
 } from "@velyq/contracts";
+import {
+  assessDataQuality,
+  type DataQualityAssessment,
+} from "@velyq/analytics";
 
 export type Clock = Readonly<{ now(): string }>;
 
@@ -345,6 +349,10 @@ export type IngestionJobInput = Readonly<{
   payload: JobPayload;
   correlationId: string;
   causationId: string;
+  qualityAssessment?: Readonly<{
+    policyVersionId: string;
+    assessment: DataQualityAssessment;
+  }>;
 }>;
 /**
  * Durable adapters implement this method to commit accepted observations and
@@ -418,6 +426,7 @@ export async function ingestProviderSequence(
     }>;
     sink: IngestionSink;
     jobs?: JobRepository;
+    qualityPolicyVersionId?: string;
     correlationId: string;
     causationId: string;
   }>,
@@ -474,6 +483,14 @@ export async function ingestProviderSequence(
       payload,
       correlationId: input.correlationId,
       causationId: input.causationId,
+      ...(input.qualityPolicyVersionId
+        ? {
+            qualityAssessment: {
+              policyVersionId: input.qualityPolicyVersionId,
+              assessment: assessDataQuality(payload.quality),
+            },
+          }
+        : {}),
     } satisfies IngestionJobInput;
   });
   const transactionalSink = input.sink as Partial<TransactionalIngestionSink>;

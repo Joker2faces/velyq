@@ -124,7 +124,17 @@ export class OddsObservationRepository {
         ],
       })
       .returning();
-    return { row: inserted[0] ?? null, duplicate: !inserted[0] } as const;
+    if (inserted[0]) return { row: inserted[0], duplicate: false } as const;
+    const existing = await database.query.oddsObservations.findFirst({
+      where: and(
+        eq(oddsObservations.sourceObservationId, input.sourceObservationId),
+        eq(oddsObservations.eventMarketOutcomeId, input.eventMarketOutcomeId),
+        eq(oddsObservations.bookmakerId, input.bookmakerId),
+      ),
+    });
+    if (!existing)
+      throw new Error("ODDS_OBSERVATION_IDEMPOTENCY_LOOKUP_FAILED");
+    return { row: existing, duplicate: true } as const;
   }
 }
 

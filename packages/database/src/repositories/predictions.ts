@@ -18,6 +18,7 @@ import { sourceObservations } from "../schema/operations.js";
 
 export type PredictionObservationRead = Readonly<{
   id: string;
+  marketPriceObservationId: string;
   eventId: string;
   eventMarketOutcomeId: string;
   receivedAt: string;
@@ -39,6 +40,7 @@ export class DatabasePredictionObservationReader {
     const rows = await this.database
       .select({
         id: sourceObservations.id,
+        marketPriceObservationId: oddsObservations.id,
         eventId: eventMarkets.eventId,
         eventMarketOutcomeId: oddsObservations.eventMarketOutcomeId,
         receivedAt: oddsObservations.receivedAt,
@@ -61,6 +63,7 @@ export class DatabasePredictionObservationReader {
 
     return rows.map((row) => ({
       id: row.id,
+      marketPriceObservationId: row.marketPriceObservationId,
       eventId: row.eventId,
       eventMarketOutcomeId: row.eventMarketOutcomeId,
       receivedAt: row.receivedAt.toISOString(),
@@ -159,7 +162,7 @@ export class DatabasePredictionRepository {
     return joined ? this.withInputs(this.database, joined) : null;
   }
 
-  private async appendInTransaction(
+  async appendInTransaction(
     transaction: RepositoryTransaction,
     input: AppendPredictionInput,
   ): Promise<PersistedPrediction> {
