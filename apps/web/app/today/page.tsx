@@ -8,8 +8,8 @@ export default async function Today() {
     return (
       <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
     );
-  const [primary, lineupWatch, qualityWarning] = customerToday.matches;
-  if (!primary || !lineupWatch || !qualityWarning) {
+  const [primary, lineupWatch] = customerToday.matches;
+  if (!primary) {
     return <CustomerShell>Data is not available.</CustomerShell>;
   }
   const freshMoves = customerToday.matches.filter(
@@ -23,7 +23,17 @@ export default async function Today() {
     <CustomerShell>
       <div className="page-heading">
         <div>
-          <p className="kicker">THURSDAY · 04 SEP 2026</p>
+          <p className="kicker">
+            {new Intl.DateTimeFormat("en-GB", {
+              weekday: "long",
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            })
+              .format(new Date(customerToday.asOf))
+              .toUpperCase()}
+          </p>
           <h1>What needs your attention?</h1>
           <p>Market intelligence, distilled into the next useful decision.</p>
         </div>
@@ -58,7 +68,9 @@ export default async function Today() {
               <strong>
                 {primary.homeTeam} <em>vs</em> {primary.awayTeam}
               </strong>
-              <small>Full-time 1X2 · {primary.selection} · 18:30</small>
+              <small>
+                Full-time 1X2 · {primary.selection} · {time(primary.startsAt)}
+              </small>
             </div>
             <b className="edge-number">
               {formatPercent(primary.probabilityEdge)}
@@ -67,17 +79,19 @@ export default async function Today() {
               {primary.recommendation.replaceAll("_", " ")}
             </Status>
           </Link>
-          <div className="opportunity">
-            <div>
-              <strong>
-                {lineupWatch.homeTeam} <em>vs</em> {lineupWatch.awayTeam}
-              </strong>
-              <small>Full-time 1X2 · lineup state {lineupWatch.lineup}</small>
+          {lineupWatch ? (
+            <div className="opportunity">
+              <div>
+                <strong>
+                  {lineupWatch.homeTeam} <em>vs</em> {lineupWatch.awayTeam}
+                </strong>
+                <small>Full-time 1X2 · lineup state {lineupWatch.lineup}</small>
+              </div>
+              <Status tone="amber">
+                {lineupWatch.recommendation.replaceAll("_", " ")}
+              </Status>
             </div>
-            <Status tone="amber">
-              {lineupWatch.recommendation.replaceAll("_", " ")}
-            </Status>
-          </div>
+          ) : null}
         </div>
         <div className="panel">
           <div className="panel-head">
@@ -85,7 +99,9 @@ export default async function Today() {
             <Link href="/radar">View radar →</Link>
           </div>
           <div className="movement">
-            <span>Northbridge · Home</span>
+            <span>
+              {primary.homeTeam} · {primary.selection}
+            </span>
             <b>
               {primary.openingOdds ?? "—"} → {primary.currentOdds ?? "—"}
             </b>
@@ -96,18 +112,28 @@ export default async function Today() {
             </small>
           </div>
           <div className="movement">
-            <span>Eastvale · Draw</span>
+            <span>
+              {lineupWatch?.homeTeam ?? "—"} · {lineupWatch?.selection ?? "—"}
+            </span>
             <b>
-              {lineupWatch.openingOdds ?? "—"} →{" "}
-              {lineupWatch.currentOdds ?? "—"}
+              {lineupWatch?.openingOdds ?? "—"} →{" "}
+              {lineupWatch?.currentOdds ?? "—"}
             </b>
             <small>
-              {lineupWatch.freshness.toLowerCase()} · lineup{" "}
-              {lineupWatch.lineup.toLowerCase()}
+              {lineupWatch?.freshness.toLowerCase() ?? "no data"} · lineup{" "}
+              {lineupWatch?.lineup.toLowerCase() ?? "—"}
             </small>
           </div>
         </div>
       </section>
     </CustomerShell>
   );
+}
+
+function time(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(new Date(value));
 }

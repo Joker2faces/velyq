@@ -14,9 +14,22 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
-  const history = await customerOddsHistory(eventId, new Date());
+  const outcomeId = new URL(_request.url).searchParams.get("outcomeId");
+  const history = await customerOddsHistory(eventId, outcomeId, new Date());
   if (history && "unavailable" in history) {
     return NextResponse.json(unavailable(), { status: 503 });
+  }
+  if (history && "ambiguous" in history) {
+    return NextResponse.json(
+      {
+        type: "https://velyq.dev/problems/invalid-request",
+        title: "Outcome ID is required",
+        status: 400,
+        code: "OUTCOME_ID_REQUIRED",
+        requestId: crypto.randomUUID(),
+      },
+      { status: 400 },
+    );
   }
   if (history) {
     return NextResponse.json({

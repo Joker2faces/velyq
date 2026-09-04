@@ -123,15 +123,16 @@ export function unavailable() {
   };
 }
 
-export async function customerOddsHistory(eventId: string, asOf: Date) {
+export async function customerOddsHistory(
+  eventId: string,
+  outcomeId: string | null,
+  asOf: Date,
+) {
   const database = databaseCustomerQueries();
   if (database) {
+    if (!outcomeId) return { ambiguous: true as const };
     try {
-      const match = await database.getMatch(eventId, asOf);
-      const outcome = match?.outcomes[0];
-      return outcome
-        ? await database.getOddsHistory(eventId, outcome.outcome.id, asOf)
-        : null;
+      return await database.getOddsHistory(eventId, outcomeId, asOf);
     } catch {
       return { unavailable: true as const };
     }
