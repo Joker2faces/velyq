@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tooling/typescript/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@velyq/decimal": ["../../decimal/src/index.ts"],
+      "decimal.js": ["../../decimal/node_modules/decimal.js/decimal.d.ts"]
+    }
+  },
+  "include": ["boundaries/**/*.ts"]
+}
