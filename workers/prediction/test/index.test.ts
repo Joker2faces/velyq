@@ -5,6 +5,7 @@ import {
   consumeQueuedPredictionJobWithInputs,
   InMemoryPredictionRepository,
   processPredictionJobOnce,
+  processScoreJobOnce,
   consumeQueuedEdgeJob,
   consumeQueuedRadarJob,
   DatabasePredictionJobHandler,
@@ -270,6 +271,40 @@ describe("prediction worker", () => {
     expect(edge.predictionId).toBe("prediction-1");
     expect(writes).toHaveLength(1);
 
+    const scoreCalls: string[] = [];
+    const scoreLoop = await processScoreJobOnce(
+      {
+        leaseNext: async () => ({
+          job: edgeJob,
+          leaseExpiresAt: "2026-09-03T11:01:00Z",
+        }),
+        complete: async (id: string) => {
+          scoreCalls.push(`complete:${id}`);
+          return edgeJob;
+        },
+        fail: async (id: string) => {
+          scoreCalls.push(`fail:${id}`);
+          return edgeJob;
+        },
+      },
+      {
+        getInput: async () => ({
+          probabilityEdge: asDecimal("0.1"),
+          expectedValue: asDecimal("0.2"),
+          qualityScore: asDecimal("1"),
+        }),
+      },
+      { getInput: async () => null },
+      writer,
+      {
+        workerId: "score-worker",
+        now: new Date("2026-09-03T11:00:00Z"),
+        leaseDurationMs: 30_000,
+      },
+    );
+    expect(scoreLoop.status).toBe("COMPLETED");
+    expect(scoreCalls).toEqual(["complete:edge-job"]);
+
     const radarJob = {
       ...edgeJob,
       id: "radar-job",
@@ -299,6 +334,6 @@ describe("prediction worker", () => {
     expect(radar.radarEvidence?.openingObservationId).toBe("opening-1");
     expect(radar.radarEvidence?.bookmakersObserved).toBe(2);
     expect(radar.radarEvidence?.bookmakersMoving).toBe(2);
-    expect(writes).toHaveLength(2);
+    expect(writes).toHaveLength(3);
   });
 });

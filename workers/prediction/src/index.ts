@@ -307,6 +307,43 @@ export async function processPredictionJobOnce(
   }
 }
 
+export async function processScoreJobOnce(
+  queue: PredictionJobQueue,
+  edgeReader: EdgeInputReader,
+  radarReader: RadarInputReader,
+  writer: ScoreWriter,
+  input: Readonly<{
+    workerId: string;
+    now: Date;
+    leaseDurationMs: number;
+  }>,
+): Promise<PredictionWorkerResult> {
+  const lease = await queue.leaseNext(
+    input.workerId,
+    input.now,
+    new Date(input.now.getTime() + input.leaseDurationMs),
+  );
+  if (!lease) return { leased: false, status: "IDLE", jobId: null };
+  try {
+    if (lease.job.type === "CALCULATE_EDGE")
+      await consumeQueuedEdgeJob(lease.job, edgeReader, writer);
+    else if (lease.job.type === "CALCULATE_RADAR")
+      await consumeQueuedRadarJob(lease.job, radarReader, writer);
+    else throw new Error("INVALID_SCORE_JOB_TYPE");
+    await queue.complete(lease.job.id, input.now);
+    return { leased: true, status: "COMPLETED", jobId: lease.job.id };
+  } catch (error) {
+    const errorCode =
+      error instanceof Error ? error.message : "SCORE_PROCESSING_FAILED";
+    await queue.fail(
+      lease.job.id,
+      { code: errorCode, message: "Score job processing failed." },
+      input.now,
+    );
+    return { leased: true, status: "FAILED", jobId: lease.job.id, errorCode };
+  }
+}
+
 export type ScoreWriteInput = Readonly<{
   jobId: string;
   eventId: string;
