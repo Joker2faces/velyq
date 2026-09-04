@@ -193,6 +193,13 @@ importers:
       '@velyq/application':
         specifier: workspace:*
         version: link:../../packages/application
+      '@velyq/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+    devDependencies:
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
 
   workers/prediction: {}
 

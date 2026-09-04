@@ -4,6 +4,7 @@ import {
   InMemoryJobRepository,
   ingestProviderSequence,
 } from "../src/index.js";
+import { validateJob } from "@velyq/contracts";
 
 const clock = { now: () => "2026-09-04T10:00:00.000Z" };
 const input = {
@@ -15,6 +16,26 @@ const input = {
 };
 
 describe("durable job contract", () => {
+  it("rejects invalid version, status, and payload combinations", () => {
+    const result = validateJob({
+      ...input,
+      id: "job-1",
+      contractVersion: "CALCULATE_EDGE.v1",
+      status: "BROKEN",
+      payload: { sequenceName: "", fixedClock: "not-a-date" },
+      attemptCount: 0,
+      maxAttempts: 1,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          "contractVersion does not match type",
+          "status is invalid",
+          "payload must contain a valid sequenceName and fixedClock",
+        ]),
+      );
+  });
   it("deduplicates enqueue and preserves lineage ids", () => {
     const repo = new InMemoryJobRepository(clock);
     const first = repo.enqueue(input);

@@ -48,16 +48,21 @@ export class DatabaseJobRepository {
     leaseUntil: Date,
   ): Promise<Job | null> {
     return this.database.transaction(async (transaction) => {
-      const candidate = await transaction.query.jobs.findFirst({
-        where: and(
-          or(
-            and(eq(jobs.status, "PENDING"), lte(jobs.availableAt, now)),
-            and(eq(jobs.status, "RUNNING"), lte(jobs.leaseExpiresAt, now)),
+      const [candidate] = await transaction
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            or(
+              and(eq(jobs.status, "PENDING"), lte(jobs.availableAt, now)),
+              and(eq(jobs.status, "RUNNING"), lte(jobs.leaseExpiresAt, now)),
+            ),
+            or(isNull(jobs.leaseExpiresAt), lte(jobs.leaseExpiresAt, now)),
           ),
-          or(isNull(jobs.leaseExpiresAt), lte(jobs.leaseExpiresAt, now)),
-        ),
-        orderBy: asc(jobs.availableAt),
-      });
+        )
+        .orderBy(asc(jobs.availableAt))
+        .limit(1)
+        .for("update", { skipLocked: true });
       if (!candidate) return null;
       const updated = await transaction
         .update(jobs)

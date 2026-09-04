@@ -299,6 +299,19 @@ export function validateJob(input: unknown): JobValidation {
   if (!(candidate.type && candidate.type in JOB_CONTRACT_VERSIONS))
     errors.push("type is invalid");
   if (
+    candidate.type &&
+    candidate.contractVersion !==
+      JOB_CONTRACT_VERSIONS[candidate.type as JobType]
+  )
+    errors.push("contractVersion does not match type");
+  if (
+    candidate.status !== "PENDING" &&
+    candidate.status !== "RUNNING" &&
+    candidate.status !== "COMPLETED" &&
+    candidate.status !== "FAILED"
+  )
+    errors.push("status is invalid");
+  if (
     typeof candidate.idempotencyKey !== "string" ||
     candidate.idempotencyKey.length === 0
   )
@@ -323,6 +336,16 @@ export function validateJob(input: unknown): JobValidation {
     (candidate.attemptCount ?? -1) < 0
   )
     errors.push("attemptCount must be non-negative");
+  const payload = candidate.payload as Partial<IngestProviderSequencePayload>;
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    typeof payload.sequenceName !== "string" ||
+    payload.sequenceName.length === 0 ||
+    typeof payload.fixedClock !== "string" ||
+    Number.isNaN(Date.parse(payload.fixedClock))
+  )
+    errors.push("payload must contain a valid sequenceName and fixedClock");
   return errors.length
     ? { ok: false, errors }
     : { ok: true, value: Object.freeze(candidate as Job) };
