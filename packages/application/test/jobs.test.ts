@@ -54,7 +54,7 @@ describe("durable job contract", () => {
         expect.arrayContaining([
           "contractVersion does not match type",
           "status is invalid",
-          "payload must contain a valid sequenceName and fixedClock",
+          "payload does not match the job contract",
         ]),
       );
   });
@@ -117,7 +117,7 @@ describe("durable job contract", () => {
       correlationId: "corr-1",
       causationId: "cause-1",
     });
-    expect(first.downstreamJobs).toHaveLength(1);
+    expect(first.downstreamJobs).toHaveLength(0);
     expect(second.duplicate).toBe(true);
   });
   it("uses the orchestration run identity for sink idempotency", async () => {
@@ -141,5 +141,55 @@ describe("durable job contract", () => {
     });
     expect(sink.hasRun("sequence-a", clock.now())).toBe(true);
     expect(sink.hasRun("sequence-b", clock.now())).toBe(false);
+  });
+
+  it("enqueues a prediction-contract payload for each replay scenario", async () => {
+    const repo = new InMemoryJobRepository(clock);
+    const sink = new InMemoryIngestionSink();
+    const source = {
+      replay: async () =>
+        ({
+          fixtures: {
+            observations: [],
+            observationWindow: { from: "a", to: "b" },
+          },
+          odds: {
+            observations: [],
+            observationWindow: { from: "a", to: "b" },
+            receivedAt: clock.now(),
+          },
+          lineups: {
+            observations: [],
+            observationWindow: { from: "a", to: "b" },
+          },
+          quarantined: [],
+          scenarios: [
+            {
+              id: "scenario-1",
+              eventId: "event-1",
+              sourceObservationIds: [],
+              state: "INSUFFICIENT_DATA",
+              evidence: { kind: "ABSENCE", value: "missing price" },
+              isSynthetic: true,
+              syntheticLabel: "Synthetic data",
+            },
+          ],
+        }) as never,
+    };
+    const result = await ingestProviderSequence({
+      sequenceName: "sequence-a",
+      fixedClock: clock.now(),
+      source,
+      sink,
+      jobs: repo,
+      correlationId: "corr-1",
+      causationId: "cause-1",
+    });
+    expect(result.downstreamJobs).toHaveLength(1);
+    expect(result.downstreamJobs[0]?.payload).toMatchObject({
+      eventId: "event-1",
+      featureCutoff: clock.now(),
+      currentOdds: "2",
+    });
   });
 });

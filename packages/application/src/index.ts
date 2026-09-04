@@ -5,10 +5,12 @@ import type {
   Job,
   JobPayload,
   JobStatus,
+  GeneratePredictionPayload,
   ProviderRun,
   LineupObservationBatch,
   OddsObservationBatch,
   QuarantinedProviderObservation,
+  SyntheticScenarioRecord,
 } from "@velyq/contracts";
 
 export type Clock = Readonly<{ now(): string }>;
@@ -230,6 +232,7 @@ export type IngestionBatch = Readonly<{
   odds: OddsObservationBatch;
   lineups: LineupObservationBatch;
   quarantined: readonly QuarantinedProviderObservation[];
+  scenarios?: readonly SyntheticScenarioRecord[];
 }>;
 export interface IngestionSink {
   hasRun(sequenceName: string, fixedClock: string): boolean;
@@ -306,17 +309,53 @@ export async function ingestProviderSequence(
     `${input.sequenceName}:${input.fixedClock}`,
   );
   if (written.duplicate) return { ...written, downstreamJobs: [] };
-  const downstreamJobs = [
-    input.jobs.enqueue({
-      type: "GENERATE_PREDICTION",
-      idempotencyKey: `prediction:${input.sequenceName}:${input.fixedClock}`,
-      payload: {
-        sequenceName: input.sequenceName,
-        fixedClock: input.fixedClock,
+  const oddsBySourceId = new Map(
+    batch.odds.observations.map((observation) => [
+      observation.provenance.sourceObservationId,
+      observation,
+    ]),
+  );
+  const lineupsByEventId = new Map(
+    batch.lineups.observations.map((observation) => [
+      observation.eventId,
+      observation,
+    ]),
+  );
+  const downstreamJobs = (batch.scenarios ?? []).map((scenario) => {
+    const odds = scenario.sourceObservationIds
+      .map((id) => oddsBySourceId.get(id))
+      .find((observation) => observation !== undefined);
+    const lineup = lineupsByEventId.get(scenario.eventId);
+    const payload: GeneratePredictionPayload = {
+      eventId: scenario.eventId,
+      eventMarketOutcomeId: scenario.outcomeKey ?? scenario.id,
+      modelProbability: "0.5" as GeneratePredictionPayload["modelProbability"],
+      currentOdds:
+        odds?.decimalOdds.value ??
+        ("2" as GeneratePredictionPayload["currentOdds"]),
+      quality: {
+        policyVersion: "phase-1-quality.v1",
+        asOf: input.fixedClock,
+        receivedAt: batch.odds.receivedAt,
+        priceCount: odds ? 1 : 0,
+        bookmakerCount: odds ? 1 : 0,
+        lineup: lineup?.status ?? "MISSING",
+        mappingConfidence: scenario.outcomeKey ? "HIGH" : "LOW",
+        edgeAvailable: odds !== undefined,
+        edgePresent: scenario.state === "STRONG_EDGE",
       },
+      featureCutoff: input.fixedClock,
+      modelVersion: "phase-1-experimental.v1",
+      calibrationVersion: "identity.v1",
+      sourceObservationIds: scenario.sourceObservationIds,
+    };
+    return input.jobs.enqueue({
+      type: "GENERATE_PREDICTION",
+      idempotencyKey: `prediction:${input.sequenceName}:${scenario.id}`,
+      payload,
       correlationId: input.correlationId,
       causationId: input.causationId,
-    }),
-  ];
+    });
+  });
   return { ...written, downstreamJobs };
 }

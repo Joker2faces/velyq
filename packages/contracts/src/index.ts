@@ -264,7 +264,29 @@ export type IngestProviderSequencePayload = Readonly<{
   readonly sequenceName: string;
   readonly fixedClock: string;
 }>;
-export type JobPayload = IngestProviderSequencePayload;
+export type GeneratePredictionPayload = Readonly<{
+  readonly eventId: string;
+  readonly eventMarketOutcomeId: string;
+  readonly modelProbability: DecimalString;
+  readonly currentOdds: DecimalOdds["value"];
+  readonly quality: Readonly<{
+    readonly policyVersion: string;
+    readonly asOf: string;
+    readonly receivedAt: string;
+    readonly priceCount: number;
+    readonly bookmakerCount: number;
+    readonly lineup: "EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED";
+    readonly mappingConfidence: "HIGH" | "LOW";
+    readonly edgeAvailable: boolean;
+    readonly edgePresent: boolean;
+  }>;
+  readonly featureCutoff: string;
+  readonly modelVersion: string;
+  readonly calibrationVersion: string;
+  readonly sourceObservationIds: readonly string[];
+}>;
+export type JobPayload =
+  IngestProviderSequencePayload | GeneratePredictionPayload;
 export type Job = Readonly<{
   readonly id: string;
   readonly type: JobType;
@@ -336,16 +358,33 @@ export function validateJob(input: unknown): JobValidation {
     (candidate.attemptCount ?? -1) < 0
   )
     errors.push("attemptCount must be non-negative");
-  const payload = candidate.payload as Partial<IngestProviderSequencePayload>;
+  const payload = candidate.payload as Record<string, unknown> | null;
+  const validIngestPayload =
+    typeof payload === "object" &&
+    payload !== null &&
+    typeof payload["sequenceName"] === "string" &&
+    payload["sequenceName"].length > 0 &&
+    typeof payload["fixedClock"] === "string" &&
+    !Number.isNaN(Date.parse(payload["fixedClock"]));
+  const prediction = payload;
+  const validPredictionPayload =
+    typeof prediction === "object" &&
+    prediction !== null &&
+    typeof prediction["eventId"] === "string" &&
+    typeof prediction["eventMarketOutcomeId"] === "string" &&
+    typeof prediction["modelProbability"] === "string" &&
+    typeof prediction["currentOdds"] === "string" &&
+    typeof prediction["featureCutoff"] === "string" &&
+    !Number.isNaN(Date.parse(prediction["featureCutoff"]));
   if (
-    typeof payload !== "object" ||
-    payload === null ||
-    typeof payload.sequenceName !== "string" ||
-    payload.sequenceName.length === 0 ||
-    typeof payload.fixedClock !== "string" ||
-    Number.isNaN(Date.parse(payload.fixedClock))
+    (candidate.type === "INGEST_PROVIDER_SEQUENCE" && !validIngestPayload) ||
+    (candidate.type === "GENERATE_PREDICTION" && !validPredictionPayload) ||
+    ((candidate.type === "CALCULATE_EDGE" ||
+      candidate.type === "CALCULATE_RADAR") &&
+      !validPredictionPayload &&
+      !validIngestPayload)
   )
-    errors.push("payload must contain a valid sequenceName and fixedClock");
+    errors.push("payload does not match the job contract");
   return errors.length
     ? { ok: false, errors }
     : { ok: true, value: Object.freeze(candidate as Job) };
