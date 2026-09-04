@@ -7,4 +7,5 @@ export * from "./repositories/permissions.js";
 export * from "./repositories/quality.js";
 export * from "./repositories/predictions.js";
 export * from "./repositories/scores.js";
+export * from "./repositories/customer-queries.js";
 export * from "./schema/index.js";
