@@ -49,7 +49,8 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
-  const sourceObservationIds = odds.map((observation) => observation.id);
+  const sourceObservationIds =
+    outcome?.predictionInputs.map((input) => input.sourceObservationId) ?? [];
   return {
     eventId: raw.event.id,
     homeTeam: home,

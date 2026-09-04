@@ -9,11 +9,23 @@ import {
   consumeQueuedEdgeJob,
   consumeQueuedRadarJob,
   DatabasePredictionJobHandler,
+  scoreDefinitionMetadata,
   type PredictionJob,
 } from "../src/index.js";
 import type { DecimalString } from "@velyq/decimal";
 
 const asDecimal = (value: string) => value as DecimalString;
+
+describe("score definition formula validation", () => {
+  it("fails closed for malformed or negative persisted formula values", () => {
+    expect(() =>
+      scoreDefinitionMetadata({ weights: { movement: "not-a-decimal" } }),
+    ).toThrow("INVALID_SCORE_DEFINITION_FORMULA");
+    expect(() =>
+      scoreDefinitionMetadata({ capsPenalties: { movementPenalty: "-0.1" } }),
+    ).toThrow("INVALID_SCORE_DEFINITION_FORMULA");
+  });
+});
 
 function job(overrides: Partial<PredictionJob["payload"]> = {}): PredictionJob {
   return {

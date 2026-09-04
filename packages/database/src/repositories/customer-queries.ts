@@ -12,6 +12,7 @@ import {
   outcomeDefinitions,
   participants,
   predictionRuns,
+  predictionInputs,
   predictions,
   radarEvidence,
   scoreResults,
@@ -35,6 +36,7 @@ export type CustomerRawOutcome = Readonly<{
     prediction: typeof predictions.$inferSelect;
     run: typeof predictionRuns.$inferSelect;
   }> | null;
+  predictionInputs: readonly (typeof predictionInputs.$inferSelect)[];
   quality: typeof dataQualityAssessments.$inferSelect | null;
   score: Readonly<{
     result: typeof scoreResults.$inferSelect;
@@ -199,6 +201,19 @@ export class DatabaseCustomerQueryAdapter {
           .orderBy(desc(predictions.createdAt), desc(predictions.id))
           .limit(1);
 
+        const predictionInputRows = predictionRow
+          ? await this.database
+              .select()
+              .from(predictionInputs)
+              .where(
+                eq(predictionInputs.predictionId, predictionRow.prediction.id),
+              )
+              .orderBy(
+                asc(predictionInputs.createdAt),
+                asc(predictionInputs.sourceObservationId),
+              )
+          : [];
+
         const [quality] = await this.database
           .select()
           .from(dataQualityAssessments)
@@ -264,6 +279,7 @@ export class DatabaseCustomerQueryAdapter {
         return {
           ...row,
           prediction: predictionRow ?? null,
+          predictionInputs: predictionInputRows,
           quality: quality ?? null,
           score: score ? { result: score, radarEvidence: evidence } : null,
           odds: odds.map(({ odds_observations: observation }) => observation),

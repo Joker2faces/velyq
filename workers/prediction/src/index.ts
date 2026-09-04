@@ -439,13 +439,15 @@ export interface ScoreWriter {
 }
 
 type ScoreDefinitionMetadata = Readonly<{
-  weights: Record<string, unknown>;
-  capsPenalties: Record<string, unknown>;
+  weights: Record<string, DecimalString>;
+  capsPenalties: Record<string, DecimalString>;
 }>;
 
-function scoreDefinitionMetadata(definition: unknown): ScoreDefinitionMetadata {
+export function scoreDefinitionMetadata(
+  definition: unknown,
+): ScoreDefinitionMetadata {
   if (!definition || typeof definition !== "object") {
-    return { weights: {}, capsPenalties: {} };
+    throw new Error("INVALID_SCORE_DEFINITION_FORMULA");
   }
   const record = definition as Record<string, unknown>;
   const weights = record["weights"];
@@ -457,17 +459,34 @@ function scoreDefinitionMetadata(definition: unknown): ScoreDefinitionMetadata {
 }
 
 function safeDecimalRecord(value: unknown): Record<string, DecimalString> {
-  if (!value || typeof value !== "object") return {};
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("INVALID_SCORE_DEFINITION_FORMULA");
   const output: Record<string, DecimalString> = {};
   for (const [key, candidate] of Object.entries(value)) {
-    if (typeof candidate !== "string") continue;
+    if (typeof candidate !== "string")
+      throw new Error("INVALID_SCORE_DEFINITION_FORMULA");
     const checked = addDecimalStrings(
       "0" as DecimalString,
       candidate as DecimalString,
     );
-    if (checked.ok && !candidate.startsWith("-")) output[key] = checked.value;
+    if (!checked.ok || candidate.startsWith("-"))
+      throw new Error("INVALID_SCORE_DEFINITION_FORMULA");
+    output[key] = checked.value;
   }
   return output;
+}
+
+function heuristicFormulaFromDefinition(definition: unknown): HeuristicFormula {
+  const metadata = scoreDefinitionMetadata(definition);
+  return {
+    ...(Object.keys(metadata.weights).length > 0
+      ? { weights: metadata.weights }
+      : {}),
+    ...(Object.keys(metadata.capsPenalties).length > 0
+      ? { capsPenalties: metadata.capsPenalties }
+      : {}),
+  };
 }
 
 export interface EdgeInputReader {
@@ -513,35 +532,14 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
         ? ({ ok: true, value: qualityScore } as const)
         : divideDecimalStrings(qualityScore, "100" as DecimalString);
     if (!normalizedQuality.ok) return null;
-    const formula = definition?.definition;
-    const definitionRecord =
-      formula && typeof formula === "object"
-        ? (formula as Record<string, unknown>)
-        : {};
+    const formula = definition
+      ? heuristicFormulaFromDefinition(definition.definition)
+      : {};
     return {
       probabilityEdge: row.prediction.edge as DecimalString,
       expectedValue: row.prediction.expectedValue as DecimalString,
       qualityScore: normalizedQuality.value,
-      formula: {
-        ...(definitionRecord["weights"] &&
-        typeof definitionRecord["weights"] === "object"
-          ? {
-              weights: definitionRecord["weights"] as Record<
-                string,
-                DecimalString
-              >,
-            }
-          : {}),
-        ...(definitionRecord["capsPenalties"] &&
-        typeof definitionRecord["capsPenalties"] === "object"
-          ? {
-              capsPenalties: definitionRecord["capsPenalties"] as Record<
-                string,
-                DecimalString
-              >,
-            }
-          : {}),
-      },
+      formula,
     };
   }
 }
@@ -577,10 +575,9 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
       .limit(1);
     if (definition?.scoreType !== "RADAR") return null;
-    const definitionRecord =
-      definition?.definition && typeof definition.definition === "object"
-        ? (definition.definition as Record<string, unknown>)
-        : {};
+    const formula = definition
+      ? heuristicFormulaFromDefinition(definition.definition)
+      : {};
     const byBookmaker = new Map<string, typeof rows>();
     for (const row of windowRows) {
       const group = byBookmaker.get(row.bookmakerId) ?? [];
@@ -642,25 +639,7 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       supportingObservationIds: windowRows.map((row) => row.id),
       observedAt: current.providerObservedAt.toISOString(),
       openingObservedAt: opening.providerObservedAt.toISOString(),
-      formula:
-        definitionRecord["weights"] &&
-        typeof definitionRecord["weights"] === "object"
-          ? {
-              weights: definitionRecord["weights"] as Record<
-                string,
-                DecimalString
-              >,
-              ...(definitionRecord["capsPenalties"] &&
-              typeof definitionRecord["capsPenalties"] === "object"
-                ? {
-                    capsPenalties: definitionRecord["capsPenalties"] as Record<
-                      string,
-                      DecimalString
-                    >,
-                  }
-                : {}),
-            }
-          : {},
+      formula,
     };
   }
 }
