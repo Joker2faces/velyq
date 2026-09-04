@@ -308,7 +308,7 @@ export type IngestionBatch = Readonly<{
   scenarios?: readonly SyntheticScenarioRecord[];
 }>;
 export interface IngestionSink {
-  hasRun(sequenceName: string, fixedClock: string): boolean;
+  hasRun(sequenceName: string, fixedClock: string): boolean | Promise<boolean>;
   writeBatch(
     batch: IngestionBatch,
     runKey?: string,
@@ -397,7 +397,7 @@ export async function ingestProviderSequence(
     causationId: string;
   }>,
 ): Promise<IngestionResult> {
-  if (input.sink.hasRun(input.sequenceName, input.fixedClock))
+  if (await input.sink.hasRun(input.sequenceName, input.fixedClock))
     return { accepted: 0, rejected: 0, duplicate: true, downstreamJobs: [] };
   const batch = await input.source.replay({
     sequenceName: input.sequenceName,

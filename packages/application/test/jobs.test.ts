@@ -234,4 +234,30 @@ describe("durable job contract", () => {
     expect(calls).toBe(1);
     expect(result.downstreamJobs).toEqual([]);
   });
+
+  it("awaits an asynchronous durable duplicate check", async () => {
+    const sink = {
+      hasRun: async () => true,
+      writeBatch: () => ({ accepted: 0, rejected: 0, duplicate: false }),
+    };
+    const result = await ingestProviderSequence({
+      sequenceName: "sequence-async-duplicate",
+      fixedClock: clock.now(),
+      source: {
+        replay: async () => {
+          throw new Error("source must not run");
+        },
+      },
+      sink,
+      jobs: new InMemoryJobRepository(clock),
+      correlationId: "corr-1",
+      causationId: "cause-1",
+    });
+    expect(result).toEqual({
+      accepted: 0,
+      rejected: 0,
+      duplicate: true,
+      downstreamJobs: [],
+    });
+  });
 });
