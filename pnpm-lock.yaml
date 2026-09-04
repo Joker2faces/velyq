@@ -86,7 +86,11 @@ importers:
         specifier: 19.2.5
         version: 19.2.5(@types/react@19.2.18)
 
-  packages/analytics: {}
+  packages/analytics:
+    dependencies:
+      '@velyq/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/application:
     dependencies:
