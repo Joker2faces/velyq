@@ -9,6 +9,7 @@ import {
   type HeuristicFormula,
 } from "@velyq/analytics";
 import {
+  addDecimalStrings,
   divideDecimalStrings,
   subtractDecimalStrings,
   type DecimalString,
@@ -450,15 +451,23 @@ function scoreDefinitionMetadata(definition: unknown): ScoreDefinitionMetadata {
   const weights = record["weights"];
   const capsPenalties = record["capsPenalties"] ?? record["caps_penalties"];
   return {
-    weights:
-      weights && typeof weights === "object"
-        ? (weights as Record<string, unknown>)
-        : {},
-    capsPenalties:
-      capsPenalties && typeof capsPenalties === "object"
-        ? (capsPenalties as Record<string, unknown>)
-        : {},
+    weights: safeDecimalRecord(weights),
+    capsPenalties: safeDecimalRecord(capsPenalties),
   };
+}
+
+function safeDecimalRecord(value: unknown): Record<string, DecimalString> {
+  if (!value || typeof value !== "object") return {};
+  const output: Record<string, DecimalString> = {};
+  for (const [key, candidate] of Object.entries(value)) {
+    if (typeof candidate !== "string") continue;
+    const checked = addDecimalStrings(
+      "0" as DecimalString,
+      candidate as DecimalString,
+    );
+    if (checked.ok && !candidate.startsWith("-")) output[key] = checked.value;
+  }
+  return output;
 }
 
 export interface EdgeInputReader {
@@ -484,7 +493,10 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
       .where(eq(predictions.id, input.predictionId))
       .limit(1);
     const [definition] = await this.database
-      .select({ definition: scoreDefinitionVersions.definition })
+      .select({
+        definition: scoreDefinitionVersions.definition,
+        scoreType: scoreDefinitionVersions.scoreType,
+      })
       .from(scoreDefinitionVersions)
       .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
       .limit(1);
@@ -551,17 +563,26 @@ export class DatabaseRadarInputReader implements RadarInputReader {
     const opening = rows.find((row) => row.id === input.openingObservationId);
     const current = rows.find((row) => row.id === input.currentObservationId);
     if (!opening || !current) return null;
+    const windowRows = rows.filter(
+      (row) =>
+        row.providerObservedAt >= opening.providerObservedAt &&
+        row.providerObservedAt <= current.providerObservedAt,
+    );
     const [definition] = await this.database
-      .select({ definition: scoreDefinitionVersions.definition })
+      .select({
+        definition: scoreDefinitionVersions.definition,
+        scoreType: scoreDefinitionVersions.scoreType,
+      })
       .from(scoreDefinitionVersions)
       .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
       .limit(1);
+    if (definition?.scoreType !== "RADAR") return null;
     const definitionRecord =
       definition?.definition && typeof definition.definition === "object"
         ? (definition.definition as Record<string, unknown>)
         : {};
     const byBookmaker = new Map<string, typeof rows>();
-    for (const row of rows) {
+    for (const row of windowRows) {
       const group = byBookmaker.get(row.bookmakerId) ?? [];
       group.push(row);
       byBookmaker.set(row.bookmakerId, group);
@@ -618,7 +639,7 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       bookmakersMoving: movingBookmakers,
       consensus: consensusResult.value,
       divergence: divergenceResult.value,
-      supportingObservationIds: rows.map((row) => row.id),
+      supportingObservationIds: windowRows.map((row) => row.id),
       observedAt: current.providerObservedAt.toISOString(),
       openingObservedAt: opening.providerObservedAt.toISOString(),
       formula:
@@ -658,11 +679,15 @@ export class DatabaseScoreWriter implements ScoreWriter {
       .select({
         definition: scoreDefinitionVersions.definition,
         validationStatus: scoreDefinitionVersions.validationStatus,
+        scoreType: scoreDefinitionVersions.scoreType,
       })
       .from(scoreDefinitionVersions)
       .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
       .limit(1);
     if (!definition) throw new Error("SCORE_DEFINITION_MISSING");
+    const expectedScoreType = input.radarEvidence ? "RADAR" : "EDGE";
+    if (definition.scoreType !== expectedScoreType)
+      throw new Error("SCORE_DEFINITION_TYPE_MISMATCH");
     if (definition.validationStatus !== input.validationStatus) {
       throw new Error("SCORE_DEFINITION_STATUS_MISMATCH");
     }
