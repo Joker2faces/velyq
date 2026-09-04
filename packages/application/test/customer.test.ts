@@ -14,7 +14,7 @@ describe("customer query application boundary", () => {
       getToday: () => today,
       getMatch: () => null,
     });
-    await expect(service.getToday()).resolves.toEqual(today);
+    expect(service.getToday()).toEqual(today);
   });
 
   it("supports asynchronous match repositories", async () => {
