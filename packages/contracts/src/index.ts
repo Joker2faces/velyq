@@ -1,4 +1,9 @@
-import type { DecimalOdds, MarketLine, Probability } from "@velyq/decimal";
+import type {
+  DecimalOdds,
+  DecimalString,
+  MarketLine,
+  Probability,
+} from "@velyq/decimal";
 
 export const SYNTHETIC_DATA_LABEL = "Synthetic data" as const;
 
@@ -322,3 +327,55 @@ export function validateJob(input: unknown): JobValidation {
     ? { ok: false, errors }
     : { ok: true, value: Object.freeze(candidate as Job) };
 }
+
+export type ProblemDetails = Readonly<{
+  type: string;
+  title: string;
+  status: number;
+  code: string;
+  requestId: string;
+}>;
+export type RecommendationStatus =
+  | "STRONG_EDGE"
+  | "NO_BET"
+  | "WAIT"
+  | "WAIT_FOR_LINEUP"
+  | "INSUFFICIENT_DATA"
+  | "EDGE_DISAPPEARED";
+export type CustomerMatchDto = Readonly<{
+  eventId: string;
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  startsAt: string;
+  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  freshness: "FRESH" | "STALE";
+  selection: string;
+  recommendation: RecommendationStatus;
+  modelProbability: DecimalString | null;
+  impliedProbability: DecimalString | null;
+  fairOdds: DecimalString | null;
+  currentOdds: DecimalOdds["value"] | null;
+  openingOdds: DecimalOdds["value"] | null;
+  probabilityEdge: DecimalString | null;
+  expectedValue: DecimalString | null;
+  lineup: "EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED";
+  quality: Readonly<{
+    grade: string;
+    score: DecimalString;
+    policyVersion: string;
+    reasonCodes: readonly string[];
+  }>;
+  trace: Readonly<{
+    modelVersion: string;
+    maturity: "EXPERIMENTAL";
+    calibrationVersion: string;
+    scoreVersion: string;
+    featureCutoff: string;
+  }>;
+}>;
+export type CustomerTodayDto = Readonly<{
+  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  asOf: string;
+  matches: readonly CustomerMatchDto[];
+}>;

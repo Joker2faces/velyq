@@ -69,6 +69,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@velyq/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@velyq/decimal':
+        specifier: workspace:*
+        version: link:../../packages/decimal
       next:
         specifier: 16.3.4
         version: 16.3.4(@playwright/test@1.62.1)(@types/node@26.4.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
