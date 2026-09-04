@@ -1,6 +1,6 @@
 import { CustomerShell, Metric, Status } from "../../customer-shell";
 import { findCustomerMatch } from "../../customer-data";
-import { formatPercent } from "@velyq/ui";
+import { formatDateTime, formatDecimal, formatPercent } from "@velyq/ui";
 
 export default async function Match({
   params,
@@ -23,7 +23,7 @@ export default async function Match({
             ? "The recommendation is withheld because required price or coverage inputs are missing."
             : "The current evidence does not meet the recommendation policy threshold.";
   const value = (metric: string | null, suffix = "") =>
-    metric === null ? "—" : `${metric}${suffix}`;
+    metric === null ? "—" : `${formatDecimal(metric)}${suffix}`;
   return (
     <CustomerShell>
       <div className="page-heading">
@@ -33,7 +33,8 @@ export default async function Match({
             {match.homeTeam} <span className="versus">vs</span> {match.awayTeam}
           </h1>
           <p>
-            {match.competition} · {match.startsAt} · {match.syntheticLabel}
+            {match.competition} · {formatDateTime(match.startsAt)} ·{" "}
+            {match.syntheticLabel}
           </p>
         </div>
         <Status tone="synthetic">{match.syntheticLabel.toUpperCase()}</Status>
@@ -190,7 +191,7 @@ export default async function Match({
             {value(match.currentOdds)} · {match.freshness}
           </b>
           <span>Feature cutoff</span>
-          <b>{match.trace.featureCutoff}</b>
+          <b>{formatDateTime(match.trace.featureCutoff)}</b>
         </div>
       </section>
     </CustomerShell>
