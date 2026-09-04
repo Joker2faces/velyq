@@ -22,7 +22,9 @@ export async function signInAsCustomer(page: Page) {
   }
   const cookies = await page.context().cookies();
   if (!cookies.some(({ name }) => name === "velyq_access_token")) {
-    throw new Error(`Customer sign-in did not set an access cookie: ${response.headers()["set-cookie"] ?? "missing"}`);
+    throw new Error(
+      `Customer sign-in did not set an access cookie: ${response.headers()["set-cookie"] ?? "missing"}`,
+    );
   }
   await page.waitForURL("**/today");
 }
