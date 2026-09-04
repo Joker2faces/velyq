@@ -270,6 +270,59 @@ export async function runDurablePredictionJobOnce(
   }
 }
 
+/** Production composition root for every prediction-pipeline job type. */
+export async function runDurablePipelineJobOnce(
+  config: Readonly<{
+    database: PrivilegedVelyqDatabase;
+    workerId: string;
+    now: Date;
+    leaseDurationMs: number;
+  }>,
+): Promise<PredictionWorkerResult> {
+  const queue = new DatabaseJobRepository(config.database);
+  const lease = await queue.leaseNext(
+    config.workerId,
+    config.now,
+    new Date(config.now.getTime() + config.leaseDurationMs),
+  );
+  if (!lease) return { leased: false, status: "IDLE", jobId: null };
+  try {
+    if (lease.job.type === "GENERATE_PREDICTION") {
+      await new DatabasePredictionJobHandler(config.database).handle(lease.job);
+    } else if (
+      lease.job.type === "CALCULATE_EDGE" ||
+      lease.job.type === "CALCULATE_RADAR"
+    ) {
+      const writer = new DatabaseScoreWriter(config.database);
+      if (lease.job.type === "CALCULATE_EDGE")
+        await consumeQueuedEdgeJob(
+          lease.job,
+          new DatabaseEdgeInputReader(config.database),
+          writer,
+        );
+      else
+        await consumeQueuedRadarJob(
+          lease.job,
+          new DatabaseRadarInputReader(config.database),
+          writer,
+        );
+    } else {
+      throw new Error("INVALID_PIPELINE_JOB_TYPE");
+    }
+    await queue.complete(lease.job.id, config.now);
+    return { leased: true, status: "COMPLETED", jobId: lease.job.id };
+  } catch (error) {
+    const errorCode =
+      error instanceof Error ? error.message : "PIPELINE_JOB_FAILED";
+    await queue.fail(
+      lease.job.id,
+      { code: errorCode, message: "Pipeline job processing failed." },
+      config.now,
+    );
+    return { leased: true, status: "FAILED", jobId: lease.job.id, errorCode };
+  }
+}
+
 /**
  * Processes one durable queue lease. No in-memory repository is created here:
  * the composition root must provide the persistence implementation explicitly.
