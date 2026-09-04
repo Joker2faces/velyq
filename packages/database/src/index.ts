@@ -6,4 +6,5 @@ export * from "./repositories/provider-runs.js";
 export * from "./repositories/permissions.js";
 export * from "./repositories/quality.js";
 export * from "./repositories/predictions.js";
+export * from "./repositories/scores.js";
 export * from "./schema/index.js";
