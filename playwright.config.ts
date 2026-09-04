@@ -11,16 +11,10 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      command: "corepack pnpm --filter @velyq/web exec next dev -p 3100",
+      command: "node tooling/e2e/customer-web-server.mjs",
       url: "http://localhost:3100/sign-in",
       reuseExistingServer: true,
       timeout: 30_000,
-      env: {
-        NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
-        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
-        NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
-        VELYQ_SYNTHETIC_PREVIEW: "true",
-      },
     },
   ],
   forbidOnly: true,
