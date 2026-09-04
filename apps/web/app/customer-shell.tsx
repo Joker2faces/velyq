@@ -28,6 +28,9 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <br />
           <span>EXPERIMENTAL // DEVELOPMENT</span>
         </div>
+        <form action="/api/v1/auth/sign-out" method="post" className="sign-out">
+          <button type="submit">Sign out</button>
+        </form>
       </aside>
       <main className="customer-main">
         <header className="topbar">
