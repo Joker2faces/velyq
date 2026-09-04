@@ -11,7 +11,7 @@ describe("built provider artifact", () => {
     const build = spawnSync(
       corepack,
       ["pnpm", "--filter", "@velyq/providers", "build"],
-      { cwd: workspace, encoding: "utf8" },
+      { cwd: workspace, encoding: "utf8", shell: process.platform === "win32" },
     );
     expect(build.status, build.stderr).toBe(0);
 

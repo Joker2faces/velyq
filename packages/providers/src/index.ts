@@ -1,9 +1,12 @@
 export {
   evaluateProviderAction,
+  createProviderPolicyContext,
+  isTrustedProviderPolicyContext,
   parseProviderDataPolicy,
   providerDataPolicySchema,
   syntheticProviderPolicyDocument,
   type ProviderActionRequest,
+  type ProviderPolicyContext,
 } from "./policy.js";
 export {
   resolveProviderMarketMapping,

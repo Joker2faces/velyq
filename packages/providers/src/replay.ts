@@ -17,6 +17,7 @@ import {
   type QuarantinedProviderObservation,
   type ReplayRequest,
   type SyntheticReplayResult,
+  type SyntheticScenarioRecord,
 } from "@velyq/contracts";
 import { decimalOdds, marketLine, probability } from "@velyq/decimal";
 import { eventId } from "@velyq/domain";
@@ -29,7 +30,13 @@ import {
 } from "@velyq/market-semantics";
 
 import { resolveProviderMarketMapping } from "./mapping.js";
-import { evaluateProviderAction, parseProviderDataPolicy } from "./policy.js";
+import {
+  evaluateProviderAction,
+  isTrustedProviderPolicyContext,
+  parseProviderDataPolicy,
+  type ProviderPolicyContext,
+} from "./policy.js";
+import { deepFreeze } from "./immutable.js";
 import {
   isoTimestampSchema,
   parseSyntheticSequence,
@@ -110,7 +117,10 @@ function hash(value: unknown): string {
 export function verifySyntheticSequenceContentHash(input: unknown): boolean {
   const parsed = parseSyntheticSequence(input);
   if (!parsed.ok) return false;
-  const { contentHash, ...content } = parsed.value;
+  if (typeof input !== "object" || input === null) return false;
+  const { contentHash, ...content } = input as {
+    contentHash?: unknown;
+  } & Record<string, unknown>;
   return hash(content) === contentHash;
 }
 
@@ -158,7 +168,8 @@ function provenance(
     sourceObservationId: observation.sourceObservationId,
     normalizationVersion: "normalization.v1",
     mappingVersion: catalog.mappingVersion,
-    contentHash: hash(observation),
+    sourceObservationHash: hash(observation),
+    sourceFixtureHash: sequence.contentHash,
     fixturePath: fixturePath(sequence.sequenceName),
   };
 }
@@ -191,9 +202,12 @@ function batch<T>(
     normalizationVersion: "normalization.v1",
     mappingVersion: catalog.mappingVersion,
     observations,
+    sourceFixtureHash: sequence.contentHash,
   };
-
-  return { ...result, contentHash: hash(result) };
+  return deepFreeze({
+    ...result,
+    normalizedOutputHash: hash(result),
+  });
 }
 
 function assertCatalogReferences(
@@ -240,7 +254,12 @@ function assertCatalogReferences(
     }
   }
   for (const lineup of sequence.lineups) {
-    if (!eventIds.has(lineup.eventId) || !participantIds.has(lineup.teamId)) {
+    if (
+      !eventIds.has(lineup.eventId) ||
+      !participantIds.has(lineup.teamId) ||
+      catalog.participants.find(({ id }) => id === lineup.teamId)?.type !==
+        "TEAM"
+    ) {
       throw new Error(
         `INVALID_CATALOG_REFERENCE:${lineup.sourceObservationId}`,
       );
@@ -256,16 +275,24 @@ export class SyntheticReplaySource
     SequenceName,
     SyntheticSequenceDocument
   >;
+  private readonly policyContext: ProviderPolicyContext;
 
   private constructor(
     catalog: SyntheticCatalogDocument,
     sequences: ReadonlyMap<SequenceName, SyntheticSequenceDocument>,
+    policyContext: ProviderPolicyContext,
   ) {
-    this.catalog = catalog;
-    this.sequences = sequences;
+    this.catalog = deepFreeze(catalog);
+    this.sequences = deepFreeze(sequences);
+    this.policyContext = policyContext;
   }
 
-  static fromRepository(): SyntheticReplaySource {
+  static fromRepository(
+    policyContext: ProviderPolicyContext,
+  ): SyntheticReplaySource {
+    if (!isTrustedProviderPolicyContext(policyContext)) {
+      throw new Error("TRUSTED_POLICY_CONTEXT_REQUIRED");
+    }
     const fixtureDirectory = new URL("./mock/fixtures/v1/", import.meta.url);
     const catalogResult = parseSyntheticCatalog(
       readJson(new URL("catalog.json", fixtureDirectory)),
@@ -297,11 +324,15 @@ export class SyntheticReplaySource
       documents.set(sequenceName, parsed.value);
     }
 
-    return new SyntheticReplaySource(catalogResult.value, documents);
+    return new SyntheticReplaySource(
+      catalogResult.value,
+      documents,
+      policyContext,
+    );
   }
 
   sequenceNames(): readonly SequenceName[] {
-    return sequenceNames;
+    return deepFreeze([...sequenceNames]);
   }
 
   private document(request: ReplayRequest): SyntheticSequenceDocument {
@@ -318,15 +349,23 @@ export class SyntheticReplaySource
 
     const policy = parseProviderDataPolicy(this.catalog.policy);
     if (!policy.ok) throw new Error("INVALID_PROVIDER_POLICY");
-    const decision = evaluateProviderAction(policy.value, {
-      action: "REPLAY",
+    const requestContext = {
+      ...this.policyContext,
       asOf: request.fixedClock,
-      environment: "DEVELOPMENT",
-      territory: "ZZ",
-      dataCategory: "REPOSITORY_FIXTURE",
-      attributionPresent: true,
-    });
-    if (!decision.allowed) throw new Error(`POLICY_DENIED:${decision.reason}`);
+    };
+    for (const [action, dataCategory] of [
+      ["CACHE", "REPOSITORY_FIXTURE"],
+      ["REPLAY", "REPOSITORY_FIXTURE"],
+      ["RETAIN_NORMALIZED", "NORMALIZED_FIXTURE"],
+    ] as const) {
+      const decision = evaluateProviderAction(policy.value, {
+        ...requestContext,
+        action,
+        dataCategory,
+      });
+      if (!decision.allowed)
+        throw new Error(`POLICY_DENIED:${action}:${decision.reason}`);
+    }
 
     return sequence;
   }
@@ -384,6 +423,12 @@ export class SyntheticReplaySource
           providerMarketKey: observation.providerMarketKey,
           providerOutcomeKey: observation.providerOutcomeKey,
           reason: mapped.reason,
+          provenance: provenance(
+            this.catalog,
+            sequence,
+            observation,
+            fixedClock,
+          ),
         });
         continue;
       }
@@ -411,6 +456,12 @@ export class SyntheticReplaySource
             parsedLine !== undefined && !parsedLine.ok
               ? "INVALID_MARKET_LINE"
               : "INVALID_MARKET_IDENTITY",
+          provenance: provenance(
+            this.catalog,
+            sequence,
+            observation,
+            fixedClock,
+          ),
         });
         continue;
       }
@@ -428,6 +479,12 @@ export class SyntheticReplaySource
           providerMarketKey: observation.providerMarketKey,
           providerOutcomeKey: observation.providerOutcomeKey,
           reason: "INVALID_MARKET_IDENTITY",
+          provenance: provenance(
+            this.catalog,
+            sequence,
+            observation,
+            fixedClock,
+          ),
         });
         continue;
       }
@@ -443,6 +500,12 @@ export class SyntheticReplaySource
           providerMarketKey: observation.providerMarketKey,
           providerOutcomeKey: observation.providerOutcomeKey,
           reason: "INVALID_MARKET_IDENTITY",
+          provenance: provenance(
+            this.catalog,
+            sequence,
+            observation,
+            fixedClock,
+          ),
         });
         continue;
       }
@@ -481,6 +544,28 @@ export class SyntheticReplaySource
           throw new Error(
             `INVALID_LINEUP_CONFIDENCE:${observation.sourceObservationId}`,
           );
+        const playersById = new Map(
+          this.catalog.players.map((player) => [player.id, player]),
+        );
+        const playersByLabel = new Map(
+          this.catalog.players.map((player) => [player.displayName, player]),
+        );
+        const players =
+          observation.playerIds.length > 0
+            ? observation.playerIds.map((id) => playersById.get(id))
+            : (observation.playerLabels ?? []).map((label) =>
+                playersByLabel.get(label),
+              );
+        if (
+          players.some(
+            (player) =>
+              player === undefined || player.teamId !== observation.teamId,
+          )
+        ) {
+          throw new Error(
+            `INVALID_CATALOG_PLAYER_REFERENCE:${observation.sourceObservationId}`,
+          );
+        }
         return {
           isSynthetic: true,
           syntheticLabel: SYNTHETIC_DATA_LABEL,
@@ -488,7 +573,12 @@ export class SyntheticReplaySource
           teamId: observation.teamId,
           status: observation.status,
           confidence: confidence.value,
-          playerLabels: observation.playerLabels,
+          players: players.map((player) => ({
+            id: player!.id,
+            displayName: player!.displayName,
+            isSynthetic: true as const,
+            syntheticLabel: SYNTHETIC_DATA_LABEL,
+          })),
           formation: observation.formation,
           scenarioStates: observation.scenarioStates,
           provenance: provenance(
@@ -507,18 +597,63 @@ export class SyntheticReplaySource
     const fixtures = this.normalizeFixtures(sequence, request.fixedClock);
     const odds = this.normalizeOdds(sequence, request.fixedClock);
     const lineups = this.normalizeLineups(sequence, request.fixedClock);
+    const oddsBySourceId = new Map(
+      odds.batch.observations.map((observation) => [
+        observation.provenance.sourceObservationId,
+        observation,
+      ]),
+    );
+    const scenarios: readonly SyntheticScenarioRecord[] = sequence.scenarios
+      ? (sequence.scenarios.map((scenario) => {
+          const oddsObservation =
+            scenario.evidence.kind === "PRICE" &&
+            scenario.sourceObservationIds[0] !== undefined
+              ? oddsBySourceId.get(scenario.sourceObservationIds[0])
+              : undefined;
+          return {
+            ...scenario,
+            ...(oddsObservation === undefined
+              ? {}
+              : {
+                  marketKey: oddsObservation.marketKey,
+                  outcomeKey: oddsObservation.outcomeKey,
+                }),
+            isSynthetic: true as const,
+            syntheticLabel: SYNTHETIC_DATA_LABEL,
+          };
+        }) as readonly SyntheticScenarioRecord[])
+      : ((sequence.scenarioStates ?? []).map((state, index) => ({
+          isSynthetic: true as const,
+          syntheticLabel: SYNTHETIC_DATA_LABEL,
+          id: `${sequence.sequenceName}-scenario-${index}`,
+          state,
+          eventId:
+            sequence.fixtures[0]?.eventId ??
+            sequence.odds[0]?.eventId ??
+            sequence.lineups[0]?.eventId ??
+            "00000000-0000-0000-0000-000000000000",
+          sourceObservationIds: [],
+          evidence: {
+            kind: "ABSENCE" as const,
+            value: "NO_DIRECT_SCENARIO_RECORD",
+          },
+        })) as readonly SyntheticScenarioRecord[]);
     const result = {
       isSynthetic: true as const,
       syntheticLabel: SYNTHETIC_DATA_LABEL,
       sequenceName: sequence.sequenceName,
       fixturePath: fixturePath(sequence.sequenceName),
-      scenarioStates: sequence.scenarioStates,
+      scenarios,
       fixtures,
       odds: odds.batch,
       lineups,
       quarantined: odds.quarantined,
     };
-    return { ...result, contentHash: hash(result) };
+    return deepFreeze({
+      ...result,
+      sourceFixtureHash: sequence.contentHash,
+      normalizedOutputHash: hash(result),
+    });
   }
 
   async listFixtureObservations(
@@ -529,8 +664,9 @@ export class SyntheticReplaySource
 
   async listOddsObservations(
     request: ReplayRequest,
-  ): Promise<OddsObservationBatch> {
-    return (await this.replay(request)).odds;
+  ): Promise<import("@velyq/contracts").OddsObservationResult> {
+    const replay = await this.replay(request);
+    return { batch: replay.odds, quarantined: replay.quarantined };
   }
 
   async listLineupObservations(

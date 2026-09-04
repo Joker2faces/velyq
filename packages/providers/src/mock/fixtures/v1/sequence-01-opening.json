@@ -1,7 +1,7 @@
 {
   "schemaVersion": "provider-sequence.v1",
   "sequenceName": "sequence-01-opening",
-  "contentHash": "sha256:4da5724ee6a5626f3295fa58453c6675a63603dbde12b43c35bbb6c185e2fefe",
+  "contentHash": "sha256:fc9835303008b24c3c1735ac931a82c04ea69f7e751e5600927916d2d5a11c2e",
   "synthetic": true,
   "syntheticLabel": "Synthetic data",
   "receivedAt": "2026-09-03T09:00:01Z",

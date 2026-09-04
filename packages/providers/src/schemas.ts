@@ -225,7 +225,15 @@ const lineupObservationSchema = z
     teamId: canonicalUuidSchema,
     status: z.enum(["EXPECTED", "CHANGED", "OFFICIAL", "MISSING"]),
     confidence: probabilityStringSchema,
-    playerIds: z.array(canonicalUuidSchema),
+    playerIds: z.array(canonicalUuidSchema).default([]),
+    playerLabels: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .refine((value) => value.includes("(Synthetic)")),
+      )
+      .optional(),
     formation: z.string().min(1).nullable(),
     scenarioStates: z.array(scenarioStateSchema),
   })
@@ -239,16 +247,34 @@ const lineupObservationSchema = z
       });
     }
     if (lineup.status !== "MISSING" && lineup.playerIds.length === 0) {
+      if (
+        lineup.playerLabels === undefined ||
+        lineup.playerLabels.length === 0
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Available lineups must include catalog player identities",
+          path: ["playerIds"],
+        });
+      }
+    }
+    if (
+      lineup.playerLabels !== undefined &&
+      lineup.playerIds.length > 0 &&
+      lineup.playerLabels.length !== lineup.playerIds.length
+    ) {
       context.addIssue({
         code: "custom",
-        message: "Available lineups must include catalog player identities",
-        path: ["playerIds"],
+        message: "Player ids and labels must have matching lengths",
+        path: ["playerLabels"],
       });
     }
   });
 
 const scenarioEvidenceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("PRICE"), value: decimalOddsStringSchema }).strict(),
+  z
+    .object({ kind: z.literal("PRICE"), value: decimalOddsStringSchema })
+    .strict(),
   z.object({ kind: z.literal("LINEUP"), value: z.string().min(1) }).strict(),
   z.object({ kind: z.literal("DECISION"), value: z.string().min(1) }).strict(),
   z.object({ kind: z.literal("QUALITY"), value: z.string().min(1) }).strict(),
@@ -312,10 +338,22 @@ export const syntheticSequenceSchema = z
     fixtures: z.array(fixtureObservationSchema),
     odds: z.array(oddsObservationSchema),
     lineups: z.array(lineupObservationSchema),
-    scenarios: z.array(syntheticScenarioSchema).min(1),
+    scenarios: z.array(syntheticScenarioSchema).min(1).optional(),
+    scenarioStates: z.array(scenarioStateSchema).optional(),
   })
   .strict()
   .superRefine((sequence, context) => {
+    if (
+      (sequence.scenarios === undefined || sequence.scenarios.length === 0) &&
+      (sequence.scenarioStates === undefined ||
+        sequence.scenarioStates.length === 0)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Sequence must declare scenarios or scenario states",
+        path: ["scenarios"],
+      });
+    }
     const sourceObservationIds = new Set<string>();
     for (const observation of [
       ...sequence.fixtures,
@@ -338,7 +376,7 @@ export const syntheticSequenceSchema = z
       sourceObservationIds.add(observation.sourceObservationId);
     }
     const scenarioIds = new Set<string>();
-    for (const scenario of sequence.scenarios) {
+    for (const scenario of sequence.scenarios ?? []) {
       if (scenarioIds.has(scenario.id)) {
         context.addIssue({
           code: "custom",

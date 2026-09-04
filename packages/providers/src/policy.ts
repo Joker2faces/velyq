@@ -179,7 +179,11 @@ export function createProviderPolicyContext(
 export function isTrustedProviderPolicyContext(
   input: unknown,
 ): input is ProviderPolicyContext {
-  return typeof input === "object" && input !== null && trustedPolicyContexts.has(input);
+  return (
+    typeof input === "object" &&
+    input !== null &&
+    trustedPolicyContexts.has(input)
+  );
 }
 
 function denied(
