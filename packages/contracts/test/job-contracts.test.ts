@@ -6,6 +6,12 @@ const base = {
   status: "PENDING" as const,
   attemptCount: 0,
   maxAttempts: 3,
+  availableAt: "2026-09-04T10:00:00.000Z",
+  createdAt: "2026-09-04T09:59:00.000Z",
+  leaseExpiresAt: null,
+  startedAt: null,
+  completedAt: null,
+  lastError: null,
   idempotencyKey: "key-1",
   correlationId: "corr-1",
   causationId: "cause-1",
@@ -55,5 +61,46 @@ describe("typed calculation job contracts", () => {
       },
     });
     expect(result.ok).toBe(false);
+  });
+
+  it.each([
+    ["modelProbability", "0.6000000000001"],
+    ["modelProbability", 0.5],
+    ["currentOdds", "1"],
+    ["currentOdds", "2.00"],
+  ] as const)("rejects an invalid exact decimal in %s", (field, value) => {
+    const result = validateJob({
+      ...base,
+      type: "GENERATE_PREDICTION",
+      contractVersion: "GENERATE_PREDICTION.v1",
+      payload: {
+        eventId: "event-1",
+        eventMarketOutcomeId: "outcome-1",
+        modelProbability: "0.5",
+        currentOdds: "2",
+        quality: {
+          policyVersion: "phase-1-quality.v1",
+          asOf: "2026-09-04T10:00:00.000Z",
+          receivedAt: "2026-09-04T09:59:00.000Z",
+          priceCount: 1,
+          bookmakerCount: 1,
+          lineup: "OFFICIAL",
+          mappingConfidence: "HIGH",
+          edgeAvailable: true,
+          edgePresent: true,
+        },
+        featureCutoff: "2026-09-04T10:00:00.000Z",
+        modelVersion: "model.v1",
+        calibrationVersion: "calibration.v1",
+        sourceObservationIds: ["observation-1"],
+        [field]: value,
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain(
+        "payload does not match the job contract",
+      );
   });
 });

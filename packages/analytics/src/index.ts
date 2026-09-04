@@ -6,6 +6,7 @@ import {
   expectedValue,
   impliedProbability,
   multiplyDecimalStrings,
+  parseDecimalString,
   probability,
   subtractDecimalStrings,
   type DecimalResult,
@@ -294,12 +295,65 @@ export type RecommendationStatus =
   | "WAIT_FOR_LINEUP"
   | "INSUFFICIENT_DATA"
   | "EDGE_DISAPPEARED";
+export type QualityComponentName =
+  | "freshness"
+  | "priceCoverage"
+  | "bookmakerCoverage"
+  | "lineupCertainty"
+  | "mappingConfidence"
+  | "sourceAuthority"
+  | "consistency";
+export type QualitySourceAuthority =
+  "PRIMARY" | "SECONDARY" | "UNKNOWN" | "HIGH" | "LOW";
+export type QualityConsistency =
+  "CONSISTENT" | "INCONSISTENT" | "CONFLICTING" | "UNKNOWN";
+export type QualityPolicyDefinition = Readonly<{
+  freshnessSeconds?: number;
+  minimumBookmakers?: number;
+  requiresLineup?: boolean;
+  weights?: Readonly<Partial<Record<QualityComponentName, DecimalString>>>;
+  thresholds?: Readonly<{
+    readonly gradeA: DecimalString;
+    readonly gradeB: DecimalString;
+    readonly gradeC: DecimalString;
+  }>;
+}>;
+export type DataQualityPolicy = Readonly<{
+  policyVersion: string;
+  validationStatus?: "DEVELOPMENT_HEURISTIC";
+  definition: QualityPolicyDefinition;
+}>;
+
+/** The default policy mirrors the Phase 1 synthetic policy and is overridable by version. */
+export const DEFAULT_DATA_QUALITY_POLICY: DataQualityPolicy = Object.freeze({
+  policyVersion: "phase-1-quality.v1",
+  validationStatus: "DEVELOPMENT_HEURISTIC",
+  definition: Object.freeze({
+    freshnessSeconds: 15 * 60,
+    minimumBookmakers: 1,
+    requiresLineup: true,
+    weights: Object.freeze({
+      freshness: "1" as DecimalString,
+      priceCoverage: "1" as DecimalString,
+      bookmakerCoverage: "1" as DecimalString,
+      lineupCertainty: "1" as DecimalString,
+      mappingConfidence: "1" as DecimalString,
+      sourceAuthority: "1" as DecimalString,
+      consistency: "1" as DecimalString,
+    }),
+    thresholds: Object.freeze({
+      gradeA: "6.5" as DecimalString,
+      gradeB: "5.5" as DecimalString,
+      gradeC: "4.5" as DecimalString,
+    }),
+  }),
+});
 export type DataQualityAssessment = Readonly<{
   policyVersion: string;
   asOf: string;
   grade: QualityGrade;
-  score: string;
-  components: Readonly<Record<string, string>>;
+  score: DecimalString;
+  components: Readonly<Record<QualityComponentName, DecimalString>>;
   reasonCodes: readonly string[];
 }>;
 export type QualityInput = Readonly<{
@@ -312,53 +366,172 @@ export type QualityInput = Readonly<{
   mappingConfidence: "HIGH" | "LOW";
   edgeAvailable: boolean;
   edgePresent: boolean;
+  /** Optional keeps the pre-policy payload contract readable by older workers. */
+  sourceAuthority?: QualitySourceAuthority;
+  /** Optional keeps the pre-policy payload contract readable by older workers. */
+  consistency?: QualityConsistency;
 }>;
 
-export function assessDataQuality(input: QualityInput): DataQualityAssessment {
+function policyForInput(input: QualityInput): DataQualityPolicy {
+  return input.policyVersion === DEFAULT_DATA_QUALITY_POLICY.policyVersion
+    ? DEFAULT_DATA_QUALITY_POLICY
+    : Object.freeze({
+        ...DEFAULT_DATA_QUALITY_POLICY,
+        policyVersion: input.policyVersion,
+      });
+}
+
+function qualityDecimal(value: string, context: string): DecimalString {
+  const parsed = parseQualityDecimal(value);
+  if (!parsed.ok || parsed.value.startsWith("-"))
+    throw new Error(`INVALID_QUALITY_POLICY_${context}`);
+  return parsed.value;
+}
+
+function parseQualityDecimal(value: string): DecimalResult<DecimalString> {
+  return parseDecimalString(value);
+}
+
+function sourceAuthorityScore(
+  authority: QualitySourceAuthority | undefined,
+): DecimalString {
+  switch (authority) {
+    case "PRIMARY":
+    case "HIGH":
+      return "1" as DecimalString;
+    case "SECONDARY":
+      return "0.75" as DecimalString;
+    case "LOW":
+      return "0.5" as DecimalString;
+    case "UNKNOWN":
+      return "0" as DecimalString;
+    default:
+      // Legacy synthetic callers predate these fields; retain their prior score.
+      return "1" as DecimalString;
+  }
+}
+
+function consistencyScore(
+  consistency: QualityConsistency | undefined,
+): DecimalString {
+  switch (consistency) {
+    case "CONSISTENT":
+      return "1" as DecimalString;
+    case "INCONSISTENT":
+    case "CONFLICTING":
+      return "0" as DecimalString;
+    case "UNKNOWN":
+      return "0" as DecimalString;
+    default:
+      // Legacy synthetic callers predate this field; retain their prior score.
+      return "1" as DecimalString;
+  }
+}
+
+export function assessDataQuality(
+  input: QualityInput,
+  policy: DataQualityPolicy = policyForInput(input),
+): DataQualityAssessment {
+  if (policy.policyVersion !== input.policyVersion)
+    throw new Error("QUALITY_POLICY_VERSION_MISMATCH");
+  const definition = policy.definition;
+  const freshnessSeconds =
+    definition.freshnessSeconds ??
+    DEFAULT_DATA_QUALITY_POLICY.definition.freshnessSeconds!;
+  if (!Number.isFinite(freshnessSeconds) || freshnessSeconds < 0)
+    throw new Error("INVALID_QUALITY_POLICY_FRESHNESS");
+  const minimumBookmakers =
+    definition.minimumBookmakers ??
+    DEFAULT_DATA_QUALITY_POLICY.definition.minimumBookmakers!;
+  if (!Number.isSafeInteger(minimumBookmakers) || minimumBookmakers < 0)
+    throw new Error("INVALID_QUALITY_POLICY_BOOKMAKERS");
+  const requiresLineup = definition.requiresLineup ?? true;
   const ageMs = Date.parse(input.asOf) - Date.parse(input.receivedAt);
-  const stale = !Number.isFinite(ageMs) || ageMs > 15 * 60 * 1000;
-  const components = {
-    freshness: stale ? "0" : "1",
-    priceCoverage: input.priceCount > 0 ? "1" : "0",
-    bookmakerCoverage: input.bookmakerCount > 0 ? "1" : "0",
+  const stale = !Number.isFinite(ageMs) || ageMs > freshnessSeconds * 1000;
+  const components: Readonly<Record<QualityComponentName, DecimalString>> = {
+    freshness: (stale ? "0" : "1") as DecimalString,
+    priceCoverage: (input.priceCount > 0 ? "1" : "0") as DecimalString,
+    bookmakerCoverage: (input.bookmakerCount >= minimumBookmakers
+      ? "1"
+      : "0") as DecimalString,
     lineupCertainty:
-      input.lineup === "OFFICIAL"
-        ? "1"
-        : input.lineup === "EXPECTED"
-          ? "0.75"
-          : "0",
-    mappingConfidence: input.mappingConfidence === "HIGH" ? "1" : "0.5",
-  } as const;
+      !requiresLineup && input.lineup === "MISSING"
+        ? ("1" as DecimalString)
+        : input.lineup === "OFFICIAL"
+          ? ("1" as DecimalString)
+          : input.lineup === "EXPECTED"
+            ? ("0.75" as DecimalString)
+            : ("0" as DecimalString),
+    mappingConfidence: (input.mappingConfidence === "HIGH"
+      ? "1"
+      : "0.5") as DecimalString,
+    sourceAuthority: sourceAuthorityScore(input.sourceAuthority),
+    consistency: consistencyScore(input.consistency),
+  };
   const reasonCodes = [
     ...(stale ? ["STALE_DATA"] : []),
     ...(input.priceCount === 0 ? ["MISSING_PRICE"] : []),
-    ...(input.bookmakerCount === 0 ? ["NO_BOOKMAKER_COVERAGE"] : []),
-    ...(input.lineup === "MISSING" ? ["MISSING_LINEUP"] : []),
+    ...(input.bookmakerCount < minimumBookmakers
+      ? ["NO_BOOKMAKER_COVERAGE"]
+      : []),
+    ...(requiresLineup && input.lineup === "MISSING" ? ["MISSING_LINEUP"] : []),
     ...(input.mappingConfidence === "LOW" ? ["LOW_MAPPING_CONFIDENCE"] : []),
+    ...(input.sourceAuthority !== undefined &&
+    (input.sourceAuthority === "UNKNOWN" || input.sourceAuthority === "LOW")
+      ? ["LOW_SOURCE_AUTHORITY"]
+      : []),
+    ...(input.consistency !== undefined &&
+    (input.consistency === "UNKNOWN" ||
+      input.consistency === "INCONSISTENT" ||
+      input.consistency === "CONFLICTING")
+      ? ["INCONSISTENT_DATA"]
+      : []),
   ];
-  const total = Object.values(components).reduce<DecimalString>(
-    (sum, value) => {
-      const result = addDecimalStrings(sum, value as DecimalString);
-      if (!result.ok) throw new Error("QUALITY_SCORE_ARITHMETIC_FAILED");
-      return result.value;
+  const weights = definition.weights ?? {};
+  const weightedTotal = Object.entries(components).reduce<
+    DecimalResult<DecimalString>
+  >(
+    (sum, [name, value]) => {
+      if (!sum.ok) return sum;
+      const weight =
+        weights[name as QualityComponentName] ?? ("1" as DecimalString);
+      const validatedWeight = qualityDecimal(weight, `${name}_WEIGHT`);
+      const term = multiplyDecimalStrings(value, validatedWeight);
+      return term.ok ? addDecimalStrings(sum.value, term.value) : term;
     },
-    "0" as DecimalString,
+    { ok: true, value: "0" as DecimalString },
   );
+  if (!weightedTotal.ok) throw new Error("QUALITY_SCORE_ARITHMETIC_FAILED");
+  const thresholds =
+    definition.thresholds ?? DEFAULT_DATA_QUALITY_POLICY.definition.thresholds!;
+  const gradeA = qualityDecimal(thresholds.gradeA, "GRADE_A_THRESHOLD");
+  const gradeB = qualityDecimal(thresholds.gradeB, "GRADE_B_THRESHOLD");
+  const gradeC = qualityDecimal(thresholds.gradeC, "GRADE_C_THRESHOLD");
+  const orderedThresholds = subtractDecimalStrings(gradeA, gradeB);
+  const orderedLowerThresholds = subtractDecimalStrings(gradeB, gradeC);
+  if (
+    !orderedThresholds.ok ||
+    orderedThresholds.value.startsWith("-") ||
+    !orderedLowerThresholds.ok ||
+    orderedLowerThresholds.value.startsWith("-")
+  )
+    throw new Error("INVALID_QUALITY_POLICY_THRESHOLDS");
   const atLeast = (threshold: DecimalString) => {
-    const result = subtractDecimalStrings(total, threshold);
-    return result.ok && !result.value.startsWith("-");
+    const result = subtractDecimalStrings(weightedTotal.value, threshold);
+    if (!result.ok) throw new Error("QUALITY_POLICY_INVALID");
+    return !result.value.startsWith("-");
   };
-  const score = atLeast("4.5" as DecimalString)
-    ? "1"
-    : atLeast("3.5" as DecimalString)
-      ? "0.75"
-      : atLeast("2.5" as DecimalString)
-        ? "0.5"
-        : "0";
+  const score = atLeast(gradeA)
+    ? ("1" as DecimalString)
+    : atLeast(gradeB)
+      ? ("0.75" as DecimalString)
+      : atLeast(gradeC)
+        ? ("0.5" as DecimalString)
+        : ("0" as DecimalString);
   const grade: QualityGrade =
     score === "1" ? "A" : score === "0.75" ? "B" : score === "0.5" ? "C" : "F";
   return Object.freeze({
-    policyVersion: input.policyVersion,
+    policyVersion: policy.policyVersion,
     asOf: input.asOf,
     grade,
     score,

@@ -1,3 +1,11 @@
+import {
+  decimalOdds,
+  edge,
+  expectedValue,
+  parseDecimalString,
+  probability,
+  type DecimalResult,
+} from "@velyq/decimal";
 import type {
   DecimalOdds,
   DecimalString,
@@ -279,6 +287,10 @@ export type GeneratePredictionPayload = Readonly<{
     readonly mappingConfidence: "HIGH" | "LOW";
     readonly edgeAvailable: boolean;
     readonly edgePresent: boolean;
+    readonly sourceAuthority?:
+      "PRIMARY" | "SECONDARY" | "UNKNOWN" | "HIGH" | "LOW";
+    readonly consistency?:
+      "CONSISTENT" | "INCONSISTENT" | "CONFLICTING" | "UNKNOWN";
   }>;
   readonly featureCutoff: string;
   readonly modelVersion: string;
@@ -329,138 +341,213 @@ export type Job = Readonly<{
 export type JobValidation =
   | Readonly<{ readonly ok: true; readonly value: Job }>
   | Readonly<{ readonly ok: false; readonly errors: readonly string[] }>;
-export function validateJob(input: unknown): JobValidation {
-  if (typeof input !== "object" || input === null)
-    return { ok: false, errors: ["job must be an object"] };
-  const candidate = input as Partial<Job>;
-  const errors: string[] = [];
-  if (typeof candidate.id !== "string" || candidate.id.length === 0)
-    errors.push("id is required");
-  if (!(candidate.type && candidate.type in JOB_CONTRACT_VERSIONS))
-    errors.push("type is invalid");
-  if (
-    candidate.type &&
-    candidate.contractVersion !==
-      JOB_CONTRACT_VERSIONS[candidate.type as JobType]
-  )
-    errors.push("contractVersion does not match type");
-  if (
-    candidate.status !== "PENDING" &&
-    candidate.status !== "RUNNING" &&
-    candidate.status !== "COMPLETED" &&
-    candidate.status !== "FAILED"
-  )
-    errors.push("status is invalid");
-  if (
-    typeof candidate.idempotencyKey !== "string" ||
-    candidate.idempotencyKey.length === 0
-  )
-    errors.push("idempotencyKey is required");
-  if (
-    typeof candidate.correlationId !== "string" ||
-    candidate.correlationId.length === 0
-  )
-    errors.push("correlationId is required");
-  if (
-    typeof candidate.causationId !== "string" ||
-    candidate.causationId.length === 0
-  )
-    errors.push("causationId is required");
-  if (
-    !Number.isInteger(candidate.maxAttempts) ||
-    (candidate.maxAttempts ?? 0) < 1
-  )
-    errors.push("maxAttempts must be positive");
-  if (
-    !Number.isInteger(candidate.attemptCount) ||
-    (candidate.attemptCount ?? -1) < 0
-  )
-    errors.push("attemptCount must be non-negative");
-  const payload = candidate.payload as Record<string, unknown> | null;
-  const validIngestPayload =
-    typeof payload === "object" &&
-    payload !== null &&
-    typeof payload["sequenceName"] === "string" &&
-    payload["sequenceName"].length > 0 &&
-    typeof payload["fixedClock"] === "string" &&
-    !Number.isNaN(Date.parse(payload["fixedClock"]));
-  const prediction = payload;
-  const validPredictionPayload =
-    typeof prediction === "object" &&
-    prediction !== null &&
-    typeof prediction["eventId"] === "string" &&
-    typeof prediction["eventMarketOutcomeId"] === "string" &&
-    typeof prediction["modelProbability"] === "string" &&
-    typeof prediction["currentOdds"] === "string" &&
-    typeof prediction["featureCutoff"] === "string" &&
-    !Number.isNaN(Date.parse(prediction["featureCutoff"])) &&
-    typeof prediction["modelVersion"] === "string" &&
-    prediction["modelVersion"].length > 0 &&
-    typeof prediction["calibrationVersion"] === "string" &&
-    prediction["calibrationVersion"].length > 0 &&
-    Array.isArray(prediction["sourceObservationIds"]) &&
-    prediction["sourceObservationIds"].every(
-      (value) => typeof value === "string" && value.length > 0,
-    ) &&
-    typeof prediction["quality"] === "object" &&
-    prediction["quality"] !== null &&
-    validPredictionQuality(prediction["quality"]) &&
-    Array.isArray(prediction["sourceObservationIds"]) &&
-    prediction["sourceObservationIds"].length > 0 &&
-    new Set(prediction["sourceObservationIds"]).size ===
-      prediction["sourceObservationIds"].length;
-  const validEdgePayload =
-    typeof payload === "object" &&
-    payload !== null &&
-    typeof payload["eventId"] === "string" &&
-    typeof payload["eventMarketOutcomeId"] === "string" &&
-    typeof payload["predictionId"] === "string" &&
-    typeof payload["scoreDefinitionVersionId"] === "string" &&
-    typeof payload["asOf"] === "string" &&
-    !Number.isNaN(Date.parse(payload["asOf"]));
-  const validRadarPayload =
-    typeof payload === "object" &&
-    payload !== null &&
-    typeof payload["eventId"] === "string" &&
-    typeof payload["eventMarketOutcomeId"] === "string" &&
-    typeof payload["scoreDefinitionVersionId"] === "string" &&
-    typeof payload["openingObservationId"] === "string" &&
-    typeof payload["currentObservationId"] === "string" &&
-    typeof payload["asOf"] === "string" &&
-    !Number.isNaN(Date.parse(payload["asOf"]));
-  if (
-    (candidate.type === "INGEST_PROVIDER_SEQUENCE" && !validIngestPayload) ||
-    (candidate.type === "GENERATE_PREDICTION" && !validPredictionPayload) ||
-    (candidate.type === "CALCULATE_EDGE" && !validEdgePayload) ||
-    (candidate.type === "CALCULATE_RADAR" && !validRadarPayload)
-  )
-    errors.push("payload does not match the job contract");
-  return errors.length
-    ? { ok: false, errors }
-    : { ok: true, value: Object.freeze(candidate as Job) };
+
+export type ContractValidation<T> =
+  | Readonly<{ readonly ok: true; readonly value: T }>
+  | Readonly<{ readonly ok: false; readonly errors: readonly string[] }>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function hasDate(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isJobType(value: unknown): value is JobType {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(JOB_CONTRACT_VERSIONS, value)
+  );
+}
+
+function isStatus(value: unknown): value is JobStatus {
+  return (
+    value === "PENDING" ||
+    value === "RUNNING" ||
+    value === "COMPLETED" ||
+    value === "FAILED"
+  );
+}
+
+function decimalIsValid(
+  value: unknown,
+  validator: (input: string) => DecimalResult<unknown>,
+): boolean {
+  return typeof value === "string" && validator(value).ok;
 }
 
 function validPredictionQuality(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const quality = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
   return (
-    typeof quality["policyVersion"] === "string" &&
-    quality["policyVersion"].length > 0 &&
-    typeof quality["asOf"] === "string" &&
-    !Number.isNaN(Date.parse(quality["asOf"])) &&
-    typeof quality["receivedAt"] === "string" &&
-    !Number.isNaN(Date.parse(quality["receivedAt"])) &&
-    Number.isInteger(quality["priceCount"]) &&
-    (quality["priceCount"] as number) >= 0 &&
-    Number.isInteger(quality["bookmakerCount"]) &&
-    (quality["bookmakerCount"] as number) >= 0 &&
+    hasText(value["policyVersion"]) &&
+    hasDate(value["asOf"]) &&
+    hasDate(value["receivedAt"]) &&
+    Number.isSafeInteger(value["priceCount"]) &&
+    (value["priceCount"] as number) >= 0 &&
+    Number.isSafeInteger(value["bookmakerCount"]) &&
+    (value["bookmakerCount"] as number) >= 0 &&
     ["EXPECTED", "OFFICIAL", "MISSING", "CHANGED"].includes(
-      quality["lineup"] as string,
+      value["lineup"] as string,
     ) &&
-    ["HIGH", "LOW"].includes(quality["mappingConfidence"] as string) &&
-    typeof quality["edgeAvailable"] === "boolean" &&
-    typeof quality["edgePresent"] === "boolean"
+    ["HIGH", "LOW"].includes(value["mappingConfidence"] as string) &&
+    typeof value["edgeAvailable"] === "boolean" &&
+    typeof value["edgePresent"] === "boolean" &&
+    (value["sourceAuthority"] === undefined ||
+      ["PRIMARY", "SECONDARY", "UNKNOWN", "HIGH", "LOW"].includes(
+        value["sourceAuthority"] as string,
+      )) &&
+    (value["consistency"] === undefined ||
+      ["CONSISTENT", "INCONSISTENT", "CONFLICTING", "UNKNOWN"].includes(
+        value["consistency"] as string,
+      ))
   );
+}
+
+export function validateIngestProviderSequencePayload(
+  input: unknown,
+): ContractValidation<IngestProviderSequencePayload> {
+  if (
+    !isRecord(input) ||
+    !hasText(input["sequenceName"]) ||
+    !hasDate(input["fixedClock"])
+  )
+    return {
+      ok: false,
+      errors: ["payload must contain a valid sequenceName and fixedClock"],
+    };
+  return { ok: true, value: input as IngestProviderSequencePayload };
+}
+
+export function validateGeneratePredictionPayload(
+  input: unknown,
+): ContractValidation<GeneratePredictionPayload> {
+  if (!isRecord(input))
+    return { ok: false, errors: ["payload must be an object"] };
+  const errors: string[] = [];
+  for (const field of ["eventId", "eventMarketOutcomeId"])
+    if (!hasText(input[field])) errors.push(`${field} is required`);
+  if (!decimalIsValid(input["modelProbability"], probability))
+    errors.push("modelProbability must be a valid probability decimal string");
+  if (!decimalIsValid(input["currentOdds"], decimalOdds))
+    errors.push("currentOdds must be valid decimal odds");
+  if (!hasDate(input["featureCutoff"]))
+    errors.push("featureCutoff must be a valid timestamp");
+  for (const field of ["modelVersion", "calibrationVersion"])
+    if (!hasText(input[field])) errors.push(`${field} is required`);
+  if (!validPredictionQuality(input["quality"]))
+    errors.push("quality does not match the prediction contract");
+  const sourceIds = input["sourceObservationIds"];
+  if (
+    !Array.isArray(sourceIds) ||
+    sourceIds.length === 0 ||
+    !sourceIds.every(hasText) ||
+    new Set(sourceIds).size !== sourceIds.length
+  )
+    errors.push("sourceObservationIds must contain unique non-empty strings");
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: input as GeneratePredictionPayload };
+}
+
+function validateCalculationPayload(
+  input: unknown,
+  fields: readonly string[],
+): ContractValidation<Record<string, unknown>> {
+  if (!isRecord(input))
+    return { ok: false, errors: ["payload must be an object"] };
+  const errors = [
+    ...fields
+      .filter((field) => !hasText(input[field]))
+      .map((field) => `${field} is required`),
+    ...(hasDate(input["asOf"]) ? [] : ["asOf must be a valid timestamp"]),
+  ];
+  return errors.length ? { ok: false, errors } : { ok: true, value: input };
+}
+
+export function validateCalculateEdgePayload(
+  input: unknown,
+): ContractValidation<CalculateEdgePayload> {
+  const result = validateCalculationPayload(input, [
+    "eventId",
+    "eventMarketOutcomeId",
+    "predictionId",
+    "scoreDefinitionVersionId",
+  ]);
+  return result.ok
+    ? { ok: true, value: result.value as CalculateEdgePayload }
+    : result;
+}
+
+export function validateCalculateRadarPayload(
+  input: unknown,
+): ContractValidation<CalculateRadarPayload> {
+  const result = validateCalculationPayload(input, [
+    "eventId",
+    "eventMarketOutcomeId",
+    "scoreDefinitionVersionId",
+    "openingObservationId",
+    "currentObservationId",
+  ]);
+  return result.ok
+    ? { ok: true, value: result.value as CalculateRadarPayload }
+    : result;
+}
+
+export function validateJob(input: unknown): JobValidation {
+  if (!isRecord(input)) return { ok: false, errors: ["job must be an object"] };
+  const errors: string[] = [];
+  if (!hasText(input["id"])) errors.push("id is required");
+  const type = input["type"];
+  if (!isJobType(type)) errors.push("type is invalid");
+  else if (input["contractVersion"] !== JOB_CONTRACT_VERSIONS[type])
+    errors.push("contractVersion does not match type");
+  if (!isStatus(input["status"])) errors.push("status is invalid");
+  for (const field of ["idempotencyKey", "correlationId", "causationId"])
+    if (!hasText(input[field])) errors.push(`${field} is required`);
+  if (
+    !Number.isSafeInteger(input["maxAttempts"]) ||
+    (input["maxAttempts"] as number) < 1
+  )
+    errors.push("maxAttempts must be positive");
+  if (
+    !Number.isSafeInteger(input["attemptCount"]) ||
+    (input["attemptCount"] as number) < 0
+  )
+    errors.push("attemptCount must be non-negative");
+  for (const field of ["availableAt", "createdAt"])
+    if (!hasDate(input[field])) errors.push(`${field} is required`);
+  for (const field of ["leaseExpiresAt", "startedAt", "completedAt"])
+    if (input[field] !== null && !hasDate(input[field]))
+      errors.push(`${field} must be null or a valid timestamp`);
+  const lastError = input["lastError"];
+  if (
+    lastError !== null &&
+    (!isRecord(lastError) ||
+      !hasText(lastError["code"]) ||
+      !hasText(lastError["message"]))
+  )
+    errors.push("lastError must be null or contain code and message");
+  let payloadResult: ContractValidation<unknown> = {
+    ok: false,
+    errors: ["payload does not match the job contract"],
+  };
+  if (type === "INGEST_PROVIDER_SEQUENCE")
+    payloadResult = validateIngestProviderSequencePayload(input["payload"]);
+  else if (type === "GENERATE_PREDICTION")
+    payloadResult = validateGeneratePredictionPayload(input["payload"]);
+  else if (type === "CALCULATE_EDGE")
+    payloadResult = validateCalculateEdgePayload(input["payload"]);
+  else if (type === "CALCULATE_RADAR")
+    payloadResult = validateCalculateRadarPayload(input["payload"]);
+  if (!payloadResult.ok) errors.push("payload does not match the job contract");
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: Object.freeze(input as Job) };
 }
 
 export type ProviderRunStatus = "RUNNING" | "COMPLETED" | "FAILED";
@@ -486,6 +573,27 @@ export type ProblemDetails = Readonly<{
   code: string;
   requestId: string;
 }>;
+
+export function validateProblemDetails(
+  input: unknown,
+): ContractValidation<ProblemDetails> {
+  if (!isRecord(input))
+    return { ok: false, errors: ["problem details must be an object"] };
+  const errors: string[] = [];
+  const status = input["status"];
+  for (const field of ["type", "title", "code", "requestId"])
+    if (!hasText(input[field])) errors.push(`${field} is required`);
+  if (
+    !Number.isSafeInteger(status) ||
+    (status as number) < 100 ||
+    (status as number) > 599
+  )
+    errors.push("status must be an HTTP status");
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: input as ProblemDetails };
+}
+
 export type RecommendationStatus =
   | "STRONG_EDGE"
   | "NO_BET"
@@ -540,3 +648,233 @@ export type CustomerTodayDto = Readonly<{
   asOf: string;
   matches: readonly CustomerMatchDto[];
 }>;
+
+export type CustomerDtoValidation<T> =
+  | Readonly<{ readonly ok: true; readonly value: T }>
+  | Readonly<{ readonly ok: false; readonly errors: readonly string[] }>;
+
+const customerRecommendationStatuses: readonly RecommendationStatus[] = [
+  "STRONG_EDGE",
+  "NO_BET",
+  "WAIT",
+  "WAIT_FOR_LINEUP",
+  "INSUFFICIENT_DATA",
+  "EDGE_DISAPPEARED",
+];
+const customerLineupStatuses = [
+  "EXPECTED",
+  "OFFICIAL",
+  "MISSING",
+  "CHANGED",
+] as const;
+const customerQualityGrades = ["A", "B", "C", "D", "F"] as const;
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isTimestamp(value: unknown): value is string {
+  return isNonEmptyString(value) && Number.isFinite(Date.parse(value));
+}
+
+function validateCustomerDecimal(
+  value: unknown,
+  path: string,
+  errors: string[],
+  parser: (input: string) => DecimalResult<unknown>,
+): void {
+  if (typeof value !== "string" || !parser(value).ok)
+    errors.push(`${path} must be a valid canonical decimal string`);
+}
+
+function validateNullableCustomerDecimal(
+  value: unknown,
+  path: string,
+  errors: string[],
+  parser: (input: string) => DecimalResult<unknown>,
+): void {
+  if (value !== null) validateCustomerDecimal(value, path, errors, parser);
+}
+
+function validateCustomerMatchInput(input: unknown): string[] {
+  const errors: string[] = [];
+  if (!isObject(input)) return ["match must be an object"];
+
+  for (const field of [
+    "eventId",
+    "homeTeam",
+    "awayTeam",
+    "competition",
+    "selection",
+  ]) {
+    if (!isNonEmptyString(input[field])) errors.push(`${field} is required`);
+  }
+  if (!isTimestamp(input["startsAt"])) errors.push("startsAt is invalid");
+  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+    errors.push("syntheticLabel is invalid");
+  if (!["FRESH", "STALE"].includes(input["freshness"] as string))
+    errors.push("freshness is invalid");
+  if (
+    !customerRecommendationStatuses.includes(
+      input["recommendation"] as RecommendationStatus,
+    )
+  )
+    errors.push("recommendation is invalid");
+  if (
+    !customerLineupStatuses.includes(
+      input["lineup"] as (typeof customerLineupStatuses)[number],
+    )
+  )
+    errors.push("lineup is invalid");
+
+  validateNullableCustomerDecimal(
+    input["modelProbability"],
+    "modelProbability",
+    errors,
+    (value) => probability(value),
+  );
+  validateNullableCustomerDecimal(
+    input["impliedProbability"],
+    "impliedProbability",
+    errors,
+    (value) => probability(value),
+  );
+  validateNullableCustomerDecimal(
+    input["fairOdds"],
+    "fairOdds",
+    errors,
+    (value) => parseDecimalString(value),
+  );
+  validateNullableCustomerDecimal(
+    input["currentOdds"],
+    "currentOdds",
+    errors,
+    (value) => decimalOdds(value),
+  );
+  validateNullableCustomerDecimal(
+    input["openingOdds"],
+    "openingOdds",
+    errors,
+    (value) => decimalOdds(value),
+  );
+  validateNullableCustomerDecimal(
+    input["movementPercent"],
+    "movementPercent",
+    errors,
+    (value) => parseDecimalString(value),
+  );
+  validateNullableCustomerDecimal(
+    input["probabilityEdge"],
+    "probabilityEdge",
+    errors,
+    (value) => edge(value),
+  );
+  validateNullableCustomerDecimal(
+    input["expectedValue"],
+    "expectedValue",
+    errors,
+    (value) => expectedValue(value),
+  );
+
+  if (!isObject(input["quality"])) {
+    errors.push("quality is required");
+  } else {
+    const quality = input["quality"];
+    if (!customerQualityGrades.includes(quality["grade"] as never))
+      errors.push("quality.grade is invalid");
+    validateCustomerDecimal(
+      quality["score"],
+      "quality.score",
+      errors,
+      (value) => probability(value),
+    );
+    if (!isNonEmptyString(quality["policyVersion"]))
+      errors.push("quality.policyVersion is required");
+    if (
+      !Array.isArray(quality["reasonCodes"]) ||
+      !quality["reasonCodes"].every(isNonEmptyString)
+    )
+      errors.push("quality.reasonCodes must contain non-empty strings");
+  }
+
+  if (!isObject(input["trace"])) {
+    errors.push("trace is required");
+  } else {
+    const trace = input["trace"];
+    for (const field of [
+      "modelVersion",
+      "calibrationVersion",
+      "scoreVersion",
+    ]) {
+      if (!isNonEmptyString(trace[field]))
+        errors.push(`trace.${field} is required`);
+    }
+    if (trace["maturity"] !== "EXPERIMENTAL")
+      errors.push("trace.maturity is invalid");
+    if (!isTimestamp(trace["featureCutoff"]))
+      errors.push("trace.featureCutoff is invalid");
+    for (const field of [
+      "modelDefinitionVersion",
+      "calibrationDefinitionVersion",
+      "scoreDefinitionCode",
+      "providerRunId",
+      "qualityAssessmentId",
+    ]) {
+      if (trace[field] !== undefined && !isNonEmptyString(trace[field]))
+        errors.push(`trace.${field} must be a non-empty string`);
+    }
+    if (
+      trace["marketPriceObservationId"] !== undefined &&
+      trace["marketPriceObservationId"] !== null &&
+      !isNonEmptyString(trace["marketPriceObservationId"])
+    )
+      errors.push(
+        "trace.marketPriceObservationId must be null or a non-empty string",
+      );
+    if (
+      trace["sourceObservationIds"] !== undefined &&
+      (!Array.isArray(trace["sourceObservationIds"]) ||
+        !trace["sourceObservationIds"].every(isNonEmptyString) ||
+        new Set(trace["sourceObservationIds"]).size !==
+          trace["sourceObservationIds"].length)
+    )
+      errors.push("trace.sourceObservationIds must contain non-empty strings");
+  }
+
+  return errors;
+}
+
+export function validateCustomerMatchDto(
+  input: unknown,
+): CustomerDtoValidation<CustomerMatchDto> {
+  const errors = validateCustomerMatchInput(input);
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: Object.freeze(input as CustomerMatchDto) };
+}
+
+export function validateCustomerTodayDto(
+  input: unknown,
+): CustomerDtoValidation<CustomerTodayDto> {
+  if (!isObject(input))
+    return { ok: false, errors: ["today must be an object"] };
+  const errors: string[] = [];
+  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+    errors.push("syntheticLabel is invalid");
+  if (!isTimestamp(input["asOf"])) errors.push("asOf is invalid");
+  if (!Array.isArray(input["matches"])) {
+    errors.push("matches must be an array");
+  } else {
+    input["matches"].forEach((match, index) => {
+      for (const error of validateCustomerMatchInput(match))
+        errors.push(`matches[${index}].${error}`);
+    });
+  }
+  return errors.length
+    ? { ok: false, errors }
+    : { ok: true, value: Object.freeze(input as CustomerTodayDto) };
+}
