@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCustomerSession } from "../../../../auth";
-import { customerQueries } from "../../../../../customer-data";
-import { databaseCustomerQueries } from "../../../../../customer-database";
+import { customerService, unavailable } from "../../../../../customer-runtime";
 
 export async function GET(
   _request: Request,
@@ -11,22 +10,12 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
-  const database = databaseCustomerQueries();
-  if (database) {
-    const match = await database.getMatch(eventId, new Date());
-    if (!match) return notFound();
-    return NextResponse.json({
-      eventId,
-      syntheticLabel: "Synthetic data",
-      observations:
-        match.outcomes[0]?.odds.map((observation) => ({
-          observedAt: observation.providerObservedAt,
-          odds: observation.decimalOdds,
-        })) ?? [],
-    });
-  }
-  const match = await customerQueries.getMatch(eventId);
-  if (!match) return notFound();
+  const service = customerService();
+  if (!service) return NextResponse.json(unavailable(), { status: 503 });
+  const result = await service.getMatch(eventId, new Date());
+  if (!result.ok && result.code === "NOT_FOUND") return notFound();
+  if (!result.ok) return NextResponse.json(result, { status: 503 });
+  const match = result.value;
   return NextResponse.json({
     eventId,
     syntheticLabel: match.syntheticLabel,

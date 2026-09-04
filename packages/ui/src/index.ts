@@ -43,6 +43,8 @@ export const messages = {
   signOut: "Sign out",
   noEvidence: "No evidence",
   radarMove: "Radar move",
+  customerUnavailable: "Customer data is temporarily unavailable.",
+  matchNotFound: "Match not found.",
 } as const;
 
 export type MessageKey = keyof typeof messages;

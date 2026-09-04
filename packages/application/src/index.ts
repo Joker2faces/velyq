@@ -30,23 +30,38 @@ export type CustomerReadResult<T> =
       messageKey: string;
     }>;
 
-export interface CustomerReadModelPort<TRaw> {
-  getToday(asOf: Date): Promise<TRaw>;
-  getMatch(eventId: string, asOf: Date): Promise<TRaw | null>;
+export interface CustomerReadModelPort<TRawToday, TRawMatch = TRawToday> {
+  getToday(asOf: Date): Promise<TRawToday>;
+  getMatch(eventId: string, asOf: Date): Promise<TRawMatch | null>;
 }
 
-export interface CustomerReadModelMapper<TRaw, TDto> {
-  mapToday(raw: TRaw): TDto;
-  mapMatch(raw: TRaw): TDto;
+export interface CustomerReadModelMapper<
+  TRawToday,
+  TDtoToday,
+  TRawMatch = TRawToday,
+  TDtoMatch = TDtoToday,
+> {
+  mapToday(raw: TRawToday): TDtoToday;
+  mapMatch(raw: TRawMatch): TDtoMatch;
 }
 
-export class MappedCustomerQueryService<TRaw, TDto> {
+export class MappedCustomerQueryService<
+  TRawToday,
+  TDtoToday,
+  TRawMatch = TRawToday,
+  TDtoMatch = TDtoToday,
+> {
   constructor(
-    private readonly repository: CustomerReadModelPort<TRaw>,
-    private readonly mapper: CustomerReadModelMapper<TRaw, TDto>,
+    private readonly repository: CustomerReadModelPort<TRawToday, TRawMatch>,
+    private readonly mapper: CustomerReadModelMapper<
+      TRawToday,
+      TDtoToday,
+      TRawMatch,
+      TDtoMatch
+    >,
   ) {}
 
-  async getToday(asOf: Date): Promise<CustomerReadResult<TDto>> {
+  async getToday(asOf: Date): Promise<CustomerReadResult<TDtoToday>> {
     try {
       return {
         ok: true,
@@ -64,7 +79,7 @@ export class MappedCustomerQueryService<TRaw, TDto> {
   async getMatch(
     eventId: string,
     asOf: Date,
-  ): Promise<CustomerReadResult<TDto>> {
+  ): Promise<CustomerReadResult<TDtoMatch>> {
     try {
       const raw = await this.repository.getMatch(eventId, asOf);
       return raw

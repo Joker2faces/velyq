@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCustomerSession } from "../../../../auth";
-import { customerQueries } from "../../../../../customer-data";
-import {
-  customerDatabaseMapper,
-  databaseCustomerQueries,
-} from "../../../../../customer-database";
+import { customerService, unavailable } from "../../../../../customer-runtime";
 
 export async function GET(
   _request: Request,
@@ -14,15 +10,13 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
-  const database = databaseCustomerQueries();
-  if (database) {
-    const match = await database.getMatch(eventId, new Date());
-    if (!match) return notFound();
-    return NextResponse.json(customerDatabaseMapper.mapMatch(match));
-  }
-  const match = await customerQueries.getMatch(eventId);
-  if (!match) return notFound();
-  return NextResponse.json(match);
+  const service = customerService();
+  if (!service) return NextResponse.json(unavailable(), { status: 503 });
+  const result = await service.getMatch(eventId, new Date());
+  if (!result.ok && result.code === "NOT_FOUND") return notFound();
+  return result.ok
+    ? NextResponse.json(result.value)
+    : NextResponse.json(result, { status: 503 });
 }
 
 function notFound() {
