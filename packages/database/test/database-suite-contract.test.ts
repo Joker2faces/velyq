@@ -130,6 +130,7 @@ describe("real pgTAP database suite", () => {
     const schema = sqlTest("schema_contract_test.sql");
     const constraints = sqlTest("constraints_test.sql");
     const security = sqlTest("security_boundaries_test.sql");
+    const providerLineup = sqlTest("provider_lineup_mapping_test.sql");
 
     expect(schema).toContain("35");
     expect(schema).toContain("pg_indexes");
@@ -163,5 +164,9 @@ describe("real pgTAP database suite", () => {
     ]) {
       expect(security).toContain(internalSchema);
     }
+
+    expect(providerLineup).toContain("map_provider_lineup_status('changed')");
+    expect(providerLineup).toContain("changed lineup keeps mapped status");
+    expect(providerLineup).toContain("missing lineup keeps mapped status");
   });
 });
