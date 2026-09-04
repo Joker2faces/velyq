@@ -70,6 +70,54 @@ export interface PredictionRepository {
   save(idempotencyKey: string, prediction: PredictionRecord): PredictionRecord;
 }
 
+export type PredictionObservation = Readonly<{
+  id: string;
+  eventId: string;
+  eventMarketOutcomeId: string;
+  receivedAt: string;
+}>;
+
+export interface PredictionObservationReader {
+  getByIds(ids: readonly string[]): Promise<readonly PredictionObservation[]>;
+}
+
+export async function consumeQueuedPredictionJobWithInputs(
+  job: Job,
+  reader: PredictionObservationReader,
+  repository = new InMemoryPredictionRepository(),
+): Promise<PredictionJobResult> {
+  const validation = validateJob(job);
+  if (!validation.ok || job.type !== "GENERATE_PREDICTION")
+    throw new Error("INVALID_GENERATE_PREDICTION_JOB");
+  const payload = job.payload as PredictionInput;
+  const observations = await reader.getByIds(payload.sourceObservationIds);
+  if (observations.length !== payload.sourceObservationIds.length)
+    throw new Error("PREDICTION_INPUTS_MISSING");
+  const cutoff = Date.parse(payload.featureCutoff);
+  const ids = new Set(payload.sourceObservationIds);
+  if (
+    observations.some(
+      (observation) =>
+        !ids.has(observation.id) ||
+        observation.eventId !== payload.eventId ||
+        observation.eventMarketOutcomeId !== payload.eventMarketOutcomeId ||
+        Date.parse(observation.receivedAt) > cutoff,
+    )
+  )
+    throw new Error("PREDICTION_INPUTS_OUTSIDE_CUTOFF");
+  return generatePrediction(
+    {
+      id: job.id,
+      idempotencyKey: job.idempotencyKey,
+      createdAt: job.createdAt,
+      correlationId: job.correlationId,
+      causationId: job.causationId,
+      payload,
+    },
+    repository,
+  );
+}
+
 /** Deterministic repository seam; production wiring can implement this contract transactionally. */
 export class InMemoryPredictionRepository implements PredictionRepository {
   private readonly predictions = new Map<string, PredictionRecord>();

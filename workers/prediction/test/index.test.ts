@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   consumePredictionJob,
   consumeQueuedPredictionJob,
+  consumeQueuedPredictionJobWithInputs,
   InMemoryPredictionRepository,
   type PredictionJob,
 } from "../src/index.js";
@@ -111,5 +112,39 @@ describe("prediction worker", () => {
       completedAt: null,
     });
     expect(result.prediction.trace.triggerJobId).toBe(input.id);
+  });
+
+  it("rejects missing or post-cutoff prediction inputs", async () => {
+    const input = job();
+    const queued = {
+      ...input,
+      type: "GENERATE_PREDICTION" as const,
+      contractVersion: "GENERATE_PREDICTION.v1" as const,
+      status: "PENDING" as const,
+      attemptCount: 0,
+      maxAttempts: 3,
+      availableAt: input.createdAt,
+      leaseExpiresAt: null,
+      lastError: null,
+      startedAt: null,
+      completedAt: null,
+    };
+    await expect(
+      consumeQueuedPredictionJobWithInputs(queued, {
+        getByIds: async () => [],
+      }),
+    ).rejects.toThrow("PREDICTION_INPUTS_MISSING");
+    await expect(
+      consumeQueuedPredictionJobWithInputs(queued, {
+        getByIds: async () => [
+          {
+            id: "observation-1",
+            eventId: "event-1",
+            eventMarketOutcomeId: "outcome-1",
+            receivedAt: "2026-09-03T11:00:00.000Z",
+          },
+        ],
+      }),
+    ).rejects.toThrow("PREDICTION_INPUTS_OUTSIDE_CUTOFF");
   });
 });
