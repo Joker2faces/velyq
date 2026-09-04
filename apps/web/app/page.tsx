@@ -1,5 +1,5 @@
-import StagingStatusShell from "./staging-status-shell";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <StagingStatusShell />;
+  redirect("/today");
 }
