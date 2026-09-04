@@ -8,7 +8,7 @@
     "pnpm": ">=11.25.0 <12"
   },
   "scripts": {
-    "format": "prettier --check .",
+    "format": "prettier --check . --end-of-line auto",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "turbo typecheck",
     "test": "vitest run --config tooling/vitest/vitest.config.mts",
