@@ -30,3 +30,15 @@ test("anonymous customer navigation is redirected to sign-in", async ({
     page.getByRole("heading", { name: "Welcome back." }),
   ).toBeVisible();
 });
+
+test("sign-in exposes keyboard labels and a visible focus target", async ({
+  page,
+}) => {
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").focus();
+  await expect(page.getByLabel("Email")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Password")).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByLabel("Email")).toBeFocused();
+});

@@ -8,6 +8,25 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 3px solid #f0c96a;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  background: #f0c96a;
+  color: #071014;
+  left: 12px;
+  padding: 10px 14px;
+  position: fixed;
+  top: -80px;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
 html,
 body {
   min-height: 100%;
@@ -254,7 +273,6 @@ body {
 .customer-app nav a:focus-visible {
   background: #12252a;
   color: #e8f1ee;
-  outline: none;
 }
 .side-note {
   color: #69847f;

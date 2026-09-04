@@ -8,13 +8,20 @@ export default function SignIn() {
         <h1>Welcome back.</h1>
         <p>Sign in to your sports market intelligence workspace.</p>
         <form action="/api/v1/auth/sign-in" method="post">
-          <label>
+          <label htmlFor="email">
             Email
-            <input name="email" type="email" autoComplete="email" required />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+            />
           </label>
-          <label>
+          <label htmlFor="password">
             Password
             <input
+              id="password"
               name="password"
               type="password"
               autoComplete="current-password"

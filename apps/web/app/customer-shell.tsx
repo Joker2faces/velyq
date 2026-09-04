@@ -15,12 +15,15 @@ export function CustomerShell({ children }: { children: ReactNode }) {
   ] as const;
   return (
     <div className="customer-app">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <aside>
         <Link className="brand" href="/today">
           VELYQ <small>STAGING</small>
         </Link>
         <p className="nav-label">INTELLIGENCE</p>
-        <nav>
+        <nav aria-label="Primary navigation">
           {navigation.map(([label, href]) => (
             <Link key={href} href={href}>
               {label}
@@ -36,7 +39,7 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <button type="submit">{message("signOut")}</button>
         </form>
       </aside>
-      <main className="customer-main">
+      <main id="main-content" className="customer-main">
         <header className="topbar">
           <span>PHASE 1 / CUSTOMER PREVIEW</span>
           <span className="live-dot">● SYSTEM ONLINE</span>
