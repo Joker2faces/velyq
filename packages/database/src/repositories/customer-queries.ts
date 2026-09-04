@@ -79,6 +79,10 @@ export interface CustomerReadModelMapper<TOutput> {
 
 type ReadOnlyDatabase = Pick<PrivilegedVelyqDatabase, "select">;
 
+const MAX_TODAY_EVENTS = 100;
+const MAX_MATCH_MARKETS = 100;
+const MAX_ODDS_HISTORY = 500;
+
 export function utcDayWindow(asOf: Date): Readonly<{
   start: Date;
   end: Date;
@@ -100,7 +104,8 @@ export class DatabaseCustomerQueryAdapter {
       .select({ event: events })
       .from(events)
       .where(and(gte(events.startsAt, start), lt(events.startsAt, end)))
-      .orderBy(asc(events.startsAt), asc(events.id));
+      .orderBy(asc(events.startsAt), asc(events.id))
+      .limit(MAX_TODAY_EVENTS);
 
     const matches = await Promise.all(
       rows.map(({ event }) => this.getMatch(event.id, asOf)),
@@ -172,7 +177,8 @@ export class DatabaseCustomerQueryAdapter {
         eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
       )
       .where(eq(eventMarkets.eventId, eventId))
-      .orderBy(asc(eventMarkets.id), asc(outcomeDefinitions.sortOrder));
+      .orderBy(asc(eventMarkets.id), asc(outcomeDefinitions.sortOrder))
+      .limit(MAX_MATCH_MARKETS);
 
     const outcomes = await Promise.all(
       marketRows.map(async (row): Promise<CustomerRawOutcome> => {
@@ -252,7 +258,8 @@ export class DatabaseCustomerQueryAdapter {
           .orderBy(
             asc(oddsObservations.providerObservedAt),
             asc(oddsObservations.id),
-          );
+          )
+          .limit(MAX_ODDS_HISTORY);
 
         return {
           ...row,
