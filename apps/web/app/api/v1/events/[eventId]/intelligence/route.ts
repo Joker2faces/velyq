@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCustomerSession } from "../../../../auth";
-import { findCustomerMatch } from "../../../../../customer-data";
+import { customerQueries } from "../../../../../customer-data";
 
 export async function GET(
   _request: Request,
@@ -10,7 +10,7 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
-  const match = findCustomerMatch(eventId);
+  const match = await customerQueries.getMatch(eventId);
   if (!match)
     return NextResponse.json(
       {

@@ -1,4 +1,6 @@
 import type {
+  CustomerMatchDto,
+  CustomerTodayDto,
   FixtureObservationBatch,
   Job,
   JobPayload,
@@ -10,6 +12,26 @@ import type {
 } from "@velyq/contracts";
 
 export type Clock = Readonly<{ now(): string }>;
+
+export interface CustomerReadRepository {
+  getToday(): Promise<CustomerTodayDto> | CustomerTodayDto;
+  getMatch(
+    eventId: string,
+  ): Promise<CustomerMatchDto | null> | CustomerMatchDto | null;
+}
+
+export class CustomerQueryService {
+  constructor(private readonly repository: CustomerReadRepository) {}
+
+  getToday() {
+    return this.repository.getToday();
+  }
+
+  getMatch(eventId: string) {
+    return this.repository.getMatch(eventId);
+  }
+}
+
 export type JobLease = Readonly<{ job: Job; leaseExpiresAt: string }>;
 export interface JobRepository {
   enqueue(

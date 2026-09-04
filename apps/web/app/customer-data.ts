@@ -1,8 +1,9 @@
+import { CustomerQueryService } from "@velyq/application";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { DecimalString } from "@velyq/decimal";
 
 const d = (value: string) => value as DecimalString;
-export const customerToday: CustomerTodayDto = {
+const customerTodayData: CustomerTodayDto = {
   syntheticLabel: "Synthetic data",
   asOf: "2026-09-04T10:00:00.000Z",
   matches: [
@@ -239,8 +240,17 @@ export const customerToday: CustomerTodayDto = {
     },
   ],
 };
+
+export const customerReadRepository = {
+  getToday: () => customerTodayData,
+  getMatch: (eventId: string) =>
+    customerTodayData.matches.find((match) => match.eventId === eventId) ??
+    null,
+};
+export const customerQueries = new CustomerQueryService(customerReadRepository);
+export const customerToday = customerTodayData;
 export function findCustomerMatch(
   eventId: string,
 ): CustomerMatchDto | undefined {
-  return customerToday.matches.find((match) => match.eventId === eventId);
+  return customerTodayData.matches.find((match) => match.eventId === eventId);
 }
