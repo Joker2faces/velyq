@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { assessDataQuality, decideRecommendation } from "../src/index.js";
+import {
+  assessDataQuality,
+  calculateValue,
+  decideRecommendation,
+} from "../src/index.js";
 
 const base = {
   policyVersion: "phase-1-quality.v1",
@@ -44,5 +48,20 @@ describe("versioned data quality policy", () => {
         edgePresent: true,
       }),
     ).toBe(expected);
+  });
+});
+
+describe("exact value engine", () => {
+  it("returns exact string metrics without Number arithmetic", () => {
+    const result = calculateValue("0.6", "2");
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        impliedProbability: "0.5",
+        fairOdds: "1.666666666666666666666666666667",
+        probabilityEdge: "0.1",
+        expectedValue: "0.2",
+      },
+    });
   });
 });

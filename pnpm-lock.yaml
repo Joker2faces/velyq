@@ -91,6 +91,9 @@ importers:
       '@velyq/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@velyq/decimal':
+        specifier: workspace:*
+        version: link:../decimal
 
   packages/application:
     dependencies:

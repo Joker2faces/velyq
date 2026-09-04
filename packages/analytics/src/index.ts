@@ -1,3 +1,61 @@
+import {
+  decimalOdds,
+  divideDecimalStrings,
+  edge,
+  expectedValue,
+  impliedProbability,
+  multiplyDecimalStrings,
+  probability,
+  subtractDecimalStrings,
+  type DecimalResult,
+  type DecimalString,
+} from "@velyq/decimal";
+
+export type ValueMetrics = Readonly<{
+  impliedProbability: DecimalString;
+  fairOdds: DecimalString;
+  probabilityEdge: DecimalString;
+  expectedValue: DecimalString;
+}>;
+
+export function calculateValue(
+  modelProbability: DecimalString,
+  currentOdds: DecimalString,
+): DecimalResult<ValueMetrics> {
+  const odds = decimalOdds(currentOdds);
+  const model = probability(modelProbability);
+  const impliedRaw = divideDecimalStrings("1" as DecimalString, currentOdds);
+  if (!odds.ok) return odds;
+  if (!model.ok) return model;
+  if (!impliedRaw.ok) return impliedRaw;
+  const implied = impliedProbability(impliedRaw.value);
+  if (!implied.ok) return implied;
+  const fair = divideDecimalStrings("1" as DecimalString, modelProbability);
+  if (!fair.ok) return fair;
+  const probabilityEdge = subtractDecimalStrings(
+    modelProbability,
+    implied.value.value,
+  );
+  if (!probabilityEdge.ok) return probabilityEdge;
+  const product = multiplyDecimalStrings(modelProbability, currentOdds);
+  if (!product.ok) return product;
+  const evRaw = subtractDecimalStrings(product.value, "1" as DecimalString);
+  if (!evRaw.ok) return evRaw;
+  const checkedEdge = edge(probabilityEdge.value);
+  const ev = expectedValue(evRaw.value);
+  if (!checkedEdge.ok) return checkedEdge;
+  if (!ev.ok) return ev;
+  return {
+    ok: true,
+    value: {
+      impliedProbability: implied.value.value,
+      fairOdds: fair.value,
+      probabilityEdge: checkedEdge.value.value,
+      expectedValue: ev.value.value,
+    },
+  };
+}
+
 export type QualityGrade = "A" | "B" | "C" | "D" | "F";
 export type RecommendationStatus =
   | "NO_BET"

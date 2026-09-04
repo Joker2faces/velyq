@@ -186,6 +186,41 @@ export function addDecimalStrings(
   return parseDecimalString(parsedLeft.value.plus(parsedRight.value).toFixed());
 }
 
+function decimalOperation(
+  left: DecimalString,
+  right: DecimalString,
+  operation: (a: Decimal, b: Decimal) => Decimal,
+): DecimalResult<DecimalString> {
+  const parsedLeft = decimalFromCanonical(left);
+  const parsedRight = decimalFromCanonical(right);
+  if (!parsedLeft.ok) return parsedLeft;
+  if (!parsedRight.ok) return parsedRight;
+  const result = operation(parsedLeft.value, parsedRight.value);
+  if (!result.isFinite())
+    return failure("INVALID_DECIMAL", "Decimal operation must be finite.");
+  const canonical = result.toFixed(30).replace(/0+$/, "").replace(/\.$/, "");
+  return parseDecimalString(canonical);
+}
+
+export function subtractDecimalStrings(
+  left: DecimalString,
+  right: DecimalString,
+) {
+  return decimalOperation(left, right, (a, b) => a.minus(b));
+}
+export function multiplyDecimalStrings(
+  left: DecimalString,
+  right: DecimalString,
+) {
+  return decimalOperation(left, right, (a, b) => a.times(b));
+}
+export function divideDecimalStrings(
+  left: DecimalString,
+  right: DecimalString,
+) {
+  return decimalOperation(left, right, (a, b) => a.div(b));
+}
+
 export function decimalOdds(input: string): DecimalResult<DecimalOdds> {
   const decimal = decimalFromCanonical(input);
 
