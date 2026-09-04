@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { customerToday } from "../customer-data";
 import { CustomerShell, Metric, Status } from "../customer-shell";
+import { formatPercent } from "@velyq/ui";
 export default function Today() {
   const [primary, lineupWatch, qualityWarning] = customerToday.matches;
   if (!primary || !lineupWatch || !qualityWarning) {
     return <CustomerShell>Data is not available.</CustomerShell>;
   }
+  const freshMoves = customerToday.matches.filter(
+    ({ openingOdds, currentOdds }) =>
+      openingOdds !== null && currentOdds !== null,
+  ).length;
+  const qualityWarnings = customerToday.matches.filter(
+    ({ quality }) => quality.grade === "F",
+  ).length;
   return (
     <CustomerShell>
       <div className="page-heading">
@@ -19,9 +27,20 @@ export default function Today() {
         </Status>
       </div>
       <section className="metric-grid">
-        <Metric label="Tracked opportunities" value="07" />
-        <Metric label="Fresh market moves" value="03" tone="teal" />
-        <Metric label="Quality warnings" value="02" tone="amber" />
+        <Metric
+          label="Tracked opportunities"
+          value={String(customerToday.matches.length).padStart(2, "0")}
+        />
+        <Metric
+          label="Fresh market moves"
+          value={String(freshMoves).padStart(2, "0")}
+          tone="teal"
+        />
+        <Metric
+          label="Quality warnings"
+          value={String(qualityWarnings).padStart(2, "0")}
+          tone="amber"
+        />
       </section>
       <section className="content-grid">
         <div className="panel">
@@ -36,7 +55,9 @@ export default function Today() {
               </strong>
               <small>Full-time 1X2 · {primary.selection} · 18:30</small>
             </div>
-            <b className="edge-number">+{primary.probabilityEdge}</b>
+            <b className="edge-number">
+              {formatPercent(primary.probabilityEdge)}
+            </b>
             <Status tone="positive">
               {primary.recommendation.replaceAll("_", " ")}
             </Status>
@@ -60,13 +81,25 @@ export default function Today() {
           </div>
           <div className="movement">
             <span>Northbridge · Home</span>
-            <b>2.10 → 1.85</b>
-            <small className="teal-text">movement detected</small>
+            <b>
+              {primary.openingOdds ?? "—"} → {primary.currentOdds ?? "—"}
+            </b>
+            <small className="teal-text">
+              {primary.movementPercent
+                ? `${formatPercent(primary.movementPercent)} movement detected`
+                : "no movement evidence"}
+            </small>
           </div>
           <div className="movement">
             <span>Eastvale · Draw</span>
-            <b>3.40 → 3.60</b>
-            <small>fresh · 2 bookmakers</small>
+            <b>
+              {lineupWatch.openingOdds ?? "—"} →{" "}
+              {lineupWatch.currentOdds ?? "—"}
+            </b>
+            <small>
+              {lineupWatch.freshness.toLowerCase()} · lineup{" "}
+              {lineupWatch.lineup.toLowerCase()}
+            </small>
           </div>
         </div>
       </section>

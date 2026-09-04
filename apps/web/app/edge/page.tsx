@@ -1,5 +1,6 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { customerToday } from "../customer-data";
+import { formatPercent } from "@velyq/ui";
 
 const toneFor = (recommendation: string) =>
   recommendation === "STRONG_EDGE"
@@ -35,10 +36,10 @@ export default function Edge() {
             <Metric label="Odds" value={match.currentOdds ?? "—"} />
             <Metric
               label="Model probability"
-              value={match.modelProbability ?? "—"}
+              value={formatPercent(match.modelProbability)}
             />
             <Metric label="Fair odds" value={match.fairOdds ?? "—"} />
-            <Metric label="EV" value={match.expectedValue ?? "—"} />
+            <Metric label="EV" value={formatPercent(match.expectedValue)} />
             <Status tone={toneFor(match.recommendation)}>
               {match.recommendation.replaceAll("_", " ")}
             </Status>

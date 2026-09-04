@@ -1,5 +1,6 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { customerToday } from "../customer-data";
+import { formatPercent } from "@velyq/ui";
 
 export default function Radar() {
   return (
@@ -33,7 +34,7 @@ export default function Radar() {
             <Metric label="Current" value={match.currentOdds ?? "—"} />
             <Metric
               label="Movement"
-              value={match.movementPercent ? `${match.movementPercent}%` : "—"}
+              value={formatPercent(match.movementPercent)}
               tone="teal"
             />
             <Metric label="Freshness" value={match.freshness} />

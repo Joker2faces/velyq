@@ -1,5 +1,6 @@
 import { CustomerShell, Metric, Status } from "../../customer-shell";
 import { findCustomerMatch } from "../../customer-data";
+import { formatPercent } from "@velyq/ui";
 
 export default async function Match({
   params,
@@ -47,7 +48,7 @@ export default async function Match({
           </p>
         </div>
         <div className="hero-score">
-          {value(match.probabilityEdge, " edge")}
+          {formatPercent(match.probabilityEdge)} edge
           <small>VELYQ EDGE</small>
         </div>
       </section>
@@ -56,16 +57,16 @@ export default async function Match({
         <Metric label="Current odds" value={value(match.currentOdds)} />
         <Metric
           label="Model probability"
-          value={value(match.modelProbability)}
+          value={formatPercent(match.modelProbability)}
         />
         <Metric
           label="Implied probability"
-          value={value(match.impliedProbability)}
+          value={formatPercent(match.impliedProbability)}
         />
         <Metric label="Fair odds" value={value(match.fairOdds)} />
         <Metric
           label="Expected value"
-          value={value(match.expectedValue)}
+          value={formatPercent(match.expectedValue)}
           tone="teal"
         />
       </section>

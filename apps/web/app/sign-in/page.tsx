@@ -22,7 +22,7 @@ export default function SignIn() {
           </label>
           <button type="submit">Continue with Supabase Auth</button>
         </form>
-        <small>Authentication is enabled in the next integration step.</small>
+        <small>Protected by the VELYQ server-side session boundary.</small>
         <Link href="/today">Preview synthetic workspace →</Link>
       </div>
     </main>
