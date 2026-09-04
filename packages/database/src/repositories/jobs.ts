@@ -92,7 +92,11 @@ export class DatabaseJobRepository {
     });
   }
 
-  async complete(jobId: string, workerId: string, completedAt: Date): Promise<Job> {
+  async complete(
+    jobId: string,
+    workerId: string,
+    completedAt: Date,
+  ): Promise<Job> {
     const updated = await this.database
       .update(jobs)
       .set({
@@ -102,7 +106,13 @@ export class DatabaseJobRepository {
         completedAt,
         lastError: null,
       })
-      .where(and(eq(jobs.id, jobId), eq(jobs.status, "RUNNING"), eq(jobs.leaseOwner, workerId)))
+      .where(
+        and(
+          eq(jobs.id, jobId),
+          eq(jobs.status, "RUNNING"),
+          eq(jobs.leaseOwner, workerId),
+        ),
+      )
       .returning();
     if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
     return updated[0] as unknown as Job;
@@ -130,7 +140,13 @@ export class DatabaseJobRepository {
         completedAt: terminal === "FAILED" ? failedAt : null,
         lastError: error,
       })
-      .where(and(eq(jobs.id, jobId), eq(jobs.status, "RUNNING"), eq(jobs.leaseOwner, workerId)))
+      .where(
+        and(
+          eq(jobs.id, jobId),
+          eq(jobs.status, "RUNNING"),
+          eq(jobs.leaseOwner, workerId),
+        ),
+      )
       .returning();
     if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
     return updated[0] as unknown as Job;
