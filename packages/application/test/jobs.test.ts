@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   InMemoryIngestionSink,
   InMemoryJobRepository,
+  InMemoryProviderRunRepository,
   ingestProviderSequence,
 } from "../src/index.js";
 import { validateJob } from "@velyq/contracts";
@@ -16,6 +17,27 @@ const input = {
 };
 
 describe("durable job contract", () => {
+  it("preserves provider run lifecycle counts and provenance", () => {
+    const runs = new InMemoryProviderRunRepository();
+    const started = runs.begin({
+      providerCode: "synthetic-provider",
+      sequenceName: "sequence-01-opening",
+      sourceFixtureHash: "sha256:fixture",
+      startedAt: clock.now(),
+    });
+    const completed = runs.complete({
+      runId: started.id,
+      normalizedOutputHash: "sha256:normalized",
+      receivedCount: 9,
+      acceptedCount: 9,
+      rejectedCount: 0,
+      completedAt: clock.now(),
+    });
+    expect(completed.status).toBe("COMPLETED");
+    expect(completed.sourceFixtureHash).toBe("sha256:fixture");
+    expect(completed.receivedCount).toBe(9);
+    expect(runs.getById(started.id)).toEqual(completed);
+  });
   it("rejects invalid version, status, and payload combinations", () => {
     const result = validateJob({
       ...input,

@@ -3,6 +3,7 @@ import type {
   Job,
   JobPayload,
   JobStatus,
+  ProviderRun,
   LineupObservationBatch,
   OddsObservationBatch,
   QuarantinedProviderObservation,
@@ -26,6 +27,32 @@ export interface JobRepository {
   complete(jobId: string): Job;
   fail(jobId: string, error: Readonly<{ code: string; message: string }>): Job;
   getByIdempotencyKey(key: string): Job | null;
+}
+export interface ProviderRunRepository {
+  begin(
+    input: Readonly<{
+      providerCode: string;
+      sequenceName: string;
+      sourceFixtureHash: string;
+      startedAt: string;
+    }>,
+  ): ProviderRun;
+  complete(
+    input: Readonly<{
+      runId: string;
+      normalizedOutputHash: string;
+      receivedCount: number;
+      acceptedCount: number;
+      rejectedCount: number;
+      completedAt: string;
+    }>,
+  ): ProviderRun;
+  fail(
+    runId: string,
+    error: Readonly<{ code: string; message: string }>,
+    completedAt: string,
+  ): ProviderRun;
+  getById(runId: string): ProviderRun | null;
 }
 let nextId = 1;
 function newId() {
@@ -113,6 +140,65 @@ export class InMemoryJobRepository implements JobRepository {
   private update(jobId: string, patch: Partial<Job>) {
     const next = Object.freeze({ ...this.require(jobId), ...patch });
     this.jobs.set(jobId, next);
+    return next;
+  }
+}
+
+let nextRunId = 1;
+export class InMemoryProviderRunRepository implements ProviderRunRepository {
+  private readonly runs = new Map<string, ProviderRun>();
+  begin(input: Parameters<ProviderRunRepository["begin"]>[0]) {
+    const run = Object.freeze({
+      id: `provider-run-${nextRunId++}`,
+      providerCode: input.providerCode,
+      sequenceName: input.sequenceName,
+      status: "RUNNING" as const,
+      sourceFixtureHash: input.sourceFixtureHash,
+      normalizedOutputHash: null,
+      receivedCount: 0,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      startedAt: input.startedAt,
+      completedAt: null,
+      errorSummary: null,
+    });
+    this.runs.set(run.id, run);
+    return run;
+  }
+  complete(input: Parameters<ProviderRunRepository["complete"]>[0]) {
+    const run = this.require(input.runId);
+    return this.update(input.runId, {
+      status: "COMPLETED",
+      normalizedOutputHash: input.normalizedOutputHash,
+      receivedCount: input.receivedCount,
+      acceptedCount: input.acceptedCount,
+      rejectedCount: input.rejectedCount,
+      completedAt: input.completedAt,
+    });
+  }
+  fail(
+    runId: string,
+    error: Readonly<{ code: string; message: string }>,
+    completedAt: string,
+  ) {
+    this.require(runId);
+    return this.update(runId, {
+      status: "FAILED",
+      completedAt,
+      errorSummary: error,
+    });
+  }
+  getById(runId: string) {
+    return this.runs.get(runId) ?? null;
+  }
+  private require(runId: string) {
+    const run = this.runs.get(runId);
+    if (!run) throw new Error(`Unknown provider run ${runId}`);
+    return run;
+  }
+  private update(runId: string, patch: Partial<ProviderRun>) {
+    const next = Object.freeze({ ...this.require(runId), ...patch });
+    this.runs.set(runId, next);
     return next;
   }
 }

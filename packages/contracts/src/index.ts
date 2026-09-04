@@ -351,6 +351,22 @@ export function validateJob(input: unknown): JobValidation {
     : { ok: true, value: Object.freeze(candidate as Job) };
 }
 
+export type ProviderRunStatus = "RUNNING" | "COMPLETED" | "FAILED";
+export type ProviderRun = Readonly<{
+  id: string;
+  providerCode: string;
+  sequenceName: string;
+  status: ProviderRunStatus;
+  sourceFixtureHash: string;
+  normalizedOutputHash: string | null;
+  receivedCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  startedAt: string;
+  completedAt: string | null;
+  errorSummary: Readonly<{ code: string; message: string }> | null;
+}>;
+
 export type ProblemDetails = Readonly<{
   type: string;
   title: string;
