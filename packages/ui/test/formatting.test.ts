@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatDecimal, formatPercent } from "../src/index.js";
+import {
+  formatDateTime,
+  formatDecimal,
+  formatPercent,
+  message,
+} from "../src/index.js";
 
 describe("customer presentation formatting", () => {
   it("formats canonical decimal strings at the presentation boundary", () => {
@@ -14,5 +19,9 @@ describe("customer presentation formatting", () => {
     expect(formatDateTime("2026-09-04T18:30:00.000Z")).toBe(
       "04 Sept 2026, 18:30",
     );
+  });
+  it("exposes stable English message keys", () => {
+    expect(message("navMatchIntelligence")).toBe("Match Intelligence");
+    expect(message("syntheticData")).toBe("Synthetic data");
   });
 });

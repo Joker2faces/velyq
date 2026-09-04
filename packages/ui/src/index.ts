@@ -29,3 +29,21 @@ export function formatDateTime(value: string) {
     .join("");
   return rendered;
 }
+
+export const messages = {
+  navToday: "Today",
+  navEdge: "Edge",
+  navRadar: "Radar",
+  navMatchIntelligence: "Match Intelligence",
+  navAccount: "Account",
+  syntheticData: "Synthetic data",
+  developmentHeuristic: "Development heuristic",
+  experimental: "Experimental",
+  observableOnly: "Observable only",
+  signOut: "Sign out",
+  noEvidence: "No evidence",
+  radarMove: "Radar move",
+} as const;
+
+export type MessageKey = keyof typeof messages;
+export const message = (key: MessageKey) => messages[key];

@@ -1,6 +1,6 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { customerToday } from "../customer-data";
-import { formatPercent } from "@velyq/ui";
+import { formatPercent, message } from "@velyq/ui";
 
 const toneFor = (recommendation: string) =>
   recommendation === "STRONG_EDGE"
@@ -18,7 +18,9 @@ export default function Edge() {
           <h1>Value, with context.</h1>
           <p>Probability ≠ Value ≠ EDGE score.</p>
         </div>
-        <Status tone="heuristic">DEVELOPMENT HEURISTIC</Status>
+        <Status tone="heuristic">
+          {message("developmentHeuristic").toUpperCase()}
+        </Status>
       </div>
       <section className="panel">
         <div className="panel-head">

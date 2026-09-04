@@ -1,13 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { message } from "@velyq/ui";
 
 export function CustomerShell({ children }: { children: ReactNode }) {
   const navigation = [
-    ["Today", "/today"],
-    ["Edge", "/edge"],
-    ["Radar", "/radar"],
-    ["Match Intelligence", "/matches/73000000-0000-4000-8000-000000000001"],
-    ["Account", "/account"],
+    [message("navToday"), "/today"],
+    [message("navEdge"), "/edge"],
+    [message("navRadar"), "/radar"],
+    [
+      message("navMatchIntelligence"),
+      "/matches/73000000-0000-4000-8000-000000000001",
+    ],
+    [message("navAccount"), "/account"],
   ] as const;
   return (
     <div className="customer-app">
@@ -29,7 +33,7 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <span>EXPERIMENTAL // DEVELOPMENT</span>
         </div>
         <form action="/api/v1/auth/sign-out" method="post" className="sign-out">
-          <button type="submit">Sign out</button>
+          <button type="submit">{message("signOut")}</button>
         </form>
       </aside>
       <main className="customer-main">

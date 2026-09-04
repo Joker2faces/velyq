@@ -1,6 +1,6 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { customerToday } from "../customer-data";
-import { formatPercent } from "@velyq/ui";
+import { formatPercent, message } from "@velyq/ui";
 
 export default function Radar() {
   return (
@@ -11,7 +11,9 @@ export default function Radar() {
           <h1>Movement, observed.</h1>
           <p>Observable odds evidence only. No money-flow claims.</p>
         </div>
-        <Status tone="heuristic">DEVELOPMENT HEURISTIC</Status>
+        <Status tone="heuristic">
+          {message("developmentHeuristic").toUpperCase()}
+        </Status>
       </div>
       <section className="panel">
         <div className="panel-head">
@@ -45,7 +47,9 @@ export default function Radar() {
                   : "neutral"
               }
             >
-              {match.currentOdds ? "RADAR MOVE" : "NO EVIDENCE"}
+              {match.currentOdds
+                ? message("radarMove").toUpperCase()
+                : message("noEvidence").toUpperCase()}
             </Status>
           </div>
         ))}
