@@ -533,8 +533,8 @@ INSERT INTO intelligence.score_definition_versions (
   created_at
 )
 VALUES
-  ('57000000-0000-4000-8000-000000000001', 'EDGE', 'PHASE_1_EDGE', 'edge.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["probabilityEdge","expectedValue"]}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
-  ('57000000-0000-4000-8000-000000000002', 'RADAR', 'PHASE_1_RADAR', 'radar.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["movement","coverage"]}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+  ('57000000-0000-4000-8000-000000000001', 'EDGE', 'PHASE_1_EDGE', 'edge.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["probabilityEdge","expectedValue","quality"],"weights":{"probabilityEdge":"1","expectedValue":"1","quality":"1"},"capsPenalties":{}}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
+  ('57000000-0000-4000-8000-000000000002', 'RADAR', 'PHASE_1_RADAR', 'radar.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["movement","coverage"],"weights":{"movement":"1","coverage":"1"},"capsPenalties":{}}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
 
 INSERT INTO intelligence.score_results (
   id,

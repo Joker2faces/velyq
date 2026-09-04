@@ -21,6 +21,7 @@ import {
   modelVersions,
   oddsObservations,
   predictions,
+  scoreDefinitionVersions,
 } from "@velyq/database";
 import {
   validateJob,
@@ -428,6 +429,30 @@ export interface ScoreWriter {
   append(input: ScoreWriteInput): Promise<void>;
 }
 
+type ScoreDefinitionMetadata = Readonly<{
+  weights: Record<string, unknown>;
+  capsPenalties: Record<string, unknown>;
+}>;
+
+function scoreDefinitionMetadata(definition: unknown): ScoreDefinitionMetadata {
+  if (!definition || typeof definition !== "object") {
+    return { weights: {}, capsPenalties: {} };
+  }
+  const record = definition as Record<string, unknown>;
+  const weights = record["weights"];
+  const capsPenalties = record["capsPenalties"] ?? record["caps_penalties"];
+  return {
+    weights:
+      weights && typeof weights === "object"
+        ? (weights as Record<string, unknown>)
+        : {},
+    capsPenalties:
+      capsPenalties && typeof capsPenalties === "object"
+        ? (capsPenalties as Record<string, unknown>)
+        : {},
+  };
+}
+
 export interface EdgeInputReader {
   getInput(input: CalculateEdgePayload): Promise<Readonly<{
     probabilityEdge: DecimalString;
@@ -511,6 +536,19 @@ export class DatabaseScoreWriter implements ScoreWriter {
   }
 
   async append(input: ScoreWriteInput): Promise<void> {
+    const [definition] = await this.database
+      .select({
+        definition: scoreDefinitionVersions.definition,
+        validationStatus: scoreDefinitionVersions.validationStatus,
+      })
+      .from(scoreDefinitionVersions)
+      .where(eq(scoreDefinitionVersions.id, input.scoreDefinitionVersionId))
+      .limit(1);
+    if (!definition) throw new Error("SCORE_DEFINITION_MISSING");
+    if (definition.validationStatus !== input.validationStatus) {
+      throw new Error("SCORE_DEFINITION_STATUS_MISMATCH");
+    }
+    const metadata = scoreDefinitionMetadata(definition.definition);
     const quality = await this.quality.getLatestAsOf(
       input.eventId,
       new Date(input.asOf),
@@ -525,8 +563,8 @@ export class DatabaseScoreWriter implements ScoreWriter {
       asOf: new Date(input.asOf),
       score: input.score,
       components: input.components,
-      weights: { mode: "IDENTITY", validationStatus: input.validationStatus },
-      capsPenalties: {},
+      weights: metadata.weights,
+      capsPenalties: metadata.capsPenalties,
       reasonCodes: input.reasonCodes,
       idempotencyKey: `score:${input.jobId}`,
       createdAt: new Date(input.asOf),

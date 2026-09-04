@@ -171,6 +171,8 @@ describe("deterministic Phase 1 seed", () => {
     expect(sql).toContain("insert into intelligence.model_versions");
     expect(sql).toContain("insert into intelligence.score_definition_versions");
     expect(sql).toContain("insert into market.market_definitions");
+    expect(sql).toContain('"weights":{"probabilityedge":"1"');
+    expect(sql).toContain('"capspenalties":{}');
   });
 
   it("supplies fixed UTC values for every seeded defaulted timestamp", () => {
