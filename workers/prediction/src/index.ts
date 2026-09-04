@@ -6,7 +6,11 @@ import {
   type QualityInput,
 } from "@velyq/analytics";
 import type { DecimalString } from "@velyq/decimal";
-import type { RecommendationStatus } from "@velyq/contracts";
+import {
+  validateJob,
+  type Job,
+  type RecommendationStatus,
+} from "@velyq/contracts";
 
 export type PredictionJob = Readonly<{
   id: string;
@@ -161,4 +165,25 @@ export function consumePredictionJob(
   repository = new InMemoryPredictionRepository(),
 ): PredictionJobResult {
   return generatePrediction(job, repository);
+}
+
+/** Adapts the versioned queue contract to the prediction use case. */
+export function consumeQueuedPredictionJob(
+  job: Job,
+  repository = new InMemoryPredictionRepository(),
+): PredictionJobResult {
+  const validation = validateJob(job);
+  if (!validation.ok || job.type !== "GENERATE_PREDICTION")
+    throw new Error("INVALID_GENERATE_PREDICTION_JOB");
+  return generatePrediction(
+    {
+      id: job.id,
+      idempotencyKey: job.idempotencyKey,
+      createdAt: job.createdAt,
+      correlationId: job.correlationId,
+      causationId: job.causationId,
+      payload: job.payload as PredictionInput,
+    },
+    repository,
+  );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   consumePredictionJob,
+  consumeQueuedPredictionJob,
   InMemoryPredictionRepository,
   type PredictionJob,
 } from "../src/index.js";
@@ -92,5 +93,23 @@ describe("prediction worker", () => {
 
     expect(first.prediction).toBe(second.prediction);
     expect(second.duplicate).toBe(true);
+  });
+
+  it("consumes the versioned queued job contract", () => {
+    const input = job();
+    const result = consumeQueuedPredictionJob({
+      ...input,
+      type: "GENERATE_PREDICTION",
+      contractVersion: "GENERATE_PREDICTION.v1",
+      status: "PENDING",
+      attemptCount: 0,
+      maxAttempts: 3,
+      availableAt: input.createdAt,
+      leaseExpiresAt: null,
+      lastError: null,
+      startedAt: null,
+      completedAt: null,
+    });
+    expect(result.prediction.trace.triggerJobId).toBe(input.id);
   });
 });
