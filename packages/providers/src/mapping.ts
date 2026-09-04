@@ -1,10 +1,7 @@
 import type { ProviderMarketMapping } from "@velyq/contracts";
 import { z } from "zod";
 
-import {
-  isoTimestampSchema,
-  providerMarketMappingSchema,
-} from "./schemas.js";
+import { isoTimestampSchema, providerMarketMappingSchema } from "./schemas.js";
 
 export type ProviderMappingLookup = Readonly<{
   readonly providerMarketKey: string;
@@ -29,7 +26,9 @@ export function resolveProviderMarketMapping(
   lookupInput: unknown,
   observedAtInput: unknown,
 ): ProviderMappingResult {
-  const mappings = z.array(providerMarketMappingSchema).safeParse(mappingsInput);
+  const mappings = z
+    .array(providerMarketMappingSchema)
+    .safeParse(mappingsInput);
   const lookup = z
     .object({
       providerMarketKey: z.string().min(1),

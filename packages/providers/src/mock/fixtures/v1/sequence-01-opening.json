@@ -125,10 +125,49 @@
     }
   ],
   "scenarios": [
-    { "id": "74000000-0000-4000-8000-000000000001", "state": "OPENING_PRICE", "eventId": "23000000-0000-4000-8000-000000000001", "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"], "providerMarketKey": "ft_1x2", "providerOutcomeKey": "home", "evidence": { "kind": "PRICE", "value": "2.1" } },
-    { "id": "74000000-0000-4000-8000-000000000002", "state": "EXPECTED_LINEUP", "eventId": "23000000-0000-4000-8000-000000000001", "sourceObservationIds": ["73000000-0000-4000-8000-000000000001"], "teamId": "22000000-0000-4000-8000-000000000001", "evidence": { "kind": "LINEUP", "value": "EXPECTED" } },
-    { "id": "74000000-0000-4000-8000-000000000003", "state": "MISSING_LINEUP", "eventId": "23000000-0000-4000-8000-000000000002", "sourceObservationIds": ["73000000-0000-4000-8000-000000000002"], "teamId": "22000000-0000-4000-8000-000000000003", "evidence": { "kind": "ABSENCE", "value": "NO_PROVIDER_LINEUP" } },
-    { "id": "74000000-0000-4000-8000-000000000004", "state": "STRONG_EDGE", "eventId": "23000000-0000-4000-8000-000000000001", "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"], "providerMarketKey": "ft_1x2", "providerOutcomeKey": "home", "evidence": { "kind": "DECISION", "value": "DEVELOPMENT_STRONG_EDGE_CANDIDATE" } },
-    { "id": "74000000-0000-4000-8000-000000000005", "state": "NO_BET", "eventId": "23000000-0000-4000-8000-000000000002", "sourceObservationIds": ["71000000-0000-4000-8000-000000000002"], "evidence": { "kind": "DECISION", "value": "NO_BET" } }
+    {
+      "id": "74000000-0000-4000-8000-000000000001",
+      "state": "OPENING_PRICE",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "PRICE", "value": "2.1" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000002",
+      "state": "EXPECTED_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000001"],
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "evidence": { "kind": "LINEUP", "value": "EXPECTED" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000003",
+      "state": "MISSING_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000002"],
+      "teamId": "22000000-0000-4000-8000-000000000003",
+      "evidence": { "kind": "ABSENCE", "value": "NO_PROVIDER_LINEUP" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000004",
+      "state": "STRONG_EDGE",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": {
+        "kind": "DECISION",
+        "value": "DEVELOPMENT_STRONG_EDGE_CANDIDATE"
+      }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000005",
+      "state": "NO_BET",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["71000000-0000-4000-8000-000000000002"],
+      "evidence": { "kind": "DECISION", "value": "NO_BET" }
+    }
   ]
 }
