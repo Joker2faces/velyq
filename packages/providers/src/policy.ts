@@ -9,6 +9,7 @@ import type {
 import { z } from "zod";
 
 import { isoTimestampSchema } from "./schemas.js";
+import { deepFreeze } from "./immutable.js";
 
 const providerActionSchema = z.enum([
   "RETAIN_RAW",
@@ -91,7 +92,7 @@ export function parseProviderDataPolicy(
     };
   }
 
-  return {
+  return deepFreeze({
     ok: true,
     value: {
       providerCode: parsed.data.providerCode,
@@ -113,7 +114,7 @@ export function parseProviderDataPolicy(
           : { retentionDays: grant.retentionDays }),
       })),
     },
-  };
+  });
 }
 
 export type ProviderActionRequest = Readonly<{
@@ -126,6 +127,61 @@ export type ProviderActionRequest = Readonly<{
   readonly attributionPresent: boolean;
 }>;
 
+const providerActionRequestSchema = z
+  .object({
+    action: providerActionSchema,
+    asOf: isoTimestampSchema,
+    environment: providerEnvironmentSchema,
+    territory: z.string().length(2),
+    dataCategory: providerDataCategorySchema,
+    audience: providerAudienceSchema.optional(),
+    attributionPresent: z.boolean(),
+  })
+  .strict();
+
+const providerPolicyContextSchema = z
+  .object({
+    environment: providerEnvironmentSchema,
+    territory: z.string().length(2),
+    asOf: isoTimestampSchema,
+    attributionPresent: z.boolean(),
+  })
+  .strict();
+
+declare const policyContextBrand: unique symbol;
+export type ProviderPolicyContext = Readonly<
+  z.infer<typeof providerPolicyContextSchema> & {
+    readonly [policyContextBrand]: "ProviderPolicyContext";
+  }
+>;
+
+const trustedPolicyContexts = new WeakSet<object>();
+
+export function createProviderPolicyContext(
+  input: unknown,
+): ParseResult<ProviderPolicyContext> {
+  const parsed = providerPolicyContextSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_PROVIDER_POLICY",
+        issues: parsed.error.issues.map((issue) => issue.message),
+      },
+    };
+  }
+
+  const context = deepFreeze(parsed.data) as ProviderPolicyContext;
+  trustedPolicyContexts.add(context);
+  return deepFreeze({ ok: true, value: context });
+}
+
+export function isTrustedProviderPolicyContext(
+  input: unknown,
+): input is ProviderPolicyContext {
+  return typeof input === "object" && input !== null && trustedPolicyContexts.has(input);
+}
+
 function denied(
   policy: ProviderDataPolicy,
   reason: Extract<PolicyDecision, { allowed: false }>["reason"],
@@ -134,12 +190,25 @@ function denied(
 }
 
 export function evaluateProviderAction(
-  policy: ProviderDataPolicy,
-  request: ProviderActionRequest,
+  policyInput: unknown,
+  requestInput: unknown,
 ): PolicyDecision {
-  const parsedAsOf = isoTimestampSchema.safeParse(request.asOf);
+  const policyResult = parseProviderDataPolicy(policyInput);
+  if (!policyResult.ok) {
+    return { allowed: false, policyVersion: null, reason: "INVALID_POLICY" };
+  }
+  const policy = policyResult.value;
+  const requestResult = providerActionRequestSchema.safeParse(requestInput);
+  if (!requestResult.success) {
+    return {
+      allowed: false,
+      policyVersion: policy.version,
+      reason: "INVALID_REQUEST",
+    };
+  }
+  const request = requestResult.data;
+
   if (
-    !parsedAsOf.success ||
     request.asOf < policy.effectiveFrom ||
     (policy.effectiveTo !== null && request.asOf >= policy.effectiveTo)
   ) {

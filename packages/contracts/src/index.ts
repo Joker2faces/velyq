@@ -21,7 +21,8 @@ export type ProvenanceRef = SyntheticMetadata &
     readonly sourceObservationId: string;
     readonly normalizationVersion: string;
     readonly mappingVersion: string;
-    readonly contentHash: string;
+    readonly sourceObservationHash: string;
+    readonly sourceFixtureHash: string;
     readonly fixturePath: string;
   }>;
 
@@ -75,7 +76,8 @@ export type NormalizedLineupObservation = SyntheticMetadata &
     readonly teamId: string;
     readonly status: "EXPECTED" | "CHANGED" | "OFFICIAL" | "MISSING";
     readonly confidence: Probability;
-    readonly playerLabels: readonly string[];
+    readonly players: readonly (SyntheticMetadata &
+      Readonly<{ readonly id: string; readonly displayName: string }>)[];
     readonly formation: string | null;
     readonly scenarioStates: readonly ScenarioState[];
     readonly provenance: ProvenanceRef;
@@ -95,7 +97,8 @@ export type NormalizedObservationBatch<T> = SyntheticMetadata &
     readonly normalizationVersion: string;
     readonly mappingVersion: string;
     readonly observations: readonly T[];
-    readonly contentHash: string;
+    readonly sourceFixtureHash: string;
+    readonly normalizedOutputHash: string;
   }>;
 
 export type FixtureObservationBatch =
@@ -104,6 +107,10 @@ export type OddsObservationBatch =
   NormalizedObservationBatch<NormalizedOddsObservation>;
 export type LineupObservationBatch =
   NormalizedObservationBatch<NormalizedLineupObservation>;
+export type OddsObservationResult = Readonly<{
+  readonly batch: OddsObservationBatch;
+  readonly quarantined: readonly QuarantinedProviderObservation[];
+}>;
 
 export type ReplayRequest = Readonly<{
   readonly sequenceName: string;
@@ -117,7 +124,7 @@ export interface FixtureSource {
 }
 
 export interface OddsSource {
-  listOddsObservations(request: ReplayRequest): Promise<OddsObservationBatch>;
+  listOddsObservations(request: ReplayRequest): Promise<OddsObservationResult>;
 }
 
 export interface LineupSource {
@@ -166,8 +173,10 @@ export type PolicyDecision =
   | Readonly<{ readonly allowed: true; readonly policyVersion: string }>
   | Readonly<{
       readonly allowed: false;
-      readonly policyVersion: string;
+      readonly policyVersion: string | null;
       readonly reason:
+        | "INVALID_POLICY"
+        | "INVALID_REQUEST"
         | "POLICY_NOT_EFFECTIVE"
         | "ACTION_NOT_GRANTED"
         | "AUDIENCE_NOT_GRANTED"
@@ -190,6 +199,7 @@ export type ProviderMarketMapping = Readonly<{
 }>;
 
 export type QuarantineReason =
+  | "INVALID_MAPPING_DOCUMENT"
   | "UNMAPPED_PROVIDER_MARKET"
   | "AMBIGUOUS_PROVIDER_MARKET"
   | "INVALID_MARKET_LINE"
@@ -201,14 +211,35 @@ export type QuarantinedProviderObservation = SyntheticMetadata &
     readonly providerMarketKey: string;
     readonly providerOutcomeKey: string;
     readonly reason: QuarantineReason;
+    readonly provenance: ProvenanceRef;
+  }>;
+
+export type SyntheticScenarioEvidence =
+  | Readonly<{ readonly kind: "PRICE"; readonly value: string }>
+  | Readonly<{ readonly kind: "LINEUP"; readonly value: string }>
+  | Readonly<{ readonly kind: "DECISION"; readonly value: string }>
+  | Readonly<{ readonly kind: "QUALITY"; readonly value: string }>
+  | Readonly<{ readonly kind: "ABSENCE"; readonly value: string }>;
+
+export type SyntheticScenarioRecord = SyntheticMetadata &
+  Readonly<{
+    readonly id: string;
+    readonly state: ScenarioState;
+    readonly eventId: string;
+    readonly sourceObservationIds: readonly string[];
+    readonly evidence: SyntheticScenarioEvidence;
+    readonly marketKey?: string;
+    readonly outcomeKey?: string;
+    readonly teamId?: string;
   }>;
 
 export type SyntheticReplayResult = SyntheticMetadata &
   Readonly<{
     readonly sequenceName: string;
     readonly fixturePath: string;
-    readonly contentHash: string;
-    readonly scenarioStates: readonly ScenarioState[];
+    readonly sourceFixtureHash: string;
+    readonly normalizedOutputHash: string;
+    readonly scenarios: readonly SyntheticScenarioRecord[];
     readonly fixtures: FixtureObservationBatch;
     readonly odds: OddsObservationBatch;
     readonly lineups: LineupObservationBatch;

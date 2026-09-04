@@ -57,6 +57,7 @@ export const providerMarketMappingSchema = z
     providerOutcomeKey: z.string().min(1),
     canonicalDefinitionCode: canonicalDefinitionCodeSchema,
     canonicalOutcomeCode: canonicalOutcomeCodeSchema,
+    mappingVersion: z.string().min(1),
     effectiveFrom: isoTimestampSchema,
     effectiveTo: isoTimestampSchema.nullable(),
   })
@@ -134,12 +135,37 @@ export const syntheticCatalogBaseSchema = z
         })
         .strict(),
     ),
+    players: z.array(
+      z
+        .object({
+          id: canonicalUuidSchema,
+          code: z.string().regex(/^[A-Z][A-Z0-9_]+$/),
+          displayName: z
+            .string()
+            .min(1)
+            .refine((value) => value.includes("(Synthetic)")),
+          teamId: canonicalUuidSchema,
+          synthetic: z.literal(true),
+        })
+        .strict(),
+    ),
     bookmakers: z.array(bookmakerSchema),
     mappingVersion: z.literal("mapping.v1"),
     mappings: z.array(providerMarketMappingSchema),
     policy: z.unknown(),
   })
-  .strict();
+  .strict()
+  .superRefine((catalog, context) => {
+    for (const mapping of catalog.mappings) {
+      if (mapping.mappingVersion !== catalog.mappingVersion) {
+        context.addIssue({
+          code: "custom",
+          message: "Mapping record version must match catalog mappingVersion",
+          path: ["mappings"],
+        });
+      }
+    }
+  });
 
 const fixtureObservationSchema = z
   .object({
@@ -199,11 +225,76 @@ const lineupObservationSchema = z
     teamId: canonicalUuidSchema,
     status: z.enum(["EXPECTED", "CHANGED", "OFFICIAL", "MISSING"]),
     confidence: probabilityStringSchema,
-    playerLabels: z.array(z.string().min(1)),
+    playerIds: z.array(canonicalUuidSchema),
     formation: z.string().min(1).nullable(),
     scenarioStates: z.array(scenarioStateSchema),
   })
-  .strict();
+  .strict()
+  .superRefine((lineup, context) => {
+    if (lineup.status === "MISSING" && lineup.playerIds.length !== 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Missing lineups cannot include players",
+        path: ["playerIds"],
+      });
+    }
+    if (lineup.status !== "MISSING" && lineup.playerIds.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Available lineups must include catalog player identities",
+        path: ["playerIds"],
+      });
+    }
+  });
+
+const scenarioEvidenceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("PRICE"), value: decimalOddsStringSchema }).strict(),
+  z.object({ kind: z.literal("LINEUP"), value: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("DECISION"), value: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("QUALITY"), value: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("ABSENCE"), value: z.string().min(1) }).strict(),
+]);
+
+const syntheticScenarioSchema = z
+  .object({
+    id: canonicalUuidSchema,
+    state: scenarioStateSchema,
+    eventId: canonicalUuidSchema,
+    sourceObservationIds: z.array(canonicalUuidSchema),
+    providerMarketKey: z.string().min(1).optional(),
+    providerOutcomeKey: z.string().min(1).optional(),
+    line: marketLineStringSchema.optional(),
+    teamId: canonicalUuidSchema.optional(),
+    evidence: scenarioEvidenceSchema,
+  })
+  .strict()
+  .superRefine((scenario, context) => {
+    if (
+      scenario.evidence.kind === "PRICE" &&
+      (scenario.providerMarketKey === undefined ||
+        scenario.providerOutcomeKey === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Price scenarios require an exact provider market and outcome",
+      });
+    }
+    if (scenario.evidence.kind === "LINEUP" && scenario.teamId === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Lineup scenarios require a team identity",
+      });
+    }
+    if (
+      scenario.sourceObservationIds.length === 0 &&
+      scenario.evidence.kind !== "ABSENCE"
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Non-absence scenarios require source observation evidence",
+      });
+    }
+  });
 
 export const syntheticSequenceSchema = z
   .object({
@@ -221,7 +312,7 @@ export const syntheticSequenceSchema = z
     fixtures: z.array(fixtureObservationSchema),
     odds: z.array(oddsObservationSchema),
     lineups: z.array(lineupObservationSchema),
-    scenarioStates: z.array(scenarioStateSchema),
+    scenarios: z.array(syntheticScenarioSchema).min(1),
   })
   .strict()
   .superRefine((sequence, context) => {
@@ -245,6 +336,16 @@ export const syntheticSequenceSchema = z
         });
       }
       sourceObservationIds.add(observation.sourceObservationId);
+    }
+    const scenarioIds = new Set<string>();
+    for (const scenario of sequence.scenarios) {
+      if (scenarioIds.has(scenario.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Scenario identifiers must be unique within a sequence",
+        });
+      }
+      scenarioIds.add(scenario.id);
     }
   });
 

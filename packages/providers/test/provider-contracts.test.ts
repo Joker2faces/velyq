@@ -6,14 +6,26 @@ import type { FixtureSource, LineupSource, OddsSource } from "@velyq/contracts";
 
 import {
   SyntheticReplaySource,
+  createProviderPolicyContext,
   parseSyntheticCatalog,
   parseSyntheticSequence,
   verifySyntheticSequenceContentHash,
 } from "../src/index.js";
 
+function testPolicyContext() {
+  const parsed = createProviderPolicyContext({
+    environment: "TEST",
+    territory: "ZZ",
+    asOf: "2026-09-03T11:00:00Z",
+    attributionPresent: true,
+  });
+  if (!parsed.ok) throw new Error("test policy context must parse");
+  return parsed.value;
+}
+
 describe("provider runtime contracts", () => {
   it("implements all three narrow provider capability ports", () => {
-    const source = SyntheticReplaySource.fromRepository();
+    const source = SyntheticReplaySource.fromRepository(testPolicyContext());
     const fixtureSource: FixtureSource = source;
     const oddsSource: OddsSource = source;
     const lineupSource: LineupSource = source;
@@ -72,6 +84,7 @@ describe("provider runtime contracts", () => {
             providerOutcomeKey: "home",
             canonicalDefinitionCode: "REAL_WORLD_MARKET",
             canonicalOutcomeCode: "HOME",
+            mappingVersion: "mapping.v1",
             effectiveFrom: "2026-01-01T00:00:00Z",
             effectiveTo: null,
           },
@@ -145,6 +158,33 @@ describe("provider runtime contracts", () => {
           ...odds.slice(0, 3),
           { ...total, line: "2.5e0" },
           ...odds.slice(4),
+        ],
+      }),
+    ).toEqual(expect.objectContaining({ ok: false }));
+  });
+
+  it("rejects arbitrary player labels and unknown player identities", () => {
+    const raw = JSON.parse(
+      readFileSync(
+        new URL(
+          "../src/mock/fixtures/v1/sequence-01-opening.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    const lineups = raw["lineups"] as Array<Record<string, unknown>>;
+
+    expect(
+      parseSyntheticSequence({
+        ...raw,
+        lineups: [
+          {
+            ...lineups[0],
+            playerIds: ["22000000-0000-4000-8000-000000009999"],
+            playerLabels: ["Famous Real Player"],
+          },
+          ...lineups.slice(1),
         ],
       }),
     ).toEqual(expect.objectContaining({ ok: false }));

@@ -106,4 +106,48 @@ describe("provider data policy", () => {
       }),
     ).toEqual(expect.objectContaining({ ok: false }));
   });
+
+  it("rejects a forged policy passed directly to the evaluator", () => {
+    expect(
+      evaluateProviderAction(
+        {
+          providerCode: "SYNTHETIC_FIXTURES",
+          version: "forged.v1",
+          providerMode: "SYNTHETIC",
+          effectiveFrom: "not-a-time",
+          effectiveTo: null,
+          grants: [{ action: "EXPORT" }],
+        },
+        {
+          action: "EXPORT",
+          asOf: "2026-09-03T10:00:00Z",
+          environment: "DEVELOPMENT",
+          territory: "ZZ",
+          dataCategory: "NORMALIZED_ODDS",
+          attributionPresent: true,
+        },
+      ),
+    ).toEqual({
+      allowed: false,
+      policyVersion: null,
+      reason: "INVALID_POLICY",
+    });
+  });
+
+  it("rejects an unvalidated action request", () => {
+    expect(
+      evaluateProviderAction(syntheticProviderPolicyDocument, {
+        action: "REPLAY",
+        asOf: "yesterday",
+        environment: "DEVELOPMENT",
+        territory: "ZZ",
+        dataCategory: "REPOSITORY_FIXTURE",
+        attributionPresent: true,
+      }),
+    ).toEqual({
+      allowed: false,
+      policyVersion: "synthetic-fixtures.v1",
+      reason: "INVALID_REQUEST",
+    });
+  });
 });

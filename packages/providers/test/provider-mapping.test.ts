@@ -73,4 +73,33 @@ describe("provider market mapping", () => {
       providerOutcomeKey: "home",
     });
   });
+
+  it.each([
+    ["invalid UUID", { ...baseMapping, id: "not-a-uuid" }],
+    [
+      "impossible outcome binding",
+      {
+        ...baseMapping,
+        canonicalDefinitionCode: "FOOTBALL_FULL_TIME_1X2",
+        canonicalOutcomeCode: "OVER",
+      },
+    ],
+  ])("rejects an unvalidated mapping document: %s", (_name, mapping) => {
+    expect(
+      resolveProviderMarketMapping(
+        [mapping],
+        {
+          providerMarketKey: "ft_1x2",
+          providerOutcomeKey: "home",
+          mappingVersion: "mapping.v1",
+        },
+        "2026-09-03T09:00:00Z",
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "INVALID_MAPPING_DOCUMENT",
+      providerMarketKey: "ft_1x2",
+      providerOutcomeKey: "home",
+    });
+  });
 });

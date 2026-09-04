@@ -54,6 +54,13 @@
       "awayTeamId": "22000000-0000-4000-8000-000000000004"
     }
   ],
+  "players": [
+    { "id": "25000000-0000-4000-8000-000000000001", "code": "ASTER_VALE", "displayName": "Aster Vale (Synthetic)", "teamId": "22000000-0000-4000-8000-000000000001", "synthetic": true },
+    { "id": "25000000-0000-4000-8000-000000000002", "code": "CEDAR_PIKE", "displayName": "Cedar Pike (Synthetic)", "teamId": "22000000-0000-4000-8000-000000000001", "synthetic": true },
+    { "id": "25000000-0000-4000-8000-000000000003", "code": "JUNIPER_MOSS", "displayName": "Juniper Moss (Synthetic)", "teamId": "22000000-0000-4000-8000-000000000001", "synthetic": true },
+    { "id": "25000000-0000-4000-8000-000000000004", "code": "ROWAN_QUILL", "displayName": "Rowan Quill (Synthetic)", "teamId": "22000000-0000-4000-8000-000000000002", "synthetic": true },
+    { "id": "25000000-0000-4000-8000-000000000005", "code": "SILVER_REED", "displayName": "Silver Reed (Synthetic)", "teamId": "22000000-0000-4000-8000-000000000002", "synthetic": true }
+  ],
   "bookmakers": [
     {
       "id": "45000000-0000-4000-8000-000000000001",
@@ -76,6 +83,7 @@
       "providerOutcomeKey": "home",
       "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
       "canonicalOutcomeCode": "HOME",
+      "mappingVersion": "mapping.v1",
       "effectiveFrom": "2026-01-01T00:00:00Z",
       "effectiveTo": null
     },
@@ -85,6 +93,7 @@
       "providerOutcomeKey": "draw",
       "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
       "canonicalOutcomeCode": "DRAW",
+      "mappingVersion": "mapping.v1",
       "effectiveFrom": "2026-01-01T00:00:00Z",
       "effectiveTo": null
     },
@@ -94,6 +103,7 @@
       "providerOutcomeKey": "away",
       "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_1X2",
       "canonicalOutcomeCode": "AWAY",
+      "mappingVersion": "mapping.v1",
       "effectiveFrom": "2026-01-01T00:00:00Z",
       "effectiveTo": null
     },
@@ -103,6 +113,7 @@
       "providerOutcomeKey": "over",
       "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_TOTAL",
       "canonicalOutcomeCode": "OVER",
+      "mappingVersion": "mapping.v1",
       "effectiveFrom": "2026-01-01T00:00:00Z",
       "effectiveTo": null
     },
@@ -112,6 +123,7 @@
       "providerOutcomeKey": "under",
       "canonicalDefinitionCode": "FOOTBALL_FULL_TIME_TOTAL",
       "canonicalOutcomeCode": "UNDER",
+      "mappingVersion": "mapping.v1",
       "effectiveFrom": "2026-01-01T00:00:00Z",
       "effectiveTo": null
     }

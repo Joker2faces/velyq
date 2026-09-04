@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { SyntheticReplaySource } from "../src/index.js";
+import {
+  SyntheticReplaySource,
+  createProviderPolicyContext,
+} from "../src/index.js";
 
 const sequenceNames = [
   "sequence-01-opening",
@@ -10,31 +13,67 @@ const sequenceNames = [
 ] as const;
 const fixedClock = "2026-09-03T11:00:00Z";
 
+function policyContext(
+  overrides: Readonly<Record<string, unknown>> = {},
+) {
+  const parsed = createProviderPolicyContext({
+    environment: "TEST",
+    territory: "ZZ",
+    asOf: fixedClock,
+    attributionPresent: true,
+    ...overrides,
+  });
+  if (!parsed.ok) throw new Error("policy context must parse");
+  return parsed.value;
+}
+
+function source(
+  overrides: Readonly<Record<string, unknown>> = {},
+): SyntheticReplaySource {
+  return SyntheticReplaySource.fromRepository(policyContext(overrides));
+}
+
 describe("synthetic repository replay", () => {
   it("returns byte-identical normalized output and hashes on repeated replay", async () => {
-    const source = SyntheticReplaySource.fromRepository();
+    const replaySource = source();
     const request = { sequenceName: sequenceNames[1], fixedClock };
 
-    const first = await source.replay(request);
-    const second = await source.replay(request);
+    const first = await replaySource.replay(request);
+    const second = await replaySource.replay(request);
 
     expect(JSON.stringify(first)).toBe(JSON.stringify(second));
-    expect(first.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expect(first.odds.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(first.sourceFixtureHash).toBe(
+      "sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446",
+    );
+    expect(first.normalizedOutputHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(first.normalizedOutputHash).not.toBe(first.sourceFixtureHash);
+    expect(first.odds.sourceFixtureHash).toBe(first.sourceFixtureHash);
+    expect(first.odds.normalizedOutputHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 
   it("replays exactly the four required versioned sequence files", () => {
-    const source = SyntheticReplaySource.fromRepository();
-    expect(source.sequenceNames()).toEqual(sequenceNames);
+    expect(source().sequenceNames()).toEqual(sequenceNames);
   });
 
   it("covers the complete Phase 1 scenario matrix", async () => {
-    const source = SyntheticReplaySource.fromRepository();
+    const replaySource = source();
     const states = new Set<string>();
 
     for (const sequenceName of sequenceNames) {
-      const replay = await source.replay({ sequenceName, fixedClock });
-      for (const state of replay.scenarioStates) states.add(state);
+      const replay = await replaySource.replay({ sequenceName, fixedClock });
+      for (const scenario of replay.scenarios) {
+        states.add(scenario.state);
+        expect(scenario.eventId).toMatch(/^[0-9a-f-]{36}$/);
+        expect(
+          scenario.sourceObservationIds.length > 0 ||
+            scenario.evidence.kind === "ABSENCE",
+        ).toBe(true);
+        if (scenario.evidence.kind === "PRICE") {
+          expect(scenario.marketKey).toContain("market-key-v1");
+          expect(scenario.outcomeKey).toContain("outcome=");
+          expect(scenario.evidence.value).toMatch(/^\d+(?:\.\d+)?$/);
+        }
+      }
     }
 
     expect([...states].sort()).toEqual(
@@ -58,10 +97,10 @@ describe("synthetic repository replay", () => {
   });
 
   it("keeps synthetic provenance permanent on every normalized DTO", async () => {
-    const source = SyntheticReplaySource.fromRepository();
+    const replaySource = source();
 
     for (const sequenceName of sequenceNames) {
-      const replay = await source.replay({ sequenceName, fixedClock });
+      const replay = await replaySource.replay({ sequenceName, fixedClock });
       for (const batch of [replay.fixtures, replay.odds, replay.lineups]) {
         expect(batch.isSynthetic).toBe(true);
         expect(batch.syntheticLabel).toBe("Synthetic data");
@@ -76,8 +115,7 @@ describe("synthetic repository replay", () => {
   });
 
   it("includes multiple fictional events, bookmakers, 1X2 and total 2.5 prices", async () => {
-    const source = SyntheticReplaySource.fromRepository();
-    const replay = await source.replay({
+    const replay = await source().replay({
       sequenceName: "sequence-01-opening",
       fixedClock,
     });
@@ -107,20 +145,36 @@ describe("synthetic repository replay", () => {
   });
 
   it("quarantines unknown market keys with an explicit reason", async () => {
-    const source = SyntheticReplaySource.fromRepository();
-    const replay = await source.replay({
+    const replaySource = source();
+    const replay = await replaySource.replay({
       sequenceName: "sequence-04-repriced",
       fixedClock,
     });
 
-    expect(replay.quarantined).toContainEqual(
-      expect.objectContaining({ reason: "UNMAPPED_PROVIDER_MARKET" }),
+    const quarantined = replay.quarantined[0]!;
+    expect(quarantined.reason).toBe("UNMAPPED_PROVIDER_MARKET");
+    expect(quarantined.provenance).toEqual(
+      expect.objectContaining({
+        providerId: "30000000-0000-4000-8000-000000000001",
+        ingestionRunId: "32000000-0000-4000-8000-000000000004",
+        sourceFixtureHash: replay.sourceFixtureHash,
+        mappingVersion: "mapping.v1",
+        fixturePath:
+          "packages/providers/src/mock/fixtures/v1/sequence-04-repriced.json",
+      }),
     );
+
+    const oddsResult = await replaySource.listOddsObservations({
+      sequenceName: "sequence-04-repriced",
+      fixedClock,
+    });
+    expect(oddsResult.batch.observations).toHaveLength(1);
+    expect(oddsResult.quarantined).toHaveLength(1);
   });
 
   it("rejects a replay clock earlier than provider receipt", async () => {
     await expect(
-      SyntheticReplaySource.fromRepository().replay({
+      source().replay({
         sequenceName: "sequence-01-opening",
         fixedClock: "2026-09-03T08:00:00Z",
       }),
@@ -129,7 +183,7 @@ describe("synthetic repository replay", () => {
 
   it("contains no real-world brand or club identifiers", async () => {
     const serialized = JSON.stringify(
-      await SyntheticReplaySource.fromRepository().replay({
+      await source().replay({
         sequenceName: "sequence-01-opening",
         fixedClock,
       }),
@@ -147,6 +201,59 @@ describe("synthetic repository replay", () => {
       "premier league",
     ]) {
       expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it("requires explicitly injected policy context and denies production replay", async () => {
+    await expect(
+      source({ environment: "PRODUCTION" }).replay({
+        sequenceName: "sequence-01-opening",
+        fixedClock,
+      }),
+    ).rejects.toThrow("POLICY_DENIED:CACHE:ENVIRONMENT_NOT_GRANTED");
+
+    await expect(
+      source({ attributionPresent: false }).replay({
+        sequenceName: "sequence-01-opening",
+        fixedClock,
+      }),
+    ).rejects.toThrow("POLICY_DENIED:CACHE:ATTRIBUTION_REQUIRED");
+  });
+
+  it("does not expose mutable aliases for internal or returned replay state", async () => {
+    const replaySource = source();
+    const names = replaySource.sequenceNames() as string[];
+    expect(() => names.push("forged-sequence")).toThrow();
+
+    const replay = await replaySource.replay({
+      sequenceName: "sequence-01-opening",
+      fixedClock,
+    });
+    const mutable = replay as unknown as {
+      odds: { observations: Array<{ scenarioStates: string[] }> };
+    };
+    expect(() => mutable.odds.observations[0]!.scenarioStates.push("FORGED")).toThrow();
+
+    const repeated = await replaySource.replay({
+      sequenceName: "sequence-01-opening",
+      fixedClock,
+    });
+    expect(JSON.stringify(repeated)).toBe(JSON.stringify(replay));
+  });
+
+  it("normalizes only catalog-backed synthetic player identities", async () => {
+    const replay = await source().replay({
+      sequenceName: "sequence-01-opening",
+      fixedClock,
+    });
+    const players = replay.lineups.observations.flatMap(({ players }) => players);
+
+    expect(players.length).toBeGreaterThan(0);
+    for (const player of players) {
+      expect(player.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(player.displayName).toContain("(Synthetic)");
+      expect(player.isSynthetic).toBe(true);
+      expect(player.syntheticLabel).toBe("Synthetic data");
     }
   });
 });
