@@ -1,5 +1,5 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
-import { customerToday } from "../customer-data";
+import { loadCustomerToday } from "../customer-runtime";
 import { formatPercent, message } from "@velyq/ui";
 
 const toneFor = (recommendation: string) =>
@@ -9,7 +9,12 @@ const toneFor = (recommendation: string) =>
       ? "amber"
       : "neutral";
 
-export default function Edge() {
+export default async function Edge() {
+  const customerToday = await loadCustomerToday();
+  if (!customerToday)
+    return (
+      <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
+    );
   return (
     <CustomerShell>
       <div className="page-heading">

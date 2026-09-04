@@ -1,8 +1,13 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
-import { customerToday } from "../customer-data";
+import { loadCustomerToday } from "../customer-runtime";
 import { formatPercent, message } from "@velyq/ui";
 
-export default function Radar() {
+export default async function Radar() {
+  const customerToday = await loadCustomerToday();
+  if (!customerToday)
+    return (
+      <CustomerShell>Customer data is temporarily unavailable.</CustomerShell>
+    );
   return (
     <CustomerShell>
       <div className="page-heading">

@@ -1,5 +1,5 @@
 import { CustomerShell, Metric, Status } from "../../customer-shell";
-import { findCustomerMatch } from "../../customer-data";
+import { loadCustomerMatch } from "../../customer-runtime";
 import { formatDateTime, formatDecimal, formatPercent } from "@velyq/ui";
 
 export default async function Match({
@@ -8,7 +8,7 @@ export default async function Match({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const match = findCustomerMatch(id);
+  const match = await loadCustomerMatch(id);
   if (!match)
     return <CustomerShell>Match intelligence is not available.</CustomerShell>;
   const recommendation = match.recommendation.replaceAll("_", " ");

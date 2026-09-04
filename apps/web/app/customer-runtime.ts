@@ -95,9 +95,24 @@ export function customerService() {
   if (database) {
     return databaseService(database);
   }
-  return process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true"
+  return process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true" ||
+    process.env["NODE_ENV"] !== "production"
     ? fixtureService
     : null;
+}
+
+export async function loadCustomerToday() {
+  const service = customerService();
+  if (!service) return null;
+  const result = await service.getToday(new Date());
+  return result.ok ? result.value : null;
+}
+
+export async function loadCustomerMatch(eventId: string) {
+  const service = customerService();
+  if (!service) return null;
+  const result = await service.getMatch(eventId, new Date());
+  return result.ok ? result.value : null;
 }
 
 export function unavailable() {
