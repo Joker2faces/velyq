@@ -557,6 +557,29 @@ body {
     11px "IBM Plex Mono",
     monospace;
 }
+.factor-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+.factor-grid > div {
+  background: #101c21;
+  border: 1px solid #203238;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+}
+.factor-grid span {
+  color: #6d8985;
+  font:
+    10px "IBM Plex Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.factor-grid b {
+  color: #dce9e5;
+}
 @media (max-width: 760px) {
   .customer-app {
     display: block;
@@ -622,5 +645,8 @@ body {
     grid-template-columns: 1fr;
     gap: 5px;
     margin-top: 18px;
+  }
+  .factor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

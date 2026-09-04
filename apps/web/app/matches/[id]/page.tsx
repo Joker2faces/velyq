@@ -73,43 +73,124 @@ export default async function Match({
       <section className="content-grid">
         <div className="panel">
           <div className="panel-head">
-            <h2>Prediction context</h2>
-            <Status tone="heuristic">EXPERIMENTAL</Status>
+            <h2>EDGE breakdown</h2>
+            <Status tone="heuristic">DEVELOPMENT HEURISTIC</Status>
           </div>
-          <p className="reason">
-            {context} This is an experimental deterministic model, not a
-            validated betting model.
-          </p>
           <div className="trace">
-            <span>Model</span>
+            <span>Probability edge</span>
+            <b>{formatPercent(match.probabilityEdge)}</b>
+            <span>Expected value</span>
+            <b>{formatPercent(match.expectedValue)}</b>
+            <span>Quality gate</span>
             <b>
-              {match.trace.modelVersion} · {match.trace.maturity}
+              {match.quality.grade} · {match.quality.policyVersion}
             </b>
-            <span>Quality policy</span>
-            <b>
-              {match.quality.policyVersion} · {match.quality.grade}
-            </b>
-            <span>As-of</span>
-            <b>{match.trace.featureCutoff}</b>
+            <span>Score definition</span>
+            <b>{match.trace.scoreVersion}</b>
           </div>
         </div>
         <div className="panel">
           <div className="panel-head">
-            <h2>Lineup & Radar</h2>
-            <Status tone={match.lineup === "OFFICIAL" ? "positive" : "amber"}>
-              {match.lineup}
-            </Status>
+            <h2>RADAR evidence</h2>
+            <Status tone="heuristic">OBSERVABLE ONLY</Status>
           </div>
           <p>
             Opening <b>{value(match.openingOdds)}</b> → current{" "}
             <b>{value(match.currentOdds)}</b>
           </p>
           <p className="teal-text">
+            Movement{" "}
+            {match.movementPercent
+              ? `${formatPercent(match.movementPercent)}`
+              : "not available"}{" "}
+            · freshness {match.freshness.toLowerCase()}
+          </p>
+          <small>No money-flow or volume claims are exposed.</small>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="panel-head">
+          <h2>VELYQ INSIGHT factors</h2>
+          <Status tone="heuristic">EXPERIMENTAL</Status>
+        </div>
+        <div className="factor-grid">
+          <div>
+            <span>Price evidence</span>
+            <b>{match.currentOdds ? "Available" : "Missing"}</b>
+          </div>
+          <div>
+            <span>Lineup certainty</span>
+            <b>{match.lineup}</b>
+          </div>
+          <div>
+            <span>Data freshness</span>
+            <b>{match.freshness}</b>
+          </div>
+          <div>
+            <span>Mapping quality</span>
+            <b>{match.quality.grade}</b>
+          </div>
+        </div>
+      </section>
+      <section className="content-grid">
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Data quality</h2>
+            <Status tone={match.quality.grade === "F" ? "amber" : "positive"}>
+              GRADE {match.quality.grade}
+            </Status>
+          </div>
+          <p className="reason">
+            {context} This is an experimental deterministic model, not a
+            validated betting model.
+          </p>
+          <p className="teal-text">
             {match.quality.reasonCodes.length
               ? match.quality.reasonCodes.join(" · ")
-              : "Market movement detected · observable evidence"}
+              : "All required quality checks passed."}
           </p>
-          <Status tone="heuristic">DEVELOPMENT HEURISTIC</Status>
+        </div>
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Lineup state</h2>
+            <Status tone={match.lineup === "OFFICIAL" ? "positive" : "amber"}>
+              {match.lineup}
+            </Status>
+          </div>
+          <p>
+            {match.lineup === "OFFICIAL"
+              ? "Official lineup observed."
+              : match.lineup === "MISSING"
+                ? "No lineup is available; recommendation remains gated."
+                : `Lineup state is ${match.lineup.toLowerCase()}.`}
+          </p>
+          <small>Lineup state is evidence, not a prediction.</small>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Trace metadata</h2>
+          <Status tone="heuristic">TRACEABLE</Status>
+        </div>
+        <div className="trace">
+          <span>Model</span>
+          <b>
+            {match.trace.modelVersion} · {match.trace.maturity}
+          </b>
+          <span>Calibration</span>
+          <b>{match.trace.calibrationVersion}</b>
+          <span>Score</span>
+          <b>{match.trace.scoreVersion}</b>
+          <span>Quality policy</span>
+          <b>
+            {match.quality.policyVersion} · {match.quality.grade}
+          </b>
+          <span>Price snapshot</span>
+          <b>
+            {value(match.currentOdds)} · {match.freshness}
+          </b>
+          <span>Feature cutoff</span>
+          <b>{match.trace.featureCutoff}</b>
         </div>
       </section>
     </CustomerShell>
