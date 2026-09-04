@@ -81,10 +81,74 @@ export interface PredictionObservationReader {
   getByIds(ids: readonly string[]): Promise<readonly PredictionObservation[]>;
 }
 
+export type PredictionQueueLease = Readonly<{
+  job: Job;
+  leaseExpiresAt: string;
+}>;
+
+/** Minimal durable queue port used by the worker composition root. */
+export interface PredictionJobQueue {
+  leaseNext(
+    workerId: string,
+    now: Date,
+    leaseUntil: Date,
+  ): Promise<PredictionQueueLease | null>;
+  complete(jobId: string, completedAt: Date): Promise<Job>;
+  fail(
+    jobId: string,
+    error: Readonly<{ code: string; message: string }>,
+    failedAt: Date,
+  ): Promise<Job>;
+}
+
+export type PredictionWorkerResult = Readonly<{
+  leased: boolean;
+  status: "COMPLETED" | "FAILED" | "IDLE";
+  jobId: string | null;
+  errorCode?: string;
+}>;
+
+/**
+ * Processes one durable queue lease. No in-memory repository is created here:
+ * the composition root must provide the persistence implementation explicitly.
+ */
+export async function processPredictionJobOnce(
+  queue: PredictionJobQueue,
+  reader: PredictionObservationReader,
+  repository: PredictionRepository,
+  input: Readonly<{
+    workerId: string;
+    now: Date;
+    leaseDurationMs: number;
+  }>,
+): Promise<PredictionWorkerResult> {
+  const lease = await queue.leaseNext(
+    input.workerId,
+    input.now,
+    new Date(input.now.getTime() + input.leaseDurationMs),
+  );
+  if (!lease) return { leased: false, status: "IDLE", jobId: null };
+
+  try {
+    await consumeQueuedPredictionJobWithInputs(lease.job, reader, repository);
+    await queue.complete(lease.job.id, input.now);
+    return { leased: true, status: "COMPLETED", jobId: lease.job.id };
+  } catch (error) {
+    const errorCode =
+      error instanceof Error ? error.message : "PREDICTION_FAILED";
+    await queue.fail(
+      lease.job.id,
+      { code: errorCode, message: "Prediction job processing failed." },
+      input.now,
+    );
+    return { leased: true, status: "FAILED", jobId: lease.job.id, errorCode };
+  }
+}
+
 export async function consumeQueuedPredictionJobWithInputs(
   job: Job,
   reader: PredictionObservationReader,
-  repository = new InMemoryPredictionRepository(),
+  repository: PredictionRepository = new InMemoryPredictionRepository(),
 ): Promise<PredictionJobResult> {
   const validation = validateJob(job);
   if (!validation.ok || job.type !== "GENERATE_PREDICTION")
@@ -218,7 +282,7 @@ export function consumePredictionJob(
 /** Adapts the versioned queue contract to the prediction use case. */
 export function consumeQueuedPredictionJob(
   job: Job,
-  repository = new InMemoryPredictionRepository(),
+  repository: PredictionRepository = new InMemoryPredictionRepository(),
 ): PredictionJobResult {
   const validation = validateJob(job);
   if (!validation.ok || job.type !== "GENERATE_PREDICTION")
