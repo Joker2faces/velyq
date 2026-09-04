@@ -1,0 +1,173 @@
+{
+  "schemaVersion": "provider-sequence.v1",
+  "sequenceName": "sequence-01-opening",
+  "contentHash": "sha256:fc9835303008b24c3c1735ac931a82c04ea69f7e751e5600927916d2d5a11c2e",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "receivedAt": "2026-09-03T09:00:01Z",
+  "fixtures": [
+    {
+      "sourceObservationId": "71000000-0000-4000-8000-000000000001",
+      "providerExternalId": "fictional-event-north-south",
+      "providerObservedAt": "2026-09-03T08:59:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "competitionId": "21000000-0000-4000-8000-000000000001",
+      "homeTeamId": "22000000-0000-4000-8000-000000000001",
+      "awayTeamId": "22000000-0000-4000-8000-000000000002",
+      "startsAt": "2026-09-03T18:00:00Z",
+      "status": "SCHEDULED",
+      "scenarioStates": ["STRONG_EDGE", "EXPECTED_LINEUP"]
+    },
+    {
+      "sourceObservationId": "71000000-0000-4000-8000-000000000002",
+      "providerExternalId": "fictional-event-east-west",
+      "providerObservedAt": "2026-09-03T08:59:10Z",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "competitionId": "21000000-0000-4000-8000-000000000001",
+      "homeTeamId": "22000000-0000-4000-8000-000000000003",
+      "awayTeamId": "22000000-0000-4000-8000-000000000004",
+      "startsAt": "2026-09-03T20:00:00Z",
+      "status": "SCHEDULED",
+      "scenarioStates": ["NO_BET", "MISSING_LINEUP"]
+    }
+  ],
+  "odds": [
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000001",
+      "providerExternalId": "opening-north-home-a",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "decimalOdds": "2.1",
+      "status": "ACTIVE",
+      "scenarioStates": ["OPENING_PRICE", "STRONG_EDGE"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000002",
+      "providerExternalId": "opening-north-draw-a",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "draw",
+      "decimalOdds": "3.4",
+      "status": "ACTIVE",
+      "scenarioStates": ["OPENING_PRICE"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000003",
+      "providerExternalId": "opening-north-away-b",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000002",
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "away",
+      "decimalOdds": "3.8",
+      "status": "ACTIVE",
+      "scenarioStates": ["OPENING_PRICE"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000004",
+      "providerExternalId": "opening-north-over-a",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000001",
+      "providerMarketKey": "ft_total",
+      "providerOutcomeKey": "over",
+      "line": "2.5",
+      "decimalOdds": "1.95",
+      "status": "ACTIVE",
+      "scenarioStates": ["OPENING_PRICE"]
+    },
+    {
+      "sourceObservationId": "72000000-0000-4000-8000-000000000005",
+      "providerExternalId": "opening-north-under-b",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "bookmakerId": "45000000-0000-4000-8000-000000000002",
+      "providerMarketKey": "ft_total",
+      "providerOutcomeKey": "under",
+      "line": "2.5",
+      "decimalOdds": "1.9",
+      "status": "ACTIVE",
+      "scenarioStates": ["OPENING_PRICE"]
+    }
+  ],
+  "lineups": [
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000001",
+      "providerExternalId": "expected-north",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "status": "EXPECTED",
+      "confidence": "0.8",
+      "playerIds": [
+        "25000000-0000-4000-8000-000000000001",
+        "25000000-0000-4000-8000-000000000002"
+      ],
+      "formation": "4-3-3",
+      "scenarioStates": ["EXPECTED_LINEUP"]
+    },
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000002",
+      "providerExternalId": "missing-east",
+      "providerObservedAt": "2026-09-03T09:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "teamId": "22000000-0000-4000-8000-000000000003",
+      "status": "MISSING",
+      "confidence": "0",
+      "playerIds": [],
+      "formation": null,
+      "scenarioStates": ["MISSING_LINEUP"]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "74000000-0000-4000-8000-000000000001",
+      "state": "OPENING_PRICE",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "PRICE", "value": "2.1" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000002",
+      "state": "EXPECTED_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000001"],
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "evidence": { "kind": "LINEUP", "value": "EXPECTED" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000003",
+      "state": "MISSING_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000002"],
+      "teamId": "22000000-0000-4000-8000-000000000003",
+      "evidence": { "kind": "ABSENCE", "value": "NO_PROVIDER_LINEUP" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000004",
+      "state": "STRONG_EDGE",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000001"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": {
+        "kind": "DECISION",
+        "value": "DEVELOPMENT_STRONG_EDGE_CANDIDATE"
+      }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000005",
+      "state": "NO_BET",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["71000000-0000-4000-8000-000000000002"],
+      "evidence": { "kind": "DECISION", "value": "NO_BET" }
+    }
+  ]
+}

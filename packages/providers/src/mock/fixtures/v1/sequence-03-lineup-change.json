@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "provider-sequence.v1",
+  "sequenceName": "sequence-03-lineup-change",
+  "contentHash": "sha256:d780bb0b2a2ee36155753db851ea64e9b126a5ac11f2237f8fa947d2dec693ab",
+  "synthetic": true,
+  "syntheticLabel": "Synthetic data",
+  "receivedAt": "2026-09-03T10:00:01Z",
+  "fixtures": [],
+  "odds": [],
+  "lineups": [
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000011",
+      "providerExternalId": "changed-north",
+      "providerObservedAt": "2026-09-03T10:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "status": "CHANGED",
+      "confidence": "0.9",
+      "playerLabels": ["Aster Vale (Synthetic)", "Juniper Moss (Synthetic)"],
+      "formation": "4-2-3-1",
+      "scenarioStates": ["CHANGED_LINEUP"]
+    },
+    {
+      "sourceObservationId": "73000000-0000-4000-8000-000000000012",
+      "providerExternalId": "official-south",
+      "providerObservedAt": "2026-09-03T10:00:00Z",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "teamId": "22000000-0000-4000-8000-000000000002",
+      "status": "OFFICIAL",
+      "confidence": "1",
+      "playerLabels": ["Rowan Quill (Synthetic)", "Silver Reed (Synthetic)"],
+      "formation": "3-4-2-1",
+      "scenarioStates": ["OFFICIAL_LINEUP"]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "74000000-0000-4000-8000-000000000021",
+      "state": "CHANGED_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000011"],
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "evidence": { "kind": "LINEUP", "value": "CHANGED" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000022",
+      "state": "OFFICIAL_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000012"],
+      "teamId": "22000000-0000-4000-8000-000000000002",
+      "evidence": { "kind": "LINEUP", "value": "OFFICIAL" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000023",
+      "state": "INSUFFICIENT_DATA",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": [
+        "73000000-0000-4000-8000-000000000011",
+        "73000000-0000-4000-8000-000000000012"
+      ],
+      "evidence": {
+        "kind": "QUALITY",
+        "value": "LINEUP_CHANGE_REQUIRES_RECONCILIATION"
+      }
+    }
+  ]
+}
