@@ -83,6 +83,11 @@ export const providerSyncRuns = operationsSchema.table(
     errorSummary: jsonb("error_summary"),
   },
   (table) => [
+    unique("provider_sync_runs_replay_identity_unique").on(
+      table.providerId,
+      table.replaySequence,
+      table.startedAt,
+    ),
     index("provider_sync_runs_provider_id_started_at_idx").on(
       table.providerId,
       table.startedAt.desc(),

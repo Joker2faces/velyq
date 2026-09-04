@@ -1,0 +1,1 @@
+ALTER TABLE "operations"."provider_sync_runs" ADD CONSTRAINT "provider_sync_runs_replay_identity_unique" UNIQUE("provider_id","replay_sequence","started_at");

@@ -43,6 +43,13 @@
       "when": 1788521170712,
       "tag": "0005_cheerful_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788523296811,
+      "tag": "0006_great_stingray",
+      "breakpoints": true
     }
   ]
 }

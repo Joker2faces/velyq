@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import { providerSyncRuns } from "../schema/operations.js";
 
@@ -35,9 +35,24 @@ export class DatabaseProviderRunRepository {
         policyVersionId: input.policyVersionId,
         startedAt: input.startedAt,
       })
+      .onConflictDoNothing({
+        target: [
+          providerSyncRuns.providerId,
+          providerSyncRuns.replaySequence,
+          providerSyncRuns.startedAt,
+        ],
+      })
       .returning();
-    if (!inserted[0]) throw new Error("PROVIDER_RUN_INSERT_FAILED");
-    return inserted[0];
+    if (inserted[0]) return inserted[0];
+    const existing = await this.database.query.providerSyncRuns.findFirst({
+      where: and(
+        eq(providerSyncRuns.providerId, input.providerId),
+        eq(providerSyncRuns.replaySequence, input.sequenceName),
+        eq(providerSyncRuns.startedAt, input.startedAt),
+      ),
+    });
+    if (!existing) throw new Error("PROVIDER_RUN_INSERT_FAILED");
+    return existing;
   }
 
   async complete(

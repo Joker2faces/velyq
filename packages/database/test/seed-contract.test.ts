@@ -163,7 +163,7 @@ describe("deterministic Phase 1 seed", () => {
 
     expect(sql).toContain("insert into operations.provider_policy_versions");
     expect(sql).toContain(
-      "FROM private.permissions\nWHERE code = 'customer.read'",
+      "from private.permissions\nwhere code = 'customer.read'",
     );
     expect(sql).toContain(
       "insert into intelligence.data_quality_policy_versions",
