@@ -9,6 +9,9 @@ import {
   databaseCustomerQueries,
 } from "./customer-database";
 import { customerToday } from "./customer-data";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { requireCustomerSession } from "./api/auth";
 
 type CustomerService = {
   getToday: (asOf: Date) => Promise<
@@ -105,15 +108,27 @@ export function customerService() {
 }
 
 export async function loadCustomerToday() {
+  await requireCustomerPageAccess();
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerTodayDto>;
   return service.getToday(new Date());
 }
 
 export async function loadCustomerMatch(eventId: string) {
+  await requireCustomerPageAccess();
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
   return service.getMatch(eventId, new Date());
+}
+
+async function requireCustomerPageAccess() {
+  if (!process.env["VELYQ_DATABASE_URL"]) return;
+  const cookieHeader = (await cookies()).toString();
+  const request = new Request("https://velyq.local/customer", {
+    headers: { cookie: cookieHeader },
+  });
+  const denied = await requireCustomerSession(request);
+  if (denied) redirect("/sign-in");
 }
 
 export function unavailable() {
