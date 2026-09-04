@@ -201,14 +201,13 @@ export function assessDataQuality(input: QualityInput): DataQualityAssessment {
     const result = subtractDecimalStrings(total, threshold);
     return result.ok && !result.value.startsWith("-");
   };
-  const score =
-    atLeast("4.5")
-      ? "1"
-      : atLeast("3.5")
-        ? "0.75"
-        : atLeast("2.5")
-          ? "0.5"
-          : "0";
+  const score = atLeast("4.5" as DecimalString)
+    ? "1"
+    : atLeast("3.5" as DecimalString)
+      ? "0.75"
+      : atLeast("2.5" as DecimalString)
+        ? "0.5"
+        : "0";
   const grade: QualityGrade =
     score === "1" ? "A" : score === "0.75" ? "B" : score === "0.5" ? "C" : "F";
   return Object.freeze({
