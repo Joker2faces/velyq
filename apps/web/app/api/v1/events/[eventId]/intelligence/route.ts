@@ -11,25 +11,32 @@ export async function GET(
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
   const service = customerService();
-  if (!service) return NextResponse.json(unavailable(), { status: 503 });
+  if (!service) return problem(unavailable());
   const result = await service.getMatch(eventId, new Date());
   if (!result.ok && result.code === "NOT_FOUND") return notFound();
   return result.ok
     ? NextResponse.json(result.value)
-    : NextResponse.json(result, { status: 503 });
+    : problem({ ...unavailable(), requestId: crypto.randomUUID() });
+}
+
+function problem(body: Readonly<Record<string, unknown>>) {
+  return NextResponse.json(body, {
+    status: Number(body["status"] ?? 503),
+    headers: {
+      "content-type": "application/problem+json",
+      "x-request-id": String(body["requestId"]),
+    },
+  });
 }
 
 function notFound() {
-  return NextResponse.json(
-    {
-      type: "https://velyq.dev/problems/not-found",
-      title: "Event not found",
-      status: 404,
-      code: "EVENT_NOT_FOUND",
-      requestId: crypto.randomUUID(),
-    },
-    { status: 404 },
-  );
+  return problem({
+    type: "https://velyq.dev/problems/not-found",
+    title: "Event not found",
+    status: 404,
+    code: "EVENT_NOT_FOUND",
+    requestId: crypto.randomUUID(),
+  });
 }
 
 function isUuid(value: string) {
@@ -39,14 +46,11 @@ function isUuid(value: string) {
 }
 
 function invalidEventId() {
-  return NextResponse.json(
-    {
-      type: "https://velyq.dev/problems/invalid-request",
-      title: "Invalid event ID",
-      status: 400,
-      code: "INVALID_EVENT_ID",
-      requestId: crypto.randomUUID(),
-    },
-    { status: 400 },
-  );
+  return problem({
+    type: "https://velyq.dev/problems/invalid-request",
+    title: "Invalid event ID",
+    status: 400,
+    code: "INVALID_EVENT_ID",
+    requestId: crypto.randomUUID(),
+  });
 }

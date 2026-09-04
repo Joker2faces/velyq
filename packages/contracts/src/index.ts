@@ -528,6 +528,10 @@ export type CustomerMatchDto = Readonly<{
     scoreDefinitionCode?: string;
     scoreWeights?: Readonly<Record<string, unknown>>;
     scoreCapsPenalties?: Readonly<Record<string, unknown>>;
+    sourceObservationIds?: readonly string[];
+    providerRunId?: string;
+    marketPriceObservationId?: string | null;
+    qualityAssessmentId?: string;
     featureCutoff: string;
   }>;
 }>;

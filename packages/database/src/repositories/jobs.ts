@@ -1,4 +1,4 @@
-import { and, asc, eq, lte, or, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, lte, or, isNull } from "drizzle-orm";
 
 import type { Job, JobPayload, JobStatus } from "@velyq/contracts";
 import type {
@@ -111,6 +111,7 @@ export class DatabaseJobRepository {
           eq(jobs.id, jobId),
           eq(jobs.status, "RUNNING"),
           eq(jobs.leaseOwner, workerId),
+          gt(jobs.leaseExpiresAt, completedAt),
         ),
       )
       .returning();
@@ -125,7 +126,11 @@ export class DatabaseJobRepository {
     failedAt: Date,
   ): Promise<Job> {
     const current = await this.database.query.jobs.findFirst({
-      where: and(eq(jobs.id, jobId), eq(jobs.leaseOwner, workerId)),
+      where: and(
+        eq(jobs.id, jobId),
+        eq(jobs.leaseOwner, workerId),
+        gt(jobs.leaseExpiresAt, failedAt),
+      ),
     });
     if (!current) throw new Error("JOB_NOT_FOUND");
     const terminal: JobStatus =
@@ -145,6 +150,7 @@ export class DatabaseJobRepository {
           eq(jobs.id, jobId),
           eq(jobs.status, "RUNNING"),
           eq(jobs.leaseOwner, workerId),
+          gt(jobs.leaseExpiresAt, failedAt),
         ),
       )
       .returning();

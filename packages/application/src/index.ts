@@ -249,8 +249,13 @@ export class InMemoryJobRepository implements JobRepository {
     return job;
   }
   private assertLeaseOwner(jobId: string, workerId: string) {
-    this.require(jobId);
-    if (this.leaseOwners.get(jobId) !== workerId)
+    const job = this.require(jobId);
+    if (
+      this.leaseOwners.get(jobId) !== workerId ||
+      job.status !== "RUNNING" ||
+      job.leaseExpiresAt === null ||
+      Date.parse(job.leaseExpiresAt) <= Date.parse(this.clock.now())
+    )
       throw new Error("JOB_LEASE_NOT_OWNED");
   }
   private update(jobId: string, patch: Partial<Job>) {

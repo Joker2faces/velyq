@@ -8,8 +8,12 @@ import {
   type QualityInput,
   type HeuristicFormula,
 } from "@velyq/analytics";
-import { divideDecimalStrings, type DecimalString } from "@velyq/decimal";
-import { and, eq, inArray, lte } from "drizzle-orm";
+import {
+  divideDecimalStrings,
+  subtractDecimalStrings,
+  type DecimalString,
+} from "@velyq/decimal";
+import { and, eq, lte } from "drizzle-orm";
 import {
   DatabaseJobRepository,
   DatabasePredictionObservationReader,
@@ -423,6 +427,9 @@ export type ScoreWriteInput = Readonly<{
     bookmakersObserved: number;
     bookmakersMoving: number;
     movementWindowSeconds: number;
+    supportingObservationIds?: readonly string[];
+    consensus?: DecimalString;
+    divergence?: DecimalString;
   }>;
 }>;
 
@@ -539,10 +546,6 @@ export class DatabaseRadarInputReader implements RadarInputReader {
           eq(oddsObservations.eventMarketOutcomeId, input.eventMarketOutcomeId),
           lte(oddsObservations.providerObservedAt, new Date(input.asOf)),
           lte(oddsObservations.receivedAt, new Date(input.asOf)),
-          inArray(oddsObservations.id, [
-            input.openingObservationId,
-            input.currentObservationId,
-          ]),
         ),
       );
     const opening = rows.find((row) => row.id === input.openingObservationId);
@@ -557,10 +560,65 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       definition?.definition && typeof definition.definition === "object"
         ? (definition.definition as Record<string, unknown>)
         : {};
+    const byBookmaker = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const group = byBookmaker.get(row.bookmakerId) ?? [];
+      group.push(row);
+      byBookmaker.set(row.bookmakerId, group);
+    }
+    const movingBookmakers = [...byBookmaker.values()].filter((group) => {
+      const ordered = [...group].sort(
+        (a, b) =>
+          a.providerObservedAt.getTime() - b.providerObservedAt.getTime(),
+      );
+      const first = ordered[0];
+      const last = ordered.at(-1);
+      if (!first || !last) return false;
+      const movement = subtractDecimalStrings(
+        last.decimalOdds as DecimalString,
+        first.decimalOdds as DecimalString,
+      );
+      return movement.ok && movement.value !== "0";
+    }).length;
+    const bookmakerCount = byBookmaker.size;
+    const latestPrices = [...byBookmaker.values()]
+      .map(
+        (group) =>
+          [...group]
+            .sort(
+              (a, b) =>
+                a.providerObservedAt.getTime() - b.providerObservedAt.getTime(),
+            )
+            .at(-1)?.decimalOdds as DecimalString | undefined,
+      )
+      .filter((value): value is DecimalString => value !== undefined);
+    let minimum = latestPrices[0];
+    let maximum = latestPrices[0];
+    for (const price of latestPrices.slice(1)) {
+      if (!minimum || !maximum) break;
+      const below = subtractDecimalStrings(price, minimum);
+      const above = subtractDecimalStrings(price, maximum);
+      if (below.ok && below.value.startsWith("-")) minimum = price;
+      if (above.ok && !above.value.startsWith("-")) maximum = price;
+    }
+    const divergenceResult =
+      minimum && maximum
+        ? subtractDecimalStrings(maximum, minimum)
+        : ({ ok: true, value: "0" as DecimalString } as const);
+    if (!divergenceResult.ok) return null;
+    const consensusResult = divideDecimalStrings(
+      String(movingBookmakers) as DecimalString,
+      String(bookmakerCount || 1) as DecimalString,
+    );
+    if (!consensusResult.ok) return null;
     return {
       openingOdds: opening.decimalOdds as DecimalString,
       currentOdds: current.decimalOdds as DecimalString,
-      bookmakerCoverage: new Set(rows.map((row) => row.bookmakerId)).size,
+      bookmakerCoverage: bookmakerCount,
+      bookmakersMoving: movingBookmakers,
+      consensus: consensusResult.value,
+      divergence: divergenceResult.value,
+      supportingObservationIds: rows.map((row) => row.id),
       observedAt: current.providerObservedAt.toISOString(),
       openingObservedAt: opening.providerObservedAt.toISOString(),
       formula:
@@ -571,6 +629,15 @@ export class DatabaseRadarInputReader implements RadarInputReader {
                 string,
                 DecimalString
               >,
+              ...(definitionRecord["capsPenalties"] &&
+              typeof definitionRecord["capsPenalties"] === "object"
+                ? {
+                    capsPenalties: definitionRecord["capsPenalties"] as Record<
+                      string,
+                      DecimalString
+                    >,
+                  }
+                : {}),
             }
           : {},
     };
@@ -627,7 +694,8 @@ export class DatabaseScoreWriter implements ScoreWriter {
     await this.scores.appendWithRadarEvidence(scoreInput, {
       openingObservationId: input.radarEvidence.openingObservationId,
       currentObservationId: input.radarEvidence.currentObservationId,
-      supportingObservationIds: [
+      supportingObservationIds: input.radarEvidence
+        .supportingObservationIds ?? [
         input.radarEvidence.openingObservationId,
         input.radarEvidence.currentObservationId,
       ],
@@ -646,6 +714,10 @@ export interface RadarInputReader {
     bookmakerCoverage: number;
     observedAt: string;
     openingObservedAt?: string;
+    bookmakersMoving?: number;
+    consensus?: DecimalString;
+    divergence?: DecimalString;
+    supportingObservationIds?: readonly string[];
     formula?: HeuristicFormula;
   }> | null>;
 }
@@ -697,7 +769,9 @@ export async function consumeQueuedRadarJob(
     ...input,
     asOf: payload.asOf,
     scoreVersion: payload.scoreDefinitionVersionId,
-    bookmakersMoving: input.bookmakerCoverage > 0 ? input.bookmakerCoverage : 0,
+    bookmakersMoving: input.bookmakersMoving ?? 0,
+    ...(input.consensus ? { consensus: input.consensus } : {}),
+    ...(input.divergence ? { divergence: input.divergence } : {}),
     ...(input.openingObservedAt
       ? {
           movementWindowSeconds: Math.max(
@@ -729,9 +803,10 @@ export async function consumeQueuedRadarJob(
       currentOdds: result.value.currentOdds,
       bookmakersObserved: input.bookmakerCoverage,
       bookmakersMoving:
-        result.value.openingOdds === result.value.currentOdds
+        input.bookmakersMoving ??
+        (result.value.openingOdds === result.value.currentOdds
           ? 0
-          : input.bookmakerCoverage,
+          : input.bookmakerCoverage),
       movementWindowSeconds: input.openingObservedAt
         ? Math.max(
             0,
@@ -742,6 +817,11 @@ export async function consumeQueuedRadarJob(
             ),
           )
         : 0,
+      ...(input.supportingObservationIds
+        ? { supportingObservationIds: input.supportingObservationIds }
+        : {}),
+      ...(input.consensus ? { consensus: input.consensus } : {}),
+      ...(input.divergence ? { divergence: input.divergence } : {}),
     },
   };
   await writer.append(output);

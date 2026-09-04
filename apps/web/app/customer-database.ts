@@ -49,6 +49,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
+  const sourceObservationIds = odds.map((observation) => observation.id);
   return {
     eventId: raw.event.id,
     homeTeam: home,
@@ -85,7 +86,9 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
       scoreVersion: score?.result.scoreDefinitionVersionId ?? "unknown",
       ...(score
         ? {
-            scoreDefinitionCode: "PHASE_1_EDGE",
+            scoreDefinitionCode: score.radarEvidence
+              ? "PHASE_1_RADAR"
+              : "PHASE_1_EDGE",
             scoreWeights: score.result.weights as Record<string, unknown>,
             scoreCapsPenalties: score.result.capsPenalties as Record<
               string,
@@ -95,6 +98,15 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
         : {}),
       featureCutoff:
         prediction?.run.featureCutoff.toISOString() ?? raw.asOf.toISOString(),
+      sourceObservationIds,
+      ...(prediction ? { providerRunId: prediction.run.id } : {}),
+      ...(prediction
+        ? {
+            marketPriceObservationId:
+              prediction.prediction.marketPriceObservationId,
+          }
+        : {}),
+      ...(quality ? { qualityAssessmentId: quality.id } : {}),
     },
   };
 }
