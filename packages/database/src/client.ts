@@ -31,6 +31,8 @@ export interface PrivilegedDatabaseClient extends Omit<
   readonly database: PrivilegedVelyqDatabase;
 }
 
+// Keep the privileged server constructor in the package build graph so app
+// deployments cannot reuse a stale database artifact.
 export function createDatabaseClient(config: PoolConfig): DatabaseClient {
   const pool = new Pool(config);
   const database = drizzle(pool, { schema: databaseSchema });
