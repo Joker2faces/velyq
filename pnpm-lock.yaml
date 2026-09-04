@@ -126,6 +126,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@velyq/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@velyq/contracts':
         specifier: workspace:*
         version: link:../contracts

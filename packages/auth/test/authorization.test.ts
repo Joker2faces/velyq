@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPermission } from "../src/index.js";
+import { hasPermission, principalFromPermissionRows } from "../src/index.js";
 describe("authorization", () => {
   it("denies anonymous and partial admin access", () => {
     expect(hasPermission(null, "customer.read")).toBe(false);
@@ -21,5 +21,18 @@ describe("authorization", () => {
         "predictions.trace",
       ),
     ).toBe(true);
+  });
+  it("normalizes database permission rows", () => {
+    expect(
+      principalFromPermissionRows("user-1", "ADMIN", [
+        "admin.access",
+        "admin.access",
+        "unknown",
+      ]),
+    ).toEqual({
+      userId: "user-1",
+      role: "ADMIN",
+      permissions: ["admin.access"],
+    });
   });
 });

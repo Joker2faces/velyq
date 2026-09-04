@@ -11,6 +11,31 @@ export type Principal = Readonly<{
   role: "CUSTOMER" | "ADMIN";
   permissions: readonly PermissionCode[];
 }>;
+export interface PermissionResolver {
+  resolve(userId: string): Promise<Principal | null>;
+}
+export function principalFromPermissionRows(
+  userId: string,
+  roleCode: string | null,
+  permissionCodes: readonly string[],
+): Principal {
+  return Object.freeze({
+    userId,
+    role: roleCode === "ADMIN" ? "ADMIN" : "CUSTOMER",
+    permissions: [...new Set(permissionCodes)].filter(isPermissionCode),
+  });
+}
+function isPermissionCode(value: string): value is PermissionCode {
+  return [
+    "customer.read",
+    "admin.access",
+    "provider_runs.read",
+    "predictions.trace",
+    "scores.inspect",
+    "quality.inspect",
+    "audit.read",
+  ].includes(value);
+}
 export function hasPermission(
   principal: Principal | null,
   permission: PermissionCode,
