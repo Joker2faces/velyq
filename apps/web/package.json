@@ -9,6 +9,7 @@
   "dependencies": {
     "@velyq/application": "workspace:*",
     "@velyq/contracts": "workspace:*",
+    "@velyq/database": "workspace:*",
     "@velyq/decimal": "workspace:*",
     "@velyq/ui": "workspace:*",
     "next": "16.3.4",

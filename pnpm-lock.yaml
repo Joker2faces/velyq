@@ -74,6 +74,9 @@ importers:
       "@velyq/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
+      "@velyq/database":
+        specifier: workspace:*
+        version: link:../../packages/database
       "@velyq/decimal":
         specifier: workspace:*
         version: link:../../packages/decimal

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCustomerSession } from "../../../../auth";
 import { customerQueries } from "../../../../../customer-data";
+import {
+  customerDatabaseMapper,
+  databaseCustomerQueries,
+} from "../../../../../customer-database";
 
 export async function GET(
   _request: Request,
@@ -10,19 +14,28 @@ export async function GET(
   const denied = await requireCustomerSession(_request);
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
+  const database = databaseCustomerQueries();
+  if (database) {
+    const match = await database.getMatch(eventId, new Date());
+    if (!match) return notFound();
+    return NextResponse.json(customerDatabaseMapper.mapMatch(match));
+  }
   const match = await customerQueries.getMatch(eventId);
-  if (!match)
-    return NextResponse.json(
-      {
-        type: "https://velyq.dev/problems/not-found",
-        title: "Event not found",
-        status: 404,
-        code: "EVENT_NOT_FOUND",
-        requestId: crypto.randomUUID(),
-      },
-      { status: 404 },
-    );
+  if (!match) return notFound();
   return NextResponse.json(match);
+}
+
+function notFound() {
+  return NextResponse.json(
+    {
+      type: "https://velyq.dev/problems/not-found",
+      title: "Event not found",
+      status: 404,
+      code: "EVENT_NOT_FOUND",
+      requestId: crypto.randomUUID(),
+    },
+    { status: 404 },
+  );
 }
 
 function isUuid(value: string) {
