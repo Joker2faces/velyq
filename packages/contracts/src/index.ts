@@ -520,9 +520,14 @@ export type CustomerMatchDto = Readonly<{
   }>;
   trace: Readonly<{
     modelVersion: string;
+    modelDefinitionVersion?: string;
     maturity: "EXPERIMENTAL";
     calibrationVersion: string;
+    calibrationDefinitionVersion?: string;
     scoreVersion: string;
+    scoreDefinitionCode?: string;
+    scoreWeights?: Readonly<Record<string, unknown>>;
+    scoreCapsPenalties?: Readonly<Record<string, unknown>>;
     featureCutoff: string;
   }>;
 }>;

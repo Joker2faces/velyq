@@ -78,9 +78,21 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     },
     trace: {
       modelVersion: prediction?.run.modelVersionId ?? "unknown",
+      modelDefinitionVersion: "phase-1-experimental.v1",
       maturity: "EXPERIMENTAL",
       calibrationVersion: prediction?.run.calibrationVersionId ?? "unknown",
+      calibrationDefinitionVersion: "identity.v1",
       scoreVersion: score?.result.scoreDefinitionVersionId ?? "unknown",
+      ...(score
+        ? {
+            scoreDefinitionCode: "PHASE_1_EDGE",
+            scoreWeights: score.result.weights as Record<string, unknown>,
+            scoreCapsPenalties: score.result.capsPenalties as Record<
+              string,
+              unknown
+            >,
+          }
+        : {}),
       featureCutoff:
         prediction?.run.featureCutoff.toISOString() ?? raw.asOf.toISOString(),
     },
