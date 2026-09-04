@@ -12,6 +12,7 @@ import { sourceObservations } from "../schema/operations.js";
 import { and, eq } from "drizzle-orm";
 
 type SourceInput = Readonly<{
+  id?: string;
   providerId: string;
   syncRunId: string;
   observationType: string;
@@ -41,6 +42,7 @@ export class SourceObservationRepository {
     input: SourceInput,
   ) {
     const value = {
+      ...(input.id ? { id: input.id } : {}),
       providerId: input.providerId,
       syncRunId: input.syncRunId,
       observationType: input.observationType,
