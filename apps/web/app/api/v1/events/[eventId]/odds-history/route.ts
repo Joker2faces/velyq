@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireCustomerSession } from "../../../../auth";
 import { findCustomerMatch } from "../../../../../customer-data";
 
 export async function GET(
@@ -6,6 +7,8 @@ export async function GET(
   context: { params: Promise<{ eventId: string }> },
 ) {
   const { eventId } = await context.params;
+  const denied = requireCustomerSession(_request);
+  if (denied) return denied;
   const match = findCustomerMatch(eventId);
   if (!match)
     return NextResponse.json(
