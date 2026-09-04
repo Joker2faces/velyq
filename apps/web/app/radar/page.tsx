@@ -1,11 +1,6 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { customerToday } from "../customer-data";
 
-const movement = (opening: string | null, current: string | null) => {
-  if (!opening || !current) return "—";
-  return `${((Number(current) / Number(opening) - 1) * 100).toFixed(1)}%`;
-};
-
 export default function Radar() {
   return (
     <CustomerShell>
@@ -38,7 +33,7 @@ export default function Radar() {
             <Metric label="Current" value={match.currentOdds ?? "—"} />
             <Metric
               label="Movement"
-              value={movement(match.openingOdds, match.currentOdds)}
+              value={match.movementPercent ? `${match.movementPercent}%` : "—"}
               tone="teal"
             />
             <Metric label="Freshness" value={match.freshness} />

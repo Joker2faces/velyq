@@ -11,6 +11,16 @@ export default async function Match({
   if (!match)
     return <CustomerShell>Match intelligence is not available.</CustomerShell>;
   const recommendation = match.recommendation.replaceAll("_", " ");
+  const context =
+    match.recommendation === "STRONG_EDGE"
+      ? "Model probability is above the current implied probability."
+      : match.recommendation === "EDGE_DISAPPEARED"
+        ? "The earlier price advantage is no longer observable at the current quote."
+        : match.recommendation === "WAIT_FOR_LINEUP"
+          ? "The recommendation is withheld until an official lineup is available."
+          : match.recommendation === "INSUFFICIENT_DATA"
+            ? "The recommendation is withheld because required price or coverage inputs are missing."
+            : "The current evidence does not meet the recommendation policy threshold.";
   const value = (metric: string | null, suffix = "") =>
     metric === null ? "—" : `${metric}${suffix}`;
   return (
@@ -66,8 +76,8 @@ export default async function Match({
             <Status tone="heuristic">EXPERIMENTAL</Status>
           </div>
           <p className="reason">
-            Model probability is above the current implied probability. This is
-            an experimental deterministic model, not a validated betting model.
+            {context} This is an experimental deterministic model, not a
+            validated betting model.
           </p>
           <div className="trace">
             <span>Model</span>

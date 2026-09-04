@@ -357,6 +357,7 @@ export type CustomerMatchDto = Readonly<{
   fairOdds: DecimalString | null;
   currentOdds: DecimalOdds["value"] | null;
   openingOdds: DecimalOdds["value"] | null;
+  movementPercent: DecimalString | null;
   probabilityEdge: DecimalString | null;
   expectedValue: DecimalString | null;
   lineup: "EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED";
