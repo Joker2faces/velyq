@@ -5,7 +5,11 @@ import {
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import { SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
-import type { DecimalString } from "@velyq/decimal";
+import {
+  divideDecimalStrings,
+  subtractDecimalStrings,
+  type DecimalString,
+} from "@velyq/decimal";
 
 const decimal = (value: string | null | undefined) =>
   value == null ? null : (value as DecimalString);
@@ -31,6 +35,17 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     ? raw.asOf.getTime() - latestObservation.getTime() > 60 * 60 * 1000
     : true;
   const lineup = deriveLineupState(raw);
+  const movementDelta =
+    opening !== null && current !== null
+      ? subtractDecimalStrings(
+          current as DecimalString,
+          opening as DecimalString,
+        )
+      : null;
+  const movement =
+    movementDelta?.ok && opening !== null
+      ? divideDecimalStrings(movementDelta.value, opening as DecimalString)
+      : null;
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
@@ -51,13 +66,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     fairOdds: decimal(prediction?.prediction.fairOdds),
     currentOdds: decimal(current),
     openingOdds: decimal(opening),
-    movementPercent:
-      opening !== null && current !== null
-        ? ((
-            (Number(current) - Number(opening)) /
-            Number(opening)
-          ).toString() as DecimalString)
-        : null,
+    movementPercent: movement?.ok ? movement.value : null,
     probabilityEdge: decimal(prediction?.prediction.edge),
     expectedValue: decimal(prediction?.prediction.expectedValue),
     lineup,
