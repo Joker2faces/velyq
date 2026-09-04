@@ -12,6 +12,18 @@ CREATE SCHEMA "operations";
 --> statement-breakpoint
 CREATE SCHEMA "private";
 --> statement-breakpoint
+CREATE OR REPLACE FUNCTION public.map_provider_lineup_status(provider_status text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE provider_status
+    WHEN 'CHANGED' THEN 'UNAVAILABLE'
+    WHEN 'MISSING' THEN 'UNAVAILABLE'
+    ELSE provider_status
+  END;
+$$;
+--> statement-breakpoint
 CREATE TABLE "audit"."admin_audit_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"actor_user_id" uuid NOT NULL,

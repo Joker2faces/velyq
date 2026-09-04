@@ -143,16 +143,20 @@ describe("reviewed Phase 1 migration contract", () => {
   });
 
   it("documents the governed provider lineup status mapping", () => {
+    const migration = migrationSql();
     const seed = seedSql();
 
+    expect(migration).toContain("map_provider_lineup_status");
+    expect(migration).toMatch(/when 'changed' then 'unavailable'/);
+    expect(migration).toMatch(/when 'missing' then 'unavailable'/);
     expect(seed).toContain(
       "Phase 1 stores provider CHANGED/MISSING lineup states as the schema's",
     );
     expect(seed).toContain(
       "UNAVAILABLE status; the original semantic states remain",
     );
-    expect(seed).toMatch(/'changed-north'[\s\S]*'UNAVAILABLE'/);
-    expect(seed).toMatch(/'missing-east'[\s\S]*'UNAVAILABLE'/);
+    expect(seed).toContain("map_provider_lineup_status('CHANGED')");
+    expect(seed).toContain("map_provider_lineup_status('MISSING')");
   });
 
   it("enforces canonical market line presence against the definition", () => {

@@ -53,6 +53,30 @@ describe("synthetic repository replay", () => {
     expect(source().sequenceNames()).toEqual(sequenceNames);
   });
 
+  it("keeps source observation hashes byte-exact across replay", async () => {
+    const expected = new Map([
+      [
+        "73000000-0000-4000-8000-000000000011",
+        "sha256:8d94a020f516fa75d92e5163670b85930b7ce8675baabc3578fa32c47c684e05",
+      ],
+      [
+        "73000000-0000-4000-8000-000000000012",
+        "sha256:e686874f9dbc6be96bc268c7f770ccc5df12f43322997abe53f7a2db2fd6acf0",
+      ],
+    ]);
+
+    const replay = await source().replay({
+      sequenceName: "sequence-03-lineup-change",
+      fixedClock,
+    });
+
+    for (const observation of replay.lineups.observations) {
+      expect(expected.get(observation.provenance.sourceObservationId)).toBe(
+        observation.provenance.sourceObservationHash,
+      );
+    }
+  });
+
   it("covers the complete Phase 1 scenario matrix", async () => {
     const replaySource = source();
     const states = new Set<string>();
