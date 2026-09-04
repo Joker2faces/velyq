@@ -2,7 +2,10 @@ import type {
   NormalizedLineupObservation,
   NormalizedOddsObservation,
 } from "@velyq/contracts";
-import type { PrivilegedVelyqDatabase } from "../client.js";
+import type {
+  PrivilegedVelyqDatabase,
+  RepositoryTransaction,
+} from "../client.js";
 import { lineupObservations } from "../schema/intelligence.js";
 import { oddsObservations } from "../schema/market.js";
 import { sourceObservations } from "../schema/operations.js";
@@ -30,6 +33,13 @@ export class SourceObservationRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
   async append(input: SourceInput) {
+    return this.appendInTransaction(this.database, input);
+  }
+
+  async appendInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    input: SourceInput,
+  ) {
     const value = {
       providerId: input.providerId,
       syncRunId: input.syncRunId,
@@ -44,7 +54,7 @@ export class SourceObservationRepository {
       mappingVersion: input.observation.provenance.mappingVersion,
       contentHash: input.observation.provenance.sourceObservationHash,
     };
-    const inserted = await this.database
+    const inserted = await database
       .insert(sourceObservations)
       .values(value)
       .onConflictDoNothing({
@@ -56,7 +66,7 @@ export class SourceObservationRepository {
       })
       .returning();
     if (inserted[0]) return { row: inserted[0], duplicate: false } as const;
-    const existing = await this.database.query.sourceObservations.findFirst({
+    const existing = await database.query.sourceObservations.findFirst({
       where: and(
         eq(sourceObservations.providerId, input.providerId),
         eq(sourceObservations.observationType, input.observationType),
@@ -83,8 +93,15 @@ export class OddsObservationRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
   async append(input: OddsObservationInput) {
+    return this.appendInTransaction(this.database, input);
+  }
+
+  async appendInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    input: OddsObservationInput,
+  ) {
     const { observation } = input;
-    const inserted = await this.database
+    const inserted = await database
       .insert(oddsObservations)
       .values({
         sourceObservationId: input.sourceObservationId,
@@ -118,8 +135,15 @@ export class LineupObservationRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
   async append(input: LineupObservationInput) {
+    return this.appendInTransaction(this.database, input);
+  }
+
+  async appendInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    input: LineupObservationInput,
+  ) {
     const { observation } = input;
-    const inserted = await this.database
+    const inserted = await database
       .insert(lineupObservations)
       .values({
         sourceObservationId: input.sourceObservationId,

@@ -1,7 +1,10 @@
 import { and, asc, eq, lte, or, isNull } from "drizzle-orm";
 
 import type { Job, JobPayload, JobStatus } from "@velyq/contracts";
-import type { PrivilegedVelyqDatabase } from "../client.js";
+import type {
+  PrivilegedVelyqDatabase,
+  RepositoryTransaction,
+} from "../client.js";
 import { jobs } from "../schema/operations.js";
 
 export type EnqueueJobInput = Readonly<{
@@ -19,7 +22,14 @@ export class DatabaseJobRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
   async enqueue(input: EnqueueJobInput): Promise<Job> {
-    const inserted = await this.database
+    return this.enqueueInTransaction(this.database, input);
+  }
+
+  async enqueueInTransaction(
+    database: PrivilegedVelyqDatabase | RepositoryTransaction,
+    input: EnqueueJobInput,
+  ): Promise<Job> {
+    const inserted = await database
       .insert(jobs)
       .values({
         type: input.type,
@@ -35,7 +45,7 @@ export class DatabaseJobRepository {
       .onConflictDoNothing({ target: jobs.idempotencyKey })
       .returning();
     if (inserted[0]) return inserted[0] as unknown as Job;
-    const existing = await this.database.query.jobs.findFirst({
+    const existing = await database.query.jobs.findFirst({
       where: eq(jobs.idempotencyKey, input.idempotencyKey),
     });
     if (!existing) throw new Error("JOB_IDEMPOTENCY_LOOKUP_FAILED");
