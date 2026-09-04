@@ -1,7 +1,7 @@
 {
   "schemaVersion": "provider-sequence.v1",
   "sequenceName": "sequence-03-lineup-change",
-  "contentHash": "sha256:2f22cd5391b7cc4ae9a88892a5e722bb869adba7130dd590625c5f63638a7e1d",
+  "contentHash": "sha256:d780bb0b2a2ee36155753db851ea64e9b126a5ac11f2237f8fa947d2dec693ab",
   "synthetic": true,
   "syntheticLabel": "Synthetic data",
   "receivedAt": "2026-09-03T10:00:01Z",
@@ -33,5 +33,35 @@
       "scenarioStates": ["OFFICIAL_LINEUP"]
     }
   ],
-  "scenarioStates": ["CHANGED_LINEUP", "OFFICIAL_LINEUP", "INSUFFICIENT_DATA"]
+  "scenarios": [
+    {
+      "id": "74000000-0000-4000-8000-000000000021",
+      "state": "CHANGED_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000011"],
+      "teamId": "22000000-0000-4000-8000-000000000001",
+      "evidence": { "kind": "LINEUP", "value": "CHANGED" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000022",
+      "state": "OFFICIAL_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["73000000-0000-4000-8000-000000000012"],
+      "teamId": "22000000-0000-4000-8000-000000000002",
+      "evidence": { "kind": "LINEUP", "value": "OFFICIAL" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000023",
+      "state": "INSUFFICIENT_DATA",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": [
+        "73000000-0000-4000-8000-000000000011",
+        "73000000-0000-4000-8000-000000000012"
+      ],
+      "evidence": {
+        "kind": "QUALITY",
+        "value": "LINEUP_CHANGE_REQUIRES_RECONCILIATION"
+      }
+    }
+  ]
 }

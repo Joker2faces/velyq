@@ -1,7 +1,7 @@
 {
   "schemaVersion": "provider-sequence.v1",
   "sequenceName": "sequence-02-movement",
-  "contentHash": "sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446",
+  "contentHash": "sha256:150cfd25a412920149808f1c919773ea606f05c9c17193bce96d9ca22cf5ac2e",
   "synthetic": true,
   "syntheticLabel": "Synthetic data",
   "receivedAt": "2026-09-03T10:00:01Z",
@@ -33,11 +33,47 @@
     }
   ],
   "lineups": [],
-  "scenarioStates": [
-    "CURRENT_PRICE",
-    "STALE_PRICE",
-    "MISSING_PRICE",
-    "WAIT_FOR_LINEUP",
-    "RADAR_MOVEMENT"
+  "scenarios": [
+    {
+      "id": "74000000-0000-4000-8000-000000000011",
+      "state": "CURRENT_PRICE",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000011"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "PRICE", "value": "1.85" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000012",
+      "state": "STALE_PRICE",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000012"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "PRICE", "value": "2.25" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000013",
+      "state": "MISSING_PRICE",
+      "eventId": "23000000-0000-4000-8000-000000000002",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000012"],
+      "evidence": { "kind": "ABSENCE", "value": "NO_CURRENT_PRICE" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000014",
+      "state": "WAIT_FOR_LINEUP",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000011"],
+      "evidence": { "kind": "ABSENCE", "value": "NO_LINEUP_OBSERVATION" }
+    },
+    {
+      "id": "74000000-0000-4000-8000-000000000015",
+      "state": "RADAR_MOVEMENT",
+      "eventId": "23000000-0000-4000-8000-000000000001",
+      "sourceObservationIds": ["72000000-0000-4000-8000-000000000011"],
+      "providerMarketKey": "ft_1x2",
+      "providerOutcomeKey": "home",
+      "evidence": { "kind": "DECISION", "value": "DEVELOPMENT_RADAR_MOVEMENT" }
+    }
   ]
 }

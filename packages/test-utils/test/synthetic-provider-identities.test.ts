@@ -32,22 +32,22 @@ describe("synthetic provider test identities", () => {
       {
         name: "sequence-01-opening",
         contentHash:
-          "sha256:4da5724ee6a5626f3295fa58453c6675a63603dbde12b43c35bbb6c185e2fefe",
+          "sha256:fc9835303008b24c3c1735ac931a82c04ea69f7e751e5600927916d2d5a11c2e",
       },
       {
         name: "sequence-02-movement",
         contentHash:
-          "sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446",
+          "sha256:150cfd25a412920149808f1c919773ea606f05c9c17193bce96d9ca22cf5ac2e",
       },
       {
         name: "sequence-03-lineup-change",
         contentHash:
-          "sha256:2f22cd5391b7cc4ae9a88892a5e722bb869adba7130dd590625c5f63638a7e1d",
+          "sha256:d780bb0b2a2ee36155753db851ea64e9b126a5ac11f2237f8fa947d2dec693ab",
       },
       {
         name: "sequence-04-repriced",
         contentHash:
-          "sha256:77fd47390e16b93efec2778f2a14094c9dda406586b5e9713ee630e7d999a7b6",
+          "sha256:4efcf52964764f53695fc6ecb447bc2197f906e4d6e32ed1532fda7b9d420912",
       },
     ]);
   });

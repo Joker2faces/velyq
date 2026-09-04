@@ -265,6 +265,36 @@ function assertCatalogReferences(
       );
     }
   }
+  const observationsById = new Map(
+    [...sequence.fixtures, ...sequence.odds, ...sequence.lineups].map(
+      (observation) => [observation.sourceObservationId, observation],
+    ),
+  );
+  for (const scenario of sequence.scenarios) {
+    if (
+      !eventIds.has(scenario.eventId) ||
+      scenario.sourceObservationIds.length === 0 ||
+      scenario.sourceObservationIds.some((id) => {
+        const observation = observationsById.get(id);
+        return (
+          observation === undefined || observation.eventId !== scenario.eventId
+        );
+      }) ||
+      (scenario.teamId !== undefined &&
+        (catalog.participants.find(({ id }) => id === scenario.teamId)?.type !==
+          "TEAM" ||
+          scenario.sourceObservationIds.some((id) => {
+            const observation = observationsById.get(id);
+            return (
+              observation !== undefined &&
+              "teamId" in observation &&
+              observation.teamId !== scenario.teamId
+            );
+          })))
+    ) {
+      throw new Error(`INVALID_CATALOG_REFERENCE:${scenario.id}`);
+    }
+  }
 }
 
 export class SyntheticReplaySource
@@ -357,6 +387,8 @@ export class SyntheticReplaySource
       ["CACHE", "REPOSITORY_FIXTURE"],
       ["REPLAY", "REPOSITORY_FIXTURE"],
       ["RETAIN_NORMALIZED", "NORMALIZED_FIXTURE"],
+      ["RETAIN_NORMALIZED", "NORMALIZED_ODDS"],
+      ["RETAIN_NORMALIZED", "NORMALIZED_LINEUP"],
     ] as const) {
       const decision = evaluateProviderAction(policy.value, {
         ...requestContext,
@@ -603,41 +635,25 @@ export class SyntheticReplaySource
         observation,
       ]),
     );
-    const scenarios: readonly SyntheticScenarioRecord[] = sequence.scenarios
-      ? (sequence.scenarios.map((scenario) => {
-          const oddsObservation =
-            scenario.evidence.kind === "PRICE" &&
-            scenario.sourceObservationIds[0] !== undefined
-              ? oddsBySourceId.get(scenario.sourceObservationIds[0])
-              : undefined;
-          return {
-            ...scenario,
-            ...(oddsObservation === undefined
-              ? {}
-              : {
-                  marketKey: oddsObservation.marketKey,
-                  outcomeKey: oddsObservation.outcomeKey,
-                }),
-            isSynthetic: true as const,
-            syntheticLabel: SYNTHETIC_DATA_LABEL,
-          };
-        }) as readonly SyntheticScenarioRecord[])
-      : ((sequence.scenarioStates ?? []).map((state, index) => ({
+    const scenarios: readonly SyntheticScenarioRecord[] =
+      sequence.scenarios.map((scenario) => {
+        const oddsObservation =
+          scenario.evidence.kind === "PRICE" &&
+          scenario.sourceObservationIds[0] !== undefined
+            ? oddsBySourceId.get(scenario.sourceObservationIds[0])
+            : undefined;
+        return {
+          ...scenario,
+          ...(oddsObservation === undefined
+            ? {}
+            : {
+                marketKey: oddsObservation.marketKey,
+                outcomeKey: oddsObservation.outcomeKey,
+              }),
           isSynthetic: true as const,
           syntheticLabel: SYNTHETIC_DATA_LABEL,
-          id: `${sequence.sequenceName}-scenario-${index}`,
-          state,
-          eventId:
-            sequence.fixtures[0]?.eventId ??
-            sequence.odds[0]?.eventId ??
-            sequence.lineups[0]?.eventId ??
-            "00000000-0000-0000-0000-000000000000",
-          sourceObservationIds: [],
-          evidence: {
-            kind: "ABSENCE" as const,
-            value: "NO_DIRECT_SCENARIO_RECORD",
-          },
-        })) as readonly SyntheticScenarioRecord[]);
+        };
+      }) as readonly SyntheticScenarioRecord[];
     const result = {
       isSynthetic: true as const,
       syntheticLabel: SYNTHETIC_DATA_LABEL,

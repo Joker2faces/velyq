@@ -13,9 +13,7 @@ const sequenceNames = [
 ] as const;
 const fixedClock = "2026-09-03T11:00:00Z";
 
-function policyContext(
-  overrides: Readonly<Record<string, unknown>> = {},
-) {
+function policyContext(overrides: Readonly<Record<string, unknown>> = {}) {
   const parsed = createProviderPolicyContext({
     environment: "TEST",
     territory: "ZZ",
@@ -43,7 +41,7 @@ describe("synthetic repository replay", () => {
 
     expect(JSON.stringify(first)).toBe(JSON.stringify(second));
     expect(first.sourceFixtureHash).toBe(
-      "sha256:18c146aa7d73cc093ecffdc2ca31f009ef6662e18a9ea150297bda2f55101446",
+      "sha256:150cfd25a412920149808f1c919773ea606f05c9c17193bce96d9ca22cf5ac2e",
     );
     expect(first.normalizedOutputHash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(first.normalizedOutputHash).not.toBe(first.sourceFixtureHash);
@@ -64,10 +62,7 @@ describe("synthetic repository replay", () => {
       for (const scenario of replay.scenarios) {
         states.add(scenario.state);
         expect(scenario.eventId).toMatch(/^[0-9a-f-]{36}$/);
-        expect(
-          scenario.sourceObservationIds.length > 0 ||
-            scenario.evidence.kind === "ABSENCE",
-        ).toBe(true);
+        expect(scenario.sourceObservationIds.length).toBeGreaterThan(0);
         if (scenario.evidence.kind === "PRICE") {
           expect(scenario.marketKey).toContain("market-key-v1");
           expect(scenario.outcomeKey).toContain("outcome=");
@@ -232,7 +227,9 @@ describe("synthetic repository replay", () => {
     const mutable = replay as unknown as {
       odds: { observations: Array<{ scenarioStates: string[] }> };
     };
-    expect(() => mutable.odds.observations[0]!.scenarioStates.push("FORGED")).toThrow();
+    expect(() =>
+      mutable.odds.observations[0]!.scenarioStates.push("FORGED"),
+    ).toThrow();
 
     const repeated = await replaySource.replay({
       sequenceName: "sequence-01-opening",
@@ -246,7 +243,9 @@ describe("synthetic repository replay", () => {
       sequenceName: "sequence-01-opening",
       fixedClock,
     });
-    const players = replay.lineups.observations.flatMap(({ players }) => players);
+    const players = replay.lineups.observations.flatMap(
+      ({ players }) => players,
+    );
 
     expect(players.length).toBeGreaterThan(0);
     for (const player of players) {

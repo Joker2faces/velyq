@@ -338,22 +338,10 @@ export const syntheticSequenceSchema = z
     fixtures: z.array(fixtureObservationSchema),
     odds: z.array(oddsObservationSchema),
     lineups: z.array(lineupObservationSchema),
-    scenarios: z.array(syntheticScenarioSchema).min(1).optional(),
-    scenarioStates: z.array(scenarioStateSchema).optional(),
+    scenarios: z.array(syntheticScenarioSchema).min(1),
   })
   .strict()
   .superRefine((sequence, context) => {
-    if (
-      (sequence.scenarios === undefined || sequence.scenarios.length === 0) &&
-      (sequence.scenarioStates === undefined ||
-        sequence.scenarioStates.length === 0)
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Sequence must declare scenarios or scenario states",
-        path: ["scenarios"],
-      });
-    }
     const sourceObservationIds = new Set<string>();
     for (const observation of [
       ...sequence.fixtures,
