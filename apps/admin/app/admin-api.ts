@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PermissionCode, Principal } from "@velyq/auth";
 import type { ProviderRun } from "@velyq/contracts";
+import { createDatabaseAdminRuntime } from "./database-admin";
 
 export type AdminJsonValue =
   | string
@@ -430,4 +431,10 @@ export function createUnavailableAdminApi() {
   });
 }
 
-export const adminApi = createUnavailableAdminApi();
+const databaseRuntime = createDatabaseAdminRuntime();
+export const adminApi = databaseRuntime
+  ? createAdminApi({
+      authenticate: databaseRuntime.authenticator,
+      queries: databaseRuntime.queries,
+    })
+  : createUnavailableAdminApi();
