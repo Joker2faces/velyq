@@ -29,8 +29,7 @@ export function billingPriceConfiguration(
 
 export function paidBillingConfigured() {
   return Boolean(
-    process.env["STRIPE_SECRET_KEY"] &&
-    billingPriceConfiguration(),
+    process.env["STRIPE_SECRET_KEY"] && billingPriceConfiguration(),
   );
 }
 
