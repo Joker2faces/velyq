@@ -6,6 +6,7 @@ import {
   formatTime,
   freshnessLabel,
   freshnessTone,
+  selectionLabel,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -66,7 +67,7 @@ export default async function Radar() {
           </div>
           <div className="page__badges">
             <Badge tone="synthetic" dot>
-              {result.value.syntheticLabel}
+              {t("syntheticData")}
             </Badge>
             <Badge tone="heuristic">{t("observableOnly")}</Badge>
           </div>
@@ -152,7 +153,8 @@ function RadarRow({
             {match.homeTeam} <em>{t("matchVersus")}</em> {match.awayTeam}
           </span>
           <div className="row__sub">
-            {match.selection} · {formatTime(match.startsAt, locale)}
+            {selectionLabel(match.selection, locale)} ·{" "}
+            {formatTime(match.startsAt, locale)}
           </div>
         </div>
         <Badge tone={freshnessTone(match.freshness)} dot>
@@ -178,7 +180,7 @@ function RadarRow({
           <span className="stat__label">{t("radarHistory")}</span>
           <Sparkline
             points={[Number(match.openingOdds), Number(match.currentOdds)]}
-            tone={direction === "up" ? "amber" : "mint"}
+            tone={direction === "up" ? "caution" : "pitch"}
             label={`${t("radarOpening")} ${formatOdds(match.openingOdds, locale)} → ${t(
               "radarCurrent",
             )} ${formatOdds(match.currentOdds, locale)}`}

@@ -10,6 +10,7 @@ import {
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,
+  selectionLabel,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -19,10 +20,9 @@ import { getLocale } from "../locale";
 import { CustomerShell } from "../customer-shell";
 import {
   Badge,
-  Bar,
   Card,
   CardHead,
-  Compare,
+  EdgeAxis,
   EmptyState,
   ErrorState,
   Explain,
@@ -67,7 +67,7 @@ export default async function Edge() {
           </div>
           <div className="page__badges">
             <Badge tone="synthetic" dot>
-              {result.value.syntheticLabel}
+              {t("syntheticData")}
             </Badge>
             <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
           </div>
@@ -156,7 +156,7 @@ function EdgeRow({
             {match.homeTeam} <em>{t("matchVersus")}</em> {match.awayTeam}
           </span>
           <div className="row__sub">
-            {t("todayFullTime1x2")} · {match.selection}
+            {t("todayFullTime1x2")} · {selectionLabel(match.selection, locale)}
           </div>
         </div>
         <div className="page__badges">
@@ -192,33 +192,23 @@ function EdgeRow({
         />
       </div>
 
-      {/* Model against market on one shared axis: the comparison that the
-          whole page exists to make. */}
-      <Compare
-        rows={[
-          {
-            name: t("edgeColumnModelProbability"),
-            value: match.modelProbability,
-            display: formatProbability(match.modelProbability, locale),
-          },
-          {
-            name: t("edgeColumnImpliedProbability"),
-            value: match.impliedProbability,
-            display: formatProbability(match.impliedProbability, locale),
-            tone: "lilac",
-          },
-        ]}
+      {/* The one picture the page exists to make: model and market on a
+          single probability axis, with the gap between them shaded. */}
+      <EdgeAxis
+        modelProbability={match.modelProbability}
+        impliedProbability={match.impliedProbability}
+        modelDisplay={formatProbability(match.modelProbability, locale)}
+        impliedDisplay={formatProbability(match.impliedProbability, locale)}
+        modelLabel={t("edgeColumnModelProbability")}
+        marketLabel={t("edgeColumnImpliedProbability")}
+        caption={t("edgeAxisCaption", {
+          model: formatProbability(match.modelProbability, locale),
+          market: formatProbability(match.impliedProbability, locale),
+          edge: formatPercent(match.probabilityEdge, 1, locale),
+        })}
       />
 
       <div className="row__foot">
-        <div style={{ flex: "1 1 12rem", minWidth: 0 }}>
-          <Bar
-            value={match.expectedValue}
-            magnitude={0.2}
-            tone={numeric(match.expectedValue) >= 0 ? "mint" : "rose"}
-            label={`${t("edgeColumnEv")}: ${formatPercent(match.expectedValue, 1, locale)}`}
-          />
-        </div>
         <span className="row__sub">{t("openMatchIntelligence")} →</span>
       </div>
 

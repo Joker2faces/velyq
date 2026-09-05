@@ -143,7 +143,7 @@ export default async function Account() {
             <Card>
               <CardHead
                 title={t("adminConsole")}
-                aside={<Badge tone="lilac">admin.access</Badge>}
+                aside={<Badge tone="market">admin.access</Badge>}
               />
               <p className="row__reason">{t("accountAdminNote")}</p>
               {process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ? (
