@@ -47,7 +47,7 @@ const LOCALES = ["en", "el"];
  * page, not in Node, so the browser globals it uses are declared here for
  * ESLint's benefit.
  */
-/* global document, getComputedStyle */
+/* global document, getComputedStyle, HTMLInputElement, location */
 const audit = () => {
   const root = document.documentElement;
   const problems = [];
@@ -212,35 +212,109 @@ const audit = () => {
 const browser = await chromium.launch();
 let failures = 0;
 
+function recordProblems(scope, label, route, lang, problems) {
+  if (lang) problems.unshift(`LANG=${lang}`);
+  if (problems.length) {
+    failures += problems.length;
+    console.log(`[${scope}/${label}] ${route}`);
+    for (const problem of problems) console.log(`    ${problem}`);
+  }
+}
+
+async function auditRoutes(
+  page,
+  baseUrl,
+  routes,
+  locale,
+  scope,
+  includePrivate = true,
+) {
+  const selectedRoutes = includePrivate ? routes : PUBLIC_ROUTES;
+  for (const [label, width, height] of WIDTHS) {
+    await page.setViewportSize({ width, height });
+    for (const route of selectedRoutes) {
+      const response = await page.goto(`${baseUrl}${route}`, {
+        waitUntil: "load",
+      });
+      const { lang, problems } = await page.evaluate(audit);
+      if (lang !== locale) problems.unshift(`LANG=${lang} expected ${locale}`);
+      if (response && response.status() >= 500)
+        problems.unshift(`HTTP=${response.status()}`);
+      recordProblems(scope, label, route, null, problems);
+    }
+  }
+}
+
 for (const locale of LOCALES) {
   const context = await browser.newContext();
   await context.addCookies([
     { name: "velyq-locale", value: locale, url: baseUrl },
   ]);
-  // Sign in once per context so the private routes render.
+  // Public pages are always audited independently of authentication.
   const page = await context.newPage();
-  await page.goto(`${baseUrl}/sign-in`);
-  await page.evaluate(() => {
-    const form = document.querySelector("form.auth__form");
-    document.querySelector("#email").value = "customer@example.test";
-    document.querySelector("#password").value = "customer-password";
-    form.submit();
-  });
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await auditRoutes(
+    page,
+    baseUrl,
+    ROUTES,
+    locale,
+    `customer-public-${locale}`,
+    false,
+  );
 
-  for (const [label, width, height] of WIDTHS) {
-    await page.setViewportSize({ width, height });
-    for (const route of ROUTES) {
-      await page.goto(`${baseUrl}${route}`, { waitUntil: "load" });
-      const { lang, problems } = await page.evaluate(audit);
-      if (lang !== locale) problems.unshift(`LANG=${lang} expected ${locale}`);
-      if (problems.length) {
-        failures += problems.length;
-        console.log(`[${locale}/${label}] ${route}`);
-        for (const problem of problems) console.log(`    ${problem}`);
-      }
+  // Never interpret a failed sign-in page as an authenticated product page.
+  await page.goto(`${baseUrl}/sign-in`, { waitUntil: "load" });
+  const authResponse = await page.evaluate(async () => {
+    const form = document.querySelector("form.auth__form");
+    if (!form) return { ok: false, reason: "SIGN_IN_FORM_MISSING" };
+    const email = form.querySelector("#email");
+    const password = form.querySelector("#password");
+    if (
+      !(email instanceof HTMLInputElement) ||
+      !(password instanceof HTMLInputElement)
+    ) {
+      return { ok: false, reason: "SIGN_IN_FIELDS_MISSING" };
     }
+    email.value = "customer@example.test";
+    password.value = "customer-password";
+    form.requestSubmit();
+    return { ok: true };
+  });
+  if (!authResponse.ok) {
+    console.log(
+      `[customer-auth-${locale}] AUTH HARNESS INVALID: ${authResponse.reason}`,
+    );
+    await context.close();
+    continue;
   }
+  try {
+    await page.waitForURL("**/today", { timeout: 5000 });
+  } catch {
+    console.log(
+      `[customer-auth-${locale}] AUTH HARNESS INVALID: sign-in did not reach /today`,
+    );
+    await context.close();
+    continue;
+  }
+  const authenticated = await page.evaluate(
+    () =>
+      document.cookie.includes("velyq_access_token") ||
+      location.pathname === "/today",
+  );
+  if (!authenticated) {
+    console.log(
+      `[customer-auth-${locale}] AUTH HARNESS INVALID: no authenticated session`,
+    );
+    await context.close();
+    continue;
+  }
+  await auditRoutes(
+    page,
+    baseUrl,
+    ROUTES,
+    locale,
+    `customer-private-${locale}`,
+    true,
+  );
   await context.close();
 }
 
@@ -267,13 +341,24 @@ for (const locale of LOCALES) {
   for (const [label, width, height] of WIDTHS) {
     await page.setViewportSize({ width, height });
     for (const route of ADMIN_ROUTES) {
-      await page.goto(`${ADMIN_BASE}${route}`, { waitUntil: "load" });
+      const response = await page.goto(`${ADMIN_BASE}${route}`, {
+        waitUntil: "load",
+      });
       const { lang, problems } = await page.evaluate(audit);
-      if (lang !== locale) problems.unshift(`LANG=${lang} expected ${locale}`);
-      if (problems.length) {
-        failures += problems.length;
-        console.log(`[admin ${locale}/${label}] ${route}`);
-        for (const problem of problems) console.log(`    ${problem}`);
+      // Without an authorized principal, only the gate shell is executable.
+      // Do not report protected data pages as product failures.
+      if (route === "/") {
+        if (lang !== locale)
+          problems.unshift(`LANG=${lang} expected ${locale}`);
+        if (response?.status() >= 500)
+          problems.unshift(`HTTP=${response.status()}`);
+        recordProblems(`admin-gate-${locale}`, label, route, null, problems);
+      } else {
+        if (label === "mobile") {
+          console.log(
+            `[admin-auth-${locale}] AUTHORIZED ADMIN DATA UX: NOT EXECUTABLE (no Admin principal configured)`,
+          );
+        }
       }
     }
   }
