@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { barPercent, directionOf, type Tone } from "@velyq/ui";
+import type { CSSProperties, ReactNode } from "react";
+import { axisPercent, barPercent, directionOf, type Tone } from "@velyq/ui";
 import {
   IconAlert,
   IconArrowDown,
@@ -133,17 +133,17 @@ export function Stat({
 export function Bar({
   value,
   magnitude,
-  tone = "mint",
+  tone = "pitch",
   label,
 }: {
   value: string | null | undefined;
   magnitude: number;
-  tone?: "mint" | "amber" | "lilac" | "rose" | "muted";
+  tone?: "pitch" | "caution" | "market" | "negative" | "muted";
   label?: string;
 }) {
   const percent = barPercent(value, magnitude);
   const fillClass =
-    tone === "mint" ? "bar__fill" : `bar__fill bar__fill--${tone}`;
+    tone === "pitch" ? "bar__fill" : `bar__fill bar__fill--${tone}`;
   return (
     <div
       className="bar"
@@ -167,7 +167,7 @@ export function Compare({
     name: string;
     display: string;
     value: string | null;
-    tone?: "mint" | "amber" | "lilac" | "muted";
+    tone?: "pitch" | "caution" | "market" | "muted";
   }[];
 }) {
   return (
@@ -178,13 +178,89 @@ export function Compare({
           <Bar
             value={row.value}
             magnitude={1}
-            tone={row.tone ?? "mint"}
+            tone={row.tone ?? "pitch"}
             label={`${row.name}: ${row.display}`}
           />
           <span className="compare__value">{row.display}</span>
         </div>
       ))}
     </div>
+  );
+}
+
+// ------------------------------------------------------------- edge axis
+
+/**
+ * The EDGE axis — VELYQ's signature analytic visual.
+ *
+ * One 0-100% probability scale carrying both the market's implied
+ * probability and the model's probability. The shaded span between them is
+ * the edge itself, so the reader sees the gap instead of subtracting two
+ * percentages in their head.
+ *
+ * Marker positions are derived with `axisPercent`, which parses the
+ * canonical decimal string to a plain number first; no arithmetic is ever
+ * performed on a branded domain value.
+ */
+export function EdgeAxis({
+  modelProbability,
+  impliedProbability,
+  modelDisplay,
+  impliedDisplay,
+  modelLabel,
+  marketLabel,
+  caption,
+}: {
+  modelProbability: string | null;
+  impliedProbability: string | null;
+  modelDisplay: string;
+  impliedDisplay: string;
+  modelLabel: string;
+  marketLabel: string;
+  caption: string;
+}) {
+  const model = axisPercent(modelProbability);
+  const market = axisPercent(impliedProbability);
+  if (model === null || market === null) return null;
+
+  const start = Math.min(model, market);
+  const width = Math.abs(model - market);
+  const modelIsAhead = model >= market;
+
+  return (
+    <figure className="edgeaxis" style={{ margin: 0 }}>
+      <div
+        className="edgeaxis__track"
+        role="img"
+        aria-label={caption}
+        style={
+          {
+            "--span-start": `${start}%`,
+            "--span-width": `${width}%`,
+            "--model-position": `${model}%`,
+            "--market-position": `${market}%`,
+          } as CSSProperties
+        }
+      >
+        <span
+          className={`edgeaxis__span${modelIsAhead ? "" : " edgeaxis__span--negative"}`}
+        />
+        <span className="edgeaxis__marker edgeaxis__marker--market" />
+        <span className="edgeaxis__marker edgeaxis__marker--model" />
+      </div>
+      <div className="edgeaxis__legend">
+        <span className="edgeaxis__key">
+          <span className="edgeaxis__swatch edgeaxis__swatch--model" />
+          {modelLabel}
+          <b className="edgeaxis__value">{modelDisplay}</b>
+        </span>
+        <span className="edgeaxis__key">
+          <span className="edgeaxis__swatch edgeaxis__swatch--market" />
+          {marketLabel}
+          <b className="edgeaxis__value">{impliedDisplay}</b>
+        </span>
+      </div>
+    </figure>
   );
 }
 
@@ -198,11 +274,11 @@ export function Compare({
  */
 export function Sparkline({
   points,
-  tone = "mint",
+  tone = "pitch",
   label,
 }: {
   points: readonly number[];
-  tone?: "mint" | "amber";
+  tone?: "pitch" | "caution";
   label: string;
 }) {
   if (points.length < 2) return null;
@@ -228,14 +304,14 @@ export function Sparkline({
     >
       <polyline
         className={
-          tone === "mint" ? "spark__line" : "spark__line spark__line--amber"
+          tone === "pitch" ? "spark__line" : "spark__line spark__line--caution"
         }
         pathLength={1}
         points={coords.join(" ")}
       />
       <circle
         className={
-          tone === "mint" ? "spark__dot" : "spark__dot spark__dot--amber"
+          tone === "pitch" ? "spark__dot" : "spark__dot spark__dot--caution"
         }
         cx={last[0]}
         cy={last[1]}

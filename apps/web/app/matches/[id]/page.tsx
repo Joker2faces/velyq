@@ -15,6 +15,7 @@ import {
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,
+  selectionLabel,
   translator,
 } from "@velyq/ui";
 import { loadCustomerMatch } from "../../customer-runtime";
@@ -26,8 +27,8 @@ import {
   Bar,
   Card,
   CardHead,
-  Compare,
   DefinitionList,
+  EdgeAxis,
   ErrorState,
   Explain,
   Sparkline,
@@ -99,7 +100,7 @@ export default async function Match({
           </div>
           <div className="page__badges">
             <Badge tone="synthetic" dot>
-              {match.syntheticLabel}
+              {t("syntheticData")}
             </Badge>
             <Badge tone={qualityTone(match.quality.grade)}>
               {t("matchGrade")} {match.quality.grade}
@@ -115,7 +116,7 @@ export default async function Match({
               <div className="lead__verdict">
                 <h2>{recommendationLabel(match.recommendation, locale)}</h2>
                 <Badge tone={recommendationTone(match.recommendation)} dot>
-                  {match.selection}
+                  {selectionLabel(match.selection, locale)}
                 </Badge>
               </div>
               {/* The reason travels with the verdict rather than sitting a
@@ -155,26 +156,27 @@ export default async function Match({
               <CardHead title={t("matchMarket")} />
               {hasEstimate ? (
                 <>
-                  <Compare
-                    rows={[
-                      {
-                        name: t("matchModelProbability"),
-                        value: match.modelProbability,
-                        display: formatProbability(
-                          match.modelProbability,
-                          locale,
-                        ),
-                      },
-                      {
-                        name: t("matchImpliedProbability"),
-                        value: match.impliedProbability,
-                        display: formatProbability(
-                          match.impliedProbability,
-                          locale,
-                        ),
-                        tone: "lilac",
-                      },
-                    ]}
+                  <EdgeAxis
+                    modelProbability={match.modelProbability}
+                    impliedProbability={match.impliedProbability}
+                    modelDisplay={formatProbability(
+                      match.modelProbability,
+                      locale,
+                    )}
+                    impliedDisplay={formatProbability(
+                      match.impliedProbability,
+                      locale,
+                    )}
+                    modelLabel={t("matchModelProbability")}
+                    marketLabel={t("matchImpliedProbability")}
+                    caption={t("edgeAxisCaption", {
+                      model: formatProbability(match.modelProbability, locale),
+                      market: formatProbability(
+                        match.impliedProbability,
+                        locale,
+                      ),
+                      edge: formatPercent(match.probabilityEdge, 1, locale),
+                    })}
                   />
                   <div
                     className="row__stats"
@@ -189,7 +191,10 @@ export default async function Match({
                       label={t("matchCurrentOdds")}
                       value={formatOdds(match.currentOdds, locale)}
                     />
-                    <Stat label={t("matchSelection")} value={match.selection} />
+                    <Stat
+                      label={t("matchSelection")}
+                      value={selectionLabel(match.selection, locale)}
+                    />
                   </div>
                 </>
               ) : (
@@ -197,7 +202,7 @@ export default async function Match({
               )}
             </Card>
 
-            <Card>
+            <Card className="sweep">
               <CardHead
                 title={t("matchRadarEvidence")}
                 aside={
@@ -213,7 +218,7 @@ export default async function Match({
                       Number(match.openingOdds),
                       Number(match.currentOdds),
                     ]}
-                    tone={direction === "up" ? "amber" : "mint"}
+                    tone={direction === "up" ? "caution" : "pitch"}
                     label={t("matchOpeningToCurrent", {
                       opening: formatOdds(match.openingOdds, locale),
                       current: formatOdds(match.currentOdds, locale),
@@ -274,10 +279,10 @@ export default async function Match({
                   magnitude={1}
                   tone={
                     match.quality.grade === "A" || match.quality.grade === "B"
-                      ? "mint"
+                      ? "pitch"
                       : match.quality.grade === "F"
-                        ? "rose"
-                        : "amber"
+                        ? "negative"
+                        : "caution"
                   }
                   label={`${t("matchGrade")} ${match.quality.grade}`}
                 />
@@ -290,7 +295,7 @@ export default async function Match({
                 {match.quality.reasonCodes.length > 0 ? (
                   reasonLabels(match.quality.reasonCodes, locale).map(
                     (reason) => (
-                      <Badge key={reason} tone="amber">
+                      <Badge key={reason} tone="caution">
                         {reason}
                       </Badge>
                     ),

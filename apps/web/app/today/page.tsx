@@ -16,6 +16,7 @@ import {
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,
+  selectionLabel,
   translator,
 } from "@velyq/ui";
 import type { CustomerMatchDto } from "@velyq/contracts";
@@ -94,6 +95,11 @@ export default async function Today() {
       match.currentOdds !== null,
   );
   const lead = actionable[0];
+  /* The one list on this page ordered by time rather than signal strength:
+     a matchday card, so the reader can see what is still to come. */
+  const kickoffs = [...matches]
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .slice(0, 6);
   const movements = matches
     .filter((match) => match.movementPercent !== null)
     .sort(compareByMovementDescending)
@@ -114,7 +120,7 @@ export default async function Today() {
           </div>
           <div className="page__badges">
             <Badge tone="synthetic" dot>
-              {today.syntheticLabel}
+              {t("syntheticData")}
             </Badge>
             <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
           </div>
@@ -136,7 +142,7 @@ export default async function Today() {
                 <p className="lead__headline">
                   {t("todayLeadStrong", {
                     match: `${lead.homeTeam} — ${lead.awayTeam}`,
-                    selection: lead.selection,
+                    selection: selectionLabel(lead.selection, locale),
                     odds: formatOdds(lead.currentOdds, locale),
                     model: formatProbability(lead.modelProbability, locale),
                     implied: formatProbability(lead.impliedProbability, locale),
@@ -238,7 +244,8 @@ export default async function Today() {
                   >
                     <div className="row__head">
                       <span className="row__teams">
-                        {match.homeTeam} <em>·</em> {match.selection}
+                        {match.homeTeam} <em>·</em>{" "}
+                        {selectionLabel(match.selection, locale)}
                       </span>
                       <Badge tone={freshnessTone(match.freshness)}>
                         {freshnessLabel(match.freshness, locale)}
@@ -267,6 +274,39 @@ export default async function Today() {
               )}
             </Card>
           </div>
+
+          <Card>
+            <CardHead title={t("todayKickoffs")} />
+            {kickoffs.length === 0 ? (
+              <EmptyState
+                title={t("todayKickoffsEmpty")}
+                body={t("dataUnavailableBody")}
+              />
+            ) : (
+              <ol className="kickoffs">
+                {kickoffs.map((match) => (
+                  <li key={match.eventId}>
+                    <Link
+                      className="kickoff"
+                      href={`/matches/${match.eventId}`}
+                    >
+                      <time className="kickoff__time">
+                        {formatTime(match.startsAt, locale)}
+                      </time>
+                      <span className="kickoff__teams">
+                        {match.homeTeam}
+                        <em className="row__vs">{t("matchVersus")}</em>
+                        {match.awayTeam}
+                      </span>
+                      <Badge tone={recommendationTone(match.recommendation)}>
+                        {recommendationLabel(match.recommendation, locale)}
+                      </Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Card>
 
           <div className="split">
             <Card>
@@ -367,7 +407,7 @@ function MatchRow({
         </Badge>
       </div>
       <span className="row__sub">
-        {t("todayFullTime1x2")} · {match.selection} ·{" "}
+        {t("todayFullTime1x2")} · {selectionLabel(match.selection, locale)} ·{" "}
         {formatTime(match.startsAt, locale)}
       </span>
       <div className="row__stats">

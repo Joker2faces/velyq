@@ -114,7 +114,7 @@ describe("bilingual catalog", () => {
     expect(translate("authForgotPassword", "el")).toBe(
       "Ξέχασες τον κωδικό σου;",
     );
-    expect(translate("radarMarketMovement", "el")).toBe("Κίνηση αγοράς");
+    expect(translate("radarMarketMovement", "el")).toBe("Κίνηση αποδόσεων");
   });
 
   it("keeps brand and product names untranslated in both locales", () => {
@@ -158,6 +158,39 @@ describe("bilingual catalog", () => {
       (key) => !shared.has(key) && translations.el[key] === messages[key],
     );
     expect(untranslated).toEqual([]);
+  });
+
+  it("keeps the Greek register conversational and football-native", () => {
+    // Terminology the native-copy review rejected. These are not stylistic
+    // nits: each one made the product read as machine-translated, and the
+    // owner rejected the previous catalog for exactly this.
+    const banned: readonly [string, string][] = [
+      ["επικαιρότητ", "means 'current affairs', not data freshness"],
+      ["τεκμαρτ", "academic; the product says 'πιθανότητα αγοράς'"],
+      ["διακομιστ", "dated formalism for 'server'"],
+      ["συνεδρί", "reads as a medical appointment, not a login session"],
+      ["σύνθεση", "football Greek says 'ενδεκάδα' for the starting eleven"],
+    ];
+    const offenders = Object.entries(translations.el).flatMap(([key, value]) =>
+      banned
+        .filter(([term]) => value.includes(term))
+        .map(([term, why]) => `${key}: "${term}" — ${why}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("never phrases a model state as betting advice in Greek", () => {
+    // NO_BET is a state the model reports, never an instruction to the
+    // customer; «Όχι στοίχημα» would read as the latter.
+    expect(translate("recNoBet", "el")).toBe("Χωρίς πρόταση");
+    expect(translate("recNoBet", "el")).not.toContain("στοίχημα");
+  });
+
+  it("uses the Greek question mark, never the Latin one", () => {
+    const latinQuestions = Object.entries(translations.el)
+      .filter(([, value]) => value.includes("?"))
+      .map(([key]) => key);
+    expect(latinQuestions).toEqual([]);
   });
 
   it("interpolates named values", () => {

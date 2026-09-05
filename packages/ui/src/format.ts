@@ -130,6 +130,20 @@ export function barPercent(
 }
 
 /**
+ * Maps a fractional probability (0-1) onto a 0-100 axis position.
+ *
+ * Returns `null` rather than 0 when the value is unavailable, so a caller can
+ * tell "no estimate" apart from "zero probability" and hide the marker
+ * instead of parking it at the far left of the scale.
+ */
+export function axisPercent(value: string | null | undefined): number | null {
+  const parsed = toFiniteNumber(value);
+  if (parsed === null) return null;
+  const clamped = Math.min(1, Math.max(0, parsed));
+  return Math.round(clamped * 1000) / 10;
+}
+
+/**
  * Renders an ISO timestamp in UTC. The output is intentionally stable across
  * locales for the date part ordering so that traces stay comparable.
  */

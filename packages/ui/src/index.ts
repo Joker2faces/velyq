@@ -18,6 +18,7 @@ export {
 
 export {
   EMPTY_VALUE,
+  axisPercent,
   barPercent,
   directionOf,
   formatCount,
@@ -54,6 +55,7 @@ export {
   qualityTone,
   reasonLabel,
   reasonLabels,
+  selectionLabel,
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,
