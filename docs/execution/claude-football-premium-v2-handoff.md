@@ -102,10 +102,14 @@ with no copy change needed.
 
 ## 5. Conflict report against your branches
 
-Checked at `origin` as of this branch's creation.
+Checked at `origin` as of this branch's creation, then re-checked at push
+time. `codex/backend-hardening` advanced from `d479ec6` to `614cffc` while
+this work was in progress; the added commit (`chore: align Supabase migration
+versions`) touches only `supabase/migrations/**` and has **zero intersection**
+with our file set, so the analysis below still holds.
 
 - **`origin/codex/backend-hardening` == `origin/integration/phase-1`
-  (`d479ec6`) already contains our V1 work** (`ea73d87 merge: integrate
+  (`614cffc`) already contains our V1 work** (`ea73d87 merge: integrate
   reviewed premium UX`). Its only change to our V1 file set was
   `apps/web/app/plan-config.ts`.
 - **Rebase or merge V2 onto `codex/backend-hardening`, not onto
