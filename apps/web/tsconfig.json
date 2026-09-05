@@ -1,0 +1,16 @@
+{
+  "extends": "../../tooling/typescript/next.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "proxy.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "test/**/*.ts",
+    ".next/types/**/*.ts"
+  ]
+}

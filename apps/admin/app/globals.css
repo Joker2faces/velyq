@@ -1,0 +1,849 @@
+/* ==========================================================================
+   VELYQ admin console
+   --------------------------------------------------------------------------
+   Composition for platform operations. Tokens, reset and primitives come from
+   the shared foundation in @velyq/ui, so the admin console and the customer
+   app cannot drift apart typographically or chromatically.
+
+   The one deliberate divergence: operations leads with the analytical cyan
+   (`--signal`) rather than pitch emerald, and the pitch motif is absent. This
+   is the platform behind the product, not the product.
+   ========================================================================== */
+
+@import "@velyq/ui/tokens.css";
+
+:root {
+  /* Operations accent. Everything else is inherited. */
+  --ops: var(--signal);
+  --ops-strong: var(--signal-strong);
+  --ops-dim: var(--signal-dim);
+  --ops-sidebar: 260px;
+}
+
+/* The eyebrow and brand tag are emerald in the customer app; here they take
+   the operations accent so the two surfaces read as siblings, not clones. */
+.eyebrow,
+.brand__tag,
+.brand__logo {
+  color: var(--ops);
+}
+
+/* --------------------------------------------------------------- 1. shell */
+
+.ops {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.ops__sidebar {
+  display: none;
+}
+
+.ops__topbar {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  background: rgba(7, 11, 13, 0.86);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-3) var(--gutter);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.ops__status {
+  align-items: center;
+  color: var(--text-muted);
+  display: none;
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  gap: var(--space-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ops__status .badge__dot {
+  color: var(--ops);
+}
+
+.ops__topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ops__main {
+  min-width: 0;
+  padding-bottom: var(--space-9);
+}
+
+.ops__bottomnav {
+  backdrop-filter: blur(14px);
+  background: rgba(7, 11, 13, 0.95);
+  border-top: 1px solid var(--line);
+  bottom: 0;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  position: sticky;
+  z-index: 30;
+}
+
+.ops__bottomnav a {
+  align-items: center;
+  color: var(--text-muted);
+  display: grid;
+  font-size: 0.6875rem;
+  gap: 3px;
+  justify-items: center;
+  min-height: 58px;
+  padding: var(--space-2) var(--space-1);
+  text-align: center;
+}
+
+.ops__bottomnav a[aria-current="page"] {
+  color: var(--ops);
+}
+
+/* ---------------------------------------------------------- 2. page frame */
+
+.ops-page {
+  margin: 0 auto;
+  max-width: var(--page-max);
+  padding: var(--space-6) var(--gutter) 0;
+  width: 100%;
+}
+
+.ops-page__head {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.ops-page__head-copy {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 64ch;
+}
+
+.ops-page__head h1 {
+  font-size: var(--text-3xl);
+}
+
+.ops-page__head p:not(.eyebrow) {
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- 3. metrics */
+
+.ops-metrics {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  margin-bottom: var(--space-5);
+}
+
+.ops-metric {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.ops-metric__label {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ops-metric__value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.ops-metric__note {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+/* --------------------------------------------------------------- 4. table
+
+   Above 60rem this is a real table, which is the right tool for dense
+   operational data. Below that each row collapses into a stacked card using
+   the header text supplied by `data-label`, so an operator on a phone reads
+   records rather than a horizontally scrolling grid. */
+
+.ops-table-wrap {
+  overflow-x: auto;
+}
+
+.ops-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ops-table caption {
+  text-align: left;
+}
+
+.ops-table th {
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ops-table td {
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  vertical-align: top;
+}
+
+.ops-table tbody tr:hover {
+  background: linear-gradient(90deg, var(--ops-dim), transparent 62%);
+}
+
+.ops-table strong {
+  display: block;
+  font-size: var(--text-sm);
+}
+
+.ops-table small {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.ops-table td.ops-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 60rem) {
+  .ops-table,
+  .ops-table tbody,
+  .ops-table tr,
+  .ops-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .ops-table thead {
+    display: none;
+  }
+
+  .ops-table tr {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .ops-table td {
+    border-bottom: 0;
+    display: grid;
+    gap: var(--space-1);
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    padding: var(--space-2) 0;
+  }
+
+  .ops-table td::before {
+    color: var(--text-muted);
+    content: attr(data-label);
+    font-family: var(--font-label);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+/* --------------------------------------------------------------- 5. gate */
+
+.ops-gate {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 100vh;
+  padding: var(--space-6) var(--gutter);
+  background:
+    radial-gradient(
+      36rem 22rem at 78% -10%,
+      rgba(111, 212, 232, 0.12),
+      transparent 64%
+    ),
+    var(--bg);
+}
+
+.ops-gate__card {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 27rem;
+  width: 100%;
+}
+
+.ops-gate__card h1 {
+  font-size: var(--text-3xl);
+}
+
+.ops-gate__body {
+  color: var(--text-muted);
+}
+
+.ops-gate__form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ops-gate__note {
+  border-top: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  padding-top: var(--space-4);
+}
+
+/* ------------------------------------------------------- 6. status chips */
+
+.ops-status {
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  gap: var(--space-2);
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.65rem;
+  white-space: nowrap;
+}
+
+.ops-status--succeeded,
+.ops-status--completed {
+  background: var(--pitch-dim);
+  border-color: var(--pitch-strong);
+  color: var(--pitch);
+}
+
+.ops-status--running,
+.ops-status--pending {
+  background: var(--ops-dim);
+  border-color: var(--ops-strong);
+  color: var(--ops);
+}
+
+.ops-status--failed,
+.ops-status--rejected {
+  background: var(--clay-dim);
+  border-color: var(--clay-strong);
+  color: var(--clay);
+}
+
+/* ------------------------------------------------------- 7. link tiles */
+
+.ops-tiles {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+
+.ops-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease);
+}
+
+.ops-tile:hover {
+  border-color: var(--ops-strong);
+  transform: translateY(-2px);
+}
+
+.ops-tile strong {
+  font-size: var(--text-base);
+}
+
+.ops-tile span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ------------------------------------------------------- 8. breakpoints */
+
+@media (min-width: 70rem) {
+  .ops {
+    grid-template-areas:
+      "sidebar topbar"
+      "sidebar main";
+    grid-template-columns: var(--ops-sidebar) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .ops__sidebar {
+    background: var(--bg-raised);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    grid-area: sidebar;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: var(--space-5) var(--space-4);
+    position: sticky;
+    top: 0;
+  }
+
+  .ops__topbar {
+    grid-area: topbar;
+    justify-content: flex-start;
+  }
+
+  .ops__topbar .brand,
+  .ops__topbar-actions {
+    display: none;
+  }
+
+  .ops__status {
+    display: flex;
+  }
+
+  .ops__main {
+    grid-area: main;
+    padding-bottom: var(--space-8);
+  }
+
+  .ops__bottomnav {
+    display: none;
+  }
+
+  .ops__nav {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .ops__group {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .ops__group-heading {
+    color: var(--text-faint);
+    font-family: var(--font-label);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.12em;
+    margin: 0 0 var(--space-2) var(--space-3);
+    text-transform: uppercase;
+  }
+
+  .ops__nav a {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    display: flex;
+    font-size: var(--text-sm);
+    gap: var(--space-3);
+    min-height: 44px;
+    padding: var(--space-3);
+    transition:
+      background-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .ops__nav a:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .ops__nav a[aria-current="page"] {
+    background: var(--ops-dim);
+    border-color: var(--ops-strong);
+    color: var(--ops);
+  }
+
+  .ops__foot {
+    display: grid;
+    gap: var(--space-3);
+    margin-top: auto;
+  }
+
+  .ops__note {
+    color: var(--text-faint);
+    font-family: var(--font-label);
+    font-size: var(--text-2xs);
+    line-height: 1.7;
+  }
+}
+
+/* --------------------------------------------- 9. legacy class compatibility
+
+   The detail pages (provider runs, predictions, scores, quality, audit) carry
+   markup from the previous admin design. Rather than rewrite data-bearing
+   pages purely to rename classes — which risks their query logic for no
+   product gain — the old class names are mapped onto the new system here.
+
+   Anything added from now on should use the `.ops-*` classes directly. */
+
+.page-heading {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 auto var(--space-6);
+  max-width: var(--page-max);
+  padding: var(--space-6) var(--gutter) 0;
+  width: 100%;
+}
+
+.page-heading h1 {
+  font-size: var(--text-3xl);
+}
+
+.page-heading p:not(.eyebrow) {
+  color: var(--text-muted);
+  max-width: 64ch;
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 auto;
+  max-width: var(--page-max);
+  padding: var(--space-6) var(--gutter) var(--space-5);
+  width: 100%;
+}
+
+.hero h1 {
+  font-size: var(--text-3xl);
+}
+
+.lede {
+  color: var(--text-muted);
+  max-width: 64ch;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.badges span {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.65rem;
+}
+
+.summary-grid,
+.link-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  margin: 0 auto var(--space-5);
+  max-width: var(--page-max);
+  padding: 0 var(--gutter);
+  width: 100%;
+}
+
+.summary-grid article {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.summary-grid span {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.summary-grid strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.summary-grid small {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+.link-grid a {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease);
+}
+
+.link-grid a:hover {
+  border-color: var(--ops-strong);
+  transform: translateY(-2px);
+}
+
+.link-grid span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 0 auto var(--space-5);
+  max-width: var(--page-max);
+  padding: var(--space-5);
+  width: calc(100% - 2 * var(--gutter));
+}
+
+.panel-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.panel-heading h2 {
+  font-size: var(--text-lg);
+}
+
+.panel-heading a {
+  color: var(--ops);
+  font-size: var(--text-sm);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.table-wrap th {
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table-wrap td {
+  border-bottom: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  vertical-align: top;
+}
+
+.table-wrap tbody tr:hover {
+  background: linear-gradient(90deg, var(--ops-dim), transparent 62%);
+}
+
+.table-wrap strong {
+  color: var(--text);
+  display: block;
+}
+
+.table-wrap small {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.table-wrap a {
+  color: var(--ops);
+  white-space: nowrap;
+}
+
+/* Operational status chips keep their meaning from the previous design. */
+.status {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  display: inline-block;
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+}
+
+.status-succeeded,
+.status-completed,
+.status-accepted {
+  background: var(--pitch-dim);
+  border-color: var(--pitch-strong);
+  color: var(--pitch);
+}
+
+.status-running,
+.status-pending {
+  background: var(--ops-dim);
+  border-color: var(--ops-strong);
+  color: var(--ops);
+}
+
+.status-failed,
+.status-rejected {
+  background: var(--clay-dim);
+  border-color: var(--clay-strong);
+  color: var(--clay);
+}
+
+.status.synthetic {
+  background: var(--signal-dim);
+  border-color: var(--signal-strong);
+  color: var(--signal);
+}
+
+/* The previous full-page gate markup. */
+.auth-page {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 100vh;
+  padding: var(--space-6) var(--gutter);
+}
+
+.auth-card {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 27rem;
+  width: 100%;
+}
+
+.auth-card h1 {
+  font-size: var(--text-2xl);
+}
+
+.auth-card p {
+  color: var(--text-muted);
+}
+
+.auth-card a {
+  color: var(--ops);
+}
+
+.auth-card label {
+  color: var(--text-secondary);
+  display: grid;
+  font-size: var(--text-sm);
+  font-weight: 560;
+  gap: var(--space-2);
+}
+
+.auth-card input {
+  background: var(--bg-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  min-height: 50px;
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+}
+
+.auth-card input:focus {
+  border-color: var(--ops-strong);
+  box-shadow: 0 0 0 3px var(--ops-dim);
+  outline: none;
+}
+
+.auth-card button {
+  background: var(--ops);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #04161b;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 640;
+  min-height: 46px;
+  padding: var(--space-3) var(--space-5);
+  width: 100%;
+}
+
+.auth-card small {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+.sign-out {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: var(--space-3);
+  width: 100%;
+}
+
+.trace,
+.factor-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+/* Inline links inside operational tables and gates still need a real target
+   height; they are dense data links, not body prose. */
+.table-wrap a,
+.auth-card a,
+.panel-heading a,
+.ops-table a {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
+}

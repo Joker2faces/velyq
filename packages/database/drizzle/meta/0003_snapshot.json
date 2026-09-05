@@ -1,0 +1,4063 @@
+{
+  "id": "586fc340-4001-4a6b-8023-06f9c8be01d9",
+  "prevId": "85292a1b-7ea3-4506-9747-314bceb53957",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "audit.admin_audit_events": {
+      "name": "admin_audit_events",
+      "schema": "audit",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_type": {
+          "name": "resource_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "before_state": {
+          "name": "before_state",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after_state": {
+          "name": "after_state",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "admin_audit_events_actor_occurred_at_idx": {
+          "name": "admin_audit_events_actor_occurred_at_idx",
+          "columns": [
+            {
+              "expression": "actor_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "admin_audit_events_resource_occurred_at_idx": {
+          "name": "admin_audit_events_resource_occurred_at_idx",
+          "columns": [
+            {
+              "expression": "resource_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "resource_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "admin_audit_events_request_id_idx": {
+          "name": "admin_audit_events_request_id_idx",
+          "columns": [
+            {
+              "expression": "request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "admin_audit_events_actor_user_id_users_id_fk": {
+          "name": "admin_audit_events_actor_user_id_users_id_fk",
+          "tableFrom": "admin_audit_events",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": ["actor_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "catalog.competitions": {
+      "name": "competitions",
+      "schema": "catalog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sport_id": {
+          "name": "sport_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country_code": {
+          "name": "country_code",
+          "type": "char(2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "competitions_sport_id_sports_id_fk": {
+          "name": "competitions_sport_id_sports_id_fk",
+          "tableFrom": "competitions",
+          "tableTo": "sports",
+          "schemaTo": "catalog",
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "competitions_sport_id_code_unique": {
+          "name": "competitions_sport_id_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["sport_id", "code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "catalog.event_participants": {
+      "name": "event_participants",
+      "schema": "catalog",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "event_participants_participant_id_idx": {
+          "name": "event_participants_participant_id_idx",
+          "columns": [
+            {
+              "expression": "participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_participants_event_id_events_id_fk": {
+          "name": "event_participants_event_id_events_id_fk",
+          "tableFrom": "event_participants",
+          "tableTo": "events",
+          "schemaTo": "catalog",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_participants_participant_id_participants_id_fk": {
+          "name": "event_participants_participant_id_participants_id_fk",
+          "tableFrom": "event_participants",
+          "tableTo": "participants",
+          "schemaTo": "catalog",
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "event_participants_pkey": {
+          "name": "event_participants_pkey",
+          "columns": ["event_id", "role"]
+        }
+      },
+      "uniqueConstraints": {
+        "event_participants_event_id_participant_id_unique": {
+          "name": "event_participants_event_id_participant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["event_id", "participant_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "event_participants_role_check": {
+          "name": "event_participants_role_check",
+          "value": "\"catalog\".\"event_participants\".\"role\" in ('HOME', 'AWAY')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "catalog.events": {
+      "name": "events",
+      "schema": "catalog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sport_id": {
+          "name": "sport_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "competition_id": {
+          "name": "competition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "season_label": {
+          "name": "season_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "synthetic": {
+          "name": "synthetic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "events_starts_at_status_idx": {
+          "name": "events_starts_at_status_idx",
+          "columns": [
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "events_competition_id_starts_at_idx": {
+          "name": "events_competition_id_starts_at_idx",
+          "columns": [
+            {
+              "expression": "competition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "events_sport_id_idx": {
+          "name": "events_sport_id_idx",
+          "columns": [
+            {
+              "expression": "sport_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "events_sport_id_sports_id_fk": {
+          "name": "events_sport_id_sports_id_fk",
+          "tableFrom": "events",
+          "tableTo": "sports",
+          "schemaTo": "catalog",
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "events_competition_id_competitions_id_fk": {
+          "name": "events_competition_id_competitions_id_fk",
+          "tableFrom": "events",
+          "tableTo": "competitions",
+          "schemaTo": "catalog",
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "events_phase_one_synthetic_check": {
+          "name": "events_phase_one_synthetic_check",
+          "value": "\"catalog\".\"events\".\"synthetic\" = true"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "catalog.participants": {
+      "name": "participants",
+      "schema": "catalog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sport_id": {
+          "name": "sport_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "participants_sport_id_sports_id_fk": {
+          "name": "participants_sport_id_sports_id_fk",
+          "tableFrom": "participants",
+          "tableTo": "sports",
+          "schemaTo": "catalog",
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "participants_sport_id_type_code_unique": {
+          "name": "participants_sport_id_type_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["sport_id", "type", "code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "participants_type_check": {
+          "name": "participants_type_check",
+          "value": "\"catalog\".\"participants\".\"type\" in ('TEAM', 'PLAYER')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "catalog.sports": {
+      "name": "sports",
+      "schema": "catalog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sports_code_unique": {
+          "name": "sports_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        },
+        "sports_name_key_unique": {
+          "name": "sports_name_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["name_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.calibration_versions": {
+      "name": "calibration_versions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "model_version_id": {
+          "name": "model_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parameters": {
+          "name": "parameters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "calibration_versions_model_version_id_model_versions_id_fk": {
+          "name": "calibration_versions_model_version_id_model_versions_id_fk",
+          "tableFrom": "calibration_versions",
+          "tableTo": "model_versions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["model_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "calibration_versions_model_version_id_version_unique": {
+          "name": "calibration_versions_model_version_id_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["model_version_id", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.data_quality_assessments": {
+      "name": "data_quality_assessments",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "policy_version_id": {
+          "name": "policy_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_outcome_id": {
+          "name": "market_outcome_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_of": {
+          "name": "as_of",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grade": {
+          "name": "grade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numeric_score": {
+          "name": "numeric_score",
+          "type": "numeric(8, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "components": {
+          "name": "components",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason_codes": {
+          "name": "reason_codes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "data_quality_assessments_event_id_as_of_idx": {
+          "name": "data_quality_assessments_event_id_as_of_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "as_of",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "data_quality_assessments_market_outcome_id_as_of_idx": {
+          "name": "data_quality_assessments_market_outcome_id_as_of_idx",
+          "columns": [
+            {
+              "expression": "market_outcome_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "as_of",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "data_quality_assessments_policy_version_id_idx": {
+          "name": "data_quality_assessments_policy_version_id_idx",
+          "columns": [
+            {
+              "expression": "policy_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "data_quality_assessments_policy_version_id_data_quality_policy_versions_id_fk": {
+          "name": "data_quality_assessments_policy_version_id_data_quality_policy_versions_id_fk",
+          "tableFrom": "data_quality_assessments",
+          "tableTo": "data_quality_policy_versions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["policy_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "data_quality_assessments_event_id_events_id_fk": {
+          "name": "data_quality_assessments_event_id_events_id_fk",
+          "tableFrom": "data_quality_assessments",
+          "tableTo": "events",
+          "schemaTo": "catalog",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "data_quality_assessments_market_outcome_id_event_market_outcomes_id_fk": {
+          "name": "data_quality_assessments_market_outcome_id_event_market_outcomes_id_fk",
+          "tableFrom": "data_quality_assessments",
+          "tableTo": "event_market_outcomes",
+          "schemaTo": "market",
+          "columnsFrom": ["market_outcome_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "data_quality_assessments_numeric_score_finite_check": {
+          "name": "data_quality_assessments_numeric_score_finite_check",
+          "value": "\"intelligence\".\"data_quality_assessments\".\"numeric_score\"::text not in ('NaN', 'Infinity', '-Infinity')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "intelligence.data_quality_policy_versions": {
+      "name": "data_quality_policy_versions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "data_quality_policy_versions_code_version_unique": {
+          "name": "data_quality_policy_versions_code_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.lineup_observations": {
+      "name": "lineup_observations",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_observation_id": {
+          "name": "source_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_participant_id": {
+          "name": "team_participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schema_version": {
+          "name": "schema_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "numeric(8, 7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "players": {
+          "name": "players",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "formation": {
+          "name": "formation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_observed_at": {
+          "name": "provider_observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "lineup_observations_event_team_received_at_idx": {
+          "name": "lineup_observations_event_team_received_at_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "team_participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lineup_observations_team_participant_id_idx": {
+          "name": "lineup_observations_team_participant_id_idx",
+          "columns": [
+            {
+              "expression": "team_participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lineup_observations_source_observation_id_source_observations_id_fk": {
+          "name": "lineup_observations_source_observation_id_source_observations_id_fk",
+          "tableFrom": "lineup_observations",
+          "tableTo": "source_observations",
+          "schemaTo": "operations",
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lineup_observations_event_id_events_id_fk": {
+          "name": "lineup_observations_event_id_events_id_fk",
+          "tableFrom": "lineup_observations",
+          "tableTo": "events",
+          "schemaTo": "catalog",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lineup_observations_team_participant_id_participants_id_fk": {
+          "name": "lineup_observations_team_participant_id_participants_id_fk",
+          "tableFrom": "lineup_observations",
+          "tableTo": "participants",
+          "schemaTo": "catalog",
+          "columnsFrom": ["team_participant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lineup_observations_source_event_team_unique": {
+          "name": "lineup_observations_source_event_team_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source_observation_id",
+            "event_id",
+            "team_participant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lineup_observations_status_check": {
+          "name": "lineup_observations_status_check",
+          "value": "\"intelligence\".\"lineup_observations\".\"status\" in ('EXPECTED', 'OFFICIAL', 'UNAVAILABLE')"
+        },
+        "lineup_observations_confidence_check": {
+          "name": "lineup_observations_confidence_check",
+          "value": "\"intelligence\".\"lineup_observations\".\"confidence\" is null or (\"intelligence\".\"lineup_observations\".\"confidence\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"lineup_observations\".\"confidence\" >= 0 and \"intelligence\".\"lineup_observations\".\"confidence\" <= 1)"
+        },
+        "lineup_observations_players_array_check": {
+          "name": "lineup_observations_players_array_check",
+          "value": "jsonb_typeof(\"intelligence\".\"lineup_observations\".\"players\") = 'array'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "intelligence.model_definitions": {
+      "name": "model_definitions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "model_definitions_code_unique": {
+          "name": "model_definitions_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.model_versions": {
+      "name": "model_versions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "model_definition_id": {
+          "name": "model_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maturity_status": {
+          "name": "maturity_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feature_contract_version": {
+          "name": "feature_contract_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "artifact_reference": {
+          "name": "artifact_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "model_versions_model_definition_id_model_definitions_id_fk": {
+          "name": "model_versions_model_definition_id_model_definitions_id_fk",
+          "tableFrom": "model_versions",
+          "tableTo": "model_definitions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["model_definition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "model_versions_definition_id_version_unique": {
+          "name": "model_versions_definition_id_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["model_definition_id", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "model_versions_maturity_status_check": {
+          "name": "model_versions_maturity_status_check",
+          "value": "\"intelligence\".\"model_versions\".\"maturity_status\" in ('EXPERIMENTAL', 'BACKTESTED', 'VALIDATED', 'PRODUCTION', 'RETIRED')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "intelligence.prediction_inputs": {
+      "name": "prediction_inputs",
+      "schema": "intelligence",
+      "columns": {
+        "prediction_id": {
+          "name": "prediction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_observation_id": {
+          "name": "source_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "input_role": {
+          "name": "input_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "prediction_inputs_source_observation_id_idx": {
+          "name": "prediction_inputs_source_observation_id_idx",
+          "columns": [
+            {
+              "expression": "source_observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "prediction_inputs_prediction_id_predictions_id_fk": {
+          "name": "prediction_inputs_prediction_id_predictions_id_fk",
+          "tableFrom": "prediction_inputs",
+          "tableTo": "predictions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["prediction_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "prediction_inputs_source_observation_id_source_observations_id_fk": {
+          "name": "prediction_inputs_source_observation_id_source_observations_id_fk",
+          "tableFrom": "prediction_inputs",
+          "tableTo": "source_observations",
+          "schemaTo": "operations",
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "prediction_inputs_pkey": {
+          "name": "prediction_inputs_pkey",
+          "columns": ["prediction_id", "source_observation_id", "input_role"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.prediction_runs": {
+      "name": "prediction_runs",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "model_version_id": {
+          "name": "model_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calibration_version_id": {
+          "name": "calibration_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feature_cutoff": {
+          "name": "feature_cutoff",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trigger_job_id": {
+          "name": "trigger_job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "prediction_runs_event_id_feature_cutoff_idx": {
+          "name": "prediction_runs_event_id_feature_cutoff_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "feature_cutoff",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "prediction_runs_model_version_id_idx": {
+          "name": "prediction_runs_model_version_id_idx",
+          "columns": [
+            {
+              "expression": "model_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "prediction_runs_calibration_version_id_idx": {
+          "name": "prediction_runs_calibration_version_id_idx",
+          "columns": [
+            {
+              "expression": "calibration_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "prediction_runs_trigger_job_id_idx": {
+          "name": "prediction_runs_trigger_job_id_idx",
+          "columns": [
+            {
+              "expression": "trigger_job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "prediction_runs_model_version_id_model_versions_id_fk": {
+          "name": "prediction_runs_model_version_id_model_versions_id_fk",
+          "tableFrom": "prediction_runs",
+          "tableTo": "model_versions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["model_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "prediction_runs_calibration_version_id_calibration_versions_id_fk": {
+          "name": "prediction_runs_calibration_version_id_calibration_versions_id_fk",
+          "tableFrom": "prediction_runs",
+          "tableTo": "calibration_versions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["calibration_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "prediction_runs_event_id_events_id_fk": {
+          "name": "prediction_runs_event_id_events_id_fk",
+          "tableFrom": "prediction_runs",
+          "tableTo": "events",
+          "schemaTo": "catalog",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "prediction_runs_trigger_job_id_jobs_id_fk": {
+          "name": "prediction_runs_trigger_job_id_jobs_id_fk",
+          "tableFrom": "prediction_runs",
+          "tableTo": "jobs",
+          "schemaTo": "operations",
+          "columnsFrom": ["trigger_job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "prediction_runs_trigger_job_id_unique": {
+          "name": "prediction_runs_trigger_job_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["trigger_job_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.predictions": {
+      "name": "predictions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "prediction_run_id": {
+          "name": "prediction_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_market_outcome_id": {
+          "name": "event_market_outcome_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_quality_assessment_id": {
+          "name": "data_quality_assessment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_price_observation_id": {
+          "name": "market_price_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision_status": {
+          "name": "decision_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_probability": {
+          "name": "model_probability",
+          "type": "numeric(18, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "numeric(18, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fair_odds": {
+          "name": "fair_odds",
+          "type": "numeric(18, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "market_implied_probability": {
+          "name": "market_implied_probability",
+          "type": "numeric(18, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge": {
+          "name": "edge",
+          "type": "numeric(18, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expected_value": {
+          "name": "expected_value",
+          "type": "numeric(18, 12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason_codes": {
+          "name": "reason_codes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "structured_reasons": {
+          "name": "structured_reasons",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "predictions_outcome_id_created_at_idx": {
+          "name": "predictions_outcome_id_created_at_idx",
+          "columns": [
+            {
+              "expression": "event_market_outcome_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "predictions_decision_status_created_at_idx": {
+          "name": "predictions_decision_status_created_at_idx",
+          "columns": [
+            {
+              "expression": "decision_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "predictions_data_quality_assessment_id_idx": {
+          "name": "predictions_data_quality_assessment_id_idx",
+          "columns": [
+            {
+              "expression": "data_quality_assessment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "predictions_market_price_observation_id_idx": {
+          "name": "predictions_market_price_observation_id_idx",
+          "columns": [
+            {
+              "expression": "market_price_observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "predictions_prediction_run_id_prediction_runs_id_fk": {
+          "name": "predictions_prediction_run_id_prediction_runs_id_fk",
+          "tableFrom": "predictions",
+          "tableTo": "prediction_runs",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["prediction_run_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "predictions_event_market_outcome_id_event_market_outcomes_id_fk": {
+          "name": "predictions_event_market_outcome_id_event_market_outcomes_id_fk",
+          "tableFrom": "predictions",
+          "tableTo": "event_market_outcomes",
+          "schemaTo": "market",
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "predictions_data_quality_assessment_id_data_quality_assessments_id_fk": {
+          "name": "predictions_data_quality_assessment_id_data_quality_assessments_id_fk",
+          "tableFrom": "predictions",
+          "tableTo": "data_quality_assessments",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["data_quality_assessment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "predictions_market_price_observation_id_odds_observations_id_fk": {
+          "name": "predictions_market_price_observation_id_odds_observations_id_fk",
+          "tableFrom": "predictions",
+          "tableTo": "odds_observations",
+          "schemaTo": "market",
+          "columnsFrom": ["market_price_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "predictions_run_id_outcome_id_unique": {
+          "name": "predictions_run_id_outcome_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["prediction_run_id", "event_market_outcome_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "predictions_model_probability_check": {
+          "name": "predictions_model_probability_check",
+          "value": "\"intelligence\".\"predictions\".\"model_probability\" is null or (\"intelligence\".\"predictions\".\"model_probability\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"predictions\".\"model_probability\" >= 0 and \"intelligence\".\"predictions\".\"model_probability\" <= 1)"
+        },
+        "predictions_confidence_check": {
+          "name": "predictions_confidence_check",
+          "value": "\"intelligence\".\"predictions\".\"confidence\" is null or (\"intelligence\".\"predictions\".\"confidence\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"predictions\".\"confidence\" >= 0 and \"intelligence\".\"predictions\".\"confidence\" <= 1)"
+        },
+        "predictions_fair_odds_check": {
+          "name": "predictions_fair_odds_check",
+          "value": "\"intelligence\".\"predictions\".\"fair_odds\" is null or (\"intelligence\".\"predictions\".\"fair_odds\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"predictions\".\"fair_odds\" > 1)"
+        },
+        "predictions_market_implied_probability_check": {
+          "name": "predictions_market_implied_probability_check",
+          "value": "\"intelligence\".\"predictions\".\"market_implied_probability\" is null or (\"intelligence\".\"predictions\".\"market_implied_probability\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"predictions\".\"market_implied_probability\" >= 0 and \"intelligence\".\"predictions\".\"market_implied_probability\" <= 1)"
+        },
+        "predictions_edge_finite_check": {
+          "name": "predictions_edge_finite_check",
+          "value": "\"intelligence\".\"predictions\".\"edge\" is null or \"intelligence\".\"predictions\".\"edge\"::text not in ('NaN', 'Infinity', '-Infinity')"
+        },
+        "predictions_expected_value_finite_check": {
+          "name": "predictions_expected_value_finite_check",
+          "value": "\"intelligence\".\"predictions\".\"expected_value\" is null or \"intelligence\".\"predictions\".\"expected_value\"::text not in ('NaN', 'Infinity', '-Infinity')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "intelligence.radar_evidence": {
+      "name": "radar_evidence",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "score_result_id": {
+          "name": "score_result_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opening_observation_id": {
+          "name": "opening_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_observation_id": {
+          "name": "current_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supporting_observation_ids": {
+          "name": "supporting_observation_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bookmakers_observed": {
+          "name": "bookmakers_observed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bookmakers_moving": {
+          "name": "bookmakers_moving",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "movement_window_seconds": {
+          "name": "movement_window_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observable_metrics": {
+          "name": "observable_metrics",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "radar_evidence_opening_observation_id_idx": {
+          "name": "radar_evidence_opening_observation_id_idx",
+          "columns": [
+            {
+              "expression": "opening_observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "radar_evidence_current_observation_id_idx": {
+          "name": "radar_evidence_current_observation_id_idx",
+          "columns": [
+            {
+              "expression": "current_observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "radar_evidence_score_result_id_score_results_id_fk": {
+          "name": "radar_evidence_score_result_id_score_results_id_fk",
+          "tableFrom": "radar_evidence",
+          "tableTo": "score_results",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["score_result_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "radar_evidence_opening_observation_id_odds_observations_id_fk": {
+          "name": "radar_evidence_opening_observation_id_odds_observations_id_fk",
+          "tableFrom": "radar_evidence",
+          "tableTo": "odds_observations",
+          "schemaTo": "market",
+          "columnsFrom": ["opening_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "radar_evidence_current_observation_id_odds_observations_id_fk": {
+          "name": "radar_evidence_current_observation_id_odds_observations_id_fk",
+          "tableFrom": "radar_evidence",
+          "tableTo": "odds_observations",
+          "schemaTo": "market",
+          "columnsFrom": ["current_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "radar_evidence_score_result_id_unique": {
+          "name": "radar_evidence_score_result_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["score_result_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "intelligence.score_definition_versions": {
+      "name": "score_definition_versions",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "score_type": {
+          "name": "score_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "score_definition_versions_identity_unique": {
+          "name": "score_definition_versions_identity_unique",
+          "nullsNotDistinct": false,
+          "columns": ["score_type", "code", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "score_definition_versions_score_type_check": {
+          "name": "score_definition_versions_score_type_check",
+          "value": "\"intelligence\".\"score_definition_versions\".\"score_type\" in ('EDGE', 'RADAR')"
+        },
+        "score_definition_versions_validation_status_check": {
+          "name": "score_definition_versions_validation_status_check",
+          "value": "\"intelligence\".\"score_definition_versions\".\"validation_status\" = 'DEVELOPMENT_HEURISTIC'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "intelligence.score_results": {
+      "name": "score_results",
+      "schema": "intelligence",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "score_definition_version_id": {
+          "name": "score_definition_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prediction_id": {
+          "name": "prediction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_market_outcome_id": {
+          "name": "event_market_outcome_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_quality_assessment_id": {
+          "name": "data_quality_assessment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "as_of": {
+          "name": "as_of",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "score": {
+          "name": "score",
+          "type": "numeric(8, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "components": {
+          "name": "components",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weights": {
+          "name": "weights",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "caps_penalties": {
+          "name": "caps_penalties",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason_codes": {
+          "name": "reason_codes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "score_results_outcome_id_as_of_idx": {
+          "name": "score_results_outcome_id_as_of_idx",
+          "columns": [
+            {
+              "expression": "event_market_outcome_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "as_of",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "score_results_definition_id_as_of_idx": {
+          "name": "score_results_definition_id_as_of_idx",
+          "columns": [
+            {
+              "expression": "score_definition_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "as_of",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "score_results_prediction_id_idx": {
+          "name": "score_results_prediction_id_idx",
+          "columns": [
+            {
+              "expression": "prediction_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "score_results_data_quality_assessment_id_idx": {
+          "name": "score_results_data_quality_assessment_id_idx",
+          "columns": [
+            {
+              "expression": "data_quality_assessment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "score_results_score_definition_version_id_score_definition_versions_id_fk": {
+          "name": "score_results_score_definition_version_id_score_definition_versions_id_fk",
+          "tableFrom": "score_results",
+          "tableTo": "score_definition_versions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["score_definition_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "score_results_prediction_id_predictions_id_fk": {
+          "name": "score_results_prediction_id_predictions_id_fk",
+          "tableFrom": "score_results",
+          "tableTo": "predictions",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["prediction_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "score_results_event_market_outcome_id_event_market_outcomes_id_fk": {
+          "name": "score_results_event_market_outcome_id_event_market_outcomes_id_fk",
+          "tableFrom": "score_results",
+          "tableTo": "event_market_outcomes",
+          "schemaTo": "market",
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "score_results_data_quality_assessment_id_data_quality_assessments_id_fk": {
+          "name": "score_results_data_quality_assessment_id_data_quality_assessments_id_fk",
+          "tableFrom": "score_results",
+          "tableTo": "data_quality_assessments",
+          "schemaTo": "intelligence",
+          "columnsFrom": ["data_quality_assessment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "score_results_idempotency_key_unique": {
+          "name": "score_results_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["idempotency_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "score_results_score_check": {
+          "name": "score_results_score_check",
+          "value": "\"intelligence\".\"score_results\".\"score\"::text not in ('NaN', 'Infinity', '-Infinity') and \"intelligence\".\"score_results\".\"score\" >= 0 and \"intelligence\".\"score_results\".\"score\" <= 100"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "market.bookmakers": {
+      "name": "bookmakers",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "synthetic": {
+          "name": "synthetic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_classification": {
+          "name": "market_classification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UNCLASSIFIED'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "bookmakers_code_unique": {
+          "name": "bookmakers_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.event_market_outcomes": {
+      "name": "event_market_outcomes",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_market_id": {
+          "name": "event_market_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_definition_id": {
+          "name": "market_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome_definition_id": {
+          "name": "outcome_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "canonical_key": {
+          "name": "canonical_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "event_market_outcomes_definition_outcome_idx": {
+          "name": "event_market_outcomes_definition_outcome_idx",
+          "columns": [
+            {
+              "expression": "market_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "outcome_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_market_outcomes_outcome_definition_id_idx": {
+          "name": "event_market_outcomes_outcome_definition_id_idx",
+          "columns": [
+            {
+              "expression": "outcome_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_market_outcomes_event_market_definition_fk": {
+          "name": "event_market_outcomes_event_market_definition_fk",
+          "tableFrom": "event_market_outcomes",
+          "tableTo": "event_markets",
+          "schemaTo": "market",
+          "columnsFrom": ["event_market_id", "market_definition_id"],
+          "columnsTo": ["id", "market_definition_id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_market_outcomes_definition_outcome_fk": {
+          "name": "event_market_outcomes_definition_outcome_fk",
+          "tableFrom": "event_market_outcomes",
+          "tableTo": "outcome_definitions",
+          "schemaTo": "market",
+          "columnsFrom": ["market_definition_id", "outcome_definition_id"],
+          "columnsTo": ["market_definition_id", "id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "event_market_outcomes_canonical_key_unique": {
+          "name": "event_market_outcomes_canonical_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["canonical_key"]
+        },
+        "event_market_outcomes_market_outcome_unique": {
+          "name": "event_market_outcomes_market_outcome_unique",
+          "nullsNotDistinct": false,
+          "columns": ["event_market_id", "outcome_definition_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.event_markets": {
+      "name": "event_markets",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_definition_id": {
+          "name": "market_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_participant_id": {
+          "name": "subject_participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_value": {
+          "name": "line_value",
+          "type": "numeric(12, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "canonical_key": {
+          "name": "canonical_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "event_markets_event_id_market_definition_id_idx": {
+          "name": "event_markets_event_id_market_definition_id_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "market_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_markets_market_definition_id_idx": {
+          "name": "event_markets_market_definition_id_idx",
+          "columns": [
+            {
+              "expression": "market_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_markets_subject_participant_id_idx": {
+          "name": "event_markets_subject_participant_id_idx",
+          "columns": [
+            {
+              "expression": "subject_participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_markets_event_id_events_id_fk": {
+          "name": "event_markets_event_id_events_id_fk",
+          "tableFrom": "event_markets",
+          "tableTo": "events",
+          "schemaTo": "catalog",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_markets_market_definition_id_market_definitions_id_fk": {
+          "name": "event_markets_market_definition_id_market_definitions_id_fk",
+          "tableFrom": "event_markets",
+          "tableTo": "market_definitions",
+          "schemaTo": "market",
+          "columnsFrom": ["market_definition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_markets_subject_participant_id_participants_id_fk": {
+          "name": "event_markets_subject_participant_id_participants_id_fk",
+          "tableFrom": "event_markets",
+          "tableTo": "participants",
+          "schemaTo": "catalog",
+          "columnsFrom": ["subject_participant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "event_markets_canonical_key_unique": {
+          "name": "event_markets_canonical_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["canonical_key"]
+        },
+        "event_markets_id_market_definition_id_unique": {
+          "name": "event_markets_id_market_definition_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "market_definition_id"]
+        },
+        "event_markets_natural_identity_unique": {
+          "name": "event_markets_natural_identity_unique",
+          "nullsNotDistinct": true,
+          "columns": [
+            "event_id",
+            "market_definition_id",
+            "subject_participant_id",
+            "line_value"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "event_markets_line_value_finite_check": {
+          "name": "event_markets_line_value_finite_check",
+          "value": "\"market\".\"event_markets\".\"line_value\" is null or \"market\".\"event_markets\".\"line_value\"::text not in ('NaN', 'Infinity', '-Infinity')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "market.market_definitions": {
+      "name": "market_definitions",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sport_id": {
+          "name": "sport_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "family_code": {
+          "name": "family_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "period_code": {
+          "name": "period_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "structure": {
+          "name": "structure",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_required": {
+          "name": "line_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_rules": {
+          "name": "line_rules",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settlement_rule_version": {
+          "name": "settlement_rule_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label_key": {
+          "name": "label_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "market_definitions_sport_id_sports_id_fk": {
+          "name": "market_definitions_sport_id_sports_id_fk",
+          "tableFrom": "market_definitions",
+          "tableTo": "sports",
+          "schemaTo": "catalog",
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "market_definitions_sport_id_code_unique": {
+          "name": "market_definitions_sport_id_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["sport_id", "code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "market_definitions_structure_check": {
+          "name": "market_definitions_structure_check",
+          "value": "\"market\".\"market_definitions\".\"structure\" in ('TWO_WAY', 'THREE_WAY', 'MULTI_OUTCOME')"
+        },
+        "market_definitions_subject_type_check": {
+          "name": "market_definitions_subject_type_check",
+          "value": "\"market\".\"market_definitions\".\"subject_type\" in ('EVENT', 'TEAM', 'PLAYER')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "market.odds_observations": {
+      "name": "odds_observations",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_observation_id": {
+          "name": "source_observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_market_outcome_id": {
+          "name": "event_market_outcome_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bookmaker_id": {
+          "name": "bookmaker_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decimal_odds": {
+          "name": "decimal_odds",
+          "type": "numeric(18, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_observed_at": {
+          "name": "provider_observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_at": {
+          "name": "normalized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_synthetic": {
+          "name": "is_synthetic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "odds_observations_outcome_bookmaker_observed_at_idx": {
+          "name": "odds_observations_outcome_bookmaker_observed_at_idx",
+          "columns": [
+            {
+              "expression": "event_market_outcome_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "bookmaker_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_observed_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "odds_observations_bookmaker_observed_at_idx": {
+          "name": "odds_observations_bookmaker_observed_at_idx",
+          "columns": [
+            {
+              "expression": "bookmaker_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_observed_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "odds_observations_received_at_idx": {
+          "name": "odds_observations_received_at_idx",
+          "columns": [
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "odds_observations_source_observation_id_source_observations_id_fk": {
+          "name": "odds_observations_source_observation_id_source_observations_id_fk",
+          "tableFrom": "odds_observations",
+          "tableTo": "source_observations",
+          "schemaTo": "operations",
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "odds_observations_event_market_outcome_id_event_market_outcomes_id_fk": {
+          "name": "odds_observations_event_market_outcome_id_event_market_outcomes_id_fk",
+          "tableFrom": "odds_observations",
+          "tableTo": "event_market_outcomes",
+          "schemaTo": "market",
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "odds_observations_bookmaker_id_bookmakers_id_fk": {
+          "name": "odds_observations_bookmaker_id_bookmakers_id_fk",
+          "tableFrom": "odds_observations",
+          "tableTo": "bookmakers",
+          "schemaTo": "market",
+          "columnsFrom": ["bookmaker_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "odds_observations_source_outcome_bookmaker_unique": {
+          "name": "odds_observations_source_outcome_bookmaker_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source_observation_id",
+            "event_market_outcome_id",
+            "bookmaker_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "odds_observations_decimal_odds_check": {
+          "name": "odds_observations_decimal_odds_check",
+          "value": "\"market\".\"odds_observations\".\"decimal_odds\"::text not in ('NaN', 'Infinity', '-Infinity') and \"market\".\"odds_observations\".\"decimal_odds\" > 1"
+        },
+        "odds_observations_status_check": {
+          "name": "odds_observations_status_check",
+          "value": "\"market\".\"odds_observations\".\"status\" in ('ACTIVE', 'SUSPENDED', 'REMOVED')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "market.outcome_definitions": {
+      "name": "outcome_definitions",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "market_definition_id": {
+          "name": "market_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label_key": {
+          "name": "label_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "outcome_definitions_market_definition_id_market_definitions_id_fk": {
+          "name": "outcome_definitions_market_definition_id_market_definitions_id_fk",
+          "tableFrom": "outcome_definitions",
+          "tableTo": "market_definitions",
+          "schemaTo": "market",
+          "columnsFrom": ["market_definition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "outcome_definitions_market_id_code_unique": {
+          "name": "outcome_definitions_market_id_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["market_definition_id", "code"]
+        },
+        "outcome_definitions_market_id_id_unique": {
+          "name": "outcome_definitions_market_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["market_definition_id", "id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "market.provider_market_mappings": {
+      "name": "provider_market_mappings",
+      "schema": "market",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_market_key": {
+          "name": "provider_market_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_outcome_key": {
+          "name": "provider_outcome_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_definition_id": {
+          "name": "market_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome_definition_id": {
+          "name": "outcome_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mapping_version": {
+          "name": "mapping_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_to": {
+          "name": "effective_to",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "provider_market_mappings_market_definition_id_idx": {
+          "name": "provider_market_mappings_market_definition_id_idx",
+          "columns": [
+            {
+              "expression": "market_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_market_mappings_outcome_definition_id_idx": {
+          "name": "provider_market_mappings_outcome_definition_id_idx",
+          "columns": [
+            {
+              "expression": "outcome_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "provider_market_mappings_provider_id_providers_id_fk": {
+          "name": "provider_market_mappings_provider_id_providers_id_fk",
+          "tableFrom": "provider_market_mappings",
+          "tableTo": "providers",
+          "schemaTo": "operations",
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "provider_market_mappings_definition_outcome_fk": {
+          "name": "provider_market_mappings_definition_outcome_fk",
+          "tableFrom": "provider_market_mappings",
+          "tableTo": "outcome_definitions",
+          "schemaTo": "market",
+          "columnsFrom": ["market_definition_id", "outcome_definition_id"],
+          "columnsTo": ["market_definition_id", "id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "provider_market_mappings_identity_unique": {
+          "name": "provider_market_mappings_identity_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "provider_id",
+            "provider_market_key",
+            "provider_outcome_key",
+            "mapping_version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "operations.jobs": {
+      "name": "jobs",
+      "schema": "operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_version": {
+          "name": "contract_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "causation_id": {
+          "name": "causation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "jobs_status_available_at_idx": {
+          "name": "jobs_status_available_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "jobs_lease_expires_at_idx": {
+          "name": "jobs_lease_expires_at_idx",
+          "columns": [
+            {
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "jobs_correlation_id_idx": {
+          "name": "jobs_correlation_id_idx",
+          "columns": [
+            {
+              "expression": "correlation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "jobs_idempotency_key_unique": {
+          "name": "jobs_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["idempotency_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "jobs_attempt_count_nonnegative_check": {
+          "name": "jobs_attempt_count_nonnegative_check",
+          "value": "\"operations\".\"jobs\".\"attempt_count\" >= 0"
+        },
+        "jobs_max_attempts_positive_check": {
+          "name": "jobs_max_attempts_positive_check",
+          "value": "\"operations\".\"jobs\".\"max_attempts\" > 0"
+        },
+        "jobs_attempt_count_within_max_check": {
+          "name": "jobs_attempt_count_within_max_check",
+          "value": "\"operations\".\"jobs\".\"attempt_count\" <= \"operations\".\"jobs\".\"max_attempts\""
+        },
+        "jobs_status_check": {
+          "name": "jobs_status_check",
+          "value": "\"operations\".\"jobs\".\"status\" in ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')"
+        },
+        "jobs_state_check": {
+          "name": "jobs_state_check",
+          "value": "(\n        (\"operations\".\"jobs\".\"status\" = 'PENDING' and \"operations\".\"jobs\".\"lease_expires_at\" is null and \"operations\".\"jobs\".\"completed_at\" is null)\n        or (\"operations\".\"jobs\".\"status\" = 'RUNNING' and \"operations\".\"jobs\".\"lease_expires_at\" is not null and \"operations\".\"jobs\".\"started_at\" is not null and \"operations\".\"jobs\".\"completed_at\" is null)\n        or (\"operations\".\"jobs\".\"status\" = 'COMPLETED' and \"operations\".\"jobs\".\"lease_expires_at\" is null and \"operations\".\"jobs\".\"started_at\" is not null and \"operations\".\"jobs\".\"completed_at\" is not null and \"operations\".\"jobs\".\"last_error\" is null)\n        or (\"operations\".\"jobs\".\"status\" = 'FAILED' and \"operations\".\"jobs\".\"lease_expires_at\" is null and \"operations\".\"jobs\".\"started_at\" is not null and \"operations\".\"jobs\".\"completed_at\" is not null and \"operations\".\"jobs\".\"last_error\" is not null)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "operations.provider_policy_versions": {
+      "name": "provider_policy_versions",
+      "schema": "operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "policy": {
+          "name": "policy",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_to": {
+          "name": "effective_to",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "provider_policy_versions_provider_id_effective_from_idx": {
+          "name": "provider_policy_versions_provider_id_effective_from_idx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_from",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "provider_policy_versions_provider_id_providers_id_fk": {
+          "name": "provider_policy_versions_provider_id_providers_id_fk",
+          "tableFrom": "provider_policy_versions",
+          "tableTo": "providers",
+          "schemaTo": "operations",
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "provider_policy_versions_provider_id_version_unique": {
+          "name": "provider_policy_versions_provider_id_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["provider_id", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "operations.provider_sync_runs": {
+      "name": "provider_sync_runs",
+      "schema": "operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capability": {
+          "name": "capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replay_sequence": {
+          "name": "replay_sequence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fixture_path": {
+          "name": "fixture_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_schema_version": {
+          "name": "provider_schema_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalization_version": {
+          "name": "normalization_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mapping_version": {
+          "name": "mapping_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "policy_version_id": {
+          "name": "policy_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_count": {
+          "name": "received_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "accepted_count": {
+          "name": "accepted_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "rejected_count": {
+          "name": "rejected_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "error_summary": {
+          "name": "error_summary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "provider_sync_runs_provider_id_started_at_idx": {
+          "name": "provider_sync_runs_provider_id_started_at_idx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_sync_runs_status_started_at_idx": {
+          "name": "provider_sync_runs_status_started_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_sync_runs_policy_version_id_idx": {
+          "name": "provider_sync_runs_policy_version_id_idx",
+          "columns": [
+            {
+              "expression": "policy_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "provider_sync_runs_provider_id_providers_id_fk": {
+          "name": "provider_sync_runs_provider_id_providers_id_fk",
+          "tableFrom": "provider_sync_runs",
+          "tableTo": "providers",
+          "schemaTo": "operations",
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "provider_sync_runs_policy_version_id_provider_policy_versions_id_fk": {
+          "name": "provider_sync_runs_policy_version_id_provider_policy_versions_id_fk",
+          "tableFrom": "provider_sync_runs",
+          "tableTo": "provider_policy_versions",
+          "schemaTo": "operations",
+          "columnsFrom": ["policy_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "operations.providers": {
+      "name": "providers",
+      "schema": "operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_synthetic": {
+          "name": "is_synthetic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "providers_code_unique": {
+          "name": "providers_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "operations.source_observations": {
+      "name": "source_observations",
+      "schema": "operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sync_run_id": {
+          "name": "sync_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observation_type": {
+          "name": "observation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_external_id": {
+          "name": "provider_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_observed_at": {
+          "name": "provider_observed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_at": {
+          "name": "normalized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalization_version": {
+          "name": "normalization_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mapping_version": {
+          "name": "mapping_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "source_observations_sync_run_id_idx": {
+          "name": "source_observations_sync_run_id_idx",
+          "columns": [
+            {
+              "expression": "sync_run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "source_observations_provider_id_observed_at_idx": {
+          "name": "source_observations_provider_id_observed_at_idx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_observed_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "source_observations_provider_id_providers_id_fk": {
+          "name": "source_observations_provider_id_providers_id_fk",
+          "tableFrom": "source_observations",
+          "tableTo": "providers",
+          "schemaTo": "operations",
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "source_observations_sync_run_id_provider_sync_runs_id_fk": {
+          "name": "source_observations_sync_run_id_provider_sync_runs_id_fk",
+          "tableFrom": "source_observations",
+          "tableTo": "provider_sync_runs",
+          "schemaTo": "operations",
+          "columnsFrom": ["sync_run_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "source_observations_provider_type_hash_unique": {
+          "name": "source_observations_provider_type_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": ["provider_id", "observation_type", "content_hash"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "private.permissions": {
+      "name": "permissions",
+      "schema": "private",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "permissions_code_unique": {
+          "name": "permissions_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "private.role_permissions": {
+      "name": "role_permissions",
+      "schema": "private",
+      "columns": {
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permission_id": {
+          "name": "permission_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "role_permissions_permission_id_idx": {
+          "name": "role_permissions_permission_id_idx",
+          "columns": [
+            {
+              "expression": "permission_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "role_permissions_role_id_roles_id_fk": {
+          "name": "role_permissions_role_id_roles_id_fk",
+          "tableFrom": "role_permissions",
+          "tableTo": "roles",
+          "schemaTo": "private",
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "role_permissions_permission_id_permissions_id_fk": {
+          "name": "role_permissions_permission_id_permissions_id_fk",
+          "tableFrom": "role_permissions",
+          "tableTo": "permissions",
+          "schemaTo": "private",
+          "columnsFrom": ["permission_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "role_permissions_pkey": {
+          "name": "role_permissions_pkey",
+          "columns": ["role_id", "permission_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "private.roles": {
+      "name": "roles",
+      "schema": "private",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "roles_code_unique": {
+          "name": "roles_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "private.user_roles": {
+      "name": "user_roles",
+      "schema": "private",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "user_roles_role_id_user_id_idx": {
+          "name": "user_roles_role_id_user_id_idx",
+          "columns": [
+            {
+              "expression": "role_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "user_roles_granted_by_idx": {
+          "name": "user_roles_granted_by_idx",
+          "columns": [
+            {
+              "expression": "granted_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "user_roles_user_id_users_id_fk": {
+          "name": "user_roles_user_id_users_id_fk",
+          "tableFrom": "user_roles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "user_roles_role_id_roles_id_fk": {
+          "name": "user_roles_role_id_roles_id_fk",
+          "tableFrom": "user_roles",
+          "tableTo": "roles",
+          "schemaTo": "private",
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "user_roles_granted_by_users_id_fk": {
+          "name": "user_roles_granted_by_users_id_fk",
+          "tableFrom": "user_roles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": ["granted_by"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "user_roles_pkey": {
+          "name": "user_roles_pkey",
+          "columns": ["user_id", "role_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'en'"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UTC'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_user_id_users_id_fk": {
+          "name": "profiles_user_id_users_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "audit": "audit",
+    "catalog": "catalog",
+    "intelligence": "intelligence",
+    "market": "market",
+    "operations": "operations",
+    "private": "private"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
