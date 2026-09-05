@@ -36,14 +36,7 @@ import {
   providers,
   sourceObservations,
 } from "./operations.js";
-import {
-  permissions,
-  planDefinitions,
-  rolePermissions,
-  roles,
-  subscriptions,
-  userRoles,
-} from "./private.js";
+import { permissions, rolePermissions, roles, userRoles } from "./private.js";
 import { profiles } from "./public.js";
 
 export * from "./audit.js";
