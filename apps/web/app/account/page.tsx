@@ -1,5 +1,7 @@
 import { CustomerShell, Status } from "../customer-shell";
-export default function Account() {
+import { loadCustomerContext } from "../customer-runtime";
+export default async function Account() {
+  const context = await loadCustomerContext();
   return (
     <CustomerShell>
       <div className="page-heading">
@@ -12,18 +14,26 @@ export default function Account() {
       <section className="panel account-panel">
         <div>
           <span className="kicker">PLAN</span>
-          <h2>FREE synthetic beta</h2>
+          <h2>{context?.plan ?? "FREE"} synthetic beta</h2>
           <p>
-            Today, EDGE preview and RADAR preview are available. Paid access is
-            confirmed server-side by Stripe webhooks.
+            Signed in as {context?.email ?? "authenticated customer"}. Access is
+            resolved server-side.
           </p>
         </div>
-        <Status tone="synthetic">SYNTHETIC DATA</Status>
+        <div>
+          <Status tone="synthetic">SYNTHETIC DATA</Status>
+          {context?.isAdmin ? (
+            <Status tone="heuristic">ADMIN ACCESS</Status>
+          ) : null}
+        </div>
       </section>
       <section className="panel">
         <span className="kicker">BILLING</span>
-        <h2>Manage your subscription</h2>
-        <p>Checkout and billing management are hosted securely by Stripe.</p>
+        <h2>Subscription</h2>
+        <p>
+          Status: {context?.status ?? "FREE / not subscribed"}. Entitlements:{" "}
+          {context?.entitlements.join(", ") ?? "customer access"}.
+        </p>
         <p>
           Paid billing is not active in the current beta. Your FREE access
           remains fully usable.

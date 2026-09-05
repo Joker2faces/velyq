@@ -1,6 +1,7 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { loadCustomerToday } from "../customer-runtime";
 import { formatPercent, message } from "@velyq/ui";
+import Link from "next/link";
 
 export default async function Radar() {
   const result = await loadCustomerToday();
@@ -25,7 +26,11 @@ export default async function Radar() {
           <span className="muted">Freshness-aware evidence</span>
         </div>
         {customerToday.matches.map((match) => (
-          <div className="radar-row" key={match.eventId}>
+          <Link
+            className="radar-row"
+            href={`/matches/${match.eventId}`}
+            key={match.eventId}
+          >
             <div>
               <strong>
                 {match.homeTeam} · {match.selection}
@@ -55,7 +60,8 @@ export default async function Radar() {
                 ? message("radarMove").toUpperCase()
                 : message("noEvidence").toUpperCase()}
             </Status>
-          </div>
+            <small>Open Match Intelligence →</small>
+          </Link>
         ))}
       </section>
     </CustomerShell>

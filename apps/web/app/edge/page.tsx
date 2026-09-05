@@ -1,6 +1,7 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { loadCustomerToday } from "../customer-runtime";
 import { formatPercent, message } from "@velyq/ui";
+import Link from "next/link";
 
 const toneFor = (recommendation: string) =>
   recommendation === "STRONG_EDGE"
@@ -35,7 +36,11 @@ export default async function Edge() {
           </span>
         </div>
         {customerToday.matches.map((match) => (
-          <div className="edge-row" key={match.eventId}>
+          <Link
+            className="edge-row"
+            href={`/matches/${match.eventId}`}
+            key={match.eventId}
+          >
             <strong>
               {match.homeTeam} · {match.selection}
             </strong>
@@ -49,7 +54,8 @@ export default async function Edge() {
             <Status tone={toneFor(match.recommendation)}>
               {match.recommendation.replaceAll("_", " ")}
             </Status>
-          </div>
+            <small>Open Match Intelligence →</small>
+          </Link>
         ))}
       </section>
     </CustomerShell>
