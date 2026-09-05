@@ -21,7 +21,7 @@ export default async function ProviderRunsPage() {
       cursor: null,
     });
     return (
-      <AdminShell>
+      <AdminShell active="/provider-runs">
         <section className="page-heading">
           <p className="eyebrow">TRACE / PROVIDER</p>
           <h1>Provider runs</h1>

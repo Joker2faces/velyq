@@ -1,8 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@velyq/database"],
+  transpilePackages: ["@velyq/ui"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  webpack(config) {
+    /*
+     * `@velyq/ui` is consumed as TypeScript source, and the workspace TS
+     * baseline uses NodeNext, which requires an explicit `.js` extension on
+     * relative imports. Webpack resolves those literally, so it is told that
+     * a `.js` request may be satisfied by the `.ts` file that produces it.
+     * Resolution only — never emitted output or runtime behaviour.
+     */
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+    };
+    return config;
   },
 };
 

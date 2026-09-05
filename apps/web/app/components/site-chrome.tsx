@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { translator, type Locale } from "@velyq/ui";
+import { translate, translator, type Locale } from "@velyq/ui";
 import { LanguageSwitcher } from "../language-switcher";
+import { VelyqMark } from "./logo";
 
 /**
  * Public marketing chrome: header, footer and the shell that wraps them.
@@ -10,13 +11,18 @@ import { LanguageSwitcher } from "../language-switcher";
  * page exposes real `banner`, `main` and `contentinfo` landmarks.
  */
 
-export function Brand({ href = "/" }: { href?: string }) {
+export function Brand({
+  href = "/",
+  locale,
+}: {
+  href?: string;
+  locale: Locale;
+}) {
   return (
     <Link className="brand" href={href}>
+      <VelyqMark />
       <span className="brand__mark">VELYQ</span>
-      <span className="brand__tag" aria-hidden="true">
-        Intelligence
-      </span>
+      <span className="brand__tag">{translate("brandTagline", locale)}</span>
     </Link>
   );
 }
@@ -26,7 +32,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   return (
     <header className="shell-header">
       <div className="shell-header__inner">
-        <Brand />
+        <Brand locale={locale} />
         <nav className="shell-header__nav" aria-label={t("navPlatform")}>
           <a href="/#modules">{t("navPlatform")}</a>
           <a href="/pricing">{t("navPricing")}</a>
@@ -55,7 +61,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <div>
-          <Brand />
+          <Brand locale={locale} />
           <p
             className="card__hint"
             style={{ marginTop: "var(--space-3)", maxWidth: "34ch" }}

@@ -1,4 +1,14 @@
-import { formatPrice, translator, type Locale } from "@velyq/ui";
+import {
+  resolveCustomerEntitlements,
+  type CustomerEntitlement,
+  type CustomerPlan,
+} from "@velyq/auth";
+import {
+  entitlementLabel,
+  formatPrice,
+  translator,
+  type Locale,
+} from "@velyq/ui";
 
 /**
  * Customer subscription plans.
@@ -14,6 +24,8 @@ export const CUSTOMER_PLANS = {
 } as const;
 
 export type PlanCode = keyof typeof CUSTOMER_PLANS;
+
+const PLAN_ORDER: readonly PlanCode[] = ["FREE", "PRO", "ELITE"];
 
 export type PaidPlan = "PRO" | "ELITE";
 export type BillingPriceConfiguration = Readonly<Record<PaidPlan, string>>;
@@ -33,6 +45,22 @@ export function paidBillingConfigured() {
   );
 }
 
+/**
+ * The entitlements a plan actually grants, read from `@velyq/auth`.
+ *
+ * `resolveCustomerEntitlements` is the same function the authenticated app
+ * uses, so the pricing page cannot advertise a capability the server does not
+ * grant, and cannot drift when the matrix changes. A paid status is supplied
+ * for the paid tiers because the resolver downgrades an unpaid subscription
+ * to FREE — here we describe the offer, not a particular customer's state.
+ */
+function entitlementsFor(plan: PlanCode): readonly CustomerEntitlement[] {
+  return resolveCustomerEntitlements({
+    plan: plan as CustomerPlan,
+    status: plan === "FREE" ? null : "active",
+  }).entitlements;
+}
+
 export type PlanPresentation = {
   code: PlanCode;
   name: string;
@@ -40,66 +68,80 @@ export type PlanPresentation = {
   pitch: string;
   price: string;
   pricePeriod: string;
+  /** Everything the tier grants, in plain language. */
   features: readonly string[];
+  /** Only what this tier adds over the one below it. */
+  additions: readonly string[];
   limit: string;
   featured: boolean;
 };
 
 /**
- * Localized plan presentation.
+ * Localized plan presentation, derived from the live entitlement matrix.
  *
- * The feature lists describe what each tier actually grants today. ELITE
- * currently adds Match Intelligence to PRO's full EDGE/RADAR access. The
- * catalog must remain aligned with this server-side matrix.
+ * Feature lists are generated rather than hand-written. That is what keeps
+ * the page honest: when the server matrix changed to give ELITE
+ * `match.detail` over PRO, these cards followed with no copy edit.
  */
 export function planCatalog(locale: Locale): readonly PlanPresentation[] {
   const t = translator(locale);
-  return [
-    {
-      code: "FREE",
-      name: t("planFreeName"),
+
+  const copy = {
+    FREE: {
       audience: t("planFreeFor"),
       pitch: t("planFreePitch"),
-      price: formatPrice(CUSTOMER_PLANS.FREE.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingFreeWhileBeta"),
-      features: [
-        t("planFreeFeature1"),
-        t("planFreeFeature2"),
-        t("planFreeFeature3"),
-      ],
       limit: t("planFreeLimit"),
       featured: false,
     },
-    {
-      code: "PRO",
-      name: t("planProName"),
+    PRO: {
       audience: t("planProFor"),
       pitch: t("planProPitch"),
-      price: formatPrice(CUSTOMER_PLANS.PRO.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingPerMonth"),
-      features: [
-        t("planProFeature1"),
-        t("planProFeature2"),
-        t("planProFeature3"),
-        t("planProFeature4"),
-      ],
       limit: t("planProLimit"),
       featured: true,
     },
-    {
-      code: "ELITE",
-      name: t("planEliteName"),
+    ELITE: {
       audience: t("planEliteFor"),
       pitch: t("planElitePitch"),
-      price: formatPrice(CUSTOMER_PLANS.ELITE.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingPerMonth"),
-      features: [
-        t("planEliteFeature1"),
-        t("planEliteFeature2"),
-        t("planEliteFeature3"),
-      ],
       limit: t("planEliteLimit"),
       featured: false,
     },
-  ];
+  } as const;
+
+  return PLAN_ORDER.map((code, index) => {
+    const granted = entitlementsFor(code);
+    // The entry tier has no tier below it, so nothing it grants is an
+    // "addition" — marking every FREE feature as new was meaningless.
+    const added =
+      index === 0
+        ? []
+        : granted.filter(
+            (entitlement) =>
+              !entitlementsFor(PLAN_ORDER[index - 1]!).includes(entitlement),
+          );
+
+    return {
+      code,
+      name: code,
+      audience: copy[code].audience,
+      pitch: copy[code].pitch,
+      price: formatPrice(CUSTOMER_PLANS[code].introductoryMonthlyEur, locale),
+      pricePeriod: copy[code].pricePeriod,
+      features: granted.map((entitlement) =>
+        entitlementLabel(entitlement, locale),
+      ),
+      additions: added.map((entitlement) =>
+        entitlementLabel(entitlement, locale),
+      ),
+      // A paid tier that grants nothing new must admit it rather than imply
+      // capability it lacks.
+      limit:
+        index > 0 && added.length === 0
+          ? t("planNoAdditionalAccess")
+          : copy[code].limit,
+      featured: copy[code].featured,
+    };
+  });
 }

@@ -14,7 +14,7 @@ export default async function PredictionsPage() {
     );
   await runtime.close();
   return (
-    <AdminShell>
+    <AdminShell active="/predictions">
       <section className="page-heading">
         <p className="eyebrow">TRACE / PREDICTIONS</p>
         <h1>Prediction traces</h1>

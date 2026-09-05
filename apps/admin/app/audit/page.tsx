@@ -17,7 +17,7 @@ export default async function AuditPage() {
   try {
     const audit = await runtime.queries.listAudit({ limit: 100, cursor: null });
     return (
-      <AdminShell>
+      <AdminShell active="/audit">
         <section className="page-heading">
           <p className="eyebrow">TRACE / AUDIT</p>
           <h1>Audit log</h1>

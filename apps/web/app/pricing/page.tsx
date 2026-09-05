@@ -32,7 +32,7 @@ export default async function Pricing() {
           {plans.map((plan) => (
             <Card
               key={plan.code}
-              className={`plan${plan.featured ? " plan--featured" : ""}`}
+              className={`plan${plan.featured ? " plan--featured pitch-corner" : ""}`}
             >
               {plan.featured ? (
                 <span className="plan__ribbon">
@@ -62,11 +62,22 @@ export default async function Pricing() {
                 >
                   {t("pricingIncluded")}
                 </p>
+                {/* Generated from the live entitlement matrix in
+                    @velyq/auth, so this page cannot advertise access the
+                    server does not actually grant. Entitlements the tier
+                    adds over the one below it are marked. */}
                 <ul className="plan__features">
                   {plan.features.map((feature) => (
                     <li key={feature}>
                       <IconCheck />
-                      {feature}
+                      <span>
+                        {feature}
+                        {plan.additions.includes(feature) ? (
+                          <b className="plan__new" aria-hidden="true">
+                            +
+                          </b>
+                        ) : null}
+                      </span>
                     </li>
                   ))}
                 </ul>

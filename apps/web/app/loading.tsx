@@ -12,7 +12,7 @@ export default async function Loading() {
       </p>
       <div className="stack" aria-hidden="true">
         <Skeleton variant="title" />
-        <Skeleton variant="line" width="24rem" />
+        <Skeleton variant="line" width="min(24rem, 100%)" />
         <div className="stat-row">
           <Card>
             <Skeleton variant="block" />

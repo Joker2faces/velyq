@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 export const customerMatchPath =
-  "/matches/73000000-0000-4000-8000-000000000001";
+  "/matches/76000000-0000-4000-8000-000000000001";
 
 export async function signInAsCustomer(page: Page) {
   await page.goto("/sign-in");

@@ -6,6 +6,15 @@
  * Nothing in this package performs domain arithmetic.
  */
 export {
+  BRAND_MARK_CIRCLE,
+  BRAND_MARK_SPOT,
+  BRAND_MARK_STROKE,
+  BRAND_MARK_TAIL,
+  BRAND_MARK_VIEWBOX,
+  BRAND_TILE_RADIUS,
+} from "./brand.js";
+
+export {
   DEFAULT_LOCALE,
   LOCALES,
   LOCALE_COOKIE,
@@ -18,6 +27,7 @@ export {
 
 export {
   EMPTY_VALUE,
+  axisPercent,
   barPercent,
   directionOf,
   formatCount,
@@ -26,7 +36,7 @@ export {
   formatLongDate,
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatPrice,
   formatProbability,
   formatTime,
@@ -54,6 +64,7 @@ export {
   qualityTone,
   reasonLabel,
   reasonLabels,
+  selectionLabel,
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,

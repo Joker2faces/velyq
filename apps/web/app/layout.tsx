@@ -4,11 +4,19 @@ import { translate } from "@velyq/ui";
 import { getLocale } from "./locale";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "VELYQ — Sports Market Intelligence",
-  description:
-    "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
-};
+/**
+ * Metadata follows the customer's language.
+ *
+ * A static English `metadata` export left the browser tab, and every share
+ * preview, in English on a fully Greek page.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: translate("metaTitle", locale),
+    description: translate("metaDescription", locale),
+  };
+}
 
 export default async function RootLayout({
   children,

@@ -14,7 +14,7 @@ export default async function ScoresPage() {
     );
   await runtime.close();
   return (
-    <AdminShell>
+    <AdminShell active="/scores">
       <section className="page-heading">
         <p className="eyebrow">INSPECTION / SCORES</p>
         <h1>EDGE / RADAR</h1>

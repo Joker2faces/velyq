@@ -2,10 +2,11 @@ import Link from "next/link";
 import {
   directionOf,
   formatOdds,
-  formatPercentagePoints,
+  formatPercent,
   formatTime,
   freshnessLabel,
   freshnessTone,
+  selectionLabel,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -66,7 +67,7 @@ export default async function Radar() {
           </div>
           <div className="page__badges">
             <Badge tone="synthetic" dot>
-              {result.value.syntheticLabel}
+              {t("syntheticData")}
             </Badge>
             <Badge tone="heuristic">{t("observableOnly")}</Badge>
           </div>
@@ -107,8 +108,9 @@ export default async function Radar() {
                 >
                   <div className="row__head">
                     <span className="row__teams">
-                      {match.homeTeam} <em>{t("matchVersus")}</em>{" "}
-                      {match.awayTeam}
+                      <span className="fixture__team">{match.homeTeam}</span>
+                      <span className="fixture__divider" aria-hidden="true" />
+                      <span className="fixture__team">{match.awayTeam}</span>
                     </span>
                     <Badge tone="muted">{t("noEvidence")}</Badge>
                   </div>
@@ -149,10 +151,13 @@ function RadarRow({
       <div className="row__head">
         <div>
           <span className="row__teams">
-            {match.homeTeam} <em>{t("matchVersus")}</em> {match.awayTeam}
+            <span className="fixture__team">{match.homeTeam}</span>
+            <span className="fixture__divider" aria-hidden="true" />
+            <span className="fixture__team">{match.awayTeam}</span>
           </span>
           <div className="row__sub">
-            {match.selection} · {formatTime(match.startsAt, locale)}
+            {selectionLabel(match.selection, locale)} ·{" "}
+            {formatTime(match.startsAt, locale)}
           </div>
         </div>
         <Badge tone={freshnessTone(match.freshness)} dot>
@@ -171,14 +176,14 @@ function RadarRow({
         />
         <Stat
           label={t("radarMovement")}
-          value={formatPercentagePoints(match.movementPercent, locale)}
+          value={formatPercent(match.movementPercent, 1, locale)}
           tone={direction === "down" ? "positive" : undefined}
         />
         <div className="stat">
           <span className="stat__label">{t("radarHistory")}</span>
           <Sparkline
             points={[Number(match.openingOdds), Number(match.currentOdds)]}
-            tone={direction === "up" ? "amber" : "mint"}
+            tone={direction === "up" ? "caution" : "pitch"}
             label={`${t("radarOpening")} ${formatOdds(match.openingOdds, locale)} → ${t(
               "radarCurrent",
             )} ${formatOdds(match.currentOdds, locale)}`}
@@ -199,7 +204,7 @@ function RadarRow({
           </span>
           <Trend
             value={match.movementPercent}
-            display={formatPercentagePoints(match.movementPercent, locale)}
+            display={formatPercent(match.movementPercent, 1, locale)}
             caption={meaning}
           />
           <span className="row__sub">{meaning}</span>

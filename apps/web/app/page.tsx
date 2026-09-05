@@ -1,10 +1,14 @@
 import {
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatProbability,
+  formatTime,
+  freshnessLabel,
+  freshnessTone,
   recommendationLabel,
   recommendationTone,
+  selectionLabel,
   translator,
 } from "@velyq/ui";
 import { getLocale } from "./locale";
@@ -15,35 +19,38 @@ import {
   ArrowLink,
   Badge,
   Card,
-  Compare,
+  EdgeAxis,
   Sparkline,
   Trend,
 } from "./components/ui";
 import { IconAlert, IconCheck } from "./components/icons";
+import { Fixture, PitchBackdrop } from "./components/pitch";
 
 export default async function Home() {
   const locale = await getLocale();
   const t = translator(locale);
 
   /*
-   * The hero preview renders the real synthetic fixture rather than a
-   * hand-drawn mock. The previous version advertised an "EDGE SCORE 78/100"
-   * and a "Confidence: HIGH" field that do not exist in the product, using
-   * real club names on a platform that is contractually synthetic-only.
-   * Showing the actual shipped shape keeps the promise and the product
-   * aligned, and it can never drift out of date.
+   * Everything shown on this page comes from the shipped synthetic fixture,
+   * never from invented marketing data: the hero preview and the live strip
+   * render the same DTO fields the product renders. Team names are the
+   * fixture's own fictional clubs, so the public page can never imply
+   * coverage of a real fixture.
    */
   const featured =
     customerToday.matches.find(
       (match) => match.recommendation === "STRONG_EDGE",
     ) ?? customerToday.matches[0];
+  const liveStrip = customerToday.matches
+    .filter((match) => match.currentOdds !== null)
+    .slice(0, 3);
 
   return (
     <PublicShell locale={locale}>
       {/* ------------------------------------------------------------ hero */}
       <section className="hero">
         <div className="hero__aurora" aria-hidden="true" />
-        <div className="hero__grid-lines" aria-hidden="true" />
+        <PitchBackdrop />
         <div className="hero__inner">
           <div className="hero__copy">
             <p className="eyebrow">{t("homeHeroEyebrow")}</p>
@@ -77,61 +84,63 @@ export default async function Home() {
           </div>
 
           {featured ? (
-            <div className="preview">
+            <div className="preview pitch-corner">
               <div className="preview__bar">
                 <span className="eyebrow">{t("homePreviewLabel")}</span>
                 <Badge tone="synthetic" dot>
                   {t("syntheticData")}
                 </Badge>
               </div>
+
               <div className="preview__cards">
                 <div className="preview__card preview__card--wide">
-                  <div className="preview__match">
-                    <span className="preview__teams">
-                      {featured.homeTeam}
-                      <em
-                        aria-hidden="true"
-                        style={{
-                          color: "var(--text-faint)",
-                          fontStyle: "normal",
-                          padding: "0 .4rem",
-                        }}
-                      >
-                        vs
-                      </em>
-                      {featured.awayTeam}
-                    </span>
-                    <Badge tone={recommendationTone(featured.recommendation)}>
+                  <Fixture
+                    homeTeam={featured.homeTeam}
+                    awayTeam={featured.awayTeam}
+                    meta={`${featured.competition} · ${formatTime(
+                      featured.startsAt,
+                      locale,
+                    )} · ${selectionLabel(featured.selection, locale)}`}
+                  />
+                  <p style={{ textAlign: "center" }}>
+                    <Badge
+                      tone={recommendationTone(featured.recommendation)}
+                      dot
+                    >
                       {recommendationLabel(featured.recommendation, locale)}
                     </Badge>
-                  </div>
-                  <Compare
-                    rows={[
-                      {
-                        name: t("homePreviewModel"),
-                        value: featured.modelProbability,
-                        display: formatProbability(
-                          featured.modelProbability,
-                          locale,
-                        ),
-                      },
-                      {
-                        name: t("homePreviewMarket"),
-                        value: featured.impliedProbability,
-                        display: formatProbability(
-                          featured.impliedProbability,
-                          locale,
-                        ),
-                        tone: "lilac",
-                      },
-                    ]}
+                  </p>
+                  <EdgeAxis
+                    modelProbability={featured.modelProbability}
+                    impliedProbability={featured.impliedProbability}
+                    modelDisplay={formatProbability(
+                      featured.modelProbability,
+                      locale,
+                    )}
+                    impliedDisplay={formatProbability(
+                      featured.impliedProbability,
+                      locale,
+                    )}
+                    modelLabel={t("homePreviewModel")}
+                    marketLabel={t("homePreviewMarket")}
+                    caption={t("edgeAxisCaption", {
+                      model: formatProbability(
+                        featured.modelProbability,
+                        locale,
+                      ),
+                      market: formatProbability(
+                        featured.impliedProbability,
+                        locale,
+                      ),
+                      edge: formatPointsDelta(featured.probabilityEdge, locale),
+                    })}
                   />
                 </div>
 
                 <div className="preview__card">
                   <span className="stat__label">{t("homePreviewEdge")}</span>
                   <span className="preview__edge preview__pulse">
-                    {formatPercent(featured.probabilityEdge, 1, locale)}
+                    {formatPointsDelta(featured.probabilityEdge, locale)}
                   </span>
                   <span className="card__hint">
                     {t("matchExpectedValue")}{" "}
@@ -139,7 +148,7 @@ export default async function Home() {
                   </span>
                 </div>
 
-                <div className="preview__card">
+                <div className="preview__card sweep">
                   <span className="stat__label">{t("homePreviewRadar")}</span>
                   {featured.openingOdds && featured.currentOdds ? (
                     <>
@@ -169,8 +178,9 @@ export default async function Home() {
                       </div>
                       <Trend
                         value={featured.movementPercent}
-                        display={formatPercentagePoints(
+                        display={formatPercent(
                           featured.movementPercent,
+                          1,
                           locale,
                         )}
                       />
@@ -185,31 +195,77 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ----------------------------------------------- key value proposition */}
-      <section className="section section--bordered reveal" id="platform">
+      {/* ------------------------------------- live synthetic intelligence */}
+      <section className="section touchline reveal" id="live">
         <div className="section__head">
-          <p className="eyebrow">{t("homeValueEyebrow")}</p>
-          <h2>{t("homeValueTitle")}</h2>
-          <p>{t("homeValueBody")}</p>
+          <p className="eyebrow">{t("homeLiveEyebrow")}</p>
+          <h2>{t("homeLiveTitle")}</h2>
+          <p>{t("homeLiveBody")}</p>
         </div>
         <div className="grid-cards">
-          {(
-            [
-              ["homeValueOneTitle", "homeValueOneBody"],
-              ["homeValueTwoTitle", "homeValueTwoBody"],
-              ["homeValueThreeTitle", "homeValueThreeBody"],
-            ] as const
-          ).map(([title, body]) => (
-            <Card key={title} interactive>
-              <h3>{t(title)}</h3>
-              <p>{t(body)}</p>
+          {liveStrip.map((match) => (
+            <Card key={match.eventId} interactive>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: "var(--space-3)",
+                }}
+              >
+                <Badge tone={freshnessTone(match.freshness)} dot>
+                  {freshnessLabel(match.freshness, locale)}
+                </Badge>
+              </div>
+              <Fixture
+                size="sm"
+                homeTeam={match.homeTeam}
+                awayTeam={match.awayTeam}
+                meta={`${t("todayFullTime1x2")} · ${selectionLabel(
+                  match.selection,
+                  locale,
+                )} · ${formatTime(match.startsAt, locale)}`}
+              />
+              <div
+                className="row__stats"
+                style={{ marginTop: "var(--space-4)" }}
+              >
+                <div className="stat">
+                  <span className="stat__label">{t("radarOpening")}</span>
+                  <span className="stat__value">
+                    {formatOdds(match.openingOdds, locale)}
+                  </span>
+                </div>
+                <div className="stat">
+                  <span className="stat__label">{t("radarCurrent")}</span>
+                  <span className="stat__value">
+                    {formatOdds(match.currentOdds, locale)}
+                  </span>
+                </div>
+                <div className="stat">
+                  <span className="stat__label">{t("radarMovement")}</span>
+                  <span className="stat__value">
+                    <Trend
+                      value={match.movementPercent}
+                      display={formatPercent(match.movementPercent, 1, locale)}
+                    />
+                  </span>
+                </div>
+              </div>
+              <p style={{ marginTop: "var(--space-4)" }}>
+                <Badge tone={recommendationTone(match.recommendation)}>
+                  {recommendationLabel(match.recommendation, locale)}
+                </Badge>
+              </p>
             </Card>
           ))}
         </div>
+        <p className="fine-print" style={{ marginTop: "var(--space-5)" }}>
+          {t("homeLiveDisclaimer")}
+        </p>
       </section>
 
-      {/* ------------------------------------------- EDGE / RADAR / MATCH INTEL */}
-      <section className="section section--bordered reveal" id="modules">
+      {/* ------------------------------------------- EDGE / RADAR / MATCH */}
+      <section className="section touchline reveal" id="modules">
         <div className="section__head">
           <p className="eyebrow">{t("homeModulesEyebrow")}</p>
           <h2>{t("homeModulesTitle")}</h2>
@@ -270,8 +326,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------- how it works */}
-      <section className="section section--bordered reveal">
+      {/* ------------------------------------------------------ how it works */}
+      <section className="section touchline reveal">
         <div className="section__head">
           <p className="eyebrow">{t("homeHowEyebrow")}</p>
           <h2>{t("homeHowTitle")}</h2>
@@ -296,8 +352,57 @@ export default async function Home() {
         </ol>
       </section>
 
-      {/* -------------------------------------------------------------- why velyq */}
-      <section className="section section--bordered reveal">
+      {/* ------------------------------- why probability alone is not enough */}
+      <section className="section touchline reveal">
+        <div className="section__head">
+          <p className="eyebrow">{t("homeProbabilityEyebrow")}</p>
+          <h2>{t("homeProbabilityTitle")}</h2>
+          <p>{t("homeProbabilityBody")}</p>
+        </div>
+        <div className="grid-cards">
+          {(
+            [
+              ["homeProbabilityOneTitle", "homeProbabilityOneBody"],
+              ["homeProbabilityTwoTitle", "homeProbabilityTwoBody"],
+              ["homeProbabilityThreeTitle", "homeProbabilityThreeBody"],
+            ] as const
+          ).map(([title, body], index) => (
+            <Card key={title} interactive>
+              <p className="step__index">
+                {String(index + 1).padStart(2, "0")}
+              </p>
+              <h3 style={{ marginTop: "var(--space-3)" }}>{t(title)}</h3>
+              <p>{t(body)}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------- football workflow */}
+      <section className="section touchline reveal">
+        <div className="section__head">
+          <p className="eyebrow">{t("homeWorkflowEyebrow")}</p>
+          <h2>{t("homeWorkflowTitle")}</h2>
+        </div>
+        <ol className="steps">
+          {(
+            [
+              ["homeWorkflowOneTitle", "homeWorkflowOneBody"],
+              ["homeWorkflowTwoTitle", "homeWorkflowTwoBody"],
+              ["homeWorkflowThreeTitle", "homeWorkflowThreeBody"],
+              ["homeWorkflowFourTitle", "homeWorkflowFourBody"],
+            ] as const
+          ).map(([title, body]) => (
+            <li className="step" key={title}>
+              <h3>{t(title)}</h3>
+              <p>{t(body)}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* -------------------------------------------------------- why velyq */}
+      <section className="section touchline reveal">
         <div className="section__head">
           <p className="eyebrow">{t("homeWhyEyebrow")}</p>
           <h2>{t("homeWhyTitle")}</h2>
@@ -319,11 +424,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ---------------------------------------------------------- pricing preview */}
-      <section
-        className="section section--bordered reveal"
-        id="pricing-preview"
-      >
+      {/* ---------------------------------------------------- pricing preview */}
+      <section className="section touchline reveal" id="pricing-preview">
         <div className="section__head">
           <p className="eyebrow">{t("homePricingEyebrow")}</p>
           <h2>{t("homePricingTitle")}</h2>
@@ -333,7 +435,7 @@ export default async function Home() {
           {planCatalog(locale).map((plan) => (
             <Card
               key={plan.code}
-              className={`plan${plan.featured ? " plan--featured" : ""}`}
+              className={`plan${plan.featured ? " plan--featured pitch-corner" : ""}`}
               interactive
             >
               {plan.featured ? (
@@ -366,7 +468,7 @@ export default async function Home() {
         </p>
       </section>
 
-      {/* ----------------------------------------- responsible / synthetic notice */}
+      {/* ---------------------------- responsible use / data transparency */}
       <section className="section reveal">
         <div className="notice">
           <h2>
@@ -380,9 +482,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------------- final CTA */}
+      {/* --------------------------------------------------------- final CTA */}
       <section className="section reveal">
-        <div className="final-cta">
+        <div className="final-cta pitch-corner">
           <div style={{ display: "grid", gap: "var(--space-3)" }}>
             <p className="eyebrow">{t("homeFinalEyebrow")}</p>
             <h2>{t("homeFinalTitle")}</h2>
