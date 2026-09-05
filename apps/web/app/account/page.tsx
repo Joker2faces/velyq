@@ -6,13 +6,13 @@ export default function Account() {
         <div>
           <p className="kicker">ACCOUNT</p>
           <h1>Your workspace.</h1>
-          <p>Access and data context for this staging environment.</p>
+          <p>Your VELYQ customer workspace and access context.</p>
         </div>
       </div>
       <section className="panel account-panel">
         <div>
           <span className="kicker">PLAN</span>
-          <h2>FREE customer preview</h2>
+          <h2>FREE synthetic beta</h2>
           <p>
             Today, EDGE preview and RADAR preview are available. Paid access is
             confirmed server-side by Stripe webhooks.
@@ -24,9 +24,10 @@ export default function Account() {
         <span className="kicker">BILLING</span>
         <h2>Manage your subscription</h2>
         <p>Checkout and billing management are hosted securely by Stripe.</p>
-        <form action="/api/v1/billing/portal" method="post">
-          <button type="submit">Manage billing</button>
-        </form>
+        <p>
+          Paid billing is not active in the current beta. Your FREE access
+          remains fully usable.
+        </p>
       </section>
     </CustomerShell>
   );
