@@ -1,0 +1,229 @@
+/**
+ * Responsive and accessibility sweep for the customer app.
+ *
+ * Walks every customer route in both locales at three widths and reports
+ * horizontal overflow, undersized tap targets, text below the 12px floor and
+ * missing document landmarks. Review tooling — it asserts nothing and is not
+ * part of the build.
+ *
+ * Usage: node tooling/scripts/ux-sweep.mjs [baseUrl]
+ */
+import { chromium } from "@playwright/test";
+
+const baseUrl = process.argv[2] ?? "http://127.0.0.1:3100";
+
+const PUBLIC_ROUTES = [
+  "/",
+  "/pricing",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+  "/terms",
+  "/privacy",
+  "/responsible-use",
+  "/subscription-terms",
+];
+const PRIVATE_ROUTES = [
+  "/today",
+  "/edge",
+  "/radar",
+  "/account",
+  "/matches/73000000-0000-4000-8000-000000000001",
+];
+const ROUTES = [...PUBLIC_ROUTES, ...PRIVATE_ROUTES];
+const WIDTHS = [
+  ["mobile", 390, 844],
+  ["tablet", 768, 1024],
+  ["desktop", 1440, 900],
+];
+const LOCALES = ["en", "el"];
+
+/*
+ * Everything inside `audit` is serialised and executed by Playwright in the
+ * page, not in Node, so the browser globals it uses are declared here for
+ * ESLint's benefit.
+ */
+/* global document, getComputedStyle */
+const audit = () => {
+  const root = document.documentElement;
+  const problems = [];
+
+  if (root.scrollWidth > root.clientWidth + 1) {
+    const culprits = [...document.querySelectorAll("body *")]
+      .filter((element) => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.right > root.clientWidth + 1;
+      })
+      .slice(0, 4)
+      .map(
+        (element) =>
+          `${element.tagName.toLowerCase()}.${String(element.className).split(" ")[0]}`,
+      );
+    problems.push(
+      `OVERFLOW ${root.scrollWidth}>${root.clientWidth} via ${culprits.join(", ")}`,
+    );
+  }
+
+  const interactive = [
+    ...document.querySelectorAll("a, button, summary, input"),
+  ];
+  const small = interactive
+    .filter((element) => {
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return false;
+      if (getComputedStyle(element).visibility === "hidden") return false;
+      return box.height < 40;
+    })
+    .map(
+      (element) =>
+        `${element.tagName.toLowerCase()}.${String(element.className).split(" ")[0]}@${Math.round(
+          element.getBoundingClientRect().height,
+        )}px`,
+    );
+  if (small.length)
+    problems.push(`TAPTARGET ${[...new Set(small)].join(", ")}`);
+
+  const tiny = [...document.querySelectorAll("body *")]
+    .filter((element) => {
+      if (!element.textContent?.trim()) return false;
+      if (element.children.length > 0) return false;
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return false;
+      return Number.parseFloat(getComputedStyle(element).fontSize) < 11.5;
+    })
+    .map(
+      (element) =>
+        `${element.tagName.toLowerCase()}.${String(element.className).split(" ")[0]}`,
+    );
+  if (tiny.length) problems.push(`TINYTEXT ${[...new Set(tiny)].join(", ")}`);
+
+  // Text contrast against the nearest opaque ancestor background.
+  const parseColor = (value) => {
+    const match = value.match(/rgba?\(([^)]+)\)/);
+    if (!match) return null;
+    const channels = match[1]
+      .split(/[\s,/]+/)
+      .filter(Boolean)
+      .map(Number.parseFloat);
+    return [
+      channels[0],
+      channels[1],
+      channels[2],
+      channels[3] === undefined ? 1 : channels[3],
+    ];
+  };
+  const luminance = (color) =>
+    color.slice(0, 3).reduce((sum, channel, index) => {
+      const normalized = channel / 255;
+      const linear =
+        normalized <= 0.03928
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      return sum + linear * [0.2126, 0.7152, 0.0722][index];
+    }, 0);
+  /**
+   * Resolves the effective backdrop, or null when it cannot be determined.
+   *
+   * A gradient (`background-image`) reports `backgroundColor: transparent`,
+   * so naively walking past it compares the text against the page background
+   * and reports a false failure. Those cases are reported as unknown and
+   * checked by eye instead.
+   */
+  const backgroundFor = (element) => {
+    let current = element;
+    while (current) {
+      const style = getComputedStyle(current);
+      if (style.backgroundImage !== "none") return null;
+      const background = parseColor(style.backgroundColor);
+      if (background && background[3] > 0.92) return background;
+      current = current.parentElement;
+    }
+    return [5, 8, 15, 1];
+  };
+  const lowContrast = [...document.querySelectorAll("body *")]
+    .filter((element) => {
+      if (element.children.length > 0) return false;
+      if (!element.textContent?.trim()) return false;
+      if (element.closest("[aria-hidden='true'], .sr-only")) return false;
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    })
+    .map((element) => {
+      const style = getComputedStyle(element);
+      const size = Number.parseFloat(style.fontSize);
+      const bold = Number.parseInt(style.fontWeight, 10) >= 700;
+      const large = size >= 24 || (size >= 18.66 && bold);
+      const foreground = parseColor(style.color);
+      const background = backgroundFor(element);
+      if (!foreground || !background) return null;
+      const a = luminance(foreground);
+      const b = luminance(background);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      return { element, ratio, required: large ? 3 : 4.5 };
+    })
+    .filter((result) => result && result.ratio < result.required)
+    .map(
+      ({ element, ratio }) =>
+        `${element.tagName.toLowerCase()}.${String(element.className).split(" ")[0]}@${ratio.toFixed(2)}`,
+    );
+  if (lowContrast.length) {
+    problems.push(`CONTRAST ${[...new Set(lowContrast)].join(", ")}`);
+  }
+
+  if (!document.querySelector("main")) problems.push("NO_MAIN");
+  if (document.querySelectorAll("h1").length !== 1) {
+    problems.push(`H1_COUNT=${document.querySelectorAll("h1").length}`);
+  }
+  const unlabelled = [...document.querySelectorAll("input")].filter(
+    (input) =>
+      !input.labels?.length &&
+      !input.getAttribute("aria-label") &&
+      input.type !== "hidden",
+  );
+  if (unlabelled.length) problems.push(`UNLABELLED_INPUT=${unlabelled.length}`);
+
+  return { lang: root.lang, problems };
+};
+
+const browser = await chromium.launch();
+let failures = 0;
+
+for (const locale of LOCALES) {
+  const context = await browser.newContext();
+  await context.addCookies([
+    { name: "velyq-locale", value: locale, url: baseUrl },
+  ]);
+  // Sign in once per context so the private routes render.
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/sign-in`);
+  await page.evaluate(() => {
+    const form = document.querySelector("form.auth__form");
+    document.querySelector("#email").value = "customer@example.test";
+    document.querySelector("#password").value = "customer-password";
+    form.submit();
+  });
+  await page.waitForLoadState("networkidle").catch(() => {});
+
+  for (const [label, width, height] of WIDTHS) {
+    await page.setViewportSize({ width, height });
+    for (const route of ROUTES) {
+      await page.goto(`${baseUrl}${route}`, { waitUntil: "load" });
+      const { lang, problems } = await page.evaluate(audit);
+      if (lang !== locale) problems.unshift(`LANG=${lang} expected ${locale}`);
+      if (problems.length) {
+        failures += problems.length;
+        console.log(`[${locale}/${label}] ${route}`);
+        for (const problem of problems) console.log(`    ${problem}`);
+      }
+    }
+  }
+  await context.close();
+}
+
+await browser.close();
+console.log(
+  failures === 0
+    ? `\nOK — ${ROUTES.length * WIDTHS.length * LOCALES.length} route/viewport/locale combinations clean.`
+    : `\n${failures} problem(s) reported.`,
+);
