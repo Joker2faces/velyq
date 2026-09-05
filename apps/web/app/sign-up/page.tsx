@@ -1,11 +1,11 @@
-export default function SignIn() {
+export default function SignUp() {
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <p className="kicker">VELYQ // STAGING</p>
-        <h1>Welcome back.</h1>
-        <p>Sign in to your sports market intelligence workspace.</p>
-        <form action="/api/v1/auth/sign-in" method="post">
+        <p className="kicker">VELYQ // PUBLIC ACCESS</p>
+        <h1>Create your account.</h1>
+        <p>Start with the free VELYQ intelligence preview.</p>
+        <form action="/api/v1/auth/sign-up" method="post">
           <label htmlFor="email">
             Email
             <input
@@ -22,19 +22,20 @@ export default function SignIn() {
               id="password"
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
+              minLength={8}
               required
             />
           </label>
-          <button type="submit">Continue with Supabase Auth</button>
+          <button type="submit">Create free account</button>
         </form>
         <p>
-          New to VELYQ? <a href="/sign-up">Create an account</a>
+          Already have an account? <a href="/sign-in">Sign in</a>
         </p>
-        <p>
-          <a href="/forgot-password">Forgot your password?</a>
-        </p>
-        <small>Protected by the VELYQ server-side session boundary.</small>
+        <small>
+          Every new account starts as a customer. Access is assigned
+          server-side.
+        </small>
       </div>
     </main>
   );
