@@ -1,10 +1,18 @@
-export default function SignIn() {
+export default async function SignIn({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  const params = searchParams ? await searchParams : {};
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <p className="kicker">VELYQ // STAGING</p>
+        <p className="kicker">VELYQ // CUSTOMER ACCESS</p>
         <h1>Welcome back.</h1>
         <p>Sign in to your sports market intelligence workspace.</p>
+        {params.error && (
+          <p role="alert">Email or password is incorrect. Please try again.</p>
+        )}
         <form action="/api/v1/auth/sign-in" method="post">
           <label htmlFor="email">
             Email
