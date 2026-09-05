@@ -1,10 +1,20 @@
-import { formatPrice, translator, type Locale } from "@velyq/ui";
+import {
+  resolveCustomerEntitlements,
+  type CustomerEntitlement,
+  type CustomerPlan,
+} from "@velyq/auth";
+import {
+  entitlementLabel,
+  formatPrice,
+  translator,
+  type Locale,
+} from "@velyq/ui";
 
 /**
  * Customer subscription plans.
  *
  * FREE / PRO / ELITE are billing tiers. They are not authorization roles:
- * administrator access is granted by database permissions and is resolved
+ * administrator access is granted by database permissions and resolved
  * server-side, entirely independently of anything in this file.
  */
 export const CUSTOMER_PLANS = {
@@ -15,12 +25,30 @@ export const CUSTOMER_PLANS = {
 
 export type PlanCode = keyof typeof CUSTOMER_PLANS;
 
+const PLAN_ORDER: readonly PlanCode[] = ["FREE", "PRO", "ELITE"];
+
 export function paidBillingConfigured() {
   return Boolean(
     process.env["STRIPE_SECRET_KEY"] &&
     process.env["STRIPE_PRO_PRICE_ID"] &&
     process.env["STRIPE_ELITE_PRICE_ID"],
   );
+}
+
+/**
+ * The entitlements a plan actually grants, read from `@velyq/auth`.
+ *
+ * `resolveCustomerEntitlements` is the same function the authenticated app
+ * uses, so the pricing page can never advertise a capability the server does
+ * not grant. A paid status is supplied for the paid tiers because the
+ * resolver downgrades an unpaid subscription to FREE — here we are
+ * describing the offer, not a particular customer's state.
+ */
+function entitlementsFor(plan: PlanCode): readonly CustomerEntitlement[] {
+  return resolveCustomerEntitlements({
+    plan: plan as CustomerPlan,
+    status: plan === "FREE" ? null : "active",
+  }).entitlements;
 }
 
 export type PlanPresentation = {
@@ -30,67 +58,81 @@ export type PlanPresentation = {
   pitch: string;
   price: string;
   pricePeriod: string;
+  /** Everything the tier grants, in plain language. */
   features: readonly string[];
+  /** Only what this tier adds over the one below it. */
+  additions: readonly string[];
   limit: string;
   featured: boolean;
 };
 
 /**
- * Localized plan presentation.
+ * Localized plan presentation, derived from the live entitlement matrix.
  *
- * The feature lists describe what each tier actually grants today. ELITE
- * currently resolves to the same entitlement set as PRO in `@velyq/auth`, so
- * its card says so plainly in `limit` rather than implying capability that
- * does not exist. See the handoff note for Codex.
+ * Feature lists are generated rather than hand-written, so they cannot drift
+ * away from what the server grants. When a tier adds nothing over the tier
+ * below — which is currently true of ELITE on this branch — the card says so
+ * plainly instead of implying capability that does not exist.
  */
 export function planCatalog(locale: Locale): readonly PlanPresentation[] {
   const t = translator(locale);
-  return [
-    {
-      code: "FREE",
-      name: t("planFreeName"),
+
+  const copy = {
+    FREE: {
       audience: t("planFreeFor"),
       pitch: t("planFreePitch"),
-      price: formatPrice(CUSTOMER_PLANS.FREE.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingFreeWhileBeta"),
-      features: [
-        t("planFreeFeature1"),
-        t("planFreeFeature2"),
-        t("planFreeFeature3"),
-      ],
       limit: t("planFreeLimit"),
       featured: false,
     },
-    {
-      code: "PRO",
-      name: t("planProName"),
+    PRO: {
       audience: t("planProFor"),
       pitch: t("planProPitch"),
-      price: formatPrice(CUSTOMER_PLANS.PRO.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingPerMonth"),
-      features: [
-        t("planProFeature1"),
-        t("planProFeature2"),
-        t("planProFeature3"),
-        t("planProFeature4"),
-      ],
       limit: t("planProLimit"),
       featured: true,
     },
-    {
-      code: "ELITE",
-      name: t("planEliteName"),
+    ELITE: {
       audience: t("planEliteFor"),
       pitch: t("planElitePitch"),
-      price: formatPrice(CUSTOMER_PLANS.ELITE.introductoryMonthlyEur, locale),
       pricePeriod: t("pricingPerMonth"),
-      features: [
-        t("planEliteFeature1"),
-        t("planEliteFeature2"),
-        t("planEliteFeature3"),
-      ],
       limit: t("planEliteLimit"),
       featured: false,
     },
-  ];
+  } as const;
+
+  return PLAN_ORDER.map((code, index) => {
+    const granted = entitlementsFor(code);
+    // The entry tier has no tier below it, so nothing it grants is an
+    // "addition" — marking every FREE feature as new was meaningless.
+    const added =
+      index === 0
+        ? []
+        : granted.filter(
+            (entitlement) =>
+              !entitlementsFor(PLAN_ORDER[index - 1]!).includes(entitlement),
+          );
+
+    return {
+      code,
+      name: code,
+      audience: copy[code].audience,
+      pitch: copy[code].pitch,
+      price: formatPrice(CUSTOMER_PLANS[code].introductoryMonthlyEur, locale),
+      pricePeriod: copy[code].pricePeriod,
+      features: granted.map((entitlement) =>
+        entitlementLabel(entitlement, locale),
+      ),
+      additions: added.map((entitlement) =>
+        entitlementLabel(entitlement, locale),
+      ),
+      // A tier that grants nothing new must admit it; the copy string for
+      // ELITE says exactly that while its entitlements match PRO.
+      limit:
+        index > 0 && added.length === 0
+          ? t("planNoAdditionalAccess")
+          : copy[code].limit,
+      featured: copy[code].featured,
+    };
+  });
 }
