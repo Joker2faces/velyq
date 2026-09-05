@@ -1115,7 +1115,7 @@ svg {
    Shared by the customer app and the admin console. */
 
 .brand {
-  align-items: baseline;
+  align-items: center;
   display: inline-flex;
   flex: 0 1 auto;
   gap: var(--space-3);
@@ -1124,6 +1124,12 @@ svg {
   /* Baseline alignment keeps the wordmark and tag on one optical line; the
      extra height comes from padding so the target still meets 44px. */
   padding-block: var(--space-2);
+}
+
+/* The mark takes the accent; each app sets its own via `color`. */
+.brand__logo {
+  color: var(--pitch);
+  flex: none;
 }
 
 .brand__mark {

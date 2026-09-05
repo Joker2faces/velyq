@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { translator, type Locale } from "@velyq/ui";
 import { getLocale } from "./locale";
 import { LanguageSwitcher } from "./language-switcher";
+import { VelyqMark } from "./logo";
 
 /**
  * Admin console shell.
@@ -136,6 +137,7 @@ export async function AdminShell({
     <div className="ops">
       <aside className="ops__sidebar">
         <a className="brand" href="/">
+          <VelyqMark />
           <span className="brand__mark">VELYQ</span>
           <span className="brand__tag">{t("adminConsoleName")}</span>
         </a>
@@ -182,6 +184,7 @@ export async function AdminShell({
 
       <div className="ops__topbar">
         <a className="brand" href="/">
+          <VelyqMark />
           <span className="brand__mark">VELYQ</span>
           <span className="brand__tag">{t("adminConsoleName")}</span>
         </a>
@@ -235,6 +238,7 @@ export async function AdminGate({
     <main className="ops-gate" id="main-content">
       <div className="ops-gate__card">
         <a className="brand" href="/">
+          <VelyqMark />
           <span className="brand__mark">VELYQ</span>
           <span className="brand__tag">
             {translator(locale)("adminConsoleName")}

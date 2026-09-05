@@ -6,6 +6,15 @@
  * Nothing in this package performs domain arithmetic.
  */
 export {
+  BRAND_MARK_CIRCLE,
+  BRAND_MARK_SPOT,
+  BRAND_MARK_STROKE,
+  BRAND_MARK_TAIL,
+  BRAND_MARK_VIEWBOX,
+  BRAND_TILE_RADIUS,
+} from "./brand.js";
+
+export {
   DEFAULT_LOCALE,
   LOCALES,
   LOCALE_COOKIE,

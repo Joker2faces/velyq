@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { translate, translator, type Locale } from "@velyq/ui";
 import { LanguageSwitcher } from "../language-switcher";
+import { VelyqMark } from "./logo";
 
 /**
  * Public marketing chrome: header, footer and the shell that wraps them.
@@ -19,6 +20,7 @@ export function Brand({
 }) {
   return (
     <Link className="brand" href={href}>
+      <VelyqMark />
       <span className="brand__mark">VELYQ</span>
       <span className="brand__tag">{translate("brandTagline", locale)}</span>
     </Link>

@@ -23,7 +23,8 @@
 /* The eyebrow and brand tag are emerald in the customer app; here they take
    the operations accent so the two surfaces read as siblings, not clones. */
 .eyebrow,
-.brand__tag {
+.brand__tag,
+.brand__logo {
   color: var(--ops);
 }
 
