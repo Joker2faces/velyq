@@ -49,9 +49,8 @@ export type PlanPresentation = {
  * Localized plan presentation.
  *
  * The feature lists describe what each tier actually grants today. ELITE
- * currently resolves to the same entitlement set as PRO in `@velyq/auth`, so
- * its card says so plainly in `limit` rather than implying capability that
- * does not exist. See the handoff note for Codex.
+ * currently adds Match Intelligence to PRO's full EDGE/RADAR access. The
+ * catalog must remain aligned with this server-side matrix.
  */
 export function planCatalog(locale: Locale): readonly PlanPresentation[] {
   const t = translator(locale);
