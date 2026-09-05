@@ -67,8 +67,35 @@ describe("service health contracts", () => {
 
   it("fails readiness closed when runtime configuration is absent", async () => {
     setRuntimeConfig(false);
-    expect((await customerReady()).status).toBe(503);
-    expect((await adminReady()).status).toBe(503);
+    const customerResponse = await customerReady();
+    const adminResponse = await adminReady();
+    expect(customerResponse.status).toBe(503);
+    expect(adminResponse.status).toBe(503);
+    expect(await customerResponse.json()).toEqual({
+      status: "degraded",
+      service: "velyq-customer",
+      checks: { authConfigured: false, databaseConfigured: false },
+    });
+    expect(await adminResponse.json()).toEqual({
+      status: "degraded",
+      service: "velyq-admin",
+      checks: { authConfigured: false, databaseConfigured: false },
+    });
+    expect(database.create).not.toHaveBeenCalled();
+  });
+
+  it("identifies a missing preview database without exposing configuration", async () => {
+    setRuntimeConfig(true);
+    delete process.env["VELYQ_DATABASE_URL"];
+
+    const response = await adminReady();
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      status: "degraded",
+      service: "velyq-admin",
+      checks: { authConfigured: true, databaseConfigured: false },
+    });
     expect(database.create).not.toHaveBeenCalled();
   });
 
@@ -89,7 +116,7 @@ describe("service health contracts", () => {
       expect(await response.json()).toEqual({
         status: "ready",
         service,
-        authConfigured: true,
+        checks: { authConfigured: true, databaseConfigured: true },
       });
       expect(database.create).toHaveBeenCalledWith({
         connectionString: process.env["VELYQ_DATABASE_URL"],
@@ -121,7 +148,7 @@ describe("service health contracts", () => {
     expect(await response.json()).toEqual({
       status: "degraded",
       service: "velyq-customer",
-      authConfigured: true,
+      checks: { authConfigured: true, databaseConfigured: true },
     });
     expect(database.close).toHaveBeenCalledOnce();
   });
@@ -137,7 +164,7 @@ describe("service health contracts", () => {
     expect(await response.json()).toEqual({
       status: "degraded",
       service: "velyq-admin",
-      authConfigured: true,
+      checks: { authConfigured: true, databaseConfigured: true },
     });
     expect(database.close).toHaveBeenCalledOnce();
   });
