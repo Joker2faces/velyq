@@ -1,0 +1,26 @@
+{
+  "name": "@velyq/providers",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-fixtures.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@velyq/contracts": "workspace:*",
+    "@velyq/decimal": "workspace:*",
+    "@velyq/domain": "workspace:*",
+    "@velyq/market-semantics": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1"
+  }
+}

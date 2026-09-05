@@ -1,0 +1,63 @@
+{
+  "name": "@velyq/database",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
+    "./repositories/permissions": {
+      "types": "./src/repositories/permissions.ts",
+      "import": "./dist/repositories/permissions.js",
+      "default": "./dist/repositories/permissions.js"
+    },
+    "./schema/audit": {
+      "types": "./src/schema/audit.ts",
+      "import": "./dist/schema/audit.js",
+      "default": "./dist/schema/audit.js"
+    },
+    "./schema/intelligence": {
+      "types": "./src/schema/intelligence.ts",
+      "import": "./dist/schema/intelligence.js",
+      "default": "./dist/schema/intelligence.js"
+    },
+    "./schema/operations": {
+      "types": "./src/schema/operations.ts",
+      "import": "./dist/schema/operations.js",
+      "default": "./dist/schema/operations.js"
+    },
+    "./schema/private": {
+      "types": "./src/schema/private.ts",
+      "import": "./dist/schema/private.js",
+      "default": "./dist/schema/private.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "schema:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@velyq/auth": "workspace:*",
+    "@velyq/contracts": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.10"
+  }
+}

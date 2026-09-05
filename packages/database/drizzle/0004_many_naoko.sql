@@ -1,0 +1,1 @@
+ALTER TABLE "operations"."provider_sync_runs" ADD COLUMN "normalized_output_hash" text;
