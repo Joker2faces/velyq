@@ -38,6 +38,11 @@
       "types": "./src/schema/operations.ts",
       "import": "./dist/schema/operations.js",
       "default": "./dist/schema/operations.js"
+    },
+    "./schema/private": {
+      "types": "./src/schema/private.ts",
+      "import": "./dist/schema/private.js",
+      "default": "./dist/schema/private.js"
     }
   },
   "scripts": {
