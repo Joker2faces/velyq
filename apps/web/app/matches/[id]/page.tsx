@@ -3,7 +3,7 @@ import {
   formatDateTime,
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatProbability,
   freshnessLabel,
   freshnessTone,
@@ -89,10 +89,18 @@ export default async function Match({
         <div className="page__head">
           <div className="page__head-copy">
             <p className="eyebrow">{t("matchKicker")}</p>
-            <h1 className="match-title">
-              <span>{match.homeTeam}</span>
-              <em>{t("matchVersus")}</em>
-              <span>{match.awayTeam}</span>
+            {/* Scoreboard-style fixture header: the two sides separated by
+                the halfway line, as a matchday board presents them. */}
+            <h1 className="fixture fixture--lg">
+              <span className="fixture__teams">
+                <span className="fixture__team fixture__team--home">
+                  {match.homeTeam}
+                </span>
+                <span className="fixture__divider" aria-hidden="true" />
+                <span className="fixture__team fixture__team--away">
+                  {match.awayTeam}
+                </span>
+              </span>
             </h1>
             <p>
               {match.competition} · {formatDateTime(match.startsAt, locale)} UTC
@@ -134,7 +142,7 @@ export default async function Match({
               />
               <Stat
                 label={t("matchProbabilityEdge")}
-                value={formatPercent(match.probabilityEdge, 1, locale)}
+                value={formatPointsDelta(match.probabilityEdge, locale)}
                 size="lg"
                 tone={hasEstimate ? "positive" : undefined}
                 hint={t("explainEdgeBody")}
@@ -175,7 +183,7 @@ export default async function Match({
                         match.impliedProbability,
                         locale,
                       ),
-                      edge: formatPercent(match.probabilityEdge, 1, locale),
+                      edge: formatPointsDelta(match.probabilityEdge, locale),
                     })}
                   />
                   <div
@@ -239,10 +247,7 @@ export default async function Match({
                     </span>
                     <Trend
                       value={match.movementPercent}
-                      display={formatPercentagePoints(
-                        match.movementPercent,
-                        locale,
-                      )}
+                      display={formatPercent(match.movementPercent, 1, locale)}
                       caption={movementMeaning}
                     />
                   </div>

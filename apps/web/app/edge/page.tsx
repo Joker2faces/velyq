@@ -3,6 +3,7 @@ import {
   formatCount,
   formatOdds,
   formatPercent,
+  formatPointsDelta,
   formatProbability,
   isGatedRecommendation,
   qualityTone,
@@ -111,8 +112,9 @@ export default async function Edge() {
                 >
                   <div className="row__head">
                     <span className="row__teams">
-                      {match.homeTeam} <em>{t("matchVersus")}</em>{" "}
-                      {match.awayTeam}
+                      <span className="fixture__team">{match.homeTeam}</span>
+                      <span className="fixture__divider" aria-hidden="true" />
+                      <span className="fixture__team">{match.awayTeam}</span>
                     </span>
                     <Badge tone={recommendationTone(match.recommendation)}>
                       {recommendationLabel(match.recommendation, locale)}
@@ -153,7 +155,9 @@ function EdgeRow({
       <div className="row__head">
         <div>
           <span className="row__teams">
-            {match.homeTeam} <em>{t("matchVersus")}</em> {match.awayTeam}
+            <span className="fixture__team">{match.homeTeam}</span>
+            <span className="fixture__divider" aria-hidden="true" />
+            <span className="fixture__team">{match.awayTeam}</span>
           </span>
           <div className="row__sub">
             {t("todayFullTime1x2")} · {selectionLabel(match.selection, locale)}
@@ -181,7 +185,7 @@ function EdgeRow({
         />
         <Stat
           label={t("edgeColumnEdge")}
-          value={formatPercent(match.probabilityEdge, 1, locale)}
+          value={formatPointsDelta(match.probabilityEdge, locale)}
           tone={numeric(match.probabilityEdge) > 0 ? "positive" : "negative"}
         />
         <Stat
@@ -204,7 +208,7 @@ function EdgeRow({
         caption={t("edgeAxisCaption", {
           model: formatProbability(match.modelProbability, locale),
           market: formatProbability(match.impliedProbability, locale),
-          edge: formatPercent(match.probabilityEdge, 1, locale),
+          edge: formatPointsDelta(match.probabilityEdge, locale),
         })}
       />
 

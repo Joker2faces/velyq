@@ -9,7 +9,7 @@ import {
   formatDecimal,
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatPrice,
   formatProbability,
   freshnessLabel,
@@ -53,12 +53,29 @@ describe("customer presentation formatting", () => {
     expect(formatProbability(null)).toBe("—");
   });
 
-  it("treats movement as percentage points, not as a fraction", () => {
-    // Regression: movementPercent arrives already scaled. Passing it through
-    // Intl's percent style multiplied it by 100 and rendered -1,190.5%.
-    expect(formatPercentagePoints("-11.904761904762")).toBe("-11.9%");
-    expect(formatPercentagePoints("14.285714285714")).toBe("+14.3%");
-    expect(formatPercentagePoints(null)).toBe("—");
+  it("renders a probability gap in percentage points, not percent", () => {
+    // A probability edge is the difference of two probabilities, so its unit
+    // is percentage points. Labelling it "%" invites the reader to treat it
+    // as a return, which it is not.
+    expect(formatPointsDelta("0.059459459459")).toBe("+5.9 pp");
+    expect(formatPointsDelta("-0.05")).toBe("-5.0 pp");
+    expect(formatPointsDelta(null)).toBe("—");
+  });
+
+  it("localizes the percentage-points unit", () => {
+    // English writes "pp"; Greek financial copy writes «μον.». Leaving
+    // "pp" on a Greek page is an untranslated string like any other.
+    expect(formatPointsDelta("0.059459459459", "el")).toBe("+5,9 μον.");
+  });
+
+  it("scales a movement ratio exactly once", () => {
+    // The canonical DTO stores price movement as a ratio. Scaling it twice
+    // rendered -1,190.5%; not scaling it at all rendered -0.1%. Both have
+    // shipped at some point, so both directions are pinned here.
+    expect(formatPercent("-0.11904761904762")).toBe("-11.9%");
+    expect(formatPercent("0.14285714285714")).toBe("+14.3%");
+    expect(formatPercent("0.05263157894737")).toBe("+5.3%");
+    expect(formatPercent("-0.04545454545455")).toBe("-4.5%");
   });
 
   it("clamps bar widths and never divides by zero", () => {

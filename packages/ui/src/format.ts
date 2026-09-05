@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, intlLocale, type Locale } from "./locale.js";
+import { translate } from "./messages.js";
 
 /**
  * Presentation formatting for customer-facing numbers.
@@ -82,13 +83,20 @@ export function formatProbability(
 }
 
 /**
- * Formats a value that is *already expressed in percentage points*.
+ * Formats the gap between two probabilities, in percentage points.
  *
- * `movementPercent` is produced as -11.904761904762 meaning -11.9%, so it
- * must not pass through `style: "percent"` (which would multiply by 100 and
- * render -1,190.5%).
+ * A probability edge is the difference of two probabilities, so its unit is
+ * percentage points and not percent — 60.0% against 54.1% is "+5.9 pp", not
+ * "+5.9%". Naming the unit is what stops a reader treating it as a return.
+ *
+ * The unit label is localized: Greek financial writing abbreviates
+ * ποσοστιαίες μονάδες as «μον.», so a Greek page never shows "pp". The value
+ * and its unit are joined with a non-breaking space so they cannot wrap apart.
+ *
+ * The input is a ratio, matching the canonical DTO semantic, so it is scaled
+ * once here and never by the caller.
  */
-export function formatPercentagePoints(
+export function formatPointsDelta(
   value: string | null | undefined,
   locale: Locale = DEFAULT_LOCALE,
 ) {
@@ -98,8 +106,8 @@ export function formatPercentagePoints(
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
     signDisplay: "exceptZero",
-  }).format(parsed);
-  return `${rendered}%`;
+  }).format(parsed * 100);
+  return `${rendered}\u00a0${translate("unitPercentagePoints", locale)}`;
 }
 
 /** Sign classification used to pick a colour token, never to compute. */

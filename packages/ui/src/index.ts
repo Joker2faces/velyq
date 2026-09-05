@@ -27,7 +27,7 @@ export {
   formatLongDate,
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatPrice,
   formatProbability,
   formatTime,

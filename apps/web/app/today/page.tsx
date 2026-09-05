@@ -4,7 +4,7 @@ import {
   formatLongDate,
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatProbability,
   formatTime,
   freshnessLabel,
@@ -61,6 +61,7 @@ export default async function Today() {
         <div className="page">
           <Card>
             <EmptyState
+              as="h1"
               title={t("dataUnavailable")}
               body={t("dataUnavailableBody")}
             />
@@ -149,7 +150,7 @@ export default async function Today() {
                   })}
                 </p>
                 <div className="lead__figure">
-                  <b>{formatPercent(lead.probabilityEdge, 1, locale)}</b>
+                  <b>{formatPointsDelta(lead.probabilityEdge, locale)}</b>
                   <span className="lead__meta">
                     {t("matchProbabilityEdge")} · {t("matchExpectedValue")}{" "}
                     {formatPercent(lead.expectedValue, 1, locale)}
@@ -263,8 +264,9 @@ export default async function Today() {
                       </span>
                       <Trend
                         value={match.movementPercent}
-                        display={formatPercentagePoints(
+                        display={formatPercent(
                           match.movementPercent,
+                          1,
                           locale,
                         )}
                       />
@@ -325,8 +327,9 @@ export default async function Today() {
                   >
                     <div className="row__head">
                       <span className="row__teams">
-                        {match.homeTeam} <em>{t("matchVersus")}</em>{" "}
-                        {match.awayTeam}
+                        <span className="fixture__team">{match.homeTeam}</span>
+                        <span className="fixture__divider" aria-hidden="true" />
+                        <span className="fixture__team">{match.awayTeam}</span>
                       </span>
                       <Badge tone={recommendationTone(match.recommendation)}>
                         {recommendationLabel(match.recommendation, locale)}
@@ -360,8 +363,9 @@ export default async function Today() {
                   >
                     <div className="row__head">
                       <span className="row__teams">
-                        {match.homeTeam} <em>{t("matchVersus")}</em>{" "}
-                        {match.awayTeam}
+                        <span className="fixture__team">{match.homeTeam}</span>
+                        <span className="fixture__divider" aria-hidden="true" />
+                        <span className="fixture__team">{match.awayTeam}</span>
                       </span>
                       <Badge tone={qualityTone(match.quality.grade)}>
                         {t("matchGrade")} {match.quality.grade}
@@ -417,7 +421,7 @@ function MatchRow({
         />
         <Stat
           label={t("matchProbabilityEdge")}
-          value={formatPercent(match.probabilityEdge, 1, locale)}
+          value={formatPointsDelta(match.probabilityEdge, locale)}
           tone="positive"
         />
         <Stat

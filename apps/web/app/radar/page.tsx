@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   directionOf,
   formatOdds,
-  formatPercentagePoints,
+  formatPercent,
   formatTime,
   freshnessLabel,
   freshnessTone,
@@ -108,8 +108,9 @@ export default async function Radar() {
                 >
                   <div className="row__head">
                     <span className="row__teams">
-                      {match.homeTeam} <em>{t("matchVersus")}</em>{" "}
-                      {match.awayTeam}
+                      <span className="fixture__team">{match.homeTeam}</span>
+                      <span className="fixture__divider" aria-hidden="true" />
+                      <span className="fixture__team">{match.awayTeam}</span>
                     </span>
                     <Badge tone="muted">{t("noEvidence")}</Badge>
                   </div>
@@ -150,7 +151,9 @@ function RadarRow({
       <div className="row__head">
         <div>
           <span className="row__teams">
-            {match.homeTeam} <em>{t("matchVersus")}</em> {match.awayTeam}
+            <span className="fixture__team">{match.homeTeam}</span>
+            <span className="fixture__divider" aria-hidden="true" />
+            <span className="fixture__team">{match.awayTeam}</span>
           </span>
           <div className="row__sub">
             {selectionLabel(match.selection, locale)} ·{" "}
@@ -173,7 +176,7 @@ function RadarRow({
         />
         <Stat
           label={t("radarMovement")}
-          value={formatPercentagePoints(match.movementPercent, locale)}
+          value={formatPercent(match.movementPercent, 1, locale)}
           tone={direction === "down" ? "positive" : undefined}
         />
         <div className="stat">
@@ -201,7 +204,7 @@ function RadarRow({
           </span>
           <Trend
             value={match.movementPercent}
-            display={formatPercentagePoints(match.movementPercent, locale)}
+            display={formatPercent(match.movementPercent, 1, locale)}
             caption={meaning}
           />
           <span className="row__sub">{meaning}</span>
