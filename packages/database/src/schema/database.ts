@@ -36,11 +36,22 @@ import {
   providers,
   sourceObservations,
 } from "./operations.js";
-import { permissions, rolePermissions, roles, userRoles } from "./private.js";
+import {
+  billingCustomers,
+  billingEvents,
+  permissions,
+  planDefinitions,
+  rolePermissions,
+  roles,
+  subscriptions,
+  userRoles,
+} from "./private.js";
 import { profiles } from "./public.js";
 
 export const databaseSchema = {
   adminAuditEvents,
+  billingCustomers,
+  billingEvents,
   bookmakers,
   calibrationVersions,
   competitions,
@@ -59,6 +70,7 @@ export const databaseSchema = {
   outcomeDefinitions,
   participants,
   permissions,
+  planDefinitions,
   predictionInputs,
   predictionRuns,
   predictions,
@@ -74,5 +86,6 @@ export const databaseSchema = {
   scoreResults,
   sourceObservations,
   sports,
+  subscriptions,
   userRoles,
 } as const;

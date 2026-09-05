@@ -1,4 +1,6 @@
 import {
+  boolean,
+  integer,
   index,
   primaryKey,
   text,
@@ -83,3 +85,64 @@ export const userRoles = privateSchema.table(
     index("user_roles_granted_by_idx").on(table.grantedBy),
   ],
 );
+
+export const planDefinitions = privateSchema.table("plan_definitions", {
+  code: text("code").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const billingCustomers = privateSchema.table("billing_customers", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const subscriptions = privateSchema.table(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    planCode: text("plan_code")
+      .notNull()
+      .references(() => planDefinitions.code, { onDelete: "restrict" }),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    status: text("status").notNull(),
+    currentPeriodStart: timestamp("current_period_start", {
+      withTimezone: true,
+    }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("subscriptions_user_updated_idx").on(table.userId, table.updatedAt),
+  ],
+);
+
+export const billingEvents = privateSchema.table("billing_events", {
+  stripeEventId: text("stripe_event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

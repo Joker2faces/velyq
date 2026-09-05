@@ -36,7 +36,16 @@ import {
   providers,
   sourceObservations,
 } from "./operations.js";
-import { permissions, rolePermissions, roles, userRoles } from "./private.js";
+import {
+  billingCustomers,
+  billingEvents,
+  permissions,
+  planDefinitions,
+  rolePermissions,
+  roles,
+  subscriptions,
+  userRoles,
+} from "./private.js";
 import { profiles } from "./public.js";
 
 export * from "./audit.js";
@@ -83,6 +92,10 @@ export const phaseOneTables = [
   rolePermissions,
   roles,
   userRoles,
+  billingCustomers,
+  billingEvents,
+  planDefinitions,
+  subscriptions,
   profiles,
 ] as const;
 
