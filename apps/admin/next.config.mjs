@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@velyq/database"],
+  serverExternalPackages: ["@velyq/database"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -1,7 +1,7 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
 
-import { databaseSchema } from "./schema/index.js";
+import { databaseSchema } from "./schema/database.js";
 
 export type VelyqDatabase = NodePgDatabase<typeof databaseSchema>;
 export type RepositoryTransaction = Parameters<

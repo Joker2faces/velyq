@@ -50,6 +50,7 @@ await run([
   "exec",
   "next",
   "build",
+  "--webpack",
 ]);
 await run([
   "pnpm",
@@ -58,6 +59,7 @@ await run([
   "exec",
   "next",
   "build",
+  "--webpack",
 ]);
 
 const server = createServer((request, response) => {

@@ -1,29 +1,26 @@
 import { desc, eq } from "drizzle-orm";
+import { DatabasePermissionResolver } from "@velyq/database/repositories/permissions";
+import type { PrivilegedVelyqDatabase } from "@velyq/database/server";
+import { createPrivilegedDatabaseClient } from "@velyq/database/server";
+import { adminAuditEvents } from "@velyq/database/schema/audit";
 import {
-  DatabasePermissionResolver,
-  type PrivilegedVelyqDatabase,
-} from "@velyq/database";
-import { createPrivilegedDatabaseClient } from "@velyq/database/client";
-import {
-  adminAuditEvents,
   dataQualityAssessments,
   predictionInputs,
   predictionRuns,
   predictions,
-  providers,
-  providerSyncRuns,
   scoreDefinitionVersions,
   scoreResults,
-} from "@velyq/database";
+} from "@velyq/database/schema/intelligence";
+import { providers, providerSyncRuns } from "@velyq/database/schema/operations";
 import type { ProviderRun } from "@velyq/contracts";
-import {
-  createSupabaseAdminAuthenticator,
-  type AdminPage,
-  type AdminPredictionTraceDto,
-  type AdminQualityDto,
-  type AdminQueries,
-  type AdminScoreDto,
+import type {
+  AdminPage,
+  AdminPredictionTraceDto,
+  AdminQualityDto,
+  AdminQueries,
+  AdminScoreDto,
 } from "./admin-api";
+import { createSupabaseAdminAuthenticator } from "./admin-auth";
 
 const json = (value: unknown) => value as never;
 

@@ -1,11 +1,13 @@
 import { adminAuditEvents } from "./audit.js";
 import {
-  competitions,
-  eventParticipants,
-  events,
-  participants,
-  sports,
-} from "./catalog.js";
+  bookmakers,
+  eventMarketOutcomes,
+  eventMarkets,
+  marketDefinitions,
+  oddsObservations,
+  outcomeDefinitions,
+  providerMarketMappings,
+} from "./market.js";
 import {
   calibrationVersions,
   dataQualityAssessments,
@@ -21,14 +23,12 @@ import {
   scoreResults,
 } from "./intelligence.js";
 import {
-  bookmakers,
-  eventMarketOutcomes,
-  eventMarkets,
-  marketDefinitions,
-  oddsObservations,
-  outcomeDefinitions,
-  providerMarketMappings,
-} from "./market.js";
+  competitions,
+  eventParticipants,
+  events,
+  participants,
+  sports,
+} from "./catalog.js";
 import {
   jobs,
   providerPolicyVersions,
@@ -39,51 +39,40 @@ import {
 import { permissions, rolePermissions, roles, userRoles } from "./private.js";
 import { profiles } from "./public.js";
 
-export * from "./audit.js";
-export * from "./catalog.js";
-export * from "./intelligence.js";
-export * from "./market.js";
-export * from "./operations.js";
-export * from "./private.js";
-export * from "./public.js";
-export * from "./schemas.js";
-
-export const phaseOneTables = [
+export const databaseSchema = {
   adminAuditEvents,
-  competitions,
-  eventParticipants,
-  events,
-  participants,
-  sports,
+  bookmakers,
   calibrationVersions,
+  competitions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
+  eventMarketOutcomes,
+  eventMarkets,
+  eventParticipants,
+  events,
+  jobs,
   lineupObservations,
+  marketDefinitions,
   modelDefinitions,
   modelVersions,
+  oddsObservations,
+  outcomeDefinitions,
+  participants,
+  permissions,
   predictionInputs,
   predictionRuns,
   predictions,
-  radarEvidence,
-  scoreDefinitionVersions,
-  scoreResults,
-  bookmakers,
-  eventMarketOutcomes,
-  eventMarkets,
-  marketDefinitions,
-  oddsObservations,
-  outcomeDefinitions,
+  profiles,
   providerMarketMappings,
-  jobs,
   providerPolicyVersions,
   providerSyncRuns,
   providers,
-  sourceObservations,
-  permissions,
+  radarEvidence,
   rolePermissions,
   roles,
+  scoreDefinitionVersions,
+  scoreResults,
+  sourceObservations,
+  sports,
   userRoles,
-  profiles,
-] as const;
-
-export { databaseSchema } from "./database.js";
+} as const;

@@ -13,6 +13,31 @@
       "types": "./src/client.ts",
       "import": "./dist/client.js",
       "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
+    "./repositories/permissions": {
+      "types": "./src/repositories/permissions.ts",
+      "import": "./dist/repositories/permissions.js",
+      "default": "./dist/repositories/permissions.js"
+    },
+    "./schema/audit": {
+      "types": "./src/schema/audit.ts",
+      "import": "./dist/schema/audit.js",
+      "default": "./dist/schema/audit.js"
+    },
+    "./schema/intelligence": {
+      "types": "./src/schema/intelligence.ts",
+      "import": "./dist/schema/intelligence.js",
+      "default": "./dist/schema/intelligence.js"
+    },
+    "./schema/operations": {
+      "types": "./src/schema/operations.ts",
+      "import": "./dist/schema/operations.js",
+      "default": "./dist/schema/operations.js"
     }
   },
   "scripts": {
