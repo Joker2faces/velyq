@@ -21,6 +21,7 @@ import {
 import {
   hasPermission,
   resolveCustomerEntitlements,
+  type CustomerEntitlement,
   type CustomerPlan,
   type SubscriptionStatus,
 } from "@velyq/auth";
@@ -122,22 +123,24 @@ export function customerService() {
   return customerFixtureMode() ? fixtureService : null;
 }
 
-export async function loadCustomerToday() {
-  await requireCustomerPageAccess();
+export async function loadCustomerToday(
+  entitlement: CustomerEntitlement = "today.view",
+) {
+  await requireCustomerPageAccess(entitlement);
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerTodayDto>;
   return service.getToday(new Date());
 }
 
 export async function loadCustomerMatch(eventId: string) {
-  await requireCustomerPageAccess();
+  await requireCustomerPageAccess("match.detail");
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
   return service.getMatch(eventId, new Date());
 }
 
 export async function loadCustomerContext() {
-  await requireCustomerPageAccess();
+  await requireCustomerPageAccess("today.view");
   const cookieHeader = (await cookies()).toString();
   const token = cookieHeader.match(/(?:^|; )velyq_access_token=([^;]+)/)?.[1];
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
@@ -194,13 +197,13 @@ export async function loadCustomerContext() {
   }
 }
 
-async function requireCustomerPageAccess() {
+async function requireCustomerPageAccess(entitlement: CustomerEntitlement) {
   if (!process.env["VELYQ_DATABASE_URL"] && customerFixtureMode()) return;
   const cookieHeader = (await cookies()).toString();
   const request = new Request("https://velyq.local/customer", {
     headers: { cookie: cookieHeader },
   });
-  const denied = await requireCustomerSession(request);
+  const denied = await requireCustomerSession(request, entitlement);
   if (denied) redirect("/sign-in");
 }
 

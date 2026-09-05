@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import type { PermissionCode, Principal } from "@velyq/auth";
+import {
+  hasAdminPermission,
+  type PermissionCode,
+  type Principal,
+} from "@velyq/auth";
 import type { ProviderRun } from "@velyq/contracts";
 import { createDatabaseAdminRuntime } from "./database-admin";
 
@@ -190,14 +194,6 @@ export function adminRedirectUrl(request: Request, pathname: string) {
   }
 }
 
-function hasPermission(principal: Principal, permission: PermissionCode) {
-  return (
-    principal.role === "ADMIN" &&
-    principal.permissions.includes("admin.access") &&
-    principal.permissions.includes(permission)
-  );
-}
-
 function idFromParams(
   params: Readonly<Record<string, string | undefined>>,
   name: string,
@@ -271,7 +267,7 @@ async function authorized(
 ) {
   const authentication = await dependencies.authenticate(request, requestId);
   if ("problem" in authentication) return authentication.problem;
-  if (!hasPermission(authentication.principal, permission)) {
+  if (!hasAdminPermission(authentication.principal, permission)) {
     return problem(requestId, 403, "FORBIDDEN", "Admin permission required");
   }
   return authentication.principal;
@@ -354,90 +350,6 @@ export function createAdminApi(dependencies: AdminDependencies) {
         return dependencies.queries.listAudit(input);
       }),
   });
-}
-
-function getCookie(request: Request, name: string) {
-  return (request.headers.get("cookie") ?? "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`))
-    ?.slice(name.length + 1);
-}
-
-function userIdFromResponse(value: unknown) {
-  if (typeof value !== "object" || value === null || !("id" in value))
-    return null;
-  const id = value.id;
-  return typeof id === "string" && id.length > 0 ? id : null;
-}
-
-export function createSupabaseAdminAuthenticator(
-  resolvePrincipal: (userId: string) => Promise<Principal | null>,
-) {
-  return async (
-    request: Request,
-    requestId: string,
-  ): Promise<AuthenticationResult> => {
-    const token = getCookie(request, "velyq_access_token");
-    const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
-    const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
-    if (!token || !url || !publishableKey) {
-      return {
-        problem: problem(
-          requestId,
-          401,
-          "UNAUTHORIZED",
-          "Authentication required",
-        ),
-      };
-    }
-    try {
-      const response = await fetch(`${url}/auth/v1/user`, {
-        headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        return {
-          problem: problem(
-            requestId,
-            401,
-            "UNAUTHORIZED",
-            "Authentication required",
-          ),
-        };
-      }
-      const userId = userIdFromResponse((await response.json()) as unknown);
-      if (!userId)
-        return {
-          problem: problem(
-            requestId,
-            401,
-            "UNAUTHORIZED",
-            "Authentication required",
-          ),
-        };
-      const principal = await resolvePrincipal(userId);
-      return principal
-        ? { principal }
-        : {
-            problem: problem(
-              requestId,
-              503,
-              "AUTHORIZATION_UNAVAILABLE",
-              "Authorization is temporarily unavailable",
-            ),
-          };
-    } catch {
-      return {
-        problem: problem(
-          requestId,
-          503,
-          "AUTH_PROVIDER_UNAVAILABLE",
-          "Authentication is temporarily unavailable",
-        ),
-      };
-    }
-  };
 }
 
 const unavailableQueries: AdminQueries = Object.freeze({

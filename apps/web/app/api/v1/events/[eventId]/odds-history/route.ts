@@ -11,7 +11,7 @@ export async function GET(
   context: { params: Promise<{ eventId: string }> },
 ) {
   const { eventId } = await context.params;
-  const denied = await requireCustomerSession(_request);
+  const denied = await requireCustomerSession(_request, "radar.full");
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
   const outcomeId = new URL(_request.url).searchParams.get("outcomeId");

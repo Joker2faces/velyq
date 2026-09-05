@@ -11,7 +11,7 @@ const toneFor = (recommendation: string) =>
       : "neutral";
 
 export default async function Edge() {
-  const result = await loadCustomerToday();
+  const result = await loadCustomerToday("edge.full");
   if (!result.ok)
     return <CustomerShell>{message("customerUnavailable")}</CustomerShell>;
   const customerToday = result.value;

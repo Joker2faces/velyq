@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
-import { hasPermission } from "@velyq/auth";
+import {
+  hasCustomerEntitlement,
+  hasPermission,
+  resolveCustomerEntitlements,
+  type CustomerEntitlement,
+  type CustomerPlan,
+  type SubscriptionStatus,
+} from "@velyq/auth";
 import {
   createPrivilegedDatabaseClient,
   DatabasePermissionResolver,
 } from "@velyq/database";
+import { subscriptions } from "@velyq/database/schema/private";
+import { eq } from "drizzle-orm";
 
 export function getCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "")
@@ -56,7 +65,10 @@ export function customerRedirectUrl(request: Request, pathname: string) {
   }
 }
 
-export async function requireCustomerSession(request: Request) {
+export async function requireCustomerSession(
+  request: Request,
+  entitlement: CustomerEntitlement = "today.view",
+) {
   const token = getCookie(request, "velyq_access_token");
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
@@ -72,7 +84,7 @@ export async function requireCustomerSession(request: Request) {
         const databaseUrl = process.env["VELYQ_DATABASE_URL"];
         if (!databaseUrl)
           return customerFixtureMode()
-            ? null
+            ? entitlementDecision(request, "FREE", null, entitlement)
             : authorizationUnavailable(request);
         let client: ReturnType<typeof createPrivilegedDatabaseClient>;
         try {
@@ -82,8 +94,23 @@ export async function requireCustomerSession(request: Request) {
           const principal = await new DatabasePermissionResolver(
             client.database,
           ).resolve(user.id);
-          if (hasPermission(principal, "customer.read")) return null;
-          return forbidden(request);
+          if (!hasPermission(principal, "customer.read"))
+            return forbidden(request);
+          const rows = await client.database
+            .select({
+              plan: subscriptions.planCode,
+              status: subscriptions.status,
+            })
+            .from(subscriptions)
+            .where(eq(subscriptions.userId, user.id))
+            .limit(1);
+          const current = rows[0];
+          const plan: CustomerPlan =
+            current?.plan === "PRO" || current?.plan === "ELITE"
+              ? current.plan
+              : "FREE";
+          const status = subscriptionStatus(current?.status);
+          return entitlementDecision(request, plan, status, entitlement);
         } catch {
           return authorizationUnavailable(request);
         } finally {
@@ -95,6 +122,37 @@ export async function requireCustomerSession(request: Request) {
     }
   }
   return unauthorized(request);
+}
+
+function subscriptionStatus(
+  value: string | undefined,
+): SubscriptionStatus | null {
+  return value &&
+    [
+      "active",
+      "trialing",
+      "past_due",
+      "canceled",
+      "unpaid",
+      "incomplete",
+      "incomplete_expired",
+    ].includes(value)
+    ? (value as SubscriptionStatus)
+    : null;
+}
+
+function entitlementDecision(
+  request: Request,
+  plan: CustomerPlan,
+  status: SubscriptionStatus | null,
+  entitlement: CustomerEntitlement,
+) {
+  return hasCustomerEntitlement(
+    resolveCustomerEntitlements({ plan, status }),
+    entitlement,
+  )
+    ? null
+    : entitlementRequired(request);
 }
 
 function unauthorized(request: Request) {
@@ -117,6 +175,19 @@ function forbidden(request: Request) {
       title: "Customer access required",
       status: 403,
       code: "FORBIDDEN",
+      requestId: requestId(request),
+    },
+    { status: 403 },
+  );
+}
+
+function entitlementRequired(request: Request) {
+  return NextResponse.json(
+    {
+      type: "https://velyq.dev/problems/entitlement-required",
+      title: "A paid plan is required for this feature",
+      status: 403,
+      code: "ENTITLEMENT_REQUIRED",
       requestId: requestId(request),
     },
     { status: 403 },

@@ -4,7 +4,7 @@ import { formatPercent, message } from "@velyq/ui";
 import Link from "next/link";
 
 export default async function Radar() {
-  const result = await loadCustomerToday();
+  const result = await loadCustomerToday("radar.full");
   if (!result.ok)
     return <CustomerShell>{message("customerUnavailable")}</CustomerShell>;
   const customerToday = result.value;

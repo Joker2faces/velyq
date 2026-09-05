@@ -90,6 +90,23 @@ export function hasPermission(
 ) {
   return principal?.permissions.includes(permission) ?? false;
 }
+export function hasAdminPermission(
+  principal: Principal | null,
+  permission: PermissionCode,
+) {
+  return (
+    principal?.role === "ADMIN" &&
+    principal.permissions.includes("admin.access") &&
+    principal.permissions.includes(permission)
+  );
+}
+
+export function hasTrustedRequestOrigin(
+  submittedOrigin: string | null,
+  expectedOrigin: string,
+) {
+  return submittedOrigin === expectedOrigin;
+}
 export function requirePermission(
   principal: Principal | null,
   permission: PermissionCode,

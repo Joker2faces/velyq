@@ -7,7 +7,7 @@ export async function GET(
   context: { params: Promise<{ eventId: string }> },
 ) {
   const { eventId } = await context.params;
-  const denied = await requireCustomerSession(_request);
+  const denied = await requireCustomerSession(_request, "match.detail");
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
   const service = customerService();

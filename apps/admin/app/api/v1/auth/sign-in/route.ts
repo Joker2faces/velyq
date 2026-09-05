@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasTrustedRequestOrigin } from "@velyq/auth";
 import { adminRedirectUrl, adminRequestId } from "../../../../admin-api";
 
 export async function POST(request: Request) {
@@ -15,6 +16,16 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { code: "INVALID_REQUEST", requestId },
       { status: 400, headers: { "content-type": "application/problem+json" } },
+    );
+  if (
+    !hasTrustedRequestOrigin(
+      request.headers.get("origin"),
+      trustedOrigin(request),
+    )
+  )
+    return NextResponse.json(
+      { code: "CSRF_REJECTED", requestId },
+      { status: 403, headers: { "content-type": "application/problem+json" } },
     );
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
@@ -66,4 +77,13 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 24 * 30,
   });
   return next;
+}
+
+function trustedOrigin(request: Request) {
+  try {
+    return new URL(process.env["VELYQ_APPLICATION_ORIGIN"] ?? request.url)
+      .origin;
+  } catch {
+    return "";
+  }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasTrustedRequestOrigin } from "@velyq/auth";
 import { customerRedirectUrl, requestId } from "../../../auth";
 
 export async function POST(request: Request) {
@@ -31,6 +32,22 @@ export async function POST(request: Request) {
       )
     );
   }
+  if (
+    !hasTrustedRequestOrigin(
+      request.headers.get("origin"),
+      trustedOrigin(request),
+    )
+  )
+    return NextResponse.json(
+      {
+        type: "https://velyq.dev/problems/csrf-rejected",
+        title: "Cross-site sign-in request rejected",
+        status: 403,
+        code: "CSRF_REJECTED",
+        requestId: requestId(request),
+      },
+      { status: 403 },
+    );
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)
@@ -119,4 +136,13 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 24 * 30,
   });
   return next;
+}
+
+function trustedOrigin(request: Request) {
+  try {
+    return new URL(process.env["VELYQ_APPLICATION_ORIGIN"] ?? request.url)
+      .origin;
+  } catch {
+    return "";
+  }
 }
