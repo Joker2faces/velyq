@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { customerRedirectUrl, requestId } from "../../../auth";
 
 export async function POST(request: Request) {
+  const browserForm =
+    request.headers.get("accept")?.includes("text/html") ?? false;
   const form = await request.formData();
   const email = form.get("email");
   const password = form.get("password");
@@ -41,7 +43,11 @@ export async function POST(request: Request) {
     body: JSON.stringify({ email, password }),
     cache: "no-store",
   });
-  if (!response.ok)
+  if (!response.ok) {
+    if (browserForm)
+      return NextResponse.redirect(
+        new URL("/sign-in?error=invalid", request.url),
+      );
     return NextResponse.json(
       {
         type: "https://velyq.dev/problems/unauthorized",
@@ -52,6 +58,7 @@ export async function POST(request: Request) {
       },
       { status: 401 },
     );
+  }
   const tokens = (await response.json()) as {
     access_token?: string;
     refresh_token?: string;

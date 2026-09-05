@@ -3,6 +3,12 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": [
+        "VELYQ_APPLICATION_ORIGIN",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "NEXT_PUBLIC_VELYQ_ADMIN_URL"
+      ],
       "outputs": ["dist/**", ".next/**"]
     },
     "typecheck": {
