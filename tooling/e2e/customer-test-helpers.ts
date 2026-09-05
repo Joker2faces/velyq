@@ -13,7 +13,7 @@ export async function signInAsCustomer(page: Page) {
         candidate.url().includes("/api/v1/auth/sign-in") &&
         candidate.request().method() === "POST",
     ),
-    page.getByRole("button", { name: "Continue with Supabase Auth" }).click(),
+    page.locator("form.auth__form").evaluate((form) => form.requestSubmit()),
   ]);
   if (response.status() !== 307) {
     throw new Error(

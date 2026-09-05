@@ -73,7 +73,7 @@ test("authorized admin traces seeded operations from run to prediction, score, a
   await page.goto("/");
   await page.getByLabel("Email").fill("admin@example.test");
   await page.getByLabel("Password").fill("admin-password");
-  await page.getByRole("button", { name: "Continue to admin" }).click();
+  await page.getByRole("button", { name: "Continue to operations" }).click();
 
   await expect(page).toHaveURL("http://127.0.0.1:3200/");
   await expect(

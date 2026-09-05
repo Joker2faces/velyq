@@ -22,6 +22,7 @@ const environment = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
   NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
   VELYQ_SYNTHETIC_PREVIEW: "true",
+  VELYQ_APPLICATION_ORIGIN: `http://127.0.0.1:${customerPort}`,
 };
 
 async function waitForBuild() {

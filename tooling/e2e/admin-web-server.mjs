@@ -21,6 +21,7 @@ const environment = {
   NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${authPort}`,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
   VELYQ_E2E_INSECURE_COOKIES: "true",
+  VELYQ_APPLICATION_ORIGIN: `http://127.0.0.1:${adminPort}`,
   VELYQ_DATABASE_URL:
     process.env.VELYQ_E2E_DATABASE_URL ??
     "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
