@@ -12,6 +12,18 @@ import { customerToday } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerFixtureMode, requireCustomerSession } from "./api/auth";
+import { eq } from "drizzle-orm";
+import { subscriptions } from "@velyq/database/schema/private";
+import {
+  createPrivilegedDatabaseClient,
+  DatabasePermissionResolver,
+} from "@velyq/database";
+import {
+  hasPermission,
+  resolveCustomerEntitlements,
+  type CustomerPlan,
+  type SubscriptionStatus,
+} from "@velyq/auth";
 
 type CustomerService = {
   getToday: (asOf: Date) => Promise<
@@ -122,6 +134,64 @@ export async function loadCustomerMatch(eventId: string) {
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
   return service.getMatch(eventId, new Date());
+}
+
+export async function loadCustomerContext() {
+  await requireCustomerPageAccess();
+  const cookieHeader = (await cookies()).toString();
+  const token = cookieHeader.match(/(?:^|; )velyq_access_token=([^;]+)/)?.[1];
+  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
+  const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
+  const databaseUrl = process.env["VELYQ_DATABASE_URL"];
+  if (!token || !url || !key || !databaseUrl) return null;
+  const identity = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: key, Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!identity.ok) return null;
+  const user = (await identity.json()) as { id?: string; email?: string };
+  if (!user.id) return null;
+  const client = createPrivilegedDatabaseClient({
+    connectionString: databaseUrl,
+  });
+  try {
+    const principal = await new DatabasePermissionResolver(
+      client.database,
+    ).resolve(user.id);
+    const rows = await client.database
+      .select({ plan: subscriptions.planCode, status: subscriptions.status })
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, user.id))
+      .limit(1);
+    const current = rows[0];
+    const plan: CustomerPlan =
+      current?.plan === "PRO" || current?.plan === "ELITE"
+        ? current.plan
+        : "FREE";
+    const status =
+      current?.status &&
+      [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "unpaid",
+        "incomplete",
+        "incomplete_expired",
+      ].includes(current.status)
+        ? (current.status as SubscriptionStatus)
+        : null;
+    const resolved = resolveCustomerEntitlements({ plan, status });
+    return {
+      email: user.email ?? "",
+      plan: resolved.plan,
+      status: resolved.subscriptionStatus,
+      entitlements: resolved.entitlements,
+      isAdmin: hasPermission(principal, "admin.access"),
+    };
+  } finally {
+    await client.close();
+  }
 }
 
 async function requireCustomerPageAccess() {

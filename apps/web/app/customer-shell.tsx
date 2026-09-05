@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { message } from "@velyq/ui";
+import { loadCustomerContext } from "./customer-runtime";
 
-export function CustomerShell({ children }: { children: ReactNode }) {
+export async function CustomerShell({ children }: { children: ReactNode }) {
+  const context = await loadCustomerContext();
   const navigation = [
     [message("navToday"), "/today"],
     [message("navEdge"), "/edge"],
@@ -26,6 +28,14 @@ export function CustomerShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
+        {context?.isAdmin ? (
+          <a
+            className="admin-link"
+            href={process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"]}
+          >
+            Admin console →
+          </a>
+        ) : null}
         <div className="side-note">
           Synthetic Phase 1 data only
           <br />
