@@ -1,46 +1,35 @@
-"use client";
+import { translator } from "@velyq/ui";
+import { getLocale } from "../locale";
+import { AuthShell } from "../components/auth-shell";
+import { ResetForm } from "./reset-form";
 
-import { FormEvent, useState } from "react";
-
-export default function ResetPassword() {
-  const [message, setMessage] = useState("");
-  const browser = globalThis as unknown as { location?: { hash: string } };
-  const token = browser.location?.hash
-    ? (new URLSearchParams(browser.location.hash.replace(/^#/, "")).get(
-        "access_token",
-      ) ?? "")
-    : "";
-  function submit(event: FormEvent<HTMLFormElement>) {
-    if (!token) {
-      event.preventDefault();
-      setMessage("This recovery link is invalid or expired.");
-      return;
-    }
-  }
+export default async function ResetPassword() {
+  const locale = await getLocale();
+  const t = translator(locale);
   return (
-    <main className="public-page">
-      <p className="kicker">ACCOUNT RECOVERY</p>
-      <h1>Set a new password.</h1>
-      <p>Choose a new password for your VELYQ account.</p>
-      <form
-        className="auth-card"
-        action="/api/v1/auth/reset-password"
-        method="post"
-        onSubmit={submit}
-      >
-        <label htmlFor="password">New password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          minLength={8}
-          required
-          autoComplete="new-password"
-        />
-        <input type="hidden" name="access_token" value={token} />
-        <button type="submit">Save password</button>
-        {message && <p role="alert">{message}</p>}
-      </form>
-    </main>
+    <AuthShell
+      locale={locale}
+      kicker={t("authResetKicker")}
+      title={t("authResetTitle")}
+      body={t("authResetBody")}
+    >
+      <ResetForm
+        labels={{
+          newPassword: t("authNewPasswordLabel"),
+          hint: t("authPasswordHint"),
+          show: t("authShowPassword"),
+          hide: t("authHidePassword"),
+          submit: t("authResetSubmit"),
+          invalid: t("authResetInvalid"),
+        }}
+      />
+      <div className="auth__links">
+        <p>
+          <a className="link" href="/sign-in">
+            {t("backToSignIn")}
+          </a>
+        </p>
+      </div>
+    </AuthShell>
   );
 }
