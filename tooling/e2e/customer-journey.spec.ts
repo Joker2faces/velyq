@@ -59,7 +59,9 @@ test("authenticated customer can sign in, open Today, and inspect a Match", asyn
   ).toBeVisible();
   await expect(page.getByText("SYNTHETIC DATA")).toBeVisible();
   await expect(page.getByText("SYNTHETIC DATA")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Admin console/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Admin console/i })).toHaveCount(
+    0,
+  );
 
   await page.locator(`a[href="${customerMatchPath}"]`).first().click();
 
@@ -76,13 +78,7 @@ test("authenticated customer routes keep stable labels and protected state", asy
 }) => {
   await signInAsCustomer(page);
 
-  const navigationLabels = [
-    "Today",
-    "EDGE",
-    "RADAR",
-    "Pricing",
-    "Account",
-  ];
+  const navigationLabels = ["Today", "EDGE", "RADAR", "Pricing", "Account"];
   const routes = [
     ["/today", "What needs your attention?"],
     ["/edge", "Value, with context."],
@@ -103,7 +99,9 @@ test("authenticated customer routes keep stable labels and protected state", asy
         .getByRole("navigation", { name: "Primary navigation" })
         .getByRole("link"),
     ).toHaveText(navigationLabels);
-    await expect(page.getByRole("link", { name: /Admin console/i })).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: /Admin console/i }),
+    ).toHaveCount(0);
   }
 });
 
@@ -131,7 +129,9 @@ test("customer text controls meet focused accessibility and contrast checks", as
     ".auth__card button",
   ]);
   expect(signInContrast.length).toBeGreaterThanOrEqual(5);
-  expect(signInContrast.every(({ ratio }) => Number.isFinite(ratio))).toBe(true);
+  expect(signInContrast.every(({ ratio }) => Number.isFinite(ratio))).toBe(
+    true,
+  );
 
   await signInAsCustomer(page);
   await expect(page.locator(".skip-link")).toHaveAttribute(
