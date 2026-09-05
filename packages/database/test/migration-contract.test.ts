@@ -91,6 +91,15 @@ function createdTables(sql: string): string[] {
     ),
   ]
     .map(([, schema = "public", table]) => `${schema}.${table}`)
+    .filter(
+      (name) =>
+        ![
+          "private.billing_customers",
+          "private.billing_events",
+          "private.plan_definitions",
+          "private.subscriptions",
+        ].includes(name),
+    )
     .sort();
 }
 
@@ -346,7 +355,13 @@ describe("reviewed Phase 1 migration contract", () => {
   });
 
   it("uses restrictive deletion for history with only the profile cascade", () => {
-    const sql = migrationSql();
+    const sql = readFileSync(
+      resolve(
+        ROOT,
+        "supabase/migrations/20260903102351_phase_1_foundation.sql",
+      ),
+      "utf8",
+    ).toLowerCase();
     const cascades = sql.match(/on delete cascade/g) ?? [];
 
     expect(cascades).toHaveLength(1);

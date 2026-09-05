@@ -37,8 +37,6 @@ import {
   sourceObservations,
 } from "./operations.js";
 import {
-  billingCustomers,
-  billingEvents,
   permissions,
   planDefinitions,
   rolePermissions,
@@ -92,10 +90,6 @@ export const phaseOneTables = [
   rolePermissions,
   roles,
   userRoles,
-  billingCustomers,
-  billingEvents,
-  planDefinitions,
-  subscriptions,
   profiles,
 ] as const;
 
