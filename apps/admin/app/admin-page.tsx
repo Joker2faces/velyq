@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { createDatabaseAdminRuntime } from "./database-admin";
 import { cookies, headers } from "next/headers";
 import { hasPermission, type PermissionCode } from "@velyq/auth";
@@ -36,44 +35,9 @@ export async function getAdminContext(
   return { runtime, authentication } as const;
 }
 
-export function AdminShell({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
-      <div className="admin-app">
-        <aside>
-          <a className="brand" href="/">
-            VELYQ <small>ADMIN</small>
-          </a>
-          <p className="nav-label">OPERATIONS</p>
-          <nav aria-label="Admin navigation">
-            <a href="/">Dashboard</a>
-            <a href="/provider-runs">Provider runs</a>
-            <a href="/predictions">Prediction traces</a>
-            <a href="/scores">EDGE / RADAR</a>
-            <a href="/audit">Audit log</a>
-          </nav>
-          <div className="side-note">
-            Synthetic Phase 1 only
-            <br />
-            <span>READ ONLY // GOVERNED</span>
-          </div>
-          <form action="/api/v1/auth/sign-out" method="post">
-            <button className="sign-out" type="submit">
-              Sign out
-            </button>
-          </form>
-        </aside>
-        <main id="main-content" className="admin-main">
-          <header>
-            <span>PHASE 1 / ADMIN CONSOLE</span>
-            <span className="live">● SERVER AUTHORIZED</span>
-          </header>
-          {children}
-        </main>
-      </div>
-    </>
-  );
-}
+/*
+ * `AdminShell` now lives in `admin-shell.tsx`, alongside the navigation model
+ * and the gate states. It is re-exported here so the existing pages keep
+ * their import path and none of their data logic had to be touched.
+ */
+export { AdminShell, AdminGate } from "./admin-shell";
