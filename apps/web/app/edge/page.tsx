@@ -1,7 +1,13 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { loadCustomerToday } from "../customer-runtime";
-import { formatPercent, message } from "@velyq/ui";
+import {
+  formatDecimal,
+  formatPercent,
+  formatPercentagePoints,
+  message,
+} from "@velyq/ui";
 import Link from "next/link";
+import { ScenarioStatus } from "../scenario-status";
 
 const toneFor = (recommendation: string) =>
   recommendation === "STRONG_EDGE"
@@ -44,13 +50,18 @@ export default async function Edge() {
             <strong>
               {match.homeTeam} · {match.selection}
             </strong>
-            <Metric label="Odds" value={match.currentOdds ?? "—"} />
+            <Metric label="Odds" value={formatDecimal(match.currentOdds)} />
             <Metric
               label="Model probability"
               value={formatPercent(match.modelProbability)}
             />
-            <Metric label="Fair odds" value={match.fairOdds ?? "—"} />
+            <Metric label="Fair odds" value={formatDecimal(match.fairOdds)} />
             <Metric label="EV" value={formatPercent(match.expectedValue)} />
+            <Metric
+              label="Edge"
+              value={formatPercentagePoints(match.probabilityEdge)}
+            />
+            <ScenarioStatus scenario={match.scenario} />
             <Status tone={toneFor(match.recommendation)}>
               {match.recommendation.replaceAll("_", " ")}
             </Status>

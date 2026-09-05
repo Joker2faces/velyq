@@ -1,6 +1,12 @@
 import { CustomerShell, Metric, Status } from "../../customer-shell";
 import { loadCustomerMatch } from "../../customer-runtime";
-import { formatDateTime, formatDecimal, formatPercent } from "@velyq/ui";
+import {
+  formatDateTime,
+  formatDecimal,
+  formatPercent,
+  formatPercentagePoints,
+} from "@velyq/ui";
+import { ScenarioStatus } from "../../scenario-status";
 
 export default async function Match({
   params,
@@ -45,6 +51,7 @@ export default async function Match({
           </p>
         </div>
         <Status tone="synthetic">{match.syntheticLabel.toUpperCase()}</Status>
+        <ScenarioStatus scenario={match.scenario} />
       </div>
       <section className="match-hero panel">
         <div>
@@ -56,7 +63,7 @@ export default async function Match({
           </p>
         </div>
         <div className="hero-score">
-          {formatPercent(match.probabilityEdge)} edge
+          {formatPercentagePoints(match.probabilityEdge)} edge
           <small>VELYQ EDGE</small>
         </div>
       </section>
@@ -86,7 +93,7 @@ export default async function Match({
           </div>
           <div className="trace">
             <span>Probability edge</span>
-            <b>{formatPercent(match.probabilityEdge)}</b>
+            <b>{formatPercentagePoints(match.probabilityEdge)}</b>
             <span>Expected value</span>
             <b>{formatPercent(match.expectedValue)}</b>
             <span>Quality gate</span>
@@ -199,6 +206,12 @@ export default async function Match({
           </b>
           <span>Feature cutoff</span>
           <b>{formatDateTime(match.trace.featureCutoff)}</b>
+          <span>Scenario</span>
+          <b>
+            {match.scenario.label} · {match.scenario.id}
+          </b>
+          <span>Source observations</span>
+          <b>{match.trace.sourceObservationIds?.join(" · ") ?? "—"}</b>
         </div>
       </section>
     </CustomerShell>

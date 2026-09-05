@@ -1,7 +1,8 @@
 import { CustomerShell, Metric, Status } from "../customer-shell";
 import { loadCustomerToday } from "../customer-runtime";
-import { formatPercent, message } from "@velyq/ui";
+import { formatDecimal, formatPercent, message } from "@velyq/ui";
 import Link from "next/link";
+import { ScenarioStatus } from "../scenario-status";
 
 export default async function Radar() {
   const result = await loadCustomerToday("radar.full");
@@ -41,14 +42,15 @@ export default async function Radar() {
                   : "No price history available"}
               </small>
             </div>
-            <Metric label="Opening" value={match.openingOdds ?? "—"} />
-            <Metric label="Current" value={match.currentOdds ?? "—"} />
+            <Metric label="Opening" value={formatDecimal(match.openingOdds)} />
+            <Metric label="Current" value={formatDecimal(match.currentOdds)} />
             <Metric
               label="Movement"
               value={formatPercent(match.movementPercent)}
               tone="teal"
             />
             <Metric label="Freshness" value={match.freshness} />
+            <ScenarioStatus scenario={match.scenario} />
             <Status
               tone={
                 match.freshness === "FRESH" && match.currentOdds
