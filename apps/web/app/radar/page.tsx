@@ -11,7 +11,7 @@ import {
   type Locale,
 } from "@velyq/ui";
 import type { CustomerMatchDto } from "@velyq/contracts";
-import { loadCustomerToday } from "../customer-runtime";
+import { loadCustomerContext, loadCustomerToday } from "../customer-runtime";
 import { getLocale } from "../locale";
 import { CustomerShell } from "../customer-shell";
 import {
@@ -29,7 +29,12 @@ import {
 export default async function Radar() {
   const locale = await getLocale();
   const t = translator(locale);
-  const result = await loadCustomerToday();
+  const context = await loadCustomerContext();
+  const result = await loadCustomerToday(
+    context?.entitlements.includes("radar.full")
+      ? "radar.full"
+      : "radar.preview",
+  );
 
   if (!result.ok) {
     return (

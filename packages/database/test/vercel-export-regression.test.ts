@@ -15,7 +15,7 @@ describe("database Vercel package integration", () => {
     ) as { scripts: Record<string, string> };
 
     expect(adminManifest.scripts["build"]).toBe(
-      "corepack pnpm --filter @velyq/database... build && next build",
+      "corepack pnpm --filter @velyq/database... build && next build --webpack",
     );
   });
 

@@ -12,7 +12,7 @@ import {
   DatabasePermissionResolver,
 } from "@velyq/database";
 import { subscriptions } from "@velyq/database/schema/private";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export function getCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "")
@@ -103,6 +103,10 @@ export async function requireCustomerSession(
             })
             .from(subscriptions)
             .where(eq(subscriptions.userId, user.id))
+            .orderBy(
+              desc(subscriptions.stripeEventCreatedAt),
+              desc(subscriptions.id),
+            )
             .limit(1);
           const current = rows[0];
           const plan: CustomerPlan =
@@ -136,6 +140,7 @@ function subscriptionStatus(
       "unpaid",
       "incomplete",
       "incomplete_expired",
+      "paused",
     ].includes(value)
     ? (value as SubscriptionStatus)
     : null;

@@ -126,21 +126,33 @@ export function customerService() {
 export async function loadCustomerToday(
   entitlement: CustomerEntitlement = "today.view",
 ) {
-  await requireCustomerPageAccess(entitlement);
+  const access = await requireCustomerPageAccess(entitlement);
+  if (!access) return entitlementRequiredResult();
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerTodayDto>;
-  return service.getToday(new Date());
+  const result = await service.getToday(new Date());
+  if (entitlement === "edge.preview" || entitlement === "radar.preview") {
+    if (result.ok) {
+      return {
+        ...result,
+        value: { ...result.value, matches: result.value.matches.slice(0, 3) },
+      };
+    }
+  }
+  return result;
 }
 
 export async function loadCustomerMatch(eventId: string) {
-  await requireCustomerPageAccess("match.detail");
+  const access = await requireCustomerPageAccess("match.detail");
+  if (!access) return entitlementRequiredResult();
   const service = customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
   return service.getMatch(eventId, new Date());
 }
 
 export async function loadCustomerContext() {
-  await requireCustomerPageAccess("today.view");
+  const access = await requireCustomerPageAccess("today.view");
+  if (!access) return null;
   const cookieHeader = (await cookies()).toString();
   const token = cookieHeader.match(/(?:^|; )velyq_access_token=([^;]+)/)?.[1];
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
@@ -200,13 +212,23 @@ export async function loadCustomerContext() {
 }
 
 async function requireCustomerPageAccess(entitlement: CustomerEntitlement) {
-  if (!process.env["VELYQ_DATABASE_URL"] && customerFixtureMode()) return;
+  if (!process.env["VELYQ_DATABASE_URL"] && customerFixtureMode()) return true;
   const cookieHeader = (await cookies()).toString();
   const request = new Request("https://velyq.local/customer", {
     headers: { cookie: cookieHeader },
   });
   const denied = await requireCustomerSession(request, entitlement);
-  if (denied) redirect("/sign-in");
+  if (!denied) return true;
+  if (denied.status === 401) redirect("/sign-in");
+  return false;
+}
+
+function entitlementRequiredResult() {
+  return {
+    ok: false as const,
+    code: "ENTITLEMENT_REQUIRED" as const,
+    messageKey: "entitlementRequired",
+  };
 }
 
 export function unavailable(requestId: string = crypto.randomUUID()) {

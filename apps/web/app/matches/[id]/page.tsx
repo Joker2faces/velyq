@@ -56,15 +56,38 @@ export default async function Match({
 
   if (!result.ok) {
     const notFound = result.code === "NOT_FOUND";
+    const locked = result.code === "ENTITLEMENT_REQUIRED";
     return (
       <CustomerShell>
         <div className="page">
           <ErrorState
-            title={notFound ? t("matchNotFound") : t("customerUnavailable")}
-            body={
-              notFound ? t("matchNotFoundBody") : t("customerUnavailableBody")
+            title={
+              locked
+                ? locale === "el"
+                  ? "Το Match Intelligence είναι διαθέσιμο στο ELITE"
+                  : "Match Intelligence is available on ELITE"
+                : notFound
+                  ? t("matchNotFound")
+                  : t("customerUnavailable")
             }
-            action={<ArrowLink href="/today">{t("backToToday")}</ArrowLink>}
+            body={
+              locked
+                ? locale === "el"
+                  ? "Αναβάθμισε για πλήρη ανάλυση αγώνα, αποδόσεις και trace."
+                  : "Upgrade for full match analysis, prices and trace."
+                : notFound
+                  ? t("matchNotFoundBody")
+                  : t("customerUnavailableBody")
+            }
+            action={
+              <ArrowLink href={locked ? "/pricing" : "/today"}>
+                {locked
+                  ? locale === "el"
+                    ? "Δες τα πλάνα →"
+                    : "View plans →"
+                  : t("backToToday")}
+              </ArrowLink>
+            }
           />
         </div>
       </CustomerShell>
