@@ -134,7 +134,10 @@ export default function Page() {
         </a>
       </section>
       <footer className="landing-footer">
-        <span>© VELYQ · AI SPORTS MARKET INTELLIGENCE</span>
+        <span>
+          © VELYQ · AI SPORTS MARKET INTELLIGENCE
+          <small className="creator-credit">Created by Joker2face</small>
+        </span>
         <span>
           <a href="/terms">Terms</a>
           <a href="/privacy">Privacy</a>

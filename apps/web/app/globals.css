@@ -1055,6 +1055,15 @@ body {
   margin-top: 90px;
   padding: 25px 0 35px;
 }
+.creator-credit {
+  color: #8b9bb1;
+  display: inline-block;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  margin-left: 18px;
+  opacity: 0.82;
+}
 .card-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
