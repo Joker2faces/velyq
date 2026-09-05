@@ -7,35 +7,45 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const email = form.get("email");
   const password = form.get("password");
+  const browserError = () =>
+    browserForm
+      ? NextResponse.redirect(new URL("/sign-in?error=invalid", request.url))
+      : null;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
     !email ||
     !password
   ) {
-    return NextResponse.json(
-      {
-        type: "https://velyq.dev/problems/invalid-request",
-        title: "Invalid sign-in request",
-        status: 400,
-        code: "INVALID_REQUEST",
-        requestId: requestId(request),
-      },
-      { status: 400 },
+    return (
+      browserError() ??
+      NextResponse.json(
+        {
+          type: "https://velyq.dev/problems/invalid-request",
+          title: "Invalid sign-in request",
+          status: 400,
+          code: "INVALID_REQUEST",
+          requestId: requestId(request),
+        },
+        { status: 400 },
+      )
     );
   }
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)
-    return NextResponse.json(
-      {
-        type: "https://velyq.dev/problems/not-configured",
-        title: "Authentication is not configured",
-        status: 503,
-        code: "AUTH_NOT_CONFIGURED",
-        requestId: requestId(request),
-      },
-      { status: 503 },
+    return (
+      browserError() ??
+      NextResponse.json(
+        {
+          type: "https://velyq.dev/problems/not-configured",
+          title: "Authentication is not configured",
+          status: 503,
+          code: "AUTH_NOT_CONFIGURED",
+          requestId: requestId(request),
+        },
+        { status: 503 },
+      )
     );
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
     method: "POST",
@@ -48,15 +58,18 @@ export async function POST(request: Request) {
       return NextResponse.redirect(
         new URL("/sign-in?error=invalid", request.url),
       );
-    return NextResponse.json(
-      {
-        type: "https://velyq.dev/problems/unauthorized",
-        title: "Sign-in failed",
-        status: 401,
-        code: "INVALID_CREDENTIALS",
-        requestId: requestId(request),
-      },
-      { status: 401 },
+    return (
+      browserError() ??
+      NextResponse.json(
+        {
+          type: "https://velyq.dev/problems/unauthorized",
+          title: "Sign-in failed",
+          status: 401,
+          code: "INVALID_CREDENTIALS",
+          requestId: requestId(request),
+        },
+        { status: 401 },
+      )
     );
   }
   const tokens = (await response.json()) as {
@@ -65,15 +78,18 @@ export async function POST(request: Request) {
     expires_in?: number;
   };
   if (!tokens.access_token || !tokens.refresh_token)
-    return NextResponse.json(
-      {
-        type: "https://velyq.dev/problems/auth-provider",
-        title: "Authentication provider response was incomplete",
-        status: 502,
-        code: "AUTH_PROVIDER_RESPONSE_INVALID",
-        requestId: requestId(request),
-      },
-      { status: 502 },
+    return (
+      browserError() ??
+      NextResponse.json(
+        {
+          type: "https://velyq.dev/problems/auth-provider",
+          title: "Authentication provider response was incomplete",
+          status: 502,
+          code: "AUTH_PROVIDER_RESPONSE_INVALID",
+          requestId: requestId(request),
+        },
+        { status: 502 },
+      )
     );
   const redirect = customerRedirectUrl(request, "/today");
   if (!redirect)
