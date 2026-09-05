@@ -9,9 +9,18 @@ const corepack = process.platform === "win32" ? "corepack.cmd" : "corepack";
 describe("built provider artifact", () => {
   it("replays bundled fixtures from compiled JavaScript without ENOENT", () => {
     const build = spawnSync(
-      corepack,
-      ["pnpm", "--filter", "@velyq/providers", "build"],
-      { cwd: workspace, encoding: "utf8", shell: process.platform === "win32" },
+      process.platform === "win32"
+        ? (process.env["ComSpec"] ?? "cmd.exe")
+        : corepack,
+      process.platform === "win32"
+        ? [
+            "/d",
+            "/s",
+            "/c",
+            "corepack pnpm turbo build --filter=@velyq/providers...",
+          ]
+        : ["pnpm", "turbo", "build", "--filter=@velyq/providers..."],
+      { cwd: workspace, encoding: "utf8", shell: false },
     );
     expect(build.status, build.stderr).toBe(0);
 
@@ -28,5 +37,5 @@ describe("built provider artifact", () => {
         ]),
       }),
     );
-  });
+  }, 30_000);
 });
