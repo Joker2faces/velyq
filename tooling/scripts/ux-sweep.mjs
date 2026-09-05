@@ -10,7 +10,7 @@
  */
 import { chromium } from "@playwright/test";
 
-const baseUrl = process.argv[2] ?? "http://127.0.0.1:3100";
+const baseUrl = process.argv[2] ?? "http://localhost:3100";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -29,13 +29,16 @@ const PRIVATE_ROUTES = [
   "/edge",
   "/radar",
   "/account",
-  "/matches/73000000-0000-4000-8000-000000000001",
+  "/matches/76000000-0000-4000-8000-000000000001",
 ];
 const ROUTES = [...PUBLIC_ROUTES, ...PRIVATE_ROUTES];
 const WIDTHS = [
   ["mobile", 390, 844],
+  ["mobile-lg", 430, 932],
   ["tablet", 768, 1024],
+  ["laptop", 1024, 800],
   ["desktop", 1440, 900],
+  ["wide", 1920, 1080],
 ];
 const LOCALES = ["en", "el"];
 
@@ -63,6 +66,26 @@ const audit = () => {
     problems.push(
       `OVERFLOW ${root.scrollWidth}>${root.clientWidth} via ${culprits.join(", ")}`,
     );
+  }
+
+  /*
+   * Content clipped *inside* a card. The document-level overflow check above
+   * cannot see this: a figure that overruns its grid cell is hidden by the
+   * cell rather than pushed out of the page. That is how an oversized
+   * headline number shipped truncated once already.
+   */
+  const clipped = [
+    ...document.querySelectorAll(
+      ".card, .preview__card, .lead, .verdict, .ops-metric, .plan, .stat",
+    ),
+  ]
+    .filter((element) => element.scrollWidth > element.clientWidth + 1)
+    .map(
+      (element) =>
+        `${String(element.className).split(" ")[0]}@${element.scrollWidth}>${element.clientWidth}`,
+    );
+  if (clipped.length) {
+    problems.push(`CLIPPED ${[...new Set(clipped)].join(", ")}`);
   }
 
   const interactive = [
@@ -221,9 +244,45 @@ for (const locale of LOCALES) {
   await context.close();
 }
 
+/*
+ * Admin console. Without a database every route renders the authorization
+ * gate, which is itself a designed state; the audit still checks overflow,
+ * contrast, tap targets, landmarks and the resolved language there.
+ */
+const ADMIN_BASE = process.argv[3] ?? "http://localhost:3200";
+const ADMIN_ROUTES = [
+  "/",
+  "/provider-runs",
+  "/predictions",
+  "/scores",
+  "/audit",
+];
+
+for (const locale of LOCALES) {
+  const context = await browser.newContext();
+  await context.addCookies([
+    { name: "velyq-locale", value: locale, url: ADMIN_BASE },
+  ]);
+  const page = await context.newPage();
+  for (const [label, width, height] of WIDTHS) {
+    await page.setViewportSize({ width, height });
+    for (const route of ADMIN_ROUTES) {
+      await page.goto(`${ADMIN_BASE}${route}`, { waitUntil: "load" });
+      const { lang, problems } = await page.evaluate(audit);
+      if (lang !== locale) problems.unshift(`LANG=${lang} expected ${locale}`);
+      if (problems.length) {
+        failures += problems.length;
+        console.log(`[admin ${locale}/${label}] ${route}`);
+        for (const problem of problems) console.log(`    ${problem}`);
+      }
+    }
+  }
+  await context.close();
+}
+
 await browser.close();
 console.log(
   failures === 0
-    ? `\nOK — ${ROUTES.length * WIDTHS.length * LOCALES.length} route/viewport/locale combinations clean.`
+    ? `\nOK — ${(ROUTES.length + ADMIN_ROUTES.length) * WIDTHS.length * LOCALES.length} route/viewport/locale combinations clean (customer + admin).`
     : `\n${failures} problem(s) reported.`,
 );
