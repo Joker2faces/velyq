@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { POST } from "../../apps/web/app/api/v1/billing/webhook/route";
 
 describe("Stripe webhook security boundary", () => {
+  it("recognizes paused subscriptions as a safe non-entitled status", async () => {
+    const { resolveCustomerEntitlements } =
+      await import("../../packages/auth/src/index");
+    expect(
+      resolveCustomerEntitlements({ plan: "ELITE", status: "paused" }),
+    ).toMatchObject({ plan: "FREE", subscriptionStatus: "paused" });
+  });
+
   it("rejects missing signature before touching the database", async () => {
     const response = await POST(
       new Request("https://velyq.test/api/v1/billing/webhook", {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   resolveCustomerEntitlements,
   type CustomerPlan,
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       })
       .from(subscriptions)
       .where(eq(subscriptions.userId, user.id))
+      .orderBy(desc(subscriptions.stripeEventCreatedAt), desc(subscriptions.id))
       .limit(1);
     const current = row[0];
     const plan: CustomerPlan =
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
         "unpaid",
         "incomplete",
         "incomplete_expired",
+        "paused",
       ].includes(current.status)
         ? (current.status as SubscriptionStatus)
         : null;

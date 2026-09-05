@@ -12,7 +12,7 @@ import { customerToday } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerFixtureMode, requireCustomerSession } from "./api/auth";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { subscriptions } from "@velyq/database/schema/private";
 import {
   createPrivilegedDatabaseClient,
@@ -165,6 +165,7 @@ export async function loadCustomerContext() {
       .select({ plan: subscriptions.planCode, status: subscriptions.status })
       .from(subscriptions)
       .where(eq(subscriptions.userId, user.id))
+      .orderBy(desc(subscriptions.stripeEventCreatedAt), desc(subscriptions.id))
       .limit(1);
     const current = rows[0];
     const plan: CustomerPlan =
@@ -181,6 +182,7 @@ export async function loadCustomerContext() {
         "unpaid",
         "incomplete",
         "incomplete_expired",
+        "paused",
       ].includes(current.status)
         ? (current.status as SubscriptionStatus)
         : null;

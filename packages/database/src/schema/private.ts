@@ -127,6 +127,9 @@ export const subscriptions = privateSchema.table(
     }),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    stripeEventCreatedAt: timestamp("stripe_event_created_at", {
+      withTimezone: true,
+    }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

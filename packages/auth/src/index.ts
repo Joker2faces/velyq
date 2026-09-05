@@ -23,7 +23,8 @@ export type SubscriptionStatus =
   | "canceled"
   | "unpaid"
   | "incomplete"
-  | "incomplete_expired";
+  | "incomplete_expired"
+  | "paused";
 export type CustomerEntitlement =
   | "today.view"
   | "edge.preview"

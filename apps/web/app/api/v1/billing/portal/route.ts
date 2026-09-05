@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { customerRedirectUrl, getCookie, requestId } from "../../../auth";
-import { getOrCreateStripeCustomer, stripeClient } from "../../../../billing";
+import { getStripeCustomer, stripeClient } from "../../../../billing";
 
 export async function POST(request: Request) {
   const id = requestId(request);
@@ -21,14 +21,19 @@ export async function POST(request: Request) {
       { code: "UNAUTHORIZED", requestId: id },
       { status: 401 },
     );
-  const user = (await userResponse.json()) as { id?: string; email?: string };
-  if (!user.id || !user.email)
+  const user = (await userResponse.json()) as { id?: string };
+  if (!user.id)
     return NextResponse.json(
       { code: "UNAUTHORIZED", requestId: id },
       { status: 401 },
     );
   try {
-    const customer = await getOrCreateStripeCustomer(user.id, user.email);
+    const customer = await getStripeCustomer(user.id);
+    if (!customer)
+      return NextResponse.json(
+        { code: "BILLING_PROFILE_NOT_FOUND", requestId: id },
+        { status: 409 },
+      );
     const origin =
       process.env["VELYQ_APPLICATION_ORIGIN"] ?? new URL(request.url).origin;
     const session = await stripeClient().billingPortal.sessions.create({
