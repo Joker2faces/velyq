@@ -45,11 +45,14 @@ const fixtureService: CustomerService = {
         async getToday() {
           return customerToday;
         },
-        async getMatch() {
-          return null;
+        async getMatch(eventId) {
+          return (
+            customerToday.matches.find((match) => match.eventId === eventId) ??
+            null
+          );
         },
       },
-      { mapToday: (raw) => raw, mapMatch: () => customerToday.matches[0]! },
+      { mapToday: (raw) => raw, mapMatch: (raw) => raw },
     ).getToday(asOf);
   },
   getMatch(eventId: string, asOf: Date) {
@@ -97,6 +100,9 @@ function databaseService(
 }
 
 export function customerService() {
+  if (process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO") {
+    return fixtureService;
+  }
   const database = databaseCustomerQueries();
   if (database) {
     return databaseService(database);
