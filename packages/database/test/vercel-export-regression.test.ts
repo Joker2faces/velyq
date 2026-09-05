@@ -27,8 +27,13 @@ describe("database Vercel package integration", () => {
         ? (process.env["ComSpec"] ?? "cmd.exe")
         : corepack,
       process.platform === "win32"
-        ? ["/d", "/s", "/c", "corepack pnpm --filter @velyq/database build"]
-        : ["pnpm", "--filter", "@velyq/database", "build"],
+        ? [
+            "/d",
+            "/s",
+            "/c",
+            "corepack pnpm turbo build --filter=@velyq/database...",
+          ]
+        : ["pnpm", "turbo", "build", "--filter=@velyq/database..."],
       { cwd: workspace, encoding: "utf8", shell: false },
     );
 
@@ -53,5 +58,5 @@ describe("database Vercel package integration", () => {
       root: "function",
       client: "function",
     });
-  });
+  }, 30_000);
 });

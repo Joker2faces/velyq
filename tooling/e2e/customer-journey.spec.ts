@@ -127,7 +127,13 @@ test("customer text controls meet focused accessibility and contrast checks", as
   await expect(page.getByRole("main")).toHaveAttribute("class", "auth-page");
   await expect(page.getByLabel("Email")).toHaveAttribute("id", "email");
   await expect(page.getByLabel("Password")).toHaveAttribute("id", "password");
-  await expect(page.locator(".auth-card a")).toHaveCount(0);
+  await expect(page.locator(".auth-card a")).toHaveCount(2);
+  await expect(
+    page.getByRole("link", { name: "Create an account" }),
+  ).toHaveAttribute("href", "/sign-up");
+  await expect(
+    page.getByRole("link", { name: "Forgot your password?" }),
+  ).toHaveAttribute("href", "/forgot-password");
 
   const signInContrast = await readContrastRatios(page, [
     ".auth-card h1",

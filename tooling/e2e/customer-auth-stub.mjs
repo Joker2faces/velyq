@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 
 const port = Number(process.env.VELYQ_E2E_AUTH_PORT ?? 3101);
+if (!Number.isSafeInteger(port)) {
+  throw new Error("Playwright did not provide a valid E2E auth port");
+}
 const accessToken = "e2e-customer-access-token";
 const refreshToken = "e2e-customer-refresh-token";
 const customerId = "00000000-0000-4000-8000-000000000001";
@@ -98,6 +101,10 @@ const server = createServer(async (request, response) => {
   sendJson(response, 404, { error: "not_found" });
 });
 
+server.once("error", (error) => {
+  console.error(`Unable to start the E2E auth stub on port ${port}:`, error);
+  process.exit(1);
+});
 server.listen(port, "127.0.0.1");
 
 function shutdown() {

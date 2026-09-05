@@ -8,10 +8,15 @@ const repositoryRoot = resolve(
   fileURLToPath(new URL("../..", import.meta.url)),
 );
 const command = process.platform === "win32" ? "corepack.cmd" : "corepack";
+const buildPort = Number(process.env.VELYQ_E2E_BUILD_PORT);
+const authPort = Number(process.env.VELYQ_E2E_AUTH_PORT);
+if (!Number.isSafeInteger(buildPort) || !Number.isSafeInteger(authPort)) {
+  throw new Error("Playwright did not provide valid E2E build/auth ports");
+}
 const buildEnvironment = {
   ...process.env,
   NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
-  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
+  NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${authPort}`,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
   VELYQ_DATABASE_URL:
     process.env.VELYQ_E2E_DATABASE_URL ??
@@ -42,24 +47,12 @@ for (const app of ["web", "admin"]) {
   });
 }
 
-await run(["pnpm", "--filter", "@velyq/database", "build"]);
 await run([
   "pnpm",
-  "--filter",
-  "@velyq/web",
-  "exec",
-  "next",
+  "turbo",
   "build",
-  "--webpack",
-]);
-await run([
-  "pnpm",
-  "--filter",
-  "@velyq/admin",
-  "exec",
-  "next",
-  "build",
-  "--webpack",
+  "--filter=@velyq/web...",
+  "--filter=@velyq/admin...",
 ]);
 
 const server = createServer((request, response) => {
@@ -72,7 +65,14 @@ const server = createServer((request, response) => {
   response.end();
 });
 
-server.listen(3099, "127.0.0.1");
+server.once("error", (error) => {
+  console.error(
+    `Unable to start the E2E build coordinator on port ${buildPort}:`,
+    error,
+  );
+  process.exit(1);
+});
+server.listen(buildPort, "127.0.0.1");
 
 function shutdown() {
   server.close(() => process.exit(0));

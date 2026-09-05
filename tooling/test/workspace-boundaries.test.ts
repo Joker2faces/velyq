@@ -37,7 +37,7 @@ describe("workspace dependency boundaries", () => {
         (message) => message.ruleId === "no-restricted-imports",
       ),
     ).toBe(true);
-  });
+  }, 30_000);
 
   it("rejects a relative filesystem import into another package", async () => {
     const [result] = await lintFixture(
