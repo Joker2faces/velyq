@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, feat/phase-1-foundation, integration/**]
+  workflow_dispatch:
+    inputs:
+      staging_smoke:
+        description: Run the staging customer and admin smoke tests
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+  database-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:verify
+  worker-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm worker:verify
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:reset
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+  staging-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.staging_smoke }}
+    runs-on: ubuntu-latest
+    env:
+      VELYQ_STAGING_CUSTOMER_URL: ${{ secrets.VELYQ_STAGING_CUSTOMER_URL }}
+      VELYQ_STAGING_CUSTOMER_EMAIL: ${{ secrets.VELYQ_STAGING_CUSTOMER_EMAIL }}
+      VELYQ_STAGING_CUSTOMER_PASSWORD: ${{ secrets.VELYQ_STAGING_CUSTOMER_PASSWORD }}
+      VELYQ_STAGING_ADMIN_URL: ${{ secrets.VELYQ_STAGING_ADMIN_URL }}
+      VELYQ_STAGING_ADMIN_EMAIL: ${{ secrets.VELYQ_STAGING_ADMIN_EMAIL }}
+      VELYQ_STAGING_ADMIN_PASSWORD: ${{ secrets.VELYQ_STAGING_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --config tooling/e2e/staging.playwright.config.ts
