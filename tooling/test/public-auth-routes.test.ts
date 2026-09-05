@@ -10,13 +10,11 @@ describe("public authentication routes", () => {
     process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
     process.env["NEXT_PUBLIC_APP_URL"] = "https://velyq.test";
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        new Response(JSON.stringify({ user: { id: "user-1" } }), {
-          status: 200,
-        }),
-      );
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ user: { id: "user-1" } }), {
+        status: 200,
+      }),
+    );
     try {
       const form = new FormData();
       form.set("email", "customer@example.com");
