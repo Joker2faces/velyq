@@ -64,10 +64,10 @@ export function recommendationExplanation(code: string, locale: Locale) {
  */
 export type Tone =
   | "positive"
-  | "amber"
+  | "caution"
   | "neutral"
   | "muted"
-  | "lilac"
+  | "market"
   | "synthetic"
   | "heuristic";
 
@@ -77,9 +77,9 @@ export function recommendationTone(code: string): Tone {
       return "positive";
     case "WAIT":
     case "WAIT_FOR_LINEUP":
-      return "amber";
+      return "caution";
     case "EDGE_DISAPPEARED":
-      return "lilac";
+      return "market";
     case "INSUFFICIENT_DATA":
       return "muted";
     default:
@@ -94,6 +94,26 @@ export function isGatedRecommendation(code: string) {
     code === "INSUFFICIENT_DATA" ||
     code === "NO_BET"
   );
+}
+
+// ------------------------------------------------------------ selections
+
+const SELECTION_LABELS: Readonly<Record<string, MessageKey>> = {
+  Home: "selectionHome",
+  Draw: "selectionDraw",
+  Away: "selectionAway",
+};
+
+/**
+ * Human label for a market selection.
+ *
+ * 1X2 outcomes are translated. Over/under lines are deliberately left as the
+ * provider states them — "Over 2.5" is what Greek betting markets actually
+ * print, and localising it would read as an invention.
+ */
+export function selectionLabel(selection: string, locale: Locale) {
+  const key = SELECTION_LABELS[selection];
+  return key ? translate(key, locale) : selection;
 }
 
 // -------------------------------------------------------------- lineups
@@ -111,7 +131,7 @@ export function lineupLabel(code: string, locale: Locale) {
 
 export function lineupTone(code: string): Tone {
   if (code === "OFFICIAL") return "positive";
-  if (code === "MISSING") return "amber";
+  if (code === "MISSING") return "caution";
   return "neutral";
 }
 
@@ -127,7 +147,7 @@ export function freshnessLabel(code: string, locale: Locale) {
 }
 
 export function freshnessTone(code: string): Tone {
-  return code === "FRESH" ? "positive" : "amber";
+  return code === "FRESH" ? "positive" : "caution";
 }
 
 // ---------------------------------------------------------- reason codes
@@ -161,7 +181,7 @@ export function reasonLabels(codes: readonly string[], locale: Locale) {
  */
 export function qualityTone(grade: string): Tone {
   if (grade === "A" || grade === "B") return "positive";
-  if (grade === "C" || grade === "D") return "amber";
+  if (grade === "C" || grade === "D") return "caution";
   return "muted";
 }
 
