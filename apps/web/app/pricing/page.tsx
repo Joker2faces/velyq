@@ -1,4 +1,5 @@
 import { CustomerShell } from "../customer-shell";
+import { CUSTOMER_PLANS, paidBillingConfigured } from "../plan-config";
 
 const plans = [
   [
@@ -19,6 +20,7 @@ const plans = [
 ] as const;
 
 export default function Pricing() {
+  const billingConfigured = paidBillingConfigured();
   return (
     <CustomerShell>
       <div className="page-heading">
@@ -36,9 +38,15 @@ export default function Pricing() {
           <section className="panel" key={name}>
             <p className="kicker">{name}</p>
             <h2>{description}</h2>
-            <p>{access}</p>
+            <p>
+              {access}
+              {name !== "FREE" &&
+                ` · €${CUSTOMER_PLANS[name].introductoryMonthlyEur}/month introductory configuration`}
+            </p>
             {name === "FREE" ? (
               <span className="status">Current preview</span>
+            ) : !billingConfigured ? (
+              <span className="status">Billing activation pending</span>
             ) : (
               <form action="/api/v1/billing/checkout" method="post">
                 <input type="hidden" name="plan" value={name} />
