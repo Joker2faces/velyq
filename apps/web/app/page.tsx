@@ -1,7 +1,7 @@
 import {
   formatOdds,
   formatPercent,
-  formatPercentagePoints,
+  formatPointsDelta,
   formatProbability,
   formatTime,
   freshnessLabel,
@@ -24,6 +24,7 @@ import {
   Trend,
 } from "./components/ui";
 import { IconAlert, IconCheck } from "./components/icons";
+import { Fixture, PitchBackdrop } from "./components/pitch";
 
 export default async function Home() {
   const locale = await getLocale();
@@ -49,8 +50,7 @@ export default async function Home() {
       {/* ------------------------------------------------------------ hero */}
       <section className="hero">
         <div className="hero__aurora" aria-hidden="true" />
-        <div className="pitch-field" aria-hidden="true" />
-        <div className="pitch-arc pitch-arc--hero" aria-hidden="true" />
+        <PitchBackdrop />
         <div className="hero__inner">
           <div className="hero__copy">
             <p className="eyebrow">{t("homeHeroEyebrow")}</p>
@@ -94,16 +94,22 @@ export default async function Home() {
 
               <div className="preview__cards">
                 <div className="preview__card preview__card--wide">
-                  <div className="preview__match">
-                    <span className="preview__teams">
-                      {featured.homeTeam}
-                      <em className="row__vs">{t("matchVersus")}</em>
-                      {featured.awayTeam}
-                    </span>
-                    <Badge tone={recommendationTone(featured.recommendation)}>
+                  <Fixture
+                    homeTeam={featured.homeTeam}
+                    awayTeam={featured.awayTeam}
+                    meta={`${featured.competition} · ${formatTime(
+                      featured.startsAt,
+                      locale,
+                    )} · ${selectionLabel(featured.selection, locale)}`}
+                  />
+                  <p style={{ textAlign: "center" }}>
+                    <Badge
+                      tone={recommendationTone(featured.recommendation)}
+                      dot
+                    >
                       {recommendationLabel(featured.recommendation, locale)}
                     </Badge>
-                  </div>
+                  </p>
                   <EdgeAxis
                     modelProbability={featured.modelProbability}
                     impliedProbability={featured.impliedProbability}
@@ -126,7 +132,7 @@ export default async function Home() {
                         featured.impliedProbability,
                         locale,
                       ),
-                      edge: formatPercent(featured.probabilityEdge, 1, locale),
+                      edge: formatPointsDelta(featured.probabilityEdge, locale),
                     })}
                   />
                 </div>
@@ -134,7 +140,7 @@ export default async function Home() {
                 <div className="preview__card">
                   <span className="stat__label">{t("homePreviewEdge")}</span>
                   <span className="preview__edge preview__pulse">
-                    {formatPercent(featured.probabilityEdge, 1, locale)}
+                    {formatPointsDelta(featured.probabilityEdge, locale)}
                   </span>
                   <span className="card__hint">
                     {t("matchExpectedValue")}{" "}
@@ -172,8 +178,9 @@ export default async function Home() {
                       </div>
                       <Trend
                         value={featured.movementPercent}
-                        display={formatPercentagePoints(
+                        display={formatPercent(
                           featured.movementPercent,
+                          1,
                           locale,
                         )}
                       />
@@ -198,21 +205,26 @@ export default async function Home() {
         <div className="grid-cards">
           {liveStrip.map((match) => (
             <Card key={match.eventId} interactive>
-              <div className="row__head">
-                <span className="row__teams">
-                  {match.homeTeam}
-                  <em className="row__vs">{t("matchVersus")}</em>
-                  {match.awayTeam}
-                </span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: "var(--space-3)",
+                }}
+              >
                 <Badge tone={freshnessTone(match.freshness)} dot>
                   {freshnessLabel(match.freshness, locale)}
                 </Badge>
               </div>
-              <p className="row__sub">
-                {t("todayFullTime1x2")} ·{" "}
-                {selectionLabel(match.selection, locale)} ·{" "}
-                {formatTime(match.startsAt, locale)}
-              </p>
+              <Fixture
+                size="sm"
+                homeTeam={match.homeTeam}
+                awayTeam={match.awayTeam}
+                meta={`${t("todayFullTime1x2")} · ${selectionLabel(
+                  match.selection,
+                  locale,
+                )} · ${formatTime(match.startsAt, locale)}`}
+              />
               <div
                 className="row__stats"
                 style={{ marginTop: "var(--space-4)" }}
@@ -234,10 +246,7 @@ export default async function Home() {
                   <span className="stat__value">
                     <Trend
                       value={match.movementPercent}
-                      display={formatPercentagePoints(
-                        match.movementPercent,
-                        locale,
-                      )}
+                      display={formatPercent(match.movementPercent, 1, locale)}
                     />
                   </span>
                 </div>

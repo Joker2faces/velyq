@@ -27,7 +27,7 @@ export function AuthShell({
   return (
     <div className="auth">
       <aside className="auth__aside">
-        <Brand />
+        <Brand locale={locale} />
         <div style={{ display: "grid", gap: "var(--space-5)" }}>
           <h2>{t("authAsideTitle")}</h2>
           <ul className="auth__aside-points">
@@ -50,7 +50,7 @@ export function AuthShell({
 
       <main className="auth__main" id="main-content">
         <div className="auth__brandbar">
-          <Brand />
+          <Brand locale={locale} />
           <LanguageSwitcher locale={locale} />
         </div>
         <div className="auth__card">

@@ -406,15 +406,19 @@ export function EmptyState({
   body,
   action,
   center = false,
+  as = "h2",
 }: {
   title: string;
   body: string;
   action?: ReactNode;
   center?: boolean;
+  /** Use `h1` when this state replaces the entire page. */
+  as?: "h1" | "h2";
 }) {
+  const Heading = as;
   return (
     <div className={`state${center ? " state--center" : ""}`}>
-      <h2>{title}</h2>
+      <Heading>{title}</Heading>
       <p>{body}</p>
       {action}
     </div>
@@ -430,16 +434,24 @@ export function ErrorState({
   title,
   body,
   action,
+  as = "h1",
 }: {
   title: string;
   body: string;
   action?: ReactNode;
+  /**
+   * Defaults to `h1`: an error state almost always replaces the whole page,
+   * and a page with no top-level heading is a real navigation failure for
+   * screen-reader users.
+   */
+  as?: "h1" | "h2";
 }) {
+  const Heading = as;
   return (
     <div className="card">
       <div className="state" role="alert">
         <IconAlert size={22} className="state__icon" />
-        <h2>{title}</h2>
+        <Heading>{title}</Heading>
         <p>{body}</p>
         {action}
       </div>

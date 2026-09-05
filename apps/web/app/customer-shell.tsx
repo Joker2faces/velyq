@@ -56,7 +56,7 @@ export async function CustomerShell({
   return (
     <div className="app">
       <aside className="app__sidebar">
-        <Brand href="/today" />
+        <Brand href="/today" locale={locale} />
         <nav className="app__nav" aria-label={t("navPrimaryLabel")}>
           {items.map(({ href, label, icon: Icon }) => (
             <Link
@@ -101,7 +101,7 @@ export async function CustomerShell({
 
       <div className="app__topbar">
         <div className="app__mobile-brand">
-          <Brand href="/today" />
+          <Brand href="/today" locale={locale} />
         </div>
         <span className="app__session">
           <span className="badge__dot" />

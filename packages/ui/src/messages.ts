@@ -18,7 +18,7 @@ import { DEFAULT_LOCALE, type Locale } from "./locale.js";
  */
 export const messages = {
   // ---------------------------------------------------------------- brand
-  brandTagline: "Intelligence platform",
+  brandTagline: "Football intelligence",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Full match analysis",
 
@@ -55,7 +55,7 @@ export const messages = {
   researchUse: "Experimental · research use",
 
   // ------------------------------------------------------------- metadata
-  metaTitle: "VELYQ — Sports Market Intelligence",
+  metaTitle: "VELYQ — Football Market Intelligence",
   metaDescription:
     "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
 
@@ -79,8 +79,8 @@ export const messages = {
 
   // ---------------------------------------------------------- home: hero
   homeHeroEyebrow: "Synthetic beta · Experimental model",
-  homeHeroTitleLead: "See the signal",
-  homeHeroTitleAccent: "before the noise.",
+  homeHeroTitleLead: "Read the football market",
+  homeHeroTitleAccent: "before it moves.",
   homeHeroBody:
     "VELYQ compares what our model believes with what the market is charging — so you can tell a genuinely mispriced outcome apart from ordinary movement.",
   homeHeroPrimaryCta: "Create a free account",
@@ -264,36 +264,21 @@ export const messages = {
   pricingFineprint:
     "Phase 1 data is synthetic. Predictions are experimental; EDGE and RADAR are development heuristics. Checkout activates only once approved Stripe price IDs are configured, and no payment is taken before then.",
 
-  planFreeName: "FREE",
   planFreeFor: "For getting oriented",
   planFreePitch: "A clear, honest look at how VELYQ reads a market.",
-  planFreeFeature1: "The Today command centre",
-  planFreeFeature2: "EDGE preview",
-  planFreeFeature3: "RADAR preview",
   planFreeLimit: "Match Intelligence detail is not included",
 
-  planProName: "PRO",
   planProFor: "For regular analysis",
   planProPitch: "The full picture on every tracked match, every day.",
-  planProFeature1: "Everything in FREE",
-  planProFeature2: "Full EDGE table, every metric",
-  planProFeature3: "Full RADAR movement evidence",
-  planProFeature4: "Complete Match Intelligence pages",
   planProLimit: "Introductory pricing during the beta",
 
-  planEliteName: "ELITE",
   planEliteFor: "For power users",
   planElitePitch: "PRO, plus first access to everything we ship next.",
-  planEliteFeature1: "Everything in PRO",
-  planEliteFeature2: "First access to new modules as they ship",
-  planEliteFeature3: "Direct line for feature requests",
-  planEliteLimit:
-    "Intelligence access currently matches PRO — ELITE-only capabilities are still in development",
+  planEliteLimit: "Customer access only — never administrative",
   // Rendered automatically when a tier's entitlement set adds nothing over
   // the tier below it, so the page can never imply capability it lacks.
   planNoAdditionalAccess:
     "Grants the same intelligence access as the tier below it today",
-  planAdds: "Adds on top of {plan}",
 
   // ----------------------------------------------------------------- auth
   authSignInKicker: "Customer access",
@@ -536,6 +521,62 @@ export const messages = {
   subscriptionBody2:
     "Refund policy and final commercial terms require owner and legal review before any live charge is taken.",
 
+  // ------------------------------------------------------ admin console
+  //
+  // Platform operations, not football intelligence. Technical nouns that
+  // Greek operators use in English — provider, trace, audit — are kept in
+  // English rather than forced into awkward Greek.
+  adminConsoleName: "Operations",
+  adminNavOverview: "Overview",
+  adminNavGroupOperations: "Operations",
+  adminNavGroupIntelligence: "Intelligence",
+  adminNavGroupGovernance: "Governance",
+  adminNavProviderRuns: "Provider runs",
+  adminNavPredictions: "Prediction traces",
+  adminNavScores: "EDGE / RADAR scores",
+  adminNavAudit: "Audit log",
+  adminNavLabel: "Admin navigation",
+  adminServerAuthorized: "Server authorized",
+  adminReadOnly: "Read only",
+  adminGoverned: "Governed",
+  adminSyntheticPhase: "Synthetic Phase 1 only",
+
+  adminOverviewKicker: "Platform operations",
+  adminOverviewTitle: "Traceability console.",
+  adminOverviewBody:
+    "Synthetic Phase 1 intelligence, governed from source run through to the customer result.",
+  adminRecentRuns: "Recent provider runs",
+  adminRunsVisible: "Latest visible page",
+  adminDataPolicy: "Data policy",
+  adminDataPolicyValue: "Synthetic provenance required",
+  adminAccessLevel: "Access",
+  adminAccessValue: "Resolved server-side",
+  adminOpenAudit: "Open audit log",
+  adminInspect: "Inspect",
+  adminEmptyRuns: "No provider runs have been recorded yet.",
+  adminEmptyBody:
+    "This view reads live operational data. Nothing is shown until a run exists.",
+
+  adminColumnSequence: "Sequence",
+  adminColumnStatus: "Status",
+  adminColumnAccepted: "Accepted",
+  adminColumnRejected: "Rejected",
+  adminColumnStarted: "Started",
+  adminColumnTrace: "Trace",
+
+  adminSignInKicker: "Admin access",
+  adminSignInTitle: "Operations access.",
+  adminSignInBody:
+    "Sign in with your existing identity. Authorization is resolved server-side.",
+  adminSignInSubmit: "Continue to operations",
+  adminSignInNote: "An admin permission is required after authentication.",
+  adminDeniedTitle: "Access denied.",
+  adminDeniedBody:
+    "Your identity is valid, but the VELYQ admin permission is not assigned to it.",
+  adminUnavailableTitle: "Authorization unavailable.",
+  adminUnavailableBody:
+    "The admin database runtime is not configured, so no data is shown.",
+
   // -------------------------------------------------- explanations (help)
   explainEdgeTitle: "What is EDGE?",
   explainEdgeBody:
@@ -580,6 +621,10 @@ export const messages = {
   recEdgeDisappearedBody:
     "An earlier price advantage is no longer visible at the current quote — the market has repriced.",
 
+  // Abbreviated unit for a difference between two probabilities. Greek
+  // financial writing uses «μον.» (μονάδες) where English uses "pp".
+  unitPercentagePoints: "pp",
+
   // ---------------------------------------------------------- selections
   selectionHome: "Home",
   selectionDraw: "Draw",
@@ -618,7 +663,7 @@ export type MessageKey = keyof typeof messages;
  * states and never issues betting instructions.
  */
 const greek: Readonly<Record<MessageKey, string>> = {
-  brandTagline: "Πλατφόρμα ανάλυσης",
+  brandTagline: "Ανάλυση ποδοσφαίρου",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Πλήρης ανάλυση αγώνα",
 
@@ -652,7 +697,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   syntheticEnvironment: "Περιβάλλον beta με συνθετικά δεδομένα",
   researchUse: "Πειραματικό · για έρευνα",
 
-  metaTitle: "VELYQ — Ανάλυση αθλητικών αγορών",
+  metaTitle: "VELYQ — Ανάλυση αγορών ποδοσφαίρου",
   metaDescription:
     "Ανάλυση αθλητικών αγορών με ίχνος σε κάθε νούμερο: πιθανότητα μοντέλου απέναντι στις τρέχουσες αποδόσεις και καταγεγραμμένη κίνηση αποδόσεων.",
 
@@ -673,8 +718,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homeCreateAccount: "Δημιουργία λογαριασμού",
 
   homeHeroEyebrow: "Beta με συνθετικά δεδομένα · Πειραματικό μοντέλο",
-  homeHeroTitleLead: "Δες το σήμα",
-  homeHeroTitleAccent: "πριν από τον θόρυβο.",
+  homeHeroTitleLead: "Διάβασε την αγορά",
+  homeHeroTitleAccent: "πριν κινηθεί.",
   homeHeroBody:
     "Το VELYQ βάζει δίπλα δίπλα τι εκτιμά το μοντέλο μας και τι τιμολογεί η αγορά — για να ξεχωρίζεις την πραγματικά λάθος τιμή από την απλή κίνηση αποδόσεων.",
   homeHeroPrimaryCta: "Δημιούργησε δωρεάν λογαριασμό",
@@ -843,33 +888,18 @@ const greek: Readonly<Record<MessageKey, string>> = {
   pricingFineprint:
     "Τα δεδομένα της Φάσης 1 είναι συνθετικά. Οι προβλέψεις είναι πειραματικές· τα EDGE και RADAR είναι δείκτες υπό ανάπτυξη. Η πληρωμή ανοίγει μόνο όταν ρυθμιστούν εγκεκριμένα Stripe price IDs — μέχρι τότε δεν γίνεται καμία χρέωση.",
 
-  planFreeName: "FREE",
   planFreeFor: "Για να πάρεις μια ιδέα",
   planFreePitch: "Καθαρή εικόνα του πώς διαβάζει το VELYQ την αγορά.",
-  planFreeFeature1: "Το Σήμερα",
-  planFreeFeature2: "Προεπισκόπηση EDGE",
-  planFreeFeature3: "Προεπισκόπηση RADAR",
   planFreeLimit: "Χωρίς αναλυτικές σελίδες Match Intelligence",
 
-  planProName: "PRO",
   planProFor: "Για καθημερινή ανάλυση",
   planProPitch: "Όλη η εικόνα, σε κάθε αγώνα, κάθε μέρα.",
-  planProFeature1: "Ό,τι έχει το FREE",
-  planProFeature2: "Πλήρης πίνακας EDGE, όλοι οι δείκτες",
-  planProFeature3: "Όλα τα στοιχεία κίνησης RADAR",
-  planProFeature4: "Πλήρεις σελίδες Match Intelligence",
   planProLimit: "Εισαγωγική τιμή όσο τρέχει η beta",
 
-  planEliteName: "ELITE",
   planEliteFor: "Για προχωρημένους",
   planElitePitch: "Ό,τι έχει το PRO, συν πρώτη πρόσβαση σε ό,τι έρχεται.",
-  planEliteFeature1: "Ό,τι έχει το PRO",
-  planEliteFeature2: "Πρώτη πρόσβαση σε νέες ενότητες",
-  planEliteFeature3: "Απευθείας γραμμή για προτάσεις",
-  planEliteLimit:
-    "Προς το παρόν βλέπεις ό,τι και το PRO — τα αποκλειστικά ELITE έρχονται",
+  planEliteLimit: "Μόνο πρόσβαση χρήστη — ποτέ διαχειριστή",
   planNoAdditionalAccess: "Προς το παρόν δίνει ό,τι και το προηγούμενο πακέτο",
-  planAdds: "Προσθέτει πάνω από το {plan}",
 
   authSignInKicker: "Πρόσβαση χρήστη",
   authSignInTitle: "Καλώς όρισες ξανά.",
@@ -1096,6 +1126,57 @@ const greek: Readonly<Record<MessageKey, string>> = {
   subscriptionBody2:
     "Η πολιτική επιστροφών και οι τελικοί εμπορικοί όροι θέλουν έγκριση από τον ιδιοκτήτη και νομικό έλεγχο πριν από κάθε πραγματική χρέωση.",
 
+  adminConsoleName: "Λειτουργία",
+  adminNavOverview: "Επισκόπηση",
+  adminNavGroupOperations: "Λειτουργία",
+  adminNavGroupIntelligence: "Ανάλυση",
+  adminNavGroupGovernance: "Έλεγχος",
+  adminNavProviderRuns: "Εκτελέσεις παρόχων",
+  adminNavPredictions: "Ίχνη προβλέψεων",
+  adminNavScores: "Δείκτες EDGE / RADAR",
+  adminNavAudit: "Αρχείο ελέγχου",
+  adminNavLabel: "Πλοήγηση διαχείρισης",
+  adminServerAuthorized: "Εξουσιοδοτημένη πρόσβαση",
+  adminReadOnly: "Μόνο ανάγνωση",
+  adminGoverned: "Με έλεγχο",
+  adminSyntheticPhase: "Μόνο συνθετικά δεδομένα Φάσης 1",
+
+  adminOverviewKicker: "Λειτουργία πλατφόρμας",
+  adminOverviewTitle: "Κονσόλα ιχνηλασιμότητας.",
+  adminOverviewBody:
+    "Συνθετικά δεδομένα Φάσης 1, με έλεγχο από την εκτέλεση του παρόχου μέχρι το αποτέλεσμα που βλέπει ο πελάτης.",
+  adminRecentRuns: "Πρόσφατες εκτελέσεις παρόχων",
+  adminRunsVisible: "Τελευταία σελίδα",
+  adminDataPolicy: "Πολιτική δεδομένων",
+  adminDataPolicyValue: "Απαιτείται συνθετική προέλευση",
+  adminAccessLevel: "Πρόσβαση",
+  adminAccessValue: "Ελέγχεται στον server",
+  adminOpenAudit: "Άνοιγμα αρχείου ελέγχου",
+  adminInspect: "Άνοιγμα",
+  adminEmptyRuns: "Δεν έχει καταγραφεί καμία εκτέλεση παρόχου ακόμα.",
+  adminEmptyBody:
+    "Η οθόνη διαβάζει ζωντανά δεδομένα λειτουργίας. Δεν εμφανίζεται τίποτα μέχρι να υπάρξει εκτέλεση.",
+
+  adminColumnSequence: "Ακολουθία",
+  adminColumnStatus: "Κατάσταση",
+  adminColumnAccepted: "Δεκτά",
+  adminColumnRejected: "Απορρίφθηκαν",
+  adminColumnStarted: "Έναρξη",
+  adminColumnTrace: "Ίχνος",
+
+  adminSignInKicker: "Πρόσβαση διαχειριστή",
+  adminSignInTitle: "Πρόσβαση λειτουργίας.",
+  adminSignInBody:
+    "Συνδέσου με τα στοιχεία σου. Τα δικαιώματα ελέγχονται στον server.",
+  adminSignInSubmit: "Είσοδος",
+  adminSignInNote: "Μετά τη σύνδεση απαιτείται δικαίωμα διαχειριστή.",
+  adminDeniedTitle: "Δεν επιτρέπεται η πρόσβαση.",
+  adminDeniedBody:
+    "Τα στοιχεία σου είναι έγκυρα, αλλά δεν σου έχει δοθεί δικαίωμα διαχειριστή στο VELYQ.",
+  adminUnavailableTitle: "Η εξουσιοδότηση δεν είναι διαθέσιμη.",
+  adminUnavailableBody:
+    "Δεν έχει ρυθμιστεί η βάση δεδομένων διαχείρισης, οπότε δεν εμφανίζονται δεδομένα.",
+
   explainEdgeTitle: "Τι είναι το EDGE;",
   explainEdgeBody:
     "Το EDGE συγκρίνει την πιθανότητα του μοντέλου με την πιθανότητα αγοράς. Θετική διαφορά σημαίνει ότι η απόδοση φαίνεται γενναιόδωρη σε σχέση με το μοντέλο — όχι ότι το αποτέλεσμα θα έρθει.",
@@ -1136,6 +1217,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   recEdgeDisappeared: "Η ευκαιρία δεν ισχύει πλέον",
   recEdgeDisappearedBody:
     "Η αξία που υπήρχε δεν φαίνεται πια στην τρέχουσα απόδοση — η αγορά αναπροσάρμοσε.",
+
+  unitPercentagePoints: "μον.",
 
   selectionHome: "Γηπεδούχος",
   selectionDraw: "Ισοπαλία",
