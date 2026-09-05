@@ -1,10 +1,20 @@
-export default function SignUp() {
+export default async function SignUp({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  const params = searchParams ? await searchParams : {};
   return (
     <main className="auth-page">
       <div className="auth-card">
         <p className="kicker">VELYQ // PUBLIC ACCESS</p>
         <h1>Create your account.</h1>
         <p>Start with the free VELYQ intelligence preview.</p>
+        {params.error && (
+          <p role="alert">
+            We could not create the account. Check your details and try again.
+          </p>
+        )}
         <form action="/api/v1/auth/sign-up" method="post">
           <label htmlFor="email">
             Email
