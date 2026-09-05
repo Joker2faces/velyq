@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "build": "next build",
+    "build": "corepack pnpm --filter @velyq/database... build && next build",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

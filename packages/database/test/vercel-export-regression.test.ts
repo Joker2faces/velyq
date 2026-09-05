@@ -9,6 +9,16 @@ const adminApp = resolve(workspace, "apps/admin");
 const corepack = process.platform === "win32" ? "corepack.cmd" : "corepack";
 
 describe("database Vercel package integration", () => {
+  it("builds the database artifact through the pinned package manager", () => {
+    const adminManifest = JSON.parse(
+      readFileSync(resolve(workspace, "apps/admin/package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(adminManifest.scripts["build"]).toBe(
+      "corepack pnpm --filter @velyq/database... build && next build",
+    );
+  });
+
   it("exports the privileged client from the built package in the admin app context", () => {
     const manifest = JSON.parse(
       readFileSync(
@@ -27,13 +37,8 @@ describe("database Vercel package integration", () => {
         ? (process.env["ComSpec"] ?? "cmd.exe")
         : corepack,
       process.platform === "win32"
-        ? [
-            "/d",
-            "/s",
-            "/c",
-            "corepack pnpm turbo build --filter=@velyq/database...",
-          ]
-        : ["pnpm", "turbo", "build", "--filter=@velyq/database..."],
+        ? ["/d", "/s", "/c", "corepack pnpm --filter @velyq/database... build"]
+        : ["pnpm", "--filter", "@velyq/database...", "build"],
       { cwd: workspace, encoding: "utf8", shell: false },
     );
 

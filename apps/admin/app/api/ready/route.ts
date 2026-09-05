@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/client";
 export async function GET() {
-  const configured = Boolean(
-    process.env["NEXT_PUBLIC_SUPABASE_URL"] &&
-    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] &&
-    process.env["VELYQ_DATABASE_URL"],
-  );
-  if (!configured)
+  const checks = {
+    authConfigured: Boolean(
+      process.env["NEXT_PUBLIC_SUPABASE_URL"] &&
+      process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+    ),
+    databaseConfigured: Boolean(process.env["VELYQ_DATABASE_URL"]),
+  };
+  if (!checks.authConfigured || !checks.databaseConfigured)
     return NextResponse.json(
-      { status: "degraded", service: "velyq-admin", authConfigured: false },
+      { status: "degraded", service: "velyq-admin", checks },
       { status: 503 },
     );
   const client = createPrivilegedDatabaseClient({
@@ -30,11 +32,11 @@ export async function GET() {
     return NextResponse.json({
       status: "ready",
       service: "velyq-admin",
-      authConfigured: true,
+      checks,
     });
   } catch {
     return NextResponse.json(
-      { status: "degraded", service: "velyq-admin", authConfigured: true },
+      { status: "degraded", service: "velyq-admin", checks },
       { status: 503 },
     );
   } finally {

@@ -171,9 +171,10 @@ Invoke-RestMethod 'https://<admin-host>/api/ready'
 ```
 
 Expected output: health returns HTTP `200` with `status: ok`; readiness returns
-HTTP `200` with `status: ready` and `authConfigured: true`. A readiness `503`
-means configuration, PostgreSQL, or Supabase Auth is unavailable. Responses do
-not reveal secret values.
+HTTP `200` with `status: ready` and both non-sensitive configuration checks set
+to `true`. A readiness `503` identifies whether the database or Auth
+configuration is absent; when both are configured, it means PostgreSQL or
+Supabase Auth is unavailable. Responses do not reveal secret values.
 
 Run the staging smoke suite only after both URLs resolve:
 
