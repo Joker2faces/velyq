@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   for (const name of ["velyq_access_token", "velyq_refresh_token"]) {
     next.cookies.set(name, "", {
       httpOnly: true,
-      secure: true,
+      secure: process.env["VELYQ_E2E_INSECURE_COOKIES"] !== "true",
       sameSite: "lax",
       path: "/",
       maxAge: 0,

@@ -8,12 +8,21 @@ const repositoryRoot = resolve(
   fileURLToPath(new URL("../..", import.meta.url)),
 );
 const command = process.platform === "win32" ? "corepack.cmd" : "corepack";
+const buildEnvironment = {
+  ...process.env,
+  NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
+  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+  VELYQ_DATABASE_URL:
+    process.env.VELYQ_E2E_DATABASE_URL ??
+    "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+};
 
 function run(args) {
   return new Promise((resolveProcess, rejectProcess) => {
     const child = spawn(command, args, {
       cwd: repositoryRoot,
-      env: process.env,
+      env: buildEnvironment,
       stdio: "inherit",
       shell: process.platform === "win32",
       windowsHide: true,
@@ -41,7 +50,6 @@ await run([
   "exec",
   "next",
   "build",
-  "--webpack",
 ]);
 await run([
   "pnpm",
@@ -50,7 +58,6 @@ await run([
   "exec",
   "next",
   "build",
-  "--webpack",
 ]);
 
 const server = createServer((request, response) => {

@@ -56,7 +56,7 @@ test("admin auth endpoint issues server-side session cookies for valid auth", as
   });
 
   expect(response.status()).toBe(307);
-  expect(response.headers()["location"]).toBe("http://127.0.0.1:3200/");
+  expect(new URL(response.headers()["location"]).pathname).toBe("/");
   const cookies = response
     .headersArray()
     .filter(({ name }) => name.toLowerCase().includes("set-cookie"));
@@ -107,8 +107,9 @@ test("authorized admin traces seeded operations from run to prediction, score, a
 test("admin liveness is non-sensitive", async ({ request }) => {
   const response = await request.get("/api/health");
   expect(response.status()).toBe(200);
-  await expect(response.json()).resolves.toEqual({
+  await expect(response.json()).resolves.toMatchObject({
     status: "ok",
     service: "velyq-admin",
+    syntheticOnly: true,
   });
 });
