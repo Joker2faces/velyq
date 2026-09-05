@@ -10,8 +10,9 @@ const environment = {
   ...process.env,
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
-  NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
-  VELYQ_SYNTHETIC_PREVIEW: "true",
+  VELYQ_DATABASE_URL:
+    process.env.VELYQ_E2E_DATABASE_URL ??
+    "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
 };
 
 async function waitForBuild() {
@@ -45,7 +46,7 @@ try {
   if (stopping) process.exit(0);
   server = spawn(
     command,
-    ["pnpm", "--filter", "@velyq/web", "exec", "next", "start", "-p", "3100"],
+    ["pnpm", "--filter", "@velyq/admin", "exec", "next", "start", "-p", "3200"],
     {
       cwd: repositoryRoot,
       env: environment,

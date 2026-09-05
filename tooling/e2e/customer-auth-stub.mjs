@@ -4,6 +4,9 @@ const port = Number(process.env.VELYQ_E2E_AUTH_PORT ?? 3101);
 const accessToken = "e2e-customer-access-token";
 const refreshToken = "e2e-customer-refresh-token";
 const customerId = "00000000-0000-4000-8000-000000000001";
+const adminAccessToken = "e2e-admin-access-token";
+const adminRefreshToken = "e2e-admin-refresh-token";
+const adminId = "00000000-0000-4000-8000-000000000003";
 
 function sendJson(response, status, body) {
   response.writeHead(status, { "content-type": "application/json" });
@@ -25,14 +28,18 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && url.pathname === "/auth/v1/user") {
-    if (request.headers.authorization !== `Bearer ${accessToken}`) {
-      sendJson(response, 401, { error: "invalid_token" });
+    if (request.headers.authorization === `Bearer ${accessToken}`) {
+      sendJson(response, 200, {
+        id: customerId,
+        email: "customer@example.test",
+      });
       return;
     }
-    sendJson(response, 200, {
-      id: customerId,
-      email: "customer@example.test",
-    });
+    if (request.headers.authorization === `Bearer ${adminAccessToken}`) {
+      sendJson(response, 200, { id: adminId, email: "admin@example.test" });
+      return;
+    }
+    sendJson(response, 401, { error: "invalid_token" });
     return;
   }
 
@@ -51,12 +58,35 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (
+      url.searchParams.get("grant_type") === "password" &&
+      body.email === "admin@example.test" &&
+      body.password === "admin-password"
+    ) {
+      sendJson(response, 200, {
+        access_token: adminAccessToken,
+        refresh_token: adminRefreshToken,
+        expires_in: 3600,
+      });
+      return;
+    }
+    if (
       url.searchParams.get("grant_type") === "refresh_token" &&
       body.refresh_token === refreshToken
     ) {
       sendJson(response, 200, {
         access_token: accessToken,
         refresh_token: refreshToken,
+        expires_in: 3600,
+      });
+      return;
+    }
+    if (
+      url.searchParams.get("grant_type") === "refresh_token" &&
+      body.refresh_token === adminRefreshToken
+    ) {
+      sendJson(response, 200, {
+        access_token: adminAccessToken,
+        refresh_token: adminRefreshToken,
         expires_in: 3600,
       });
       return;

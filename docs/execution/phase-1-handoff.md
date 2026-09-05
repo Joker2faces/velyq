@@ -3,7 +3,9 @@
 ## Current resume point — 2026-09-05
 
 - Branch: `feat/phase-1-foundation`.
-- Remote checkpoint before the M13 docs commit: `fba8748`.
+- Local implementation checkpoint immediately before this M13 docs commit:
+  `a0d7fb0` (`feat: harden config and worker readiness`).
+- Remote and latest GitHub Actions evidence checkpoint: `fba8748`.
 - Milestones 1–12 have implementation checkpoints, but Phase 1 final
   acceptance is **not complete**.
 - M13 operational documentation now covers the environment matrix, local and
@@ -68,7 +70,8 @@ immutability, separate source/normalized hashes, seed/replay parity, validated
 policy inputs, scenario identity, quarantined provenance, and synthetic lineup
 identity. The fix was subsequently checkpointed in `3148493` (`fix: harden
 governed provider replay`), followed by later customer/admin and visual-test
-checkpoints through `fba8748`.
+checkpoints through `fba8748`, then the local config/worker-readiness checkpoint
+`a0d7fb0`.
 
 The historical Docker limitation also remains relevant as historical evidence:
 migration execution, seed execution, pgTAP/RLS behavior, database lint, and
