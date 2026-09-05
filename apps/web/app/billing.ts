@@ -31,15 +31,22 @@ export async function getOrCreateStripeCustomer(userId: string, email: string) {
       .where(eq(billingCustomers.userId, userId))
       .limit(1);
     if (existing[0]) return existing[0].stripeCustomerId;
-    const customer = await api.customers.create({
-      email,
-      metadata: { velyqUserId: userId },
-    });
-    await client.database
+    const customer = await api.customers.create(
+      { email, metadata: { velyqUserId: userId } },
+      { idempotencyKey: `velyq-customer-${userId}` },
+    );
+    const inserted = await client.database
       .insert(billingCustomers)
       .values({ userId, stripeCustomerId: customer.id })
-      .onConflictDoNothing({ target: billingCustomers.userId });
-    return customer.id;
+      .onConflictDoNothing({ target: billingCustomers.userId })
+      .returning({ stripeCustomerId: billingCustomers.stripeCustomerId });
+    if (inserted[0]) return inserted[0].stripeCustomerId;
+    const concurrent = await client.database
+      .select({ stripeCustomerId: billingCustomers.stripeCustomerId })
+      .from(billingCustomers)
+      .where(eq(billingCustomers.userId, userId))
+      .limit(1);
+    return concurrent[0]?.stripeCustomerId ?? customer.id;
   } finally {
     await client.close();
   }
