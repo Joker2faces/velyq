@@ -1,66 +1,137 @@
-import { CustomerShell } from "../customer-shell";
-import { CUSTOMER_PLANS, paidBillingConfigured } from "../plan-config";
+import { translator } from "@velyq/ui";
+import { getLocale } from "../locale";
+import { paidBillingConfigured, planCatalog } from "../plan-config";
+import { PublicShell } from "../components/site-chrome";
+import { Badge, Card } from "../components/ui";
+import { IconCheck, IconShield } from "../components/icons";
 
-const plans = [
-  [
-    "FREE",
-    "A clear preview of the current synthetic intelligence",
-    "Today, EDGE preview, RADAR preview",
-  ],
-  [
-    "PRO",
-    "Expanded customer intelligence for active analysis",
-    "Full EDGE, full RADAR, Match Intelligence",
-  ],
-  [
-    "ELITE",
-    "The complete current customer intelligence experience",
-    "Full EDGE, full RADAR, Match Intelligence",
-  ],
-] as const;
-
-export default function Pricing() {
+/**
+ * Pricing.
+ *
+ * This page is deliberately **public**. It previously rendered inside
+ * `CustomerShell`, which requires a session, so every logged-out visitor who
+ * followed the "Pricing" link from the public homepage was redirected to
+ * sign-in and never saw a price.
+ */
+export default async function Pricing() {
+  const locale = await getLocale();
+  const t = translator(locale);
   const billingConfigured = paidBillingConfigured();
+  const plans = planCatalog(locale);
+
   return (
-    <CustomerShell>
-      <div className="page-heading">
-        <div>
-          <p className="kicker">PLANS</p>
-          <h1>Choose your intelligence access.</h1>
-          <p>
-            Plans control customer features only. They never grant
-            administrative access.
-          </p>
+    <PublicShell locale={locale}>
+      <section className="section">
+        <div className="section__head">
+          <p className="eyebrow">{t("pricingKicker")}</p>
+          <h1>{t("pricingTitle")}</h1>
+          <p>{t("pricingBody")}</p>
         </div>
-      </div>
-      <div className="card-grid">
-        {plans.map(([name, description, access]) => (
-          <section className="panel" key={name}>
-            <p className="kicker">{name}</p>
-            <h2>{description}</h2>
-            <p>
-              {access}
-              {name !== "FREE" &&
-                ` · €${CUSTOMER_PLANS[name].introductoryMonthlyEur}/month introductory configuration`}
-            </p>
-            {name === "FREE" ? (
-              <span className="status">Current preview</span>
-            ) : !billingConfigured ? (
-              <span className="status">Billing activation pending</span>
-            ) : (
-              <form action="/api/v1/billing/checkout" method="post">
-                <input type="hidden" name="plan" value={name} />
-                <button type="submit">Start {name} checkout</button>
-              </form>
-            )}
-          </section>
-        ))}
-      </div>
-      <p className="fine-print">
-        Phase 1 data is synthetic. Predictions are experimental; EDGE and RADAR
-        are development heuristics. Prices appear only after approved Stripe
-        Price IDs are configured.
-      </p>
-    </CustomerShell>
+
+        <div className="plans">
+          {plans.map((plan) => (
+            <Card
+              key={plan.code}
+              className={`plan${plan.featured ? " plan--featured" : ""}`}
+            >
+              {plan.featured ? (
+                <span className="plan__ribbon">
+                  <Badge tone="positive">{t("pricingMostPopular")}</Badge>
+                </span>
+              ) : null}
+
+              <div>
+                {/* The plan name is the heading. Previously the marketing
+                    sentence was the h2 and the plan name a kicker, so a
+                    heading list never contained the words FREE, PRO, ELITE. */}
+                <h2 className="plan__name">{plan.name}</h2>
+                <p className="plan__for">{plan.audience}</p>
+              </div>
+
+              <p className="plan__pitch">{plan.pitch}</p>
+
+              <div className="plan__price">
+                <span className="plan__amount">{plan.price}</span>
+                <span className="plan__period">{plan.pricePeriod}</span>
+              </div>
+
+              <div>
+                <p
+                  className="stat__label"
+                  style={{ marginBottom: "var(--space-3)" }}
+                >
+                  {t("pricingIncluded")}
+                </p>
+                <ul className="plan__features">
+                  {plan.features.map((feature) => (
+                    <li key={feature}>
+                      <IconCheck />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="plan__limit">
+                <span className="sr-only">{t("pricingLimits")}: </span>
+                {plan.limit}
+              </p>
+
+              <div className="plan__cta">
+                {plan.code === "FREE" ? (
+                  <a
+                    className="button button--secondary button--block"
+                    href="/sign-up"
+                  >
+                    {t("homeCreateAccount")}
+                  </a>
+                ) : billingConfigured ? (
+                  <form action="/api/v1/billing/checkout" method="post">
+                    <input type="hidden" name="plan" value={plan.code} />
+                    <button
+                      className={`button button--block ${
+                        plan.featured ? "button--primary" : "button--secondary"
+                      }`}
+                      type="submit"
+                    >
+                      {t("pricingStartCheckout")}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <span
+                      className="button button--ghost button--block"
+                      aria-disabled="true"
+                      role="note"
+                    >
+                      {t("pricingBillingPending")}
+                    </span>
+                    <p
+                      className="card__hint"
+                      style={{ marginTop: "var(--space-2)" }}
+                    >
+                      {t("pricingBillingPendingHint")}
+                    </p>
+                  </>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* The plan/permission boundary, stated where ELITE is actually read. */}
+        <div className="notice" style={{ marginTop: "var(--space-6)" }}>
+          <h2>
+            <IconShield size={20} />
+            {t("pricingNotAdminTitle")}
+          </h2>
+          <p>{t("pricingNotAdminBody")}</p>
+        </div>
+
+        <p className="fine-print" style={{ marginTop: "var(--space-5)" }}>
+          {t("pricingFineprint")}
+        </p>
+      </section>
+    </PublicShell>
   );
 }

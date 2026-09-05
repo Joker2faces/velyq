@@ -1,219 +1,398 @@
-import { CustomerShell, Metric, Status } from "../../customer-shell";
-import { loadCustomerMatch } from "../../customer-runtime";
 import {
+  directionOf,
   formatDateTime,
-  formatDecimal,
+  formatOdds,
   formatPercent,
   formatPercentagePoints,
+  formatProbability,
+  freshnessLabel,
+  freshnessTone,
+  lineupLabel,
+  lineupTone,
+  qualityMeter,
+  qualityTone,
+  reasonLabels,
+  recommendationExplanation,
+  recommendationLabel,
+  recommendationTone,
+  translator,
 } from "@velyq/ui";
-import { ScenarioStatus } from "../../scenario-status";
+import { loadCustomerMatch } from "../../customer-runtime";
+import { getLocale } from "../../locale";
+import { CustomerShell } from "../../customer-shell";
+import {
+  ArrowLink,
+  Badge,
+  Bar,
+  Card,
+  CardHead,
+  Compare,
+  DefinitionList,
+  ErrorState,
+  Explain,
+  Sparkline,
+  Stat,
+  Trend,
+} from "../../components/ui";
 
+/**
+ * Match Intelligence.
+ *
+ * Ordered by what a customer needs first: the verdict and the reason for it,
+ * then the comparison that drives it, then the supporting evidence, and only
+ * then the audit trail — which is collapsed, because version strings are
+ * auditor content, not analysis.
+ */
 export default async function Match({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getLocale();
+  const t = translator(locale);
   const result = await loadCustomerMatch(id);
-  if (!result.ok)
+
+  if (!result.ok) {
+    const notFound = result.code === "NOT_FOUND";
     return (
       <CustomerShell>
-        {result.code === "NOT_FOUND"
-          ? "Match not found."
-          : "Customer data is temporarily unavailable."}
+        <div className="page">
+          <ErrorState
+            title={notFound ? t("matchNotFound") : t("customerUnavailable")}
+            body={
+              notFound ? t("matchNotFoundBody") : t("customerUnavailableBody")
+            }
+            action={<ArrowLink href="/today">{t("backToToday")}</ArrowLink>}
+          />
+        </div>
       </CustomerShell>
     );
+  }
+
   const match = result.value;
-  const recommendation = match.recommendation.replaceAll("_", " ");
-  const context =
-    match.recommendation === "STRONG_EDGE"
-      ? "Model probability is above the current implied probability."
-      : match.recommendation === "EDGE_DISAPPEARED"
-        ? "The earlier price advantage is no longer observable at the current quote."
-        : match.recommendation === "WAIT_FOR_LINEUP"
-          ? "The recommendation is withheld until an official lineup is available."
-          : match.recommendation === "INSUFFICIENT_DATA"
-            ? "The recommendation is withheld because required price or coverage inputs are missing."
-            : "The current evidence does not meet the recommendation policy threshold.";
-  const value = (metric: string | null, suffix = "") =>
-    metric === null ? "—" : `${formatDecimal(metric)}${suffix}`;
+  const direction = directionOf(match.movementPercent);
+  const hasEstimate = match.probabilityEdge !== null;
+  const hasPriceHistory =
+    match.openingOdds !== null && match.currentOdds !== null;
+  const movementMeaning =
+    direction === "up"
+      ? t("radarDrifted")
+      : direction === "down"
+        ? t("radarShortened")
+        : t("radarUnchanged");
+
   return (
     <CustomerShell>
-      <div className="page-heading">
-        <div>
-          <p className="kicker">MATCH INTELLIGENCE · FOOTBALL</p>
-          <h1>
-            {match.homeTeam} <span className="versus">vs</span> {match.awayTeam}
-          </h1>
-          <p>
-            {match.competition} · {formatDateTime(match.startsAt)} ·{" "}
-            {match.syntheticLabel}
-          </p>
+      <div className="page">
+        <div className="page__head">
+          <div className="page__head-copy">
+            <p className="eyebrow">{t("matchKicker")}</p>
+            <h1 className="match-title">
+              <span>{match.homeTeam}</span>
+              <em>{t("matchVersus")}</em>
+              <span>{match.awayTeam}</span>
+            </h1>
+            <p>
+              {match.competition} · {formatDateTime(match.startsAt, locale)} UTC
+            </p>
+          </div>
+          <div className="page__badges">
+            <Badge tone="synthetic" dot>
+              {match.syntheticLabel}
+            </Badge>
+            <Badge tone={qualityTone(match.quality.grade)}>
+              {t("matchGrade")} {match.quality.grade}
+            </Badge>
+          </div>
         </div>
-        <Status tone="synthetic">{match.syntheticLabel.toUpperCase()}</Status>
-        <ScenarioStatus scenario={match.scenario} />
+
+        <div className="stack">
+          {/* ------------------------------------------------------ verdict */}
+          <div className="verdict">
+            <div className="verdict__top">
+              <p className="eyebrow">{t("matchVerdict")}</p>
+              <div className="lead__verdict">
+                <h2>{recommendationLabel(match.recommendation, locale)}</h2>
+                <Badge tone={recommendationTone(match.recommendation)} dot>
+                  {match.selection}
+                </Badge>
+              </div>
+              {/* The reason travels with the verdict rather than sitting a
+                  hundred lines further down the page. */}
+              <p className="verdict__reason">
+                {recommendationExplanation(match.recommendation, locale)}
+              </p>
+            </div>
+
+            <div className="verdict__figures">
+              <Stat
+                label={t("matchCurrentOdds")}
+                value={formatOdds(match.currentOdds, locale)}
+                size="lg"
+              />
+              <Stat
+                label={t("matchProbabilityEdge")}
+                value={formatPercent(match.probabilityEdge, 1, locale)}
+                size="lg"
+                tone={hasEstimate ? "positive" : undefined}
+                hint={t("explainEdgeBody")}
+              />
+              <Stat
+                label={t("matchExpectedValue")}
+                value={formatPercent(match.expectedValue, 1, locale)}
+                size="lg"
+                hint={t("explainEvBody")}
+              />
+            </div>
+
+            <p className="card__hint">{t("matchModelDisclaimer")}</p>
+          </div>
+
+          {/* --------------------------------------------- model vs market */}
+          <div className="split">
+            <Card>
+              <CardHead title={t("matchMarket")} />
+              {hasEstimate ? (
+                <>
+                  <Compare
+                    rows={[
+                      {
+                        name: t("matchModelProbability"),
+                        value: match.modelProbability,
+                        display: formatProbability(
+                          match.modelProbability,
+                          locale,
+                        ),
+                      },
+                      {
+                        name: t("matchImpliedProbability"),
+                        value: match.impliedProbability,
+                        display: formatProbability(
+                          match.impliedProbability,
+                          locale,
+                        ),
+                        tone: "lilac",
+                      },
+                    ]}
+                  />
+                  <div
+                    className="row__stats"
+                    style={{ marginTop: "var(--space-5)" }}
+                  >
+                    <Stat
+                      label={t("matchFairOdds")}
+                      value={formatOdds(match.fairOdds, locale)}
+                      hint={t("explainFairOddsBody")}
+                    />
+                    <Stat
+                      label={t("matchCurrentOdds")}
+                      value={formatOdds(match.currentOdds, locale)}
+                    />
+                    <Stat label={t("matchSelection")} value={match.selection} />
+                  </div>
+                </>
+              ) : (
+                <p className="row__reason">{t("matchNoEstimate")}</p>
+              )}
+            </Card>
+
+            <Card>
+              <CardHead
+                title={t("matchRadarEvidence")}
+                aside={
+                  <Badge tone={freshnessTone(match.freshness)}>
+                    {freshnessLabel(match.freshness, locale)}
+                  </Badge>
+                }
+              />
+              {hasPriceHistory ? (
+                <>
+                  <Sparkline
+                    points={[
+                      Number(match.openingOdds),
+                      Number(match.currentOdds),
+                    ]}
+                    tone={direction === "up" ? "amber" : "mint"}
+                    label={t("matchOpeningToCurrent", {
+                      opening: formatOdds(match.openingOdds, locale),
+                      current: formatOdds(match.currentOdds, locale),
+                    })}
+                  />
+                  <div
+                    className="journey"
+                    style={{ marginTop: "var(--space-4)" }}
+                  >
+                    <span className="journey__price journey__price--from">
+                      {formatOdds(match.openingOdds, locale)}
+                    </span>
+                    <span className="journey__arrow" aria-hidden="true">
+                      →
+                    </span>
+                    <span className="journey__price">
+                      {formatOdds(match.currentOdds, locale)}
+                    </span>
+                    <Trend
+                      value={match.movementPercent}
+                      display={formatPercentagePoints(
+                        match.movementPercent,
+                        locale,
+                      )}
+                      caption={movementMeaning}
+                    />
+                  </div>
+                  <p
+                    className="card__hint"
+                    style={{ marginTop: "var(--space-3)" }}
+                  >
+                    {movementMeaning}
+                  </p>
+                </>
+              ) : (
+                <p className="row__reason">{t("radarNoHistory")}</p>
+              )}
+              <p className="card__hint" style={{ marginTop: "var(--space-4)" }}>
+                {t("matchNoMoneyFlow")}
+              </p>
+            </Card>
+          </div>
+
+          {/* ----------------------------------------------- quality/lineup */}
+          <div className="split">
+            <Card>
+              <CardHead
+                title={t("matchQuality")}
+                aside={
+                  <Badge tone={qualityTone(match.quality.grade)}>
+                    {t("matchGrade")} {match.quality.grade}
+                  </Badge>
+                }
+              />
+              <div className="meter">
+                <Bar
+                  value={String(qualityMeter(match.quality.grade) / 100)}
+                  magnitude={1}
+                  tone={
+                    match.quality.grade === "A" || match.quality.grade === "B"
+                      ? "mint"
+                      : match.quality.grade === "F"
+                        ? "rose"
+                        : "amber"
+                  }
+                  label={`${t("matchGrade")} ${match.quality.grade}`}
+                />
+                <div className="meter__scale">
+                  <span>F</span>
+                  <span>A</span>
+                </div>
+              </div>
+              <div className="reasons" style={{ marginTop: "var(--space-4)" }}>
+                {match.quality.reasonCodes.length > 0 ? (
+                  reasonLabels(match.quality.reasonCodes, locale).map(
+                    (reason) => (
+                      <Badge key={reason} tone="amber">
+                        {reason}
+                      </Badge>
+                    ),
+                  )
+                ) : (
+                  <p className="row__reason">{t("matchAllChecksPassed")}</p>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <CardHead
+                title={t("matchLineup")}
+                aside={
+                  <Badge tone={lineupTone(match.lineup)}>
+                    {lineupLabel(match.lineup, locale)}
+                  </Badge>
+                }
+              />
+              <p className="row__reason">
+                {match.lineup === "OFFICIAL"
+                  ? t("matchLineupOfficialBody")
+                  : match.lineup === "MISSING"
+                    ? t("matchLineupMissingBody")
+                    : t("matchLineupOtherBody", {
+                        state: lineupLabel(match.lineup, locale).toLowerCase(),
+                      })}
+              </p>
+              <p className="card__hint" style={{ marginTop: "var(--space-3)" }}>
+                {t("matchLineupEvidenceNote")}
+              </p>
+              <div
+                className="row__stats"
+                style={{ marginTop: "var(--space-4)" }}
+              >
+                <Stat
+                  label={t("matchPriceEvidence")}
+                  value={
+                    match.currentOdds ? t("matchAvailable") : t("matchMissing")
+                  }
+                />
+                <Stat
+                  label={t("matchDataFreshness")}
+                  value={freshnessLabel(match.freshness, locale)}
+                />
+                <Stat
+                  label={t("matchMappingQuality")}
+                  value={match.quality.grade}
+                />
+              </div>
+            </Card>
+          </div>
+
+          {/* --------------------------------------------------- glossary */}
+          <div className="split">
+            <Explain title={t("explainEdgeTitle")}>
+              {t("explainEdgeBody")}
+            </Explain>
+            <Explain title={t("explainQualityTitle")}>
+              {t("explainQualityBody")}
+            </Explain>
+          </div>
+
+          {/* ------------------------------------------------------- trace */}
+          <Explain title={t("matchTrace")}>
+            <p
+              className="card__hint"
+              style={{ marginBottom: "var(--space-4)" }}
+            >
+              {t("matchTraceHint")}
+            </p>
+            <DefinitionList
+              items={[
+                {
+                  term: t("matchTraceModel"),
+                  value: `${match.trace.modelVersion} · ${match.trace.maturity}`,
+                },
+                {
+                  term: t("matchTraceCalibration"),
+                  value: match.trace.calibrationVersion,
+                },
+                { term: t("matchTraceScore"), value: match.trace.scoreVersion },
+                {
+                  term: t("matchTraceQualityPolicy"),
+                  value: `${match.quality.policyVersion} · ${match.quality.grade}`,
+                },
+                {
+                  term: t("matchTracePriceSnapshot"),
+                  value: `${formatOdds(match.currentOdds, locale)} · ${freshnessLabel(
+                    match.freshness,
+                    locale,
+                  )}`,
+                },
+                {
+                  term: t("matchTraceFeatureCutoff"),
+                  value: `${formatDateTime(match.trace.featureCutoff, locale)} UTC`,
+                },
+              ]}
+            />
+          </Explain>
+        </div>
       </div>
-      <section className="match-hero panel">
-        <div>
-          <span className="kicker">RECOMMENDATION</span>
-          <h2>{recommendation}</h2>
-          <p>
-            Quality {match.quality.grade} · lineup {match.lineup.toLowerCase()}{" "}
-            · evidence {match.freshness.toLowerCase()}
-          </p>
-        </div>
-        <div className="hero-score">
-          {formatPercentagePoints(match.probabilityEdge)} edge
-          <small>VELYQ EDGE</small>
-        </div>
-      </section>
-      <section className="metric-grid">
-        <Metric label="Selection" value={match.selection} />
-        <Metric label="Current odds" value={value(match.currentOdds)} />
-        <Metric
-          label="Model probability"
-          value={formatPercent(match.modelProbability)}
-        />
-        <Metric
-          label="Implied probability"
-          value={formatPercent(match.impliedProbability)}
-        />
-        <Metric label="Fair odds" value={value(match.fairOdds)} />
-        <Metric
-          label="Expected value"
-          value={formatPercent(match.expectedValue)}
-          tone="teal"
-        />
-      </section>
-      <section className="content-grid">
-        <div className="panel">
-          <div className="panel-head">
-            <h2>EDGE breakdown</h2>
-            <Status tone="heuristic">DEVELOPMENT HEURISTIC</Status>
-          </div>
-          <div className="trace">
-            <span>Probability edge</span>
-            <b>{formatPercentagePoints(match.probabilityEdge)}</b>
-            <span>Expected value</span>
-            <b>{formatPercent(match.expectedValue)}</b>
-            <span>Quality gate</span>
-            <b>
-              {match.quality.grade} · {match.quality.policyVersion}
-            </b>
-            <span>Score definition</span>
-            <b>{match.trace.scoreVersion}</b>
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-head">
-            <h2>RADAR evidence</h2>
-            <Status tone="heuristic">OBSERVABLE ONLY</Status>
-          </div>
-          <p>
-            Opening <b>{value(match.openingOdds)}</b> → current{" "}
-            <b>{value(match.currentOdds)}</b>
-          </p>
-          <p className="teal-text">
-            Movement{" "}
-            {match.movementPercent
-              ? `${formatPercent(match.movementPercent)}`
-              : "not available"}{" "}
-            · freshness {match.freshness.toLowerCase()}
-          </p>
-          <small>No money-flow or volume claims are exposed.</small>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="panel-head">
-          <h2>VELYQ INSIGHT factors</h2>
-          <Status tone="heuristic">EXPERIMENTAL</Status>
-        </div>
-        <div className="factor-grid">
-          <div>
-            <span>Price evidence</span>
-            <b>{match.currentOdds ? "Available" : "Missing"}</b>
-          </div>
-          <div>
-            <span>Lineup certainty</span>
-            <b>{match.lineup}</b>
-          </div>
-          <div>
-            <span>Data freshness</span>
-            <b>{match.freshness}</b>
-          </div>
-          <div>
-            <span>Mapping quality</span>
-            <b>{match.quality.grade}</b>
-          </div>
-        </div>
-      </section>
-      <section className="content-grid">
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Data quality</h2>
-            <Status tone={match.quality.grade === "F" ? "amber" : "positive"}>
-              GRADE {match.quality.grade}
-            </Status>
-          </div>
-          <p className="reason">
-            {context} This is an experimental deterministic model, not a
-            validated betting model.
-          </p>
-          <p className="teal-text">
-            {match.quality.reasonCodes.length
-              ? match.quality.reasonCodes.join(" · ")
-              : "All required quality checks passed."}
-          </p>
-        </div>
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Lineup state</h2>
-            <Status tone={match.lineup === "OFFICIAL" ? "positive" : "amber"}>
-              {match.lineup}
-            </Status>
-          </div>
-          <p>
-            {match.lineup === "OFFICIAL"
-              ? "Official lineup observed."
-              : match.lineup === "MISSING"
-                ? "No lineup is available; recommendation remains gated."
-                : `Lineup state is ${match.lineup.toLowerCase()}.`}
-          </p>
-          <small>Lineup state is evidence, not a prediction.</small>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Trace metadata</h2>
-          <Status tone="heuristic">TRACEABLE</Status>
-        </div>
-        <div className="trace">
-          <span>Model</span>
-          <b>
-            {match.trace.modelVersion} · {match.trace.maturity}
-          </b>
-          <span>Calibration</span>
-          <b>{match.trace.calibrationVersion}</b>
-          <span>Score</span>
-          <b>{match.trace.scoreVersion}</b>
-          <span>Quality policy</span>
-          <b>
-            {match.quality.policyVersion} · {match.quality.grade}
-          </b>
-          <span>Price snapshot</span>
-          <b>
-            {value(match.currentOdds)} · {match.freshness}
-          </b>
-          <span>Feature cutoff</span>
-          <b>{formatDateTime(match.trace.featureCutoff)}</b>
-          <span>Scenario</span>
-          <b>
-            {match.scenario.label} · {match.scenario.id}
-          </b>
-          <span>Source observations</span>
-          <b>{match.trace.sourceObservationIds?.join(" · ") ?? "—"}</b>
-        </div>
-      </section>
     </CustomerShell>
   );
 }

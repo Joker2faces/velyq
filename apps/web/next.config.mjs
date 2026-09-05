@@ -1,8 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@velyq/database"],
+  transpilePackages: ["@velyq/database", "@velyq/ui"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  webpack(config) {
+    /*
+     * `@velyq/ui` is consumed as TypeScript source (its package export points
+     * at `src/index.ts`), and the workspace TS baseline uses NodeNext, which
+     * requires relative imports to carry an explicit `.js` extension. Webpack
+     * resolves those specifiers literally, so it needs to be told that a
+     * `.js` request may be satisfied by the `.ts` file that produces it.
+     *
+     * This is the standard TypeScript-ESM extension alias; it changes
+     * resolution only, never emitted output or runtime behaviour.
+     */
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+    };
+    return config;
   },
 };
 
