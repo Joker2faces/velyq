@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { message } from "@velyq/ui";
 import { loadCustomerContext } from "./customer-runtime";
+import { LanguageSwitcher } from "./language-switcher";
 
 export async function CustomerShell({ children }: { children: ReactNode }) {
   const context = await loadCustomerContext();
@@ -18,7 +19,7 @@ export async function CustomerShell({ children }: { children: ReactNode }) {
       </a>
       <aside>
         <Link className="brand" href="/today">
-          VELYQ <small>SYNTHETIC BETA</small>
+          VELYQ <small>INTELLIGENCE PLATFORM</small>
         </Link>
         <p className="nav-label">INTELLIGENCE</p>
         <nav aria-label="Primary navigation">
@@ -28,6 +29,7 @@ export async function CustomerShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
+        <LanguageSwitcher />
         {context?.isAdmin ? (
           <a
             className="admin-link"
@@ -37,9 +39,9 @@ export async function CustomerShell({ children }: { children: ReactNode }) {
           </a>
         ) : null}
         <div className="side-note">
-          Synthetic Phase 1 data only
+          Synthetic beta environment
           <br />
-          <span>EXPERIMENTAL // DEVELOPMENT</span>
+          <span>EXPERIMENTAL // RESEARCH USE</span>
         </div>
         <form action="/api/v1/auth/sign-out" method="post" className="sign-out">
           <button type="submit">{message("signOut")}</button>
@@ -47,8 +49,8 @@ export async function CustomerShell({ children }: { children: ReactNode }) {
       </aside>
       <main id="main-content" className="customer-main">
         <header className="topbar">
-          <span>MARKET INTELLIGENCE / BETA</span>
-          <span className="live-dot">● AUTHENTICATED</span>
+          <span>VELYQ / CUSTOMER INTELLIGENCE</span>
+          <span className="live-dot">● SECURE SESSION</span>
         </header>
         {children}
       </main>

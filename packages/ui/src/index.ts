@@ -1,14 +1,24 @@
-export function formatDecimal(value: string | null, maximumFractionDigits = 2) {
+export type Locale = "en" | "el";
+
+export function formatDecimal(
+  value: string | null,
+  maximumFractionDigits = 2,
+  locale: Locale = "en",
+) {
   if (value === null) return "—";
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat(locale === "el" ? "el-GR" : "en-GB", {
     maximumFractionDigits,
     useGrouping: false,
   }).format(Number(value));
 }
 
-export function formatPercent(value: string | null, maximumFractionDigits = 1) {
+export function formatPercent(
+  value: string | null,
+  maximumFractionDigits = 1,
+  locale: Locale = "en",
+) {
   if (value === null) return "—";
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat(locale === "el" ? "el-GR" : "en-GB", {
     style: "percent",
     minimumFractionDigits: maximumFractionDigits,
     maximumFractionDigits,
@@ -49,5 +59,32 @@ export const messages = {
   matchNotFound: "Match not found.",
 } as const;
 
+export const translations: Record<
+  Locale,
+  Partial<Record<MessageKey, string>>
+> = {
+  en: messages,
+  el: {
+    navToday: "Σήμερα",
+    navEdge: "Edge",
+    navRadar: "Radar",
+    navMatchIntelligence: "Match Intelligence",
+    navAccount: "Λογαριασμός",
+    syntheticData: "Συνθετικά δεδομένα",
+    developmentHeuristic: "Ερευνητικός δείκτης",
+    experimental: "Πειραματικό",
+    observableOnly: "Μόνο παρατηρήσεις",
+    signOut: "Αποσύνδεση",
+    noEvidence: "Χωρίς στοιχεία",
+    radarMove: "Κίνηση Radar",
+    customerUnavailable: "Τα δεδομένα δεν είναι προσωρινά διαθέσιμα.",
+    customerLoading: "Φόρτωση intelligence…",
+    dataUnavailable: "Τα δεδομένα δεν είναι διαθέσιμα.",
+    matchNotFound: "Ο αγώνας δεν βρέθηκε.",
+  },
+};
+
 export type MessageKey = keyof typeof messages;
 export const message = (key: MessageKey) => messages[key];
+export const translate = (key: MessageKey, locale: Locale = "en") =>
+  translations[locale][key] ?? messages[key];
