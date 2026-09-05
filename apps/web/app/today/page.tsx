@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { loadCustomerToday } from "../customer-runtime";
 import { CustomerShell, Metric, Status } from "../customer-shell";
-import { formatDateTime, formatPercent, message } from "@velyq/ui";
+import {
+  formatDateTime,
+  formatDecimal,
+  formatPercent,
+  formatPercentagePoints,
+  message,
+} from "@velyq/ui";
+import { ScenarioStatus } from "../scenario-status";
 export default async function Today() {
   const result = await loadCustomerToday();
   if (!result.ok)
@@ -75,8 +82,9 @@ export default async function Today() {
               </small>
             </div>
             <b className="edge-number">
-              {formatPercent(primary.probabilityEdge)}
+              {formatPercentagePoints(primary.probabilityEdge)}
             </b>
+            <ScenarioStatus scenario={primary.scenario} />
             <Status tone="positive">
               {primary.recommendation.replaceAll("_", " ")}
             </Status>
@@ -105,7 +113,8 @@ export default async function Today() {
               {primary.homeTeam} · {primary.selection}
             </span>
             <b>
-              {primary.openingOdds ?? "—"} → {primary.currentOdds ?? "—"}
+              {formatDecimal(primary.openingOdds)} →{" "}
+              {formatDecimal(primary.currentOdds)}
             </b>
             <small className="teal-text">
               {primary.movementPercent

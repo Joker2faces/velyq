@@ -3,17 +3,27 @@ import {
   formatDateTime,
   formatDecimal,
   formatPercent,
+  formatPercentagePoints,
   message,
 } from "../src/index.js";
 
 describe("customer presentation formatting", () => {
   it("formats canonical decimal strings at the presentation boundary", () => {
     expect(formatDecimal("1.666666666666", 2)).toBe("1.67");
+    expect(formatDecimal("9007199254740993.125", 2)).toBe(
+      "9007199254740993.13",
+    );
+    expect(formatDecimal("-1.25", 2)).toBe("-1.25");
     expect(formatDecimal(null)).toBe("—");
   });
   it("formats probabilities and edges", () => {
     expect(formatPercent("0.059459459459")).toBe("+5.9%");
     expect(formatPercent("-0.05")).toBe("-5.0%");
+  });
+  it("formats probability deltas as percentage points", () => {
+    expect(formatPercentagePoints("0.059459459459")).toBe("+5.9 pp");
+    expect(formatPercentagePoints("-0.05")).toBe("-5.0 pp");
+    expect(formatPercentagePoints(null)).toBe("—");
   });
   it("formats ISO timestamps consistently in UTC", () => {
     expect(formatDateTime("2026-09-04T18:30:00.000Z")).toBe(

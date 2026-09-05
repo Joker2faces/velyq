@@ -14,6 +14,11 @@ const validMatch = {
   competition: "competition",
   startsAt: "2026-09-04T10:00:00.000Z",
   syntheticLabel: "Synthetic data",
+  scenario: {
+    id: "74000000-0000-4000-8000-000000000005",
+    state: "NO_BET",
+    label: "No bet",
+  },
   freshness: "FRESH",
   selection: "HOME",
   recommendation: "NO_BET",
@@ -77,6 +82,21 @@ describe("customer API contracts", () => {
 
     expect(result).toEqual({ ok: true, value: validMatch });
     if (result.ok) expect(result.value.modelProbability).toBe("0.6");
+  });
+
+  it.each([
+    ["id", ""],
+    ["state", "UNKNOWN"],
+    ["label", ""],
+  ] as const)("rejects an invalid scenario %s", (field, value) => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      scenario: { ...validMatch.scenario, [field]: value },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain(`scenario.${field} is invalid`);
   });
 
   it.each([

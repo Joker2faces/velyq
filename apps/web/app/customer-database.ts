@@ -3,7 +3,11 @@ import {
   DatabaseCustomerQueryAdapter,
 } from "@velyq/database";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
-import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
+import type {
+  CustomerMatchDto,
+  CustomerScenarioDto,
+  CustomerTodayDto,
+} from "@velyq/contracts";
 import { SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
 import {
   divideDecimalStrings,
@@ -13,6 +17,29 @@ import {
 
 const decimal = (value: string | null | undefined) =>
   value == null ? null : (value as DecimalString);
+
+function scenarioFor(
+  eventId: string,
+  recommendation: CustomerMatchDto["recommendation"],
+  lineup: CustomerMatchDto["lineup"],
+): CustomerScenarioDto {
+  const state =
+    recommendation === "WAIT"
+      ? lineup === "CHANGED"
+        ? "CHANGED_LINEUP"
+        : lineup === "OFFICIAL"
+          ? "OFFICIAL_LINEUP"
+          : "EXPECTED_LINEUP"
+      : recommendation;
+  return {
+    id: `customer:${eventId}:${state.toLowerCase()}`,
+    state,
+    label: state
+      .toLowerCase()
+      .replaceAll("_", " ")
+      .replace(/^./, (letter) => letter.toUpperCase()),
+  };
+}
 
 function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const home =
@@ -58,6 +85,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     competition: raw.competition.nameKey,
     startsAt: raw.event.startsAt.toISOString(),
     syntheticLabel: SYNTHETIC_DATA_LABEL,
+    scenario: scenarioFor(raw.event.id, recommendation, lineup),
     freshness: stale ? "STALE" : "FRESH",
     selection: outcome?.outcomeDefinition.labelKey ?? "—",
     recommendation,

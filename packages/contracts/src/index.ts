@@ -56,6 +56,23 @@ export type ScenarioState =
   | "EDGE_DISAPPEARED"
   | "INSUFFICIENT_DATA";
 
+export const SCENARIO_STATES: readonly ScenarioState[] = [
+  "OPENING_PRICE",
+  "CURRENT_PRICE",
+  "STALE_PRICE",
+  "MISSING_PRICE",
+  "EXPECTED_LINEUP",
+  "CHANGED_LINEUP",
+  "OFFICIAL_LINEUP",
+  "MISSING_LINEUP",
+  "STRONG_EDGE",
+  "NO_BET",
+  "WAIT_FOR_LINEUP",
+  "RADAR_MOVEMENT",
+  "EDGE_DISAPPEARED",
+  "INSUFFICIENT_DATA",
+];
+
 export type NormalizedFixtureObservation = SyntheticMetadata &
   Readonly<{
     readonly eventId: string;
@@ -609,6 +626,7 @@ export type CustomerMatchDto = Readonly<{
   competition: string;
   startsAt: string;
   syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  scenario: CustomerScenarioDto;
   freshness: "FRESH" | "STALE";
   selection: string;
   recommendation: RecommendationStatus;
@@ -643,6 +661,11 @@ export type CustomerMatchDto = Readonly<{
     qualityAssessmentId?: string;
     featureCutoff: string;
   }>;
+}>;
+export type CustomerScenarioDto = Readonly<{
+  id: string;
+  state: ScenarioState;
+  label: string;
 }>;
 export type CustomerTodayDto = Readonly<{
   syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
@@ -736,6 +759,17 @@ function validateCustomerMatchInput(input: unknown): string[] {
   if (!isTimestamp(input["startsAt"])) errors.push("startsAt is invalid");
   if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
     errors.push("syntheticLabel is invalid");
+  if (!isObject(input["scenario"])) {
+    errors.push("scenario is required");
+  } else {
+    const scenario = input["scenario"];
+    if (!isNonEmptyString(scenario["id"]))
+      errors.push("scenario.id is invalid");
+    if (!SCENARIO_STATES.includes(scenario["state"] as ScenarioState))
+      errors.push("scenario.state is invalid");
+    if (!isNonEmptyString(scenario["label"]))
+      errors.push("scenario.label is invalid");
+  }
   if (!["FRESH", "STALE"].includes(input["freshness"] as string))
     errors.push("freshness is invalid");
   if (
