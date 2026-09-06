@@ -118,6 +118,37 @@ try {
   } catch {
     // No stray runtime left.
   }
+  /*
+   * `wrangler dev` survives the tree kill above often enough to matter: it
+   * re-parents away from the shell this spawned, then keeps a handle on
+   * `dist` and makes the *next* build fail in confusing ways. Match it by the
+   * port this run chose — precise enough not to touch anything else on the
+   * machine, including other checkouts of this repo.
+   */
+  try {
+    if (process.platform === "win32") {
+      const listing = execFileSync(
+        "powershell",
+        [
+          "-NoProfile",
+          "-Command",
+          `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like '*wrangler*' -and $_.CommandLine -like '*${PORT}*' } | ForEach-Object { $_.ProcessId }`,
+        ],
+        { encoding: "utf8" },
+      );
+      for (const pid of listing.split(/\s+/).filter(Boolean)) {
+        try {
+          execFileSync("taskkill", ["/PID", pid, "/T", "/F"], {
+            stdio: "ignore",
+          });
+        } catch {
+          // Already exited.
+        }
+      }
+    }
+  } catch {
+    // Nothing matched.
+  }
   await new Promise((r) => setTimeout(r, 2000));
 }
 process.exit(exitCode);

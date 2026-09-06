@@ -19,7 +19,7 @@
  *
  * Usage: node tooling/scripts/prerender-public-routes.mjs <baseUrl> [distClientDir]
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { LOCALES, PUBLIC_ROUTES } from "./public-routes.mjs";
 
@@ -67,6 +67,28 @@ async function prerender() {
       }
       if (!html.includes(`lang="${code}"`)) {
         problems.push(`${code} ${route} -> rendered wrong lang`);
+        continue;
+      }
+
+      /*
+       * Every asset the page asks for has to exist in this same build. A
+       * stale `dist/server` left by an interrupted build renders HTML
+       * referencing chunk hashes from the *previous* client build: it
+       * deploys perfectly happily, serves 200, and then 404s every script,
+       * so the page paints but never hydrates. Caught here rather than in
+       * someone's browser console after release.
+       */
+      const missing = [
+        ...new Set(
+          [...html.matchAll(/\/_next\/static\/[A-Za-z0-9._/-]+/g)].map(
+            ([match]) => match,
+          ),
+        ),
+      ].filter((asset) => !existsSync(join(OUT, asset)));
+      if (missing.length > 0) {
+        problems.push(
+          `${code} ${route} -> references assets missing from this build: ${missing.join(", ")}`,
+        );
         continue;
       }
 
