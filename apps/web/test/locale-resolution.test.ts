@@ -12,6 +12,7 @@ const requestState = vi.hoisted(() => ({
   cookieStore: null as string | null,
   cookieHeader: null as string | null,
   headersThrow: false,
+  headersCalls: 0,
 }));
 
 vi.mock("next/headers", () => ({
@@ -22,6 +23,7 @@ vi.mock("next/headers", () => ({
         : undefined,
   }),
   headers: async () => {
+    requestState.headersCalls += 1;
     if (requestState.headersThrow) throw new Error("no request context");
     return {
       get: (name: string) =>
@@ -34,6 +36,7 @@ afterEach(() => {
   requestState.cookieStore = null;
   requestState.cookieHeader = null;
   requestState.headersThrow = false;
+  requestState.headersCalls = 0;
   vi.resetModules();
 });
 
@@ -42,30 +45,52 @@ async function getLocale() {
   return getLocale();
 }
 
+async function getNotFoundLocale() {
+  const { getNotFoundLocale } = await import("../app/locale");
+  return getNotFoundLocale();
+}
+
 describe("locale resolution", () => {
   it("prefers the cookie store when it has the value", async () => {
     requestState.cookieStore = "el";
     expect(await getLocale()).toBe("el");
   });
 
-  it("falls back to the raw cookie header when the store is empty", async () => {
+  /*
+   * The hot path must never touch headers(): doing so pushed ordinary page
+   * renders past the Workers 10ms CPU limit and 503'd the whole site.
+   */
+  it("never reads headers() on the hot path, whatever the cookie state", async () => {
+    requestState.cookieHeader = "velyq-locale=el";
+    expect(await getLocale()).toBe("en");
+    expect(requestState.headersCalls).toBe(0);
+  });
+
+  it("falls back to the raw cookie header on the not-found path", async () => {
     requestState.cookieHeader = "foo=1; velyq-locale=el; bar=2";
-    expect(await getLocale()).toBe("el");
+    expect(await getNotFoundLocale()).toBe("el");
   });
 
   it("handles the locale cookie being the only one present", async () => {
     requestState.cookieHeader = "velyq-locale=el";
-    expect(await getLocale()).toBe("el");
+    expect(await getNotFoundLocale()).toBe("el");
+  });
+
+  it("prefers the store over the header when both are present", async () => {
+    requestState.cookieStore = "en";
+    requestState.cookieHeader = "velyq-locale=el";
+    expect(await getNotFoundLocale()).toBe("en");
+    expect(requestState.headersCalls).toBe(0);
   });
 
   it("defaults to English when neither source has it", async () => {
     requestState.cookieHeader = "other=value";
-    expect(await getLocale()).toBe("en");
+    expect(await getNotFoundLocale()).toBe("en");
   });
 
   it("defaults to English rather than throwing with no request context", async () => {
     requestState.headersThrow = true;
-    expect(await getLocale()).toBe("en");
+    expect(await getNotFoundLocale()).toBe("en");
   });
 
   it("ignores an unrecognised locale value from either source", async () => {
@@ -74,6 +99,6 @@ describe("locale resolution", () => {
     vi.resetModules();
     requestState.cookieStore = null;
     requestState.cookieHeader = "velyq-locale=de";
-    expect(await getLocale()).toBe("en");
+    expect(await getNotFoundLocale()).toBe("en");
   });
 });

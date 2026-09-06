@@ -21,16 +21,25 @@ import {
  */
 export async function getLocale(): Promise<Locale> {
   const store = await cookies();
+  return parseLocale(store.get(LOCALE_COOKIE)?.value);
+}
+
+/**
+ * Locale resolution for the not-found boundary only.
+ *
+ * On Cloudflare/Vinext that boundary renders with a cookie store that comes
+ * back empty even though the request carried a cookie, so every 404 was
+ * served in English to Greek visitors. Reading the raw `cookie` header fixes
+ * it — but `headers()` is expensive enough that doing it in `getLocale()`
+ * pushed ordinary page renders past the Workers 10ms CPU limit and 503'd the
+ * whole site (measured: 6/6 failures with it in the hot path, 6/6 successes
+ * without). It is confined here because 404s are rare, and because a request
+ * that reaches this point has already skipped the real page render.
+ */
+export async function getNotFoundLocale(): Promise<Locale> {
+  const store = await cookies();
   const fromStore = store.get(LOCALE_COOKIE)?.value;
   if (fromStore) return parseLocale(fromStore);
-
-  /*
-   * Fallback for render paths where the cookie store comes back empty even
-   * though the request carried a cookie — observed on Cloudflare/Vinext for
-   * the not-found boundary, which rendered every 404 in English (and with
-   * `<html lang="en">`) for Greek visitors. Reading the raw header covers
-   * that case and costs nothing anywhere else.
-   */
   try {
     const header = (await headers()).get("cookie") ?? "";
     for (const part of header.split(";")) {

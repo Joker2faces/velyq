@@ -1,5 +1,5 @@
 import { translator } from "@velyq/ui";
-import { getLocale } from "./locale";
+import { getNotFoundLocale } from "./locale";
 import { PublicShell } from "./components/site-chrome";
 import { ErrorState, ArrowLink } from "./components/ui";
 
@@ -11,7 +11,7 @@ import { ErrorState, ArrowLink } from "./components/ui";
  * English.
  */
 export default async function NotFound() {
-  const locale = await getLocale();
+  const locale = await getNotFoundLocale();
   const t = translator(locale);
   return (
     <PublicShell locale={locale}>

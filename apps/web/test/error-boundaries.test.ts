@@ -15,6 +15,7 @@ const localeState = vi.hoisted(() => ({ locale: "en" as "en" | "el" }));
 
 vi.mock("../app/locale", () => ({
   getLocale: async () => localeState.locale,
+  getNotFoundLocale: async () => localeState.locale,
 }));
 
 vi.mock("next/navigation", () => ({
