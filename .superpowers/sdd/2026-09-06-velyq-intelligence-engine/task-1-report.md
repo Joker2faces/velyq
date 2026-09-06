@@ -14,7 +14,6 @@ verdicts. Model maturity is retained as `EXPERIMENTAL` throughout.
 - `packages/intelligence/src/price.ts`
 - `packages/intelligence/src/decision.ts`
 - `packages/intelligence/test/price-decision.test.ts`
-- `packages/intelligence/test/tsconfig.json`
 
 ## Behavior
 
@@ -44,3 +43,14 @@ verdicts. Model maturity is retained as `EXPERIMENTAL` throughout.
 `pnpm-lock.yaml` remains unchanged. A direct check of its `HEAD` version
 confirms it already conforms to Prettier; an earlier warning came from a local
 package-runner rewrite that was reverted without committing the lockfile.
+
+## Fix Round 1
+
+- Removed `packages/intelligence/test/tsconfig.json`. The per-test project
+  conflicted with ESLint's workspace `allowDefaultProject` handling; the full
+  workspace lint now completes cleanly without changing shared lint settings.
+- Price-sensitivity movement is now `null` until two valid adjacent candidate
+  prices exist. An invalid price resets the adjacency chain.
+- Regression test added for invalid odds followed by valid odds.
+- Verification: focused Vitest suite (10 passed), package typecheck, full
+  workspace lint, and `git diff --check` all passed.

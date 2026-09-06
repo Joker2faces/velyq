@@ -51,6 +51,22 @@ describe("decimal-safe price validity", () => {
       status: "ATTRACTIVE",
     });
   });
+
+  it("withholds movement until adjacent valid candidate prices exist", () => {
+    const scenarios = createPriceSensitivity({
+      modelProbability: "0.6",
+      candidateOdds: ["1", "1.85"],
+    });
+
+    expect(scenarios[0]).toMatchObject({
+      status: "INVALID_PRICE",
+      movement: null,
+    });
+    expect(scenarios[1]).toMatchObject({
+      status: "ATTRACTIVE",
+      movement: null,
+    });
+  });
 });
 
 describe("deterministic decision verdicts", () => {

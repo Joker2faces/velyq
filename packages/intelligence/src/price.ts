@@ -177,9 +177,7 @@ export function createPriceSensitivity(
       const movement =
         previousOdds && price.currentOdds
           ? calculateMovement(previousOdds, price.currentOdds)
-          : previousOdds
-            ? null
-            : ("0" as DecimalString);
+          : null;
       previousOdds = price.currentOdds;
 
       return Object.freeze({
