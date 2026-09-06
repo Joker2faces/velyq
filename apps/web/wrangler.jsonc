@@ -21,4 +21,26 @@
       "id": "660fd984521442f8be51b97740eb3d4a",
     },
   ],
+  /*
+   * These were configured by hand in the dashboard, which made every deploy a
+   * hazard: `wrangler deploy` replaces plain-text vars with whatever the config
+   * declares, so deploying from a config with no `vars` silently removed them
+   * and the Worker came back up reporting auth as unconfigured. Declaring them
+   * here makes a deploy reproducible instead of destructive.
+   *
+   * Every value is public. The Supabase URL and publishable key are the pair
+   * Supabase intends to ship in a browser bundle, and they are already served
+   * to every visitor. Nothing secret belongs in this file: the database
+   * password reaches the Worker only through the Hyperdrive binding above, and
+   * the service-role key is not used by this application at all.
+   */
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://zvdqkmevjfwprexshpap.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_YEvRp91UoERENWagW5gY6g_8JHyPv_a",
+    "VELYQ_APPLICATION_ORIGIN": "https://velyq-poc.joker2face1990.workers.dev",
+    "VELYQ_CUSTOMER_INTELLIGENCE_MODE": "SYNTHETIC_DEMO",
+    // Removed once Hyperdrive and Supabase Auth are proven live; synthetic
+    // football data stays, synthetic authorization does not.
+    "VELYQ_SYNTHETIC_PREVIEW": "true",
+  },
 }
