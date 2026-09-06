@@ -214,6 +214,55 @@ describe("authentication outage UX", () => {
     );
   });
 
+  it("redirects malformed browser sign-in responses to unavailable", async () => {
+    process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
+    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not-json", { status: 200 }),
+    );
+
+    const response = await signIn(
+      browserRequest("/api/v1/auth/sign-in", {
+        email: "customer@example.com",
+        password: "safe-password",
+      }),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://velyq.test/sign-in?error=unavailable",
+    );
+  });
+
+  it.each([
+    ["sign-in", signIn, "/api/v1/auth/sign-in"],
+    ["sign-up", signUp, "/api/v1/auth/sign-up"],
+  ] as const)(
+    "redirects temporary %s throttling to unavailable",
+    async (kind, handler, path) => {
+      process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
+      process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] =
+        "publishable-test";
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ error: "temporarily_unavailable" }), {
+          status: 429,
+        }),
+      );
+
+      const response = await handler(
+        browserRequest(path, {
+          email: "customer@example.com",
+          password: "safe-password",
+        }),
+      );
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe(
+        `https://velyq.test/${kind}?error=unavailable`,
+      );
+    },
+  );
+
   it("preserves AUTH_NOT_CONFIGURED JSON responses", async () => {
     delete process.env["NEXT_PUBLIC_SUPABASE_URL"];
     delete process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
@@ -286,6 +335,27 @@ describe("authentication outage UX", () => {
     });
   });
 
+  it("maps malformed provider JSON to AUTH_PROVIDER_RESPONSE_INVALID", async () => {
+    process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
+    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not-json", { status: 200 }),
+    );
+
+    const response = await signIn(
+      jsonRequest("/api/v1/auth/sign-in", {
+        email: "customer@example.com",
+        password: "safe-password",
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "AUTH_PROVIDER_RESPONSE_INVALID",
+      status: 502,
+    });
+  });
+
   it("preserves SIGN_UP_FAILED JSON responses", async () => {
     process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
@@ -318,8 +388,12 @@ describe("authentication outage UX", () => {
     );
     expect(inputMarkup(html, "email")).not.toContain("aria-invalid");
     expect(inputMarkup(html, "password")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "email")).not.toContain("sign-in-error");
-    expect(inputMarkup(html, "password")).not.toContain("sign-in-error");
+    expect(inputMarkup(html, "email")).toContain(
+      'aria-describedby="sign-in-error"',
+    );
+    expect(inputMarkup(html, "password")).toContain(
+      'aria-describedby="sign-in-error"',
+    );
   });
 
   it("renders sign-up unavailability without marking credentials invalid", async () => {
@@ -334,8 +408,12 @@ describe("authentication outage UX", () => {
     );
     expect(inputMarkup(html, "email")).not.toContain("aria-invalid");
     expect(inputMarkup(html, "password")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "email")).not.toContain("sign-up-error");
-    expect(inputMarkup(html, "password")).not.toContain("sign-up-error");
+    expect(inputMarkup(html, "email")).toContain(
+      'aria-describedby="sign-up-error"',
+    );
+    expect(inputMarkup(html, "password")).toMatch(
+      /aria-describedby="[^"]*sign-up-error[^"]*"/,
+    );
   });
 
   it("provides the approved action-specific unavailable copy in English and Greek", () => {

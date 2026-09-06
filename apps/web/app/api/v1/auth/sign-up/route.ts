@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   }
   if (!response.ok)
     return (
-      (browserForm && response.status >= 500
+      (browserForm && isTemporaryProviderFailure(response.status)
         ? browserUnavailable()
         : browserError()) ??
       NextResponse.json(
@@ -75,4 +75,8 @@ export async function POST(request: Request) {
         { code: "APPLICATION_ORIGIN_NOT_CONFIGURED", requestId: id },
         { status: 503 },
       );
+}
+
+function isTemporaryProviderFailure(status: number) {
+  return status === 408 || status === 429 || status >= 500;
 }

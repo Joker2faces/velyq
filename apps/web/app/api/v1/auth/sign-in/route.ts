@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     if (browserForm)
       return NextResponse.redirect(
         new URL(
-          response.status >= 500
+          isTemporaryProviderFailure(response.status)
             ? "/sign-in?error=unavailable"
             : "/sign-in?error=invalid",
           request.url,
@@ -117,12 +117,18 @@ export async function POST(request: Request) {
       )
     );
   }
-  const tokens = (await response.json()) as {
+  let tokens: {
     access_token?: string;
     refresh_token?: string;
     expires_in?: number;
-  };
-  if (!tokens.access_token || !tokens.refresh_token)
+  } | null;
+  try {
+    const body: unknown = await response.json();
+    tokens = typeof body === "object" && body !== null ? body : null;
+  } catch {
+    tokens = null;
+  }
+  if (!tokens?.access_token || !tokens.refresh_token)
     return (
       browserUnavailable() ??
       NextResponse.json(
@@ -164,6 +170,10 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 24 * 30,
   });
   return next;
+}
+
+function isTemporaryProviderFailure(status: number) {
+  return status === 408 || status === 429 || status >= 500;
 }
 
 function trustedOrigin(request: Request) {

@@ -41,9 +41,8 @@ export default async function SignIn({
             type="email"
             autoComplete="email"
             required
-            {...(hasCredentialError
-              ? { "aria-describedby": errorId, "aria-invalid": true as const }
-              : {})}
+            {...(hasError ? { "aria-describedby": errorId } : {})}
+            {...(hasCredentialError ? { "aria-invalid": true as const } : {})}
           />
         </div>
 
@@ -53,7 +52,7 @@ export default async function SignIn({
           hideLabel={t("authHidePassword")}
           autoComplete="current-password"
           invalid={hasCredentialError}
-          {...(hasCredentialError ? { describedBy: errorId } : {})}
+          {...(hasError ? { describedBy: errorId } : {})}
         />
 
         <button className="button button--primary button--block" type="submit">
