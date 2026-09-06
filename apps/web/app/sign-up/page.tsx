@@ -13,6 +13,7 @@ export default async function SignUp({
   const t = translator(locale);
   const errorId = "sign-up-error";
   const hasError = Boolean(params.error);
+  const hasCredentialError = hasError && params.error !== "unavailable";
 
   return (
     <AuthShell
@@ -40,7 +41,7 @@ export default async function SignUp({
             type="email"
             autoComplete="email"
             required
-            {...(hasError
+            {...(hasCredentialError
               ? { "aria-describedby": errorId, "aria-invalid": true as const }
               : {})}
           />
@@ -53,8 +54,8 @@ export default async function SignUp({
           hideLabel={t("authHidePassword")}
           autoComplete="new-password"
           minLength={8}
-          invalid={hasError}
-          {...(hasError ? { describedBy: errorId } : {})}
+          invalid={hasCredentialError}
+          {...(hasCredentialError ? { describedBy: errorId } : {})}
         />
 
         <button className="button button--primary button--block" type="submit">

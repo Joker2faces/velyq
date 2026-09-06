@@ -13,6 +13,7 @@ export default async function SignIn({
   const t = translator(locale);
   const errorId = "sign-in-error";
   const hasError = Boolean(params.error);
+  const hasCredentialError = hasError && params.error !== "unavailable";
 
   return (
     <AuthShell
@@ -40,7 +41,7 @@ export default async function SignIn({
             type="email"
             autoComplete="email"
             required
-            {...(hasError
+            {...(hasCredentialError
               ? { "aria-describedby": errorId, "aria-invalid": true as const }
               : {})}
           />
@@ -51,8 +52,8 @@ export default async function SignIn({
           showLabel={t("authShowPassword")}
           hideLabel={t("authHidePassword")}
           autoComplete="current-password"
-          invalid={hasError}
-          {...(hasError ? { describedBy: errorId } : {})}
+          invalid={hasCredentialError}
+          {...(hasCredentialError ? { describedBy: errorId } : {})}
         />
 
         <button className="button button--primary button--block" type="submit">

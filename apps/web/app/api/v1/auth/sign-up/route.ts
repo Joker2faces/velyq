@@ -12,6 +12,12 @@ export async function POST(request: Request) {
     browserForm
       ? NextResponse.redirect(new URL("/sign-up?error=invalid", request.url))
       : null;
+  const browserUnavailable = () =>
+    browserForm
+      ? NextResponse.redirect(
+          new URL("/sign-up?error=unavailable", request.url),
+        )
+      : null;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -29,28 +35,33 @@ export async function POST(request: Request) {
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key)
     return (
-      (browserForm
-        ? NextResponse.redirect(
-            new URL("/sign-up?error=unavailable", request.url),
-          )
-        : null) ??
+      browserUnavailable() ??
       NextResponse.json(
         { code: "AUTH_NOT_CONFIGURED", requestId: id },
         { status: 503 },
       )
     );
-  const response = await fetch(`${url}/auth/v1/signup`, {
-    method: "POST",
-    headers: { apikey: key, "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${url}/auth/v1/signup`, {
+      method: "POST",
+      headers: { apikey: key, "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      cache: "no-store",
+    });
+  } catch {
+    return (
+      browserUnavailable() ??
+      NextResponse.json(
+        { code: "AUTH_PROVIDER_UNAVAILABLE", requestId: id },
+        { status: 503 },
+      )
+    );
+  }
   if (!response.ok)
     return (
       (browserForm && response.status >= 500
-        ? NextResponse.redirect(
-            new URL("/sign-up?error=unavailable", request.url),
-          )
+        ? browserUnavailable()
         : browserError()) ??
       NextResponse.json(
         { code: "SIGN_UP_FAILED", requestId: id },

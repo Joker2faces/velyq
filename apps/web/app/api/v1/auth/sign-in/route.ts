@@ -12,6 +12,12 @@ export async function POST(request: Request) {
     browserForm
       ? NextResponse.redirect(new URL("/sign-in?error=invalid", request.url))
       : null;
+  const browserUnavailable = () =>
+    browserForm
+      ? NextResponse.redirect(
+          new URL("/sign-in?error=unavailable", request.url),
+        )
+      : null;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -52,11 +58,7 @@ export async function POST(request: Request) {
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)
     return (
-      (browserForm
-        ? NextResponse.redirect(
-            new URL("/sign-in?error=unavailable", request.url),
-          )
-        : null) ??
+      browserUnavailable() ??
       NextResponse.json(
         {
           type: "https://velyq.dev/problems/not-configured",
@@ -68,12 +70,29 @@ export async function POST(request: Request) {
         { status: 503 },
       )
     );
-  const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: { apikey: publishableKey, "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: publishableKey, "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      cache: "no-store",
+    });
+  } catch {
+    return (
+      browserUnavailable() ??
+      NextResponse.json(
+        {
+          type: "https://velyq.dev/problems/auth-provider",
+          title: "Authentication provider is unavailable",
+          status: 503,
+          code: "AUTH_PROVIDER_UNAVAILABLE",
+          requestId: requestId(request),
+        },
+        { status: 503 },
+      )
+    );
+  }
   if (!response.ok) {
     if (browserForm)
       return NextResponse.redirect(
@@ -105,7 +124,7 @@ export async function POST(request: Request) {
   };
   if (!tokens.access_token || !tokens.refresh_token)
     return (
-      browserError() ??
+      browserUnavailable() ??
       NextResponse.json(
         {
           type: "https://velyq.dev/problems/auth-provider",
