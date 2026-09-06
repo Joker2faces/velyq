@@ -3,3 +3,4 @@ apps/*/next-env.d.ts
 dist/
 .next/
 node_modules/
+.wrangler/

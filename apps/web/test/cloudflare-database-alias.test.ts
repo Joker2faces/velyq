@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
@@ -36,15 +36,27 @@ type ResolveIdHook = (
   options: Record<string, unknown>,
 ) => Promise<string | null>;
 
+/** Vite's plugin type is deeply recursive, so flatten it as plain unknowns. */
+function flatten(value: unknown): Plugin[] {
+  if (Array.isArray(value)) return value.flatMap(flatten);
+  return value ? [value as Plugin] : [];
+}
+
+/*
+ * Importing the config pulls in Vinext and the Cloudflare plugin, which is
+ * slow enough under a full-suite run to blow the default per-test timeout.
+ * Load it once, up front, and let every test share the result.
+ */
+let cached: Plugin | undefined;
+
+beforeAll(async () => {
+  cached = await loadPlugin();
+}, 60_000);
+
 async function loadPlugin() {
+  if (cached) return cached;
   const config = await import("../vite.config");
-  const resolved =
-    typeof config.default === "function"
-      ? await config.default({ command: "build", mode: "production" })
-      : config.default;
-  const plugins = (resolved.plugins ?? []).flat(
-    Number.POSITIVE_INFINITY,
-  ) as Plugin[];
+  const plugins = flatten(config.default.plugins);
   const plugin = plugins.find(
     (candidate) => candidate?.name === "velyq:cloudflare-database-source",
   );

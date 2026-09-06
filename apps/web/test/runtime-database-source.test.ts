@@ -1,7 +1,4 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveConfig } from "vite";
 import { resolveRuntimeDatabaseSource as resolveNodeSource } from "../app/runtime-database/runtime-database-source";
 
 const cloudflareState = vi.hoisted(() => ({
@@ -60,35 +57,14 @@ describe("runtime database source", () => {
     await expect(resolveCloudflareSource()).resolves.toBeNull();
   });
 
-  it("resolves the exact Node source module to the Cloudflare module in Vinext", async () => {
-    const testDirectory = path.dirname(fileURLToPath(import.meta.url));
-    const webDirectory = path.resolve(testDirectory, "..");
-    const nodeSource = path.join(
-      webDirectory,
-      "app/runtime-database/runtime-database-source.ts",
-    );
-    const cloudflareSource = path.join(
-      webDirectory,
-      "app/runtime-database/runtime-database-source.cloudflare.ts",
-    );
-    const config = await resolveConfig(
-      {
-        root: webDirectory,
-        configFile: path.join(webDirectory, "vite.config.ts"),
-      },
-      "build",
-    );
-    const resolver = config.createResolver();
-    const resolved = await resolver(nodeSource);
-    const resolvedExtensionless = await resolver(
-      nodeSource.slice(0, -path.extname(nodeSource).length),
-    );
-
-    expect(path.normalize(resolved ?? "")).toBe(
-      path.normalize(cloudflareSource),
-    );
-    expect(path.normalize(resolvedExtensionless ?? "")).toBe(
-      path.normalize(cloudflareSource),
-    );
-  }, 30_000);
+  /*
+   * A test that resolved this through `config.createResolver()` used to live
+   * here. It passed while the real build shipped the wrong module, because a
+   * standalone resolver applies `resolve.alias` but does not run plugin
+   * `resolveId` hooks — so it proved something the build never did.
+   *
+   * The swap is now covered where it actually happens: the hook itself in
+   * cloudflare-database-alias.test.ts, and the emitted Worker bundle in
+   * tooling/scripts/verify-worker-bundle.mjs.
+   */
 });

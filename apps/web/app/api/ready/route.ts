@@ -24,8 +24,7 @@ export async function GET() {
   const session = await openRuntimeDatabaseSession({
     connectionTimeoutMillis: 3000,
   });
-  if (!session)
-    return degraded({ authConfigured, databaseConfigured: false });
+  if (!session) return degraded({ authConfigured, databaseConfigured: false });
 
   const checks = {
     authConfigured,
