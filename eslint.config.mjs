@@ -289,6 +289,7 @@ export default tseslint.config(
       "**/.next/**",
       "**/node_modules/**",
       "**/eslint-fixtures/**",
+      "**/worker-configuration.d.ts",
     ],
   },
   eslint.configs.recommended,
