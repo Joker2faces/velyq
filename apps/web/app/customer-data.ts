@@ -299,3 +299,12 @@ export function findCustomerMatch(
 ): CustomerMatchDto | undefined {
   return customerTodayData.matches.find((match) => match.eventId === eventId);
 }
+
+/**
+ * How many matches the feed actually holds, before any plan truncation.
+ *
+ * A preview entitlement slices the list; the UI needs the original size to
+ * tell the customer how much is behind the boundary instead of ending the
+ * list without explanation.
+ */
+export const totalTrackedMatches = customerTodayData.matches.length;

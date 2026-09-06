@@ -19,6 +19,8 @@ import type { CustomerMatchDto } from "@velyq/contracts";
 import { loadCustomerContext, loadCustomerToday } from "../customer-runtime";
 import { getLocale } from "../locale";
 import { CustomerShell } from "../customer-shell";
+import { edgeFullTier } from "../plan-config";
+import { totalTrackedMatches } from "../customer-data";
 import {
   Badge,
   Card,
@@ -27,6 +29,7 @@ import {
   EmptyState,
   ErrorState,
   Explain,
+  LockedRows,
   Stat,
 } from "../components/ui";
 
@@ -34,9 +37,8 @@ export default async function Edge() {
   const locale = await getLocale();
   const t = translator(locale);
   const context = await loadCustomerContext();
-  const result = await loadCustomerToday(
-    context?.entitlements.includes("edge.full") ? "edge.full" : "edge.preview",
-  );
+  const full = context?.entitlements.includes("edge.full") ?? false;
+  const result = await loadCustomerToday(full ? "edge.full" : "edge.preview");
 
   if (!result.ok) {
     return (
@@ -52,6 +54,10 @@ export default async function Edge() {
   }
 
   const matches = result.value.matches;
+  /* What the tier withheld, so the preview boundary can be shown rather
+     than leaving the customer to guess that the list simply ends. */
+  const withheld = full ? 0 : Math.max(0, totalTrackedMatches - matches.length);
+  const tier = edgeFullTier(locale);
   /* Priced rows first, ordered by the strength of the edge; rows the model
      declined to estimate are grouped separately with their reason, rather
      than interleaved with actionable ones. */
@@ -91,7 +97,12 @@ export default async function Edge() {
               hint={t("edgeSortNote")}
               aside={
                 <span className="card__hint">
-                  {t("edgeTracked", { count: formatCount(matches.length) })}
+                  {withheld > 0
+                    ? t("edgeTrackedPreview", {
+                        shown: matches.length,
+                        total: totalTrackedMatches,
+                      })
+                    : t("edgeTracked", { count: formatCount(matches.length) })}
                 </span>
               }
             />
@@ -103,6 +114,17 @@ export default async function Edge() {
               ))
             )}
           </Card>
+
+          {withheld > 0 ? (
+            <LockedRows
+              count={withheld}
+              hint={t("lockedRowsHint", {
+                count: withheld,
+                plan: tier.name,
+              })}
+              cta={t("lockedCta")}
+            />
+          ) : null}
 
           {gated.length > 0 ? (
             <Card>

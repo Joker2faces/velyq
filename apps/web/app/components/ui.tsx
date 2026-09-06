@@ -5,6 +5,8 @@ import {
   IconArrowDown,
   IconArrowRight,
   IconArrowUp,
+  IconCheck,
+  IconLock,
   IconMinus,
 } from "./icons";
 
@@ -487,6 +489,102 @@ export function ArrowLink({
     <a className="link" href={href}>
       {children}
       <IconArrowRight className="link__arrow" />
+    </a>
+  );
+}
+
+// ----------------------------------------------------------- plan gating
+
+/**
+ * A plan boundary, presented as an offer rather than a fault.
+ *
+ * This deliberately does not reuse `ErrorState`. An upsell rendered with an
+ * alert icon, `role="alert"` and error colour tells a paying-capable customer
+ * that something has gone wrong, when in fact nothing has: they are simply
+ * seeing where the product continues. The visual language here is the gold
+ * premium accent, a lock rather than a warning triangle, and a list of what
+ * the next tier actually adds.
+ */
+export function LockedState({
+  plan,
+  title,
+  body,
+  cta,
+  href = "/pricing",
+  adds,
+  addsLabel,
+}: {
+  plan: string;
+  title: string;
+  body: string;
+  cta: string;
+  href?: string;
+  /** What the tier grants, taken from the live entitlement matrix. */
+  adds?: readonly string[];
+  addsLabel?: string;
+}) {
+  return (
+    <section className="locked">
+      <span className="locked__seal" aria-hidden="true">
+        <IconLock size={20} />
+      </span>
+      <div className="locked__body">
+        <p className="locked__plan">{plan}</p>
+        <h2 className="locked__title">{title}</h2>
+        <p className="locked__text">{body}</p>
+        {adds && adds.length > 0 ? (
+          <div className="locked__adds">
+            {addsLabel ? <p className="stat__label">{addsLabel}</p> : null}
+            <ul className="checklist">
+              {adds.map((item) => (
+                <li key={item}>
+                  <IconCheck />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <a className="button button--premium" href={href}>
+          {cta}
+        </a>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The seam at the bottom of a truncated preview.
+ *
+ * A silently shortened list is dishonest: the customer cannot tell whether
+ * three matches is all there is or all they are allowed. This shows the
+ * remaining count as ghosted rows, so the boundary is visible and the offer
+ * sits exactly where the content stops.
+ */
+export function LockedRows({
+  count,
+  hint,
+  cta,
+  href = "/pricing",
+}: {
+  count: number;
+  hint: string;
+  cta: string;
+  href?: string;
+}) {
+  if (count <= 0) return null;
+  return (
+    <a className="lockedrows" href={href}>
+      <span className="lockedrows__ghosts" aria-hidden="true">
+        {Array.from({ length: Math.min(count, 3) }, (_, index) => (
+          <span className="lockedrows__ghost" key={index} />
+        ))}
+      </span>
+      <span className="lockedrows__label">
+        <IconLock size={15} />
+        {hint}
+      </span>
+      <span className="lockedrows__cta">{cta}</span>
     </a>
   );
 }

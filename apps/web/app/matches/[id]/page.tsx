@@ -21,6 +21,7 @@ import {
 import { loadCustomerMatch } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
+import { matchIntelligenceTier } from "../../plan-config";
 import {
   ArrowLink,
   Badge,
@@ -31,6 +32,7 @@ import {
   EdgeAxis,
   ErrorState,
   Explain,
+  LockedState,
   Sparkline,
   Stat,
   Trend,
@@ -56,38 +58,41 @@ export default async function Match({
 
   if (!result.ok) {
     const notFound = result.code === "NOT_FOUND";
-    const locked = result.code === "ENTITLEMENT_REQUIRED";
+
+    /*
+     * A plan boundary is not an error. It previously rendered through
+     * `ErrorState` — alert icon, `role="alert"`, error colour — which told a
+     * customer that something had broken when the product was simply
+     * continuing behind a tier. It also carried its Greek inline rather than
+     * through the catalog, which is how translations drift.
+     */
+    if (result.code === "ENTITLEMENT_REQUIRED") {
+      const tier = matchIntelligenceTier(locale);
+      return (
+        <CustomerShell>
+          <div className="page">
+            <LockedState
+              plan={tier.name}
+              title={t("lockedMatchTitle", { plan: tier.name })}
+              body={t("lockedMatchBody")}
+              cta={t("lockedCta")}
+              addsLabel={t("lockedWhatYouGet", { plan: tier.name })}
+              adds={tier.adds}
+            />
+          </div>
+        </CustomerShell>
+      );
+    }
+
     return (
       <CustomerShell>
         <div className="page">
           <ErrorState
-            title={
-              locked
-                ? locale === "el"
-                  ? "Το Match Intelligence είναι διαθέσιμο στο ELITE"
-                  : "Match Intelligence is available on ELITE"
-                : notFound
-                  ? t("matchNotFound")
-                  : t("customerUnavailable")
-            }
+            title={notFound ? t("matchNotFound") : t("customerUnavailable")}
             body={
-              locked
-                ? locale === "el"
-                  ? "Αναβάθμισε για πλήρη ανάλυση αγώνα, αποδόσεις και trace."
-                  : "Upgrade for full match analysis, prices and trace."
-                : notFound
-                  ? t("matchNotFoundBody")
-                  : t("customerUnavailableBody")
+              notFound ? t("matchNotFoundBody") : t("customerUnavailableBody")
             }
-            action={
-              <ArrowLink href={locked ? "/pricing" : "/today"}>
-                {locked
-                  ? locale === "el"
-                    ? "Δες τα πλάνα →"
-                    : "View plans →"
-                  : t("backToToday")}
-              </ArrowLink>
-            }
+            action={<ArrowLink href="/today">{t("backToToday")}</ArrowLink>}
           />
         </div>
       </CustomerShell>

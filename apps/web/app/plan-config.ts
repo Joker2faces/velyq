@@ -145,3 +145,41 @@ export function planCatalog(locale: Locale): readonly PlanPresentation[] {
     };
   });
 }
+
+/**
+ * The tier that unlocks a given entitlement, and what it adds.
+ *
+ * Derived from the live matrix so the upsell can never promise a capability
+ * the server does not grant, and so it follows the matrix if it changes —
+ * exactly as the pricing cards do.
+ */
+export function tierUnlocking(
+  entitlement: CustomerEntitlement,
+  locale: Locale,
+): { code: PlanCode; name: string; adds: readonly string[] } {
+  const plans = planCatalog(locale);
+  const owning =
+    PLAN_ORDER.find((code) => entitlementsFor(code).includes(entitlement)) ??
+    "ELITE";
+  const presentation = plans.find((plan) => plan.code === owning);
+  return {
+    code: owning,
+    name: owning,
+    adds: presentation?.additions ?? [],
+  };
+}
+
+/** The tier that opens Match Intelligence. */
+export function matchIntelligenceTier(locale: Locale) {
+  return tierUnlocking("match.detail", locale);
+}
+
+/** The tier that opens the full EDGE table. */
+export function edgeFullTier(locale: Locale) {
+  return tierUnlocking("edge.full", locale);
+}
+
+/** The tier that opens the full RADAR evidence. */
+export function radarFullTier(locale: Locale) {
+  return tierUnlocking("radar.full", locale);
+}

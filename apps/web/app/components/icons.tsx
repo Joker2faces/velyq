@@ -178,3 +178,13 @@ export function IconSpark({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+export function IconLock({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <rect {...stroke} x="3.2" y="7" width="9.6" height="7" rx="1.6" />
+      <path {...stroke} d="M5.6 7V4.9a2.4 2.4 0 0 1 4.8 0V7" />
+      <circle cx="8" cy="10.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}

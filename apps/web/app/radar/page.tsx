@@ -14,6 +14,8 @@ import type { CustomerMatchDto } from "@velyq/contracts";
 import { loadCustomerContext, loadCustomerToday } from "../customer-runtime";
 import { getLocale } from "../locale";
 import { CustomerShell } from "../customer-shell";
+import { radarFullTier } from "../plan-config";
+import { totalTrackedMatches } from "../customer-data";
 import {
   Badge,
   Card,
@@ -21,6 +23,7 @@ import {
   EmptyState,
   ErrorState,
   Explain,
+  LockedRows,
   Sparkline,
   Stat,
   Trend,
@@ -30,11 +33,8 @@ export default async function Radar() {
   const locale = await getLocale();
   const t = translator(locale);
   const context = await loadCustomerContext();
-  const result = await loadCustomerToday(
-    context?.entitlements.includes("radar.full")
-      ? "radar.full"
-      : "radar.preview",
-  );
+  const full = context?.entitlements.includes("radar.full") ?? false;
+  const result = await loadCustomerToday(full ? "radar.full" : "radar.preview");
 
   if (!result.ok) {
     return (
@@ -50,6 +50,8 @@ export default async function Radar() {
   }
 
   const matches = result.value.matches;
+  const withheld = full ? 0 : Math.max(0, totalTrackedMatches - matches.length);
+  const tier = radarFullTier(locale);
   const observed = matches
     .filter((match) => match.openingOdds !== null && match.currentOdds !== null)
     .sort(
@@ -101,6 +103,17 @@ export default async function Radar() {
               ))
             )}
           </Card>
+
+          {withheld > 0 ? (
+            <LockedRows
+              count={withheld}
+              hint={t("lockedRowsHint", {
+                count: withheld,
+                plan: tier.name,
+              })}
+              cta={t("lockedCta")}
+            />
+          ) : null}
 
           {unobserved.length > 0 ? (
             <Card>
