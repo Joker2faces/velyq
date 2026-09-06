@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { translate, translator, type Locale } from "@velyq/ui";
 import { LanguageSwitcher } from "../language-switcher";
+import { LocalePreference } from "../locale-preference";
 import { VelyqMark } from "./logo";
 import { localePath } from "../locale-path";
 
@@ -111,6 +112,9 @@ export function PublicShell({
 }) {
   return (
     <div className="public">
+      {/* Static pages cannot read the locale cookie server-side; this sends a
+          returning Greek visitor to the Greek copy. */}
+      <LocalePreference locale={locale} />
       <SiteHeader locale={locale} />
       <main className="public__main" id="main-content">
         {children}
