@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { writePreferenceCookie } from "./components/browser";
+import {
+  currentPathname,
+  redirectTo,
+  writePreferenceCookie,
+} from "./components/browser";
+import { localeCounterpart } from "./locale-path";
 import {
   LOCALES,
   LOCALE_COOKIE,
@@ -32,7 +37,25 @@ export function LanguageSwitcher({ locale }: { locale: Locale }) {
   function choose(next: Locale) {
     if (next === locale) return;
     const oneYear = 60 * 60 * 24 * 365;
+    /*
+     * The cookie still drives the authenticated pages, which the Worker
+     * renders per request.
+     */
     writePreferenceCookie(LOCALE_COOKIE, next, oneYear);
+
+    /*
+     * Public pages are prerendered static assets, so a refresh would fetch
+     * the very same file back — the language lives in the URL there (English
+     * canonical, Greek under /el). Navigate to the counterpart instead, and
+     * do it with a full load because those paths are assets rather than
+     * routes the client router knows about.
+     */
+    const path = currentPathname();
+    const counterpart = localeCounterpart(path, next);
+    if (counterpart !== path) {
+      redirectTo(counterpart);
+      return;
+    }
     startTransition(() => {
       router.refresh();
     });

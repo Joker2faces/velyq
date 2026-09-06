@@ -1,17 +1,13 @@
 import { translator } from "@velyq/ui";
 import { getLocale } from "../locale";
-import { AuthShell, FormError } from "../components/auth-shell";
+import { AuthShell } from "../components/auth-shell";
+import { AuthError } from "../components/auth-error";
+import { localePath } from "../locale-path";
 
-export default async function ForgotPassword({
-  searchParams,
-}: {
-  searchParams?: Promise<{ error?: string; recovery?: string }>;
-}) {
-  const params = searchParams ? await searchParams : {};
+export default async function ForgotPassword() {
   const locale = await getLocale();
   const t = translator(locale);
   const errorId = "forgot-error";
-  const hasError = Boolean(params.error);
 
   return (
     <AuthShell
@@ -20,9 +16,13 @@ export default async function ForgotPassword({
       title={t("authForgotTitle")}
       body={t("authForgotBody")}
     >
-      {hasError ? (
-        <FormError id={errorId}>{t("authForgotError")}</FormError>
-      ) : null}
+      <AuthError
+        locale={locale}
+        id={errorId}
+        invalidKey="authForgotError"
+        unavailableKey="authForgotError"
+        fieldIds={["email"]}
+      />
 
       <form
         className="auth__form"
@@ -39,9 +39,6 @@ export default async function ForgotPassword({
             type="email"
             autoComplete="email"
             required
-            {...(hasError
-              ? { "aria-describedby": errorId, "aria-invalid": true as const }
-              : {})}
           />
         </div>
 
@@ -52,7 +49,7 @@ export default async function ForgotPassword({
 
       <div className="auth__links">
         <p>
-          <a className="link" href="/sign-in">
+          <a className="link" href={localePath("/sign-in", locale)}>
             {t("backToSignIn")}
           </a>
         </p>

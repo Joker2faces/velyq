@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
 import { translate } from "@velyq/ui";
+import { resolveAuthError } from "../app/components/auth-error";
 import { POST as signIn } from "../app/api/v1/auth/sign-in/route";
 import { POST as signUp } from "../app/api/v1/auth/sign-up/route";
-import SignIn from "../app/sign-in/page";
-import SignUp from "../app/sign-up/page";
 
 vi.mock("../app/locale", () => ({
   getLocale: async () => "en" as const,
@@ -51,10 +49,6 @@ function jsonRequest(path: string, fields: Record<string, string>) {
     headers: { origin: "https://velyq.test" },
     body: new URLSearchParams(fields),
   });
-}
-
-function inputMarkup(html: string, name: string) {
-  return html.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 }
 
 describe("authentication outage UX", () => {
@@ -375,44 +369,33 @@ describe("authentication outage UX", () => {
     });
   });
 
-  it("renders sign-in unavailability without marking credentials invalid", async () => {
-    const html = renderToStaticMarkup(
-      await SignIn({
-        searchParams: Promise.resolve({ error: "unavailable" }),
-      }),
-    );
-
-    expect(html).toContain(
-      "Sign-in is temporarily unavailable. This is not a problem with your details.",
-    );
-    expect(inputMarkup(html, "email")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "password")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "email")).toContain(
-      'aria-describedby="sign-in-error"',
-    );
-    expect(inputMarkup(html, "password")).toContain(
-      'aria-describedby="sign-in-error"',
-    );
+  /*
+   * These two used to render the sign-in and sign-up pages with a
+   * `searchParams` promise and assert the server-rendered banner. Those pages
+   * are prerendered into static assets now — one file answers `/sign-in` and
+   * `/sign-in?error=unavailable` alike — so the banner is decided in the
+   * browser instead. The invariant is unchanged and is asserted where the
+   * decision actually lives: an outage is never reported as a rejected
+   * credential, and never marks the customer's input invalid.
+   */
+  it("treats a provider outage as unavailable, not as bad credentials", () => {
+    const outage = resolveAuthError("unavailable");
+    expect(outage.visible).toBe(true);
+    expect(outage.unavailable).toBe(true);
+    expect(outage.markInvalid).toBe(false);
   });
 
-  it("renders sign-up unavailability without marking credentials invalid", async () => {
-    const html = renderToStaticMarkup(
-      await SignUp({
-        searchParams: Promise.resolve({ error: "unavailable" }),
-      }),
-    );
+  it("treats a rejected credential as invalid input", () => {
+    const rejected = resolveAuthError("invalid");
+    expect(rejected.visible).toBe(true);
+    expect(rejected.unavailable).toBe(false);
+    expect(rejected.markInvalid).toBe(true);
+  });
 
-    expect(html).toContain(
-      "Account creation is temporarily unavailable. Please try again shortly.",
-    );
-    expect(inputMarkup(html, "email")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "password")).not.toContain("aria-invalid");
-    expect(inputMarkup(html, "email")).toContain(
-      'aria-describedby="sign-up-error"',
-    );
-    expect(inputMarkup(html, "password")).toMatch(
-      /aria-describedby="[^"]*sign-up-error[^"]*"/,
-    );
+  it("shows nothing when there is no error at all", () => {
+    const none = resolveAuthError(null);
+    expect(none.visible).toBe(false);
+    expect(none.markInvalid).toBe(false);
   });
 
   it("provides the approved action-specific unavailable copy in English and Greek", () => {

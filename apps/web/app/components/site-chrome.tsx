@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { translate, translator, type Locale } from "@velyq/ui";
 import { LanguageSwitcher } from "../language-switcher";
 import { VelyqMark } from "./logo";
+import { localePath } from "../locale-path";
 
 /**
  * Public marketing chrome: header, footer and the shell that wraps them.
@@ -19,7 +20,7 @@ export function Brand({
   locale: Locale;
 }) {
   return (
-    <Link className="brand" href={href}>
+    <Link className="brand" href={localePath(href, locale)}>
       <VelyqMark />
       <span className="brand__mark">VELYQ</span>
       <span className="brand__tag">{translate("brandTagline", locale)}</span>
@@ -34,19 +35,24 @@ export function SiteHeader({ locale }: { locale: Locale }) {
       <div className="shell-header__inner">
         <Brand locale={locale} />
         <nav className="shell-header__nav" aria-label={t("navPlatform")}>
-          <a href="/#modules">{t("navPlatform")}</a>
-          <a href="/pricing">{t("navPricing")}</a>
-          <a href="/responsible-use">{t("navResponsibleUse")}</a>
+          <a href={localePath("/#modules", locale)}>{t("navPlatform")}</a>
+          <a href={localePath("/pricing", locale)}>{t("navPricing")}</a>
+          <a href={localePath("/responsible-use", locale)}>
+            {t("navResponsibleUse")}
+          </a>
         </nav>
         <div className="shell-header__actions">
           <LanguageSwitcher locale={locale} />
           <a
             className="button button--ghost shell-header__signin"
-            href="/sign-in"
+            href={localePath("/sign-in", locale)}
           >
             {t("homeSignIn")}
           </a>
-          <a className="button button--primary" href="/sign-up">
+          <a
+            className="button button--primary"
+            href={localePath("/sign-up", locale)}
+          >
             {t("homeCreateAccount")}
           </a>
         </div>
@@ -70,10 +76,14 @@ export function SiteFooter({ locale }: { locale: Locale }) {
           </p>
         </div>
         <nav className="site-footer__legal" aria-label={t("legalKicker")}>
-          <a href="/terms">{t("footerTerms")}</a>
-          <a href="/privacy">{t("footerPrivacy")}</a>
-          <a href="/responsible-use">{t("footerResponsibleUse")}</a>
-          <a href="/subscription-terms">{t("footerSubscriptionTerms")}</a>
+          <a href={localePath("/terms", locale)}>{t("footerTerms")}</a>
+          <a href={localePath("/privacy", locale)}>{t("footerPrivacy")}</a>
+          <a href={localePath("/responsible-use", locale)}>
+            {t("footerResponsibleUse")}
+          </a>
+          <a href={localePath("/subscription-terms", locale)}>
+            {t("footerSubscriptionTerms")}
+          </a>
         </nav>
       </div>
       <div className="site-footer__inner" style={{ paddingTop: 0 }}>

@@ -2,6 +2,7 @@ import { translator } from "@velyq/ui";
 import { getNotFoundLocale } from "./locale";
 import { PublicShell } from "./components/site-chrome";
 import { ErrorState, ArrowLink } from "./components/ui";
+import { localePath } from "./locale-path";
 
 /*
  * Without this file Next serves its own stock 404: an unstyled "This page
@@ -19,7 +20,11 @@ export default async function NotFound() {
         <ErrorState
           title={t("notFoundTitle")}
           body={t("notFoundBody")}
-          action={<ArrowLink href="/">{t("backToHome")}</ArrowLink>}
+          action={
+            <ArrowLink href={localePath("/", locale)}>
+              {t("backToHome")}
+            </ArrowLink>
+          }
         />
       </div>
     </PublicShell>

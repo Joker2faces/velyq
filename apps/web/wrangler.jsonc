@@ -6,6 +6,21 @@
   "main": "vinext/server/fetch-handler",
   "assets": {
     "directory": "dist/client",
+    /*
+     * Public pages are prerendered into the asset directory so Cloudflare
+     * serves them without invoking the Worker — the app's SSR costs ~16ms of
+     * CPU and the Workers Free allowance is ~10ms, so serving HTML from the
+     * Worker exhausts the budget and 503s the site.
+     *
+     * `drop-trailing-slash` keeps the canonical URLs the product already
+     * uses: without it Cloudflare answers /pricing with a 307 to /pricing/,
+     * because the file lives at pricing/index.html.
+     *
+     * `not_found_handling: "none"` is what makes the split work: a path with
+     * no matching asset falls through to the Worker, which is how /api/* and
+     * the still-dynamic authenticated routes keep working.
+     */
+    "html_handling": "drop-trailing-slash",
     "not_found_handling": "none",
     "binding": "ASSETS",
   },

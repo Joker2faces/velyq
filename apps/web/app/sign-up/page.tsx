@@ -1,19 +1,14 @@
 import { translator } from "@velyq/ui";
 import { getLocale } from "../locale";
-import { AuthShell, FormError } from "../components/auth-shell";
+import { AuthShell } from "../components/auth-shell";
+import { AuthError } from "../components/auth-error";
 import { PasswordField } from "../components/password-field";
+import { localePath } from "../locale-path";
 
-export default async function SignUp({
-  searchParams,
-}: {
-  searchParams?: Promise<{ error?: string }>;
-}) {
-  const params = searchParams ? await searchParams : {};
+export default async function SignUp() {
   const locale = await getLocale();
   const t = translator(locale);
   const errorId = "sign-up-error";
-  const hasError = Boolean(params.error);
-  const hasCredentialError = hasError && params.error !== "unavailable";
 
   return (
     <AuthShell
@@ -22,13 +17,13 @@ export default async function SignUp({
       title={t("authSignUpTitle")}
       body={t("authSignUpBody")}
     >
-      {hasError ? (
-        <FormError id={errorId}>
-          {params.error === "unavailable"
-            ? t("authSignUpUnavailable")
-            : t("authSignUpError")}
-        </FormError>
-      ) : null}
+      <AuthError
+        locale={locale}
+        id={errorId}
+        invalidKey="authSignUpError"
+        unavailableKey="authSignUpUnavailable"
+        fieldIds={["email", "password"]}
+      />
 
       <form className="auth__form" action="/api/v1/auth/sign-up" method="post">
         <div className="field">
@@ -41,8 +36,6 @@ export default async function SignUp({
             type="email"
             autoComplete="email"
             required
-            {...(hasError ? { "aria-describedby": errorId } : {})}
-            {...(hasCredentialError ? { "aria-invalid": true as const } : {})}
           />
         </div>
 
@@ -53,8 +46,6 @@ export default async function SignUp({
           hideLabel={t("authHidePassword")}
           autoComplete="new-password"
           minLength={8}
-          invalid={hasCredentialError}
-          {...(hasError ? { describedBy: errorId } : {})}
         />
 
         <button className="button button--primary button--block" type="submit">
@@ -64,10 +55,10 @@ export default async function SignUp({
 
       <p className="field__hint">
         {t("authSignUpLegal")}{" "}
-        <a className="link" href="/terms">
+        <a className="link" href={localePath("/terms", locale)}>
           {t("footerTerms")}
         </a>{" "}
-        <a className="link" href="/privacy">
+        <a className="link" href={localePath("/privacy", locale)}>
           {t("footerPrivacy")}
         </a>
       </p>
@@ -75,7 +66,7 @@ export default async function SignUp({
       <div className="auth__links">
         <p>
           {t("authHaveAccount")}{" "}
-          <a className="link" href="/sign-in">
+          <a className="link" href={localePath("/sign-in", locale)}>
             {t("homeSignIn")}
           </a>
         </p>

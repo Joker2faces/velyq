@@ -1,19 +1,14 @@
 import { translator } from "@velyq/ui";
 import { getLocale } from "../locale";
-import { AuthShell, FormError } from "../components/auth-shell";
+import { AuthShell } from "../components/auth-shell";
+import { AuthError } from "../components/auth-error";
 import { PasswordField } from "../components/password-field";
+import { localePath } from "../locale-path";
 
-export default async function SignIn({
-  searchParams,
-}: {
-  searchParams?: Promise<{ error?: string }>;
-}) {
-  const params = searchParams ? await searchParams : {};
+export default async function SignIn() {
   const locale = await getLocale();
   const t = translator(locale);
   const errorId = "sign-in-error";
-  const hasError = Boolean(params.error);
-  const hasCredentialError = hasError && params.error !== "unavailable";
 
   return (
     <AuthShell
@@ -22,13 +17,13 @@ export default async function SignIn({
       title={t("authSignInTitle")}
       body={t("authSignInBody")}
     >
-      {hasError ? (
-        <FormError id={errorId}>
-          {params.error === "unavailable"
-            ? t("authSignInUnavailable")
-            : t("authSignInError")}
-        </FormError>
-      ) : null}
+      <AuthError
+        locale={locale}
+        id={errorId}
+        invalidKey="authSignInError"
+        unavailableKey="authSignInUnavailable"
+        fieldIds={["email", "password"]}
+      />
 
       <form className="auth__form" action="/api/v1/auth/sign-in" method="post">
         <div className="field">
@@ -41,8 +36,6 @@ export default async function SignIn({
             type="email"
             autoComplete="email"
             required
-            {...(hasError ? { "aria-describedby": errorId } : {})}
-            {...(hasCredentialError ? { "aria-invalid": true as const } : {})}
           />
         </div>
 
@@ -51,8 +44,6 @@ export default async function SignIn({
           showLabel={t("authShowPassword")}
           hideLabel={t("authHidePassword")}
           autoComplete="current-password"
-          invalid={hasCredentialError}
-          {...(hasError ? { describedBy: errorId } : {})}
         />
 
         <button className="button button--primary button--block" type="submit">
@@ -63,12 +54,12 @@ export default async function SignIn({
       <div className="auth__links">
         <p>
           {t("authNoAccount")}{" "}
-          <a className="link" href="/sign-up">
+          <a className="link" href={localePath("/sign-up", locale)}>
             {t("homeCreateAccount")}
           </a>
         </p>
         <p>
-          <a className="link" href="/forgot-password">
+          <a className="link" href={localePath("/forgot-password", locale)}>
             {t("authForgotPassword")}
           </a>
         </p>

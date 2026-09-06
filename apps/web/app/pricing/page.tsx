@@ -4,6 +4,7 @@ import { paidBillingConfigured, planCatalog } from "../plan-config";
 import { PublicShell } from "../components/site-chrome";
 import { Badge, Card } from "../components/ui";
 import { IconCheck, IconShield } from "../components/icons";
+import { localePath } from "../locale-path";
 
 /**
  * Pricing.
@@ -92,7 +93,7 @@ export default async function Pricing() {
                 {plan.code === "FREE" ? (
                   <a
                     className="button button--secondary button--block"
-                    href="/sign-up"
+                    href={localePath("/sign-up", locale)}
                   >
                     {t("homeCreateAccount")}
                   </a>

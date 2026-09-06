@@ -25,6 +25,7 @@ import {
 } from "./components/ui";
 import { IconAlert, IconCheck } from "./components/icons";
 import { Fixture, PitchBackdrop } from "./components/pitch";
+import { localePath } from "./locale-path";
 
 export default async function Home() {
   const locale = await getLocale();
@@ -60,13 +61,22 @@ export default async function Home() {
             </h1>
             <p className="hero__body">{t("homeHeroBody")}</p>
             <div className="hero__actions">
-              <a className="button button--primary" href="/sign-up">
+              <a
+                className="button button--primary"
+                href={localePath("/sign-up", locale)}
+              >
                 {t("homeHeroPrimaryCta")}
               </a>
-              <a className="button button--secondary" href="/sign-in">
+              <a
+                className="button button--secondary"
+                href={localePath("/sign-in", locale)}
+              >
                 {t("homeHeroSecondaryCta")}
               </a>
-              <a className="button button--ghost" href="/pricing">
+              <a
+                className="button button--ghost"
+                href={localePath("/pricing", locale)}
+              >
                 {t("homeHeroPricingCta")}
               </a>
             </div>
@@ -308,7 +318,9 @@ export default async function Home() {
               <div className="module__body">
                 <p className="module__label">{t(module.label)}</p>
                 <h3>{t(module.title)}</h3>
-                <ArrowLink href="/sign-up">{t("homeCreateAccount")}</ArrowLink>
+                <ArrowLink href={localePath("/sign-up", locale)}>
+                  {t("homeCreateAccount")}
+                </ArrowLink>
               </div>
               <div className="module__body">
                 <p>{t(module.body)}</p>
@@ -464,7 +476,9 @@ export default async function Home() {
           ))}
         </div>
         <p style={{ marginTop: "var(--space-5)" }}>
-          <ArrowLink href="/pricing">{t("homePricingCta")}</ArrowLink>
+          <ArrowLink href={localePath("/pricing", locale)}>
+            {t("homePricingCta")}
+          </ArrowLink>
         </p>
       </section>
 
@@ -477,7 +491,9 @@ export default async function Home() {
           </h2>
           <p>{t("homeNoticeBody")}</p>
           <p>
-            <ArrowLink href="/responsible-use">{t("homeNoticeLink")}</ArrowLink>
+            <ArrowLink href={localePath("/responsible-use", locale)}>
+              {t("homeNoticeLink")}
+            </ArrowLink>
           </p>
         </div>
       </section>
@@ -490,7 +506,10 @@ export default async function Home() {
             <h2>{t("homeFinalTitle")}</h2>
             <p>{t("homeFinalBody")}</p>
           </div>
-          <a className="button button--primary" href="/sign-up">
+          <a
+            className="button button--primary"
+            href={localePath("/sign-up", locale)}
+          >
             {t("homeFinalCta")}
           </a>
         </div>

@@ -10,13 +10,34 @@
  */
 
 type CookieHost = { cookie: string };
-type LocationHost = { hash: string };
+type LocationHost = {
+  hash: string;
+  pathname?: string;
+  search?: string;
+  assign?: (url: string) => void;
+};
 
 function browser() {
   return globalThis as unknown as {
     document?: CookieHost;
     location?: LocationHost;
   };
+}
+
+/** The current path, or "/" when there is no browser (SSR, tests). */
+export function currentPathname(): string {
+  return browser().location?.pathname ?? "/";
+}
+
+/**
+ * A full navigation, not a client-side route change.
+ *
+ * The locale variants of public pages are static assets rather than routes
+ * the Next router knows about, so pushing them through the client router
+ * would not resolve.
+ */
+export function redirectTo(url: string) {
+  browser().location?.assign?.(url);
 }
 
 /** Writes a first-party, non-sensitive preference cookie. */
@@ -45,6 +66,41 @@ export function readPreferenceCookie(name: string): string | null {
     if (key === name) return decodeURIComponent(rest.join("="));
   }
   return null;
+}
+
+/** Reads a parameter out of the URL query string. */
+export function readQueryParameter(name: string): string | null {
+  const search = browser().location?.search ?? "";
+  return new URLSearchParams(search).get(name);
+}
+
+/**
+ * Re-applies the ARIA wiring the server used to render for auth errors.
+ *
+ * The auth pages are static assets now, so the error state is decided in the
+ * browser; without this the message would be visible but unassociated with
+ * the fields, and screen-reader users would lose the link between them.
+ * `invalid` is false for a service outage: nothing is wrong with what the
+ * customer typed, so the fields must not be marked as though there were.
+ */
+export function markFieldsInvalid(
+  fieldIds: readonly string[],
+  errorId: string,
+  invalid: boolean,
+) {
+  const host = globalThis as unknown as {
+    document?: {
+      getElementById?: (id: string) => {
+        setAttribute: (name: string, value: string) => void;
+      } | null;
+    };
+  };
+  for (const fieldId of fieldIds) {
+    const field = host.document?.getElementById?.(fieldId);
+    if (!field) continue;
+    field.setAttribute("aria-describedby", errorId);
+    if (invalid) field.setAttribute("aria-invalid", "true");
+  }
 }
 
 /**

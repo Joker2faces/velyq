@@ -8,9 +8,11 @@
     "typegen:next": "corepack pnpm run clean:next && next typegen",
     "typecheck": "corepack pnpm run typegen:next && tsc --noEmit -p tsconfig.json",
     "dev:vinext": "vinext dev --port 3001",
-    "build:vinext": "corepack pnpm --filter @velyq/application... build && corepack pnpm --filter @velyq/database build && vinext build",
+    "build:vinext": "corepack pnpm run clean:dist && corepack pnpm --filter @velyq/application... build && corepack pnpm --filter @velyq/database build && vinext build && corepack pnpm run prerender",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
-    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
+    "deploy:vinext": "wrangler deploy --config dist/server/wrangler.json",
+    "prerender": "node ../../tooling/scripts/build-static-site.mjs",
+    "clean:dist": "node ../../tooling/scripts/clean-dist.mjs"
   },
   "dependencies": {
     "@velyq/application": "workspace:*",
