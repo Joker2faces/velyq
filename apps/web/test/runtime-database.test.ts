@@ -78,6 +78,25 @@ describe("runtime database session", () => {
     expect(runtimeState.close).toHaveBeenCalledTimes(1);
   });
 
+  it("shares one rejected close across concurrent and subsequent callers", async () => {
+    runtimeState.source = {
+      kind: "hyperdrive",
+      connectionString: "postgres://hyperdrive/database",
+    };
+    const closeError = new Error("pool close failed");
+    runtimeState.close.mockRejectedValue(closeError);
+    const session = await openRuntimeDatabaseSession();
+    if (!session) throw new Error("Expected a configured database session");
+
+    const first = session.close();
+    const second = session.close();
+
+    expect(first).toBe(second);
+    await expect(first).rejects.toBe(closeError);
+    await expect(session.close()).rejects.toBe(closeError);
+    expect(runtimeState.close).toHaveBeenCalledTimes(1);
+  });
+
   it("supports deterministic cleanup after a query fails", async () => {
     runtimeState.source = {
       kind: "hyperdrive",
