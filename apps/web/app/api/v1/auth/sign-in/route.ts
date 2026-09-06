@@ -12,6 +12,20 @@ export async function POST(request: Request) {
     browserForm
       ? NextResponse.redirect(new URL("/sign-in?error=invalid", request.url))
       : null;
+
+  /*
+   * A misconfigured or unreachable auth service is a 503, not a rejected
+   * credential. Collapsing it into the generic `?error=invalid` told a
+   * customer with valid details that their password was wrong and sent them
+   * into an endless retry over a fault they cannot fix. `forgot-password`
+   * already made this distinction; sign-in and sign-up now match it.
+   */
+  const browserUnavailable = () =>
+    browserForm
+      ? NextResponse.redirect(
+          new URL("/sign-in?error=unavailable", request.url),
+        )
+      : null;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -52,7 +66,7 @@ export async function POST(request: Request) {
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)
     return (
-      browserError() ??
+      browserUnavailable() ??
       NextResponse.json(
         {
           type: "https://velyq.dev/problems/not-configured",

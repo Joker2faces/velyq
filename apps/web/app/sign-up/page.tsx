@@ -13,6 +13,9 @@ export default async function SignUp({
   const t = translator(locale);
   const errorId = "sign-up-error";
   const hasError = Boolean(params.error);
+  // A service outage and a rejected credential are different things and must
+  // not share a sentence.
+  const unavailable = params.error === "unavailable";
 
   return (
     <AuthShell
@@ -22,7 +25,9 @@ export default async function SignUp({
       body={t("authSignUpBody")}
     >
       {hasError ? (
-        <FormError id={errorId}>{t("authSignUpError")}</FormError>
+        <FormError id={errorId}>
+          {t(unavailable ? "authSignUpUnavailable" : "authSignUpError")}
+        </FormError>
       ) : null}
 
       <form className="auth__form" action="/api/v1/auth/sign-up" method="post">
@@ -49,7 +54,7 @@ export default async function SignUp({
           hideLabel={t("authHidePassword")}
           autoComplete="new-password"
           minLength={8}
-          invalid={hasError}
+          invalid={hasError && !unavailable}
           {...(hasError ? { describedBy: errorId } : {})}
         />
 

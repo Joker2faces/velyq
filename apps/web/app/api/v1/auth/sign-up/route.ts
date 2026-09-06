@@ -12,6 +12,18 @@ export async function POST(request: Request) {
     browserForm
       ? NextResponse.redirect(new URL("/sign-up?error=invalid", request.url))
       : null;
+
+  /*
+   * A misconfigured or unreachable auth service is a 503, not a rejected
+   * submission. Collapsing it into the generic `?error=invalid` told the
+   * customer to check details that were never the problem.
+   */
+  const browserUnavailable = () =>
+    browserForm
+      ? NextResponse.redirect(
+          new URL("/sign-up?error=unavailable", request.url),
+        )
+      : null;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -29,7 +41,7 @@ export async function POST(request: Request) {
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key)
     return (
-      browserError() ??
+      browserUnavailable() ??
       NextResponse.json(
         { code: "AUTH_NOT_CONFIGURED", requestId: id },
         { status: 503 },
