@@ -45,13 +45,6 @@ export async function GET(
     if (!result.ok && result.code === "NOT_FOUND") return notFound();
     if (!result.ok) return problem(unavailable());
     const match = result.value;
-    if (process.env["VELYQ_DATABASE_URL"]) {
-      return NextResponse.json({
-        eventId,
-        syntheticLabel: match.syntheticLabel,
-        observations: [],
-      });
-    }
     return NextResponse.json({
       eventId,
       syntheticLabel: match.syntheticLabel,

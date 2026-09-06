@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
-import { createPrivilegedDatabaseClient } from "@velyq/database/server";
 import { subscriptions } from "@velyq/database/schema/private";
 import { customerRedirectUrl, getCookie, requestId } from "../../../auth";
 import {
@@ -9,6 +8,7 @@ import {
   stripeClient,
   type PaidPlan,
 } from "../../../../billing";
+import { openRuntimeDatabaseSession } from "../../../../runtime-database/runtime-database";
 
 export async function POST(request: Request) {
   const id = requestId(request);
@@ -44,13 +44,10 @@ export async function POST(request: Request) {
     );
   try {
     const customer = await getOrCreateStripeCustomer(user.id, user.email);
-    const databaseUrl = process.env["VELYQ_DATABASE_URL"];
-    if (!databaseUrl) throw new Error("BILLING_NOT_CONFIGURED");
-    const client = createPrivilegedDatabaseClient({
-      connectionString: databaseUrl,
-    });
+    const databaseSession = await openRuntimeDatabaseSession();
+    if (!databaseSession) throw new Error("BILLING_NOT_CONFIGURED");
     try {
-      const current = await client.database
+      const current = await databaseSession.database
         .select({ id: subscriptions.id })
         .from(subscriptions)
         .where(
@@ -72,7 +69,7 @@ export async function POST(request: Request) {
           { status: 409 },
         );
     } finally {
-      await client.close();
+      await databaseSession.close();
     }
     const openSessions = await stripeClient().checkout.sessions.list({
       customer,

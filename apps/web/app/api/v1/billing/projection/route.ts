@@ -6,8 +6,8 @@ import {
   type SubscriptionStatus,
 } from "@velyq/auth";
 import { subscriptions } from "@velyq/database/schema/private";
-import { createPrivilegedDatabaseClient } from "@velyq/database/server";
 import { getCookie, requireCustomerSession, requestId } from "../../../auth";
+import { openRuntimeDatabaseSession } from "../../../../runtime-database/runtime-database";
 
 export async function GET(request: Request) {
   const denied = await requireCustomerSession(request);
@@ -15,8 +15,7 @@ export async function GET(request: Request) {
   const token = getCookie(request, "velyq_access_token");
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
-  const databaseUrl = process.env["VELYQ_DATABASE_URL"];
-  if (!token || !url || !key || !databaseUrl)
+  if (!token || !url || !key)
     return NextResponse.json(
       { code: "BILLING_UNAVAILABLE", requestId: requestId(request) },
       { status: 503 },
@@ -36,11 +35,14 @@ export async function GET(request: Request) {
       { code: "UNAUTHORIZED", requestId: requestId(request) },
       { status: 401 },
     );
-  const client = createPrivilegedDatabaseClient({
-    connectionString: databaseUrl,
-  });
+  const session = await openRuntimeDatabaseSession();
+  if (!session)
+    return NextResponse.json(
+      { code: "BILLING_UNAVAILABLE", requestId: requestId(request) },
+      { status: 503 },
+    );
   try {
-    const row = await client.database
+    const row = await session.database
       .select({
         plan: subscriptions.planCode,
         status: subscriptions.status,
@@ -81,6 +83,6 @@ export async function GET(request: Request) {
       entitlements: resolved.entitlements,
     });
   } finally {
-    await client.close();
+    await session.close();
   }
 }
