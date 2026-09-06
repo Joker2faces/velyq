@@ -6,7 +6,7 @@ import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import {
   customerDatabaseMapper,
-  databaseCustomerQueries,
+  openDatabaseCustomerQueries,
 } from "./customer-database";
 import { customerToday } from "./customer-data";
 import { cookies } from "next/headers";
@@ -14,10 +14,7 @@ import { redirect } from "next/navigation";
 import { customerFixtureMode, requireCustomerSession } from "./api/auth";
 import { desc, eq } from "drizzle-orm";
 import { subscriptions } from "@velyq/database/schema/private";
-import {
-  createPrivilegedDatabaseClient,
-  DatabasePermissionResolver,
-} from "@velyq/database";
+import { DatabasePermissionResolver } from "@velyq/database";
 import {
   hasPermission,
   resolveCustomerEntitlements,
@@ -25,6 +22,7 @@ import {
   type CustomerPlan,
   type SubscriptionStatus,
 } from "@velyq/auth";
+import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 
 type CustomerService = {
   getToday: (asOf: Date) => Promise<
@@ -91,8 +89,10 @@ const fixtureService: CustomerService = {
   },
 };
 /* The two application services keep today and match DTO types distinct. */
-function databaseService(
-  database: NonNullable<ReturnType<typeof databaseCustomerQueries>>,
+function mappedDatabaseService(
+  database: NonNullable<
+    Awaited<ReturnType<typeof openDatabaseCustomerQueries>>
+  >["queries"],
 ): CustomerService {
   const today = new MappedCustomerQueryService<
     CustomerRawToday,
@@ -112,15 +112,41 @@ function databaseService(
   };
 }
 
+const runtimeDatabaseService: CustomerService = {
+  async getToday(asOf) {
+    const runtime = await openDatabaseCustomerQueries();
+    if (!runtime)
+      return customerFixtureMode()
+        ? fixtureService.getToday(asOf)
+        : unavailable();
+    try {
+      return await mappedDatabaseService(runtime.queries).getToday(asOf);
+    } finally {
+      await runtime.close();
+    }
+  },
+  async getMatch(eventId, asOf) {
+    const runtime = await openDatabaseCustomerQueries();
+    if (!runtime)
+      return customerFixtureMode()
+        ? fixtureService.getMatch(eventId, asOf)
+        : unavailable();
+    try {
+      return await mappedDatabaseService(runtime.queries).getMatch(
+        eventId,
+        asOf,
+      );
+    } finally {
+      await runtime.close();
+    }
+  },
+};
+
 export function customerService() {
   if (process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO") {
     return fixtureService;
   }
-  const database = databaseCustomerQueries();
-  if (database) {
-    return databaseService(database);
-  }
-  return customerFixtureMode() ? fixtureService : null;
+  return runtimeDatabaseService;
 }
 
 export async function loadCustomerToday(
@@ -157,8 +183,7 @@ export async function loadCustomerContext() {
   const token = cookieHeader.match(/(?:^|; )velyq_access_token=([^;]+)/)?.[1];
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
-  const databaseUrl = process.env["VELYQ_DATABASE_URL"];
-  if (!token || !url || !key || !databaseUrl) return null;
+  if (!token || !url || !key) return null;
   const identity = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: key, Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -166,14 +191,13 @@ export async function loadCustomerContext() {
   if (!identity.ok) return null;
   const user = (await identity.json()) as { id?: string; email?: string };
   if (!user.id) return null;
-  const client = createPrivilegedDatabaseClient({
-    connectionString: databaseUrl,
-  });
+  const session = await openRuntimeDatabaseSession();
+  if (!session) return null;
   try {
     const principal = await new DatabasePermissionResolver(
-      client.database,
+      session.database,
     ).resolve(user.id);
-    const rows = await client.database
+    const rows = await session.database
       .select({ plan: subscriptions.planCode, status: subscriptions.status })
       .from(subscriptions)
       .where(eq(subscriptions.userId, user.id))
@@ -207,12 +231,16 @@ export async function loadCustomerContext() {
       isAdmin: hasPermission(principal, "admin.access"),
     };
   } finally {
-    await client.close();
+    await session.close();
   }
 }
 
 async function requireCustomerPageAccess(entitlement: CustomerEntitlement) {
-  if (!process.env["VELYQ_DATABASE_URL"] && customerFixtureMode()) return true;
+  if (customerFixtureMode()) {
+    const runtime = await openDatabaseCustomerQueries();
+    if (!runtime) return true;
+    await runtime.close();
+  }
   const cookieHeader = (await cookies()).toString();
   const request = new Request("https://velyq.local/customer", {
     headers: { cookie: cookieHeader },
@@ -248,13 +276,15 @@ export async function customerOddsHistory(
   outcomeId: string | null,
   asOf: Date,
 ) {
-  const database = databaseCustomerQueries();
-  if (database) {
-    if (!outcomeId) return { ambiguous: true as const };
+  const runtime = await openDatabaseCustomerQueries();
+  if (runtime) {
     try {
-      return await database.getOddsHistory(eventId, outcomeId, asOf);
+      if (!outcomeId) return { ambiguous: true as const };
+      return await runtime.queries.getOddsHistory(eventId, outcomeId, asOf);
     } catch {
       return { unavailable: true as const };
+    } finally {
+      await runtime.close();
     }
   }
   return null;

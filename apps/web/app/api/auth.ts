@@ -7,12 +7,10 @@ import {
   type CustomerPlan,
   type SubscriptionStatus,
 } from "@velyq/auth";
-import {
-  createPrivilegedDatabaseClient,
-  DatabasePermissionResolver,
-} from "@velyq/database";
+import { DatabasePermissionResolver } from "@velyq/database";
 import { subscriptions } from "@velyq/database/schema/private";
 import { desc, eq } from "drizzle-orm";
+import { openRuntimeDatabaseSession } from "../runtime-database/runtime-database";
 
 export function getCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "")
@@ -81,22 +79,19 @@ export async function requireCustomerSession(
       if (response.ok) {
         const user = (await response.json()) as { id?: string };
         if (!user.id) return unauthorized(request);
-        const databaseUrl = process.env["VELYQ_DATABASE_URL"];
-        if (!databaseUrl)
-          return customerFixtureMode()
-            ? entitlementDecision(request, "FREE", null, entitlement)
-            : authorizationUnavailable(request);
-        let client: ReturnType<typeof createPrivilegedDatabaseClient>;
+        let session: Awaited<ReturnType<typeof openRuntimeDatabaseSession>>;
         try {
-          client = createPrivilegedDatabaseClient({
-            connectionString: databaseUrl,
-          });
+          session = await openRuntimeDatabaseSession();
+          if (!session)
+            return customerFixtureMode()
+              ? entitlementDecision(request, "FREE", null, entitlement)
+              : authorizationUnavailable(request);
           const principal = await new DatabasePermissionResolver(
-            client.database,
+            session.database,
           ).resolve(user.id);
           if (!hasPermission(principal, "customer.read"))
             return forbidden(request);
-          const rows = await client.database
+          const rows = await session.database
             .select({
               plan: subscriptions.planCode,
               status: subscriptions.status,
@@ -118,7 +113,7 @@ export async function requireCustomerSession(
         } catch {
           return authorizationUnavailable(request);
         } finally {
-          if (client!) await client.close().catch(() => undefined);
+          if (session!) await session.close().catch(() => undefined);
         }
       }
     } catch {

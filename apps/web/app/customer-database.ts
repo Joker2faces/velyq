@@ -1,7 +1,4 @@
-import {
-  createDatabaseClient,
-  DatabaseCustomerQueryAdapter,
-} from "@velyq/database";
+import { DatabaseCustomerQueryAdapter } from "@velyq/database";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import type {
   CustomerMatchDto,
@@ -14,6 +11,7 @@ import {
   subtractDecimalStrings,
   type DecimalString,
 } from "@velyq/decimal";
+import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 
 const decimal = (value: string | null | undefined) =>
   value == null ? null : (value as DecimalString);
@@ -191,12 +189,17 @@ export const customerDatabaseMapper = {
   mapMatch,
 };
 
-let adapter: DatabaseCustomerQueryAdapter | null = null;
-export function databaseCustomerQueries() {
-  const connectionString = process.env["VELYQ_DATABASE_URL"];
-  if (!connectionString) return null;
-  adapter ??= new DatabaseCustomerQueryAdapter(
-    createDatabaseClient({ connectionString }).database,
-  );
-  return adapter;
+export interface RuntimeCustomerQueries {
+  readonly queries: DatabaseCustomerQueryAdapter;
+  close(): Promise<void>;
+}
+
+export async function openDatabaseCustomerQueries(): Promise<RuntimeCustomerQueries | null> {
+  const session = await openRuntimeDatabaseSession();
+  if (!session) return null;
+
+  return {
+    queries: new DatabaseCustomerQueryAdapter(session.database),
+    close: () => session.close(),
+  };
 }
