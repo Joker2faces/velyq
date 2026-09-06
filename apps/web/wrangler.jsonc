@@ -38,9 +38,15 @@
     "NEXT_PUBLIC_SUPABASE_URL": "https://zvdqkmevjfwprexshpap.supabase.co",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_YEvRp91UoERENWagW5gY6g_8JHyPv_a",
     "VELYQ_APPLICATION_ORIGIN": "https://velyq-poc.joker2face1990.workers.dev",
+    /*
+     * Synthetic football data, and only data. VELYQ_SYNTHETIC_PREVIEW is
+     * deliberately absent: it existed to keep the Worker usable while
+     * Cloudflare had no database, and with it set requireCustomerPageAccess
+     * grants access with no authentication check whenever the database is
+     * briefly unreachable, while requireCustomerSession hands out FREE
+     * entitlements instead of failing closed. Hyperdrive now serves this
+     * Worker, so authorization is resolved for real on every request.
+     */
     "VELYQ_CUSTOMER_INTELLIGENCE_MODE": "SYNTHETIC_DEMO",
-    // Removed once Hyperdrive and Supabase Auth are proven live; synthetic
-    // football data stays, synthetic authorization does not.
-    "VELYQ_SYNTHETIC_PREVIEW": "true",
   },
 }
