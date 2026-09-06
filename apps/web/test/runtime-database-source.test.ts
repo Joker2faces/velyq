@@ -80,9 +80,16 @@ describe("runtime database source", () => {
         },
         "build",
       );
-      const resolved = await config.createResolver()(nodeSource);
+      const resolver = config.createResolver();
+      const resolved = await resolver(nodeSource);
+      const resolvedExtensionless = await resolver(
+        nodeSource.slice(0, -path.extname(nodeSource).length),
+      );
 
       expect(path.normalize(resolved ?? "")).toBe(
+        path.normalize(cloudflareSource),
+      );
+      expect(path.normalize(resolvedExtensionless ?? "")).toBe(
         path.normalize(cloudflareSource),
       );
     },

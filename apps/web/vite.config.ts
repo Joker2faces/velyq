@@ -9,6 +9,10 @@ const nodeDatabaseSource = path.join(
   webDirectory,
   "app/runtime-database/runtime-database-source.ts",
 );
+const nodeDatabaseSourceWithoutExtension = nodeDatabaseSource.slice(
+  0,
+  -path.extname(nodeDatabaseSource).length,
+);
 const cloudflareDatabaseSource = path.join(
   webDirectory,
   "app/runtime-database/runtime-database-source.cloudflare.ts",
@@ -17,6 +21,10 @@ const cloudflareDatabaseSource = path.join(
 export default defineConfig({
   resolve: {
     alias: [
+      {
+        find: nodeDatabaseSourceWithoutExtension,
+        replacement: cloudflareDatabaseSource,
+      },
       {
         find: nodeDatabaseSource,
         replacement: cloudflareDatabaseSource,
