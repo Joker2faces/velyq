@@ -57,7 +57,7 @@ export const messages = {
   // ------------------------------------------------------------- metadata
   metaTitle: "VELYQ — Football Market Intelligence",
   metaDescription:
-    "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
+    "Traceable football market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
 
   // ------------------------------------------------------- system states
   customerUnavailable: "Data is not available right now.",
@@ -234,7 +234,7 @@ export const messages = {
   homeFinalCta: "Create your free account",
 
   // -------------------------------------------------------- home: footer
-  footerRights: "AI sports market intelligence",
+  footerRights: "AI football market intelligence",
   footerCreatedBy: "Created by",
   footerTerms: "Terms",
   footerPrivacy: "Privacy",
@@ -283,9 +283,14 @@ export const messages = {
   // ----------------------------------------------------------------- auth
   authSignInKicker: "Customer access",
   authSignInTitle: "Welcome back.",
-  authSignInBody: "Sign in to your sports market intelligence workspace.",
+  authSignInBody: "Sign in to your football intelligence workspace.",
   authSignInSubmit: "Sign in",
   authSignInError: "Email or password is incorrect. Please try again.",
+  // Shown when the sign-in service itself is unreachable. Saying "incorrect
+  // password" there sends a customer with valid details into an endless
+  // retry loop over a fault they cannot fix.
+  authSignInUnavailable:
+    "Sign-in is temporarily unavailable. This is not a problem with your details — please try again shortly.",
   authSignInFooter: "Your session is held and verified on our servers.",
   authNoAccount: "New to VELYQ?",
   authForgotPassword: "Forgot your password?",
@@ -296,6 +301,8 @@ export const messages = {
   authSignUpSubmit: "Create free account",
   authSignUpError:
     "We could not create the account. Check your details and try again.",
+  authSignUpUnavailable:
+    "Account creation is temporarily unavailable. Please try again shortly.",
   authSignUpFooter:
     "Every new account starts on the FREE plan. Access is assigned on our servers.",
   authSignUpLegal:
@@ -364,6 +371,7 @@ export const messages = {
     "Where is the market's price more generous than our model thinks it should be? A positive edge answers that — it is not a prediction that the outcome will happen.",
   edgeCurrentOpportunities: "Current opportunities",
   edgeTracked: "{count} tracked",
+  edgeTrackedPreview: "{shown} of {total} tracked",
   edgeGated: "Waiting on evidence",
   edgeGatedNote:
     "These matches produced no estimate. The reason is shown on each row.",
@@ -577,6 +585,23 @@ export const messages = {
   adminUnavailableBody:
     "The admin database runtime is not configured, so no data is shown.",
 
+  // ------------------------------------------------------ plan gating
+  //
+  // A plan boundary is an offer, not a fault. These strings deliberately
+  // avoid apology and error vocabulary: the customer has not done anything
+  // wrong, there is simply more of the product to see.
+  lockedBadge: "Included in {plan}",
+  lockedPreviewTitle: "You are seeing a preview",
+  lockedPreviewBody:
+    "{shown} of {total} tracked matches. {plan} opens the full table, every metric and the complete market history.",
+  lockedRowsHint: "{count} more on {plan}",
+  lockedMatchTitle: "Match Intelligence opens with {plan}",
+  lockedMatchBody:
+    "The full match desk: the verdict and the reason behind it, model against market, movement evidence, data quality, lineup state and the complete model trace.",
+  lockedCta: "Compare plans",
+  lockedWhatYouGet: "What {plan} adds",
+  entitlementRequired: "This view is available on a higher plan.",
+
   // -------------------------------------------------- explanations (help)
   explainEdgeTitle: "What is EDGE?",
   explainEdgeBody:
@@ -699,7 +724,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
 
   metaTitle: "VELYQ — Ανάλυση αγορών ποδοσφαίρου",
   metaDescription:
-    "Ανάλυση αθλητικών αγορών με ίχνος σε κάθε νούμερο: πιθανότητα μοντέλου απέναντι στις τρέχουσες αποδόσεις και καταγεγραμμένη κίνηση αποδόσεων.",
+    "Ανάλυση αγορών ποδοσφαίρου με ίχνος σε κάθε νούμερο: πιθανότητα μοντέλου απέναντι στις τρέχουσες αποδόσεις και καταγεγραμμένη κίνηση αποδόσεων.",
 
   customerUnavailable: "Κάτι πήγε στραβά.",
   customerUnavailableBody:
@@ -860,7 +885,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Η δωρεάν πρόσβαση είναι ανοιχτή — όλο το Σήμερα, το EDGE και το RADAR, στα ελληνικά ή στα αγγλικά.",
   homeFinalCta: "Δημιούργησε δωρεάν λογαριασμό",
 
-  footerRights: "Ανάλυση αθλητικών αγορών με AI",
+  footerRights: "Ανάλυση αγορών ποδοσφαίρου με AI",
   footerCreatedBy: "Created by",
   footerTerms: "Όροι χρήσης",
   footerPrivacy: "Απόρρητο",
@@ -906,6 +931,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   authSignInBody: "Συνδέσου στον χώρο ανάλυσής σου.",
   authSignInSubmit: "Σύνδεση",
   authSignInError: "Λάθος email ή κωδικός. Δοκίμασε ξανά.",
+  authSignInUnavailable:
+    "Η σύνδεση δεν δουλεύει αυτή τη στιγμή. Δεν φταίνε τα στοιχεία σου — δοκίμασε ξανά σε λίγο.",
   authSignInFooter:
     "Η σύνδεσή σου ελέγχεται και προστατεύεται από την πλευρά μας.",
   authNoAccount: "Πρώτη φορά στο VELYQ;",
@@ -917,6 +944,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   authSignUpSubmit: "Δημιούργησε δωρεάν λογαριασμό",
   authSignUpError:
     "Δεν έγινε η δημιουργία λογαριασμού. Έλεγξε τα στοιχεία σου και δοκίμασε ξανά.",
+  authSignUpUnavailable:
+    "Η δημιουργία λογαριασμού δεν δουλεύει αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.",
   authSignUpFooter: "Κάθε νέος λογαριασμός ξεκινά στο FREE.",
   authSignUpLegal:
     "Με τη δημιουργία λογαριασμού αποδέχεσαι τους όρους χρήσης και το απόρρητο.",
@@ -982,6 +1011,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Πού πληρώνει η αγορά πιο γενναιόδωρα από όσο λέει το μοντέλο μας; Θετική διαφορά σημαίνει ακριβώς αυτό — όχι ότι το αποτέλεσμα θα έρθει.",
   edgeCurrentOpportunities: "Τρέχουσες ευκαιρίες",
   edgeTracked: "{count} υπό παρακολούθηση",
+  edgeTrackedPreview: "{shown} από {total} αγώνες",
   edgeGated: "Περιμένουν στοιχεία",
   edgeGatedNote: "Εδώ δεν βγήκε εκτίμηση. Ο λόγος φαίνεται σε κάθε γραμμή.",
   edgeColumnSelection: "Αγώνας και επιλογή",
@@ -1176,6 +1206,18 @@ const greek: Readonly<Record<MessageKey, string>> = {
   adminUnavailableTitle: "Η εξουσιοδότηση δεν είναι διαθέσιμη.",
   adminUnavailableBody:
     "Δεν έχει ρυθμιστεί η βάση δεδομένων διαχείρισης, οπότε δεν εμφανίζονται δεδομένα.",
+
+  lockedBadge: "Περιλαμβάνεται στο {plan}",
+  lockedPreviewTitle: "Βλέπεις προεπισκόπηση",
+  lockedPreviewBody:
+    "{shown} από {total} αγώνες. Με το {plan} ανοίγει όλος ο πίνακας, κάθε δείκτης και το πλήρες ιστορικό αποδόσεων.",
+  lockedRowsHint: "{count} ακόμα με {plan}",
+  lockedMatchTitle: "Το Match Intelligence ανοίγει με {plan}",
+  lockedMatchBody:
+    "Η πλήρης ανάλυση του αγώνα: το συμπέρασμα και το γιατί, μοντέλο έναντι αγοράς, κίνηση αποδόσεων, ποιότητα δεδομένων, ενδεκάδα και όλο το ίχνος του μοντέλου.",
+  lockedCta: "Δες τα πακέτα",
+  lockedWhatYouGet: "Τι προσθέτει το {plan}",
+  entitlementRequired: "Η οθόνη είναι διαθέσιμη σε ανώτερο πακέτο.",
 
   explainEdgeTitle: "Τι είναι το EDGE;",
   explainEdgeBody:
