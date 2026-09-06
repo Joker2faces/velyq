@@ -45,46 +45,48 @@ Factual, not aspirational. Update this file rather than letting it drift.
 - Data licensing/redistribution terms for a real odds/fixtures provider have
   not been reviewed (there is no provider yet).
 
-## Worker CPU budget — the top operational constraint
+## Worker CPU budget — resolved by moving HTML off the Worker
 
-**This is currently the single biggest limitation, and it is a plan limit,
-not a code defect.**
+**Previously the top blocker; now fixed.** Cloudflare Workers Free allows
+~10ms CPU per invocation and one SSR render of this app cost ~16ms at the
+median (P99 171ms), so sustained traffic exhausted the allowance and every
+HTML route returned 503 while cheap JSON routes kept working.
 
-Measured on the live Worker (Cloudflare GraphQL `workersInvocationsAdaptive`,
-CPU in microseconds):
+Public pages are now prerendered into the Cloudflare asset directory at build
+time, so the asset layer serves them and the Worker is never invoked.
+Measured on the live deployment:
 
-| bucket | requests | cpuTime P50 | cpuTime P99 |
-|---|---|---|---|
-| `success` | 913 | 16,051µs (16ms) | 171,031µs (171ms) |
-| `exceededResources` | 119 | 10,000µs (exactly the cap) | 16,531µs |
+| | before | after |
+|---|---|---|
+| 240–280 HTML request load test | sustained 503s for 15+ minutes | 280/280 → 200 |
+| Worker invocations for HTML | 1 per page view | 0 |
+| `exceededResources` | 119 in a 3h window | 0 |
 
-The account has **no Workers paid subscription** (`/accounts/…/workers/subscription`
-returns null), so it is on the Workers Free CPU allowance of ~10ms. A single
-SSR page render for this app costs ~16ms at the median. Individual renders
-burst above the cap fine while budget remains, but sustained traffic exhausts
-the rolling allowance and then **every HTML route returns 503** while cheap
-JSON routes (`/api/health`, `/api/ready`) keep returning 200 — a distinctive
-signature worth recognising during an incident.
+The Worker still serves `/api/*`, the authenticated routes (`/today`,
+`/edge`, `/radar`, `/account`, `/matches/:id`) and the branded 404 — 14
+invocations covered 280 HTML plus 17 API requests in the final run, at a
+median 6ms CPU.
 
-Observed during this QA pass: roughly 70–200 paced page loads were enough to
-exhaust it, after which `/` returned 503 continuously for 15+ minutes while
-`/api/health` and `/api/ready` stayed 200 throughout. `wrangler tail` reports
-`"outcome": "exceededCpu"` with `"Worker exceeded CPU time limit."`.
+**Workers Paid is no longer required for the current application.**
 
-This is not fixable by ordinary tuning: even `/terms`, a nearly empty page,
-exceeds the budget, so the cost is Next.js SSR baseline rather than any one
-page's content.
+### What this cost architecturally
+- Locale moved into the URL for public pages: English keeps the canonical
+  paths, Greek lives under `/el`. A static file is byte-identical for every
+  visitor, so it cannot read the locale cookie. A returning Greek visitor who
+  lands on a canonical URL is redirected client-side to the `/el` copy.
+- The auth `?error=` banner is decided in the browser, since one static file
+  answers `/sign-in` and `/sign-in?error=invalid` alike. It preserves the
+  outage-vs-credential distinction and re-applies the ARIA wiring.
+- Security headers are generated into `_headers` as well as `proxy.ts`,
+  because a static response never reaches the Worker. Both come from one
+  list and a test pins them together.
 
-Remedies, in order of practicality:
-1. **Workers Paid ($5/mo)** — raises the per-request CPU limit to 30s. One
-   click, no code change, no regression risk. This is the recommended fix.
-2. **Prerender the public routes as static assets** — near-zero CPU, stays on
-   the free plan, but needs per-locale static builds plus a rewrite because
-   i18n is currently a per-request cookie read. Days of work and real
-   regression risk.
-3. Edge-caching the HTML was considered and rejected: locale lives in a
-   cookie, and Cloudflare does not reliably honour `Vary: Cookie`, so a cache
-   could serve Greek pages to English visitors.
+### Remaining caveat (§14, rolling Today)
+The homepage's synthetic preview is rendered at build time, so its three
+kickoff *times* are fixed until the next deploy. No date is shown anywhere on
+it, so there is nothing that visibly goes stale. The authenticated `/today`
+page — the one that displays an actual date — is still Worker-rendered and
+remains fully rolling.
 
 ## Infrastructure
 - **Admin E2E and integration tests are NOT EXECUTABLE in this environment**:
