@@ -60,39 +60,35 @@ describe("runtime database source", () => {
     await expect(resolveCloudflareSource()).resolves.toBeNull();
   });
 
-  it(
-    "resolves the exact Node source module to the Cloudflare module in Vinext",
-    async () => {
-      const testDirectory = path.dirname(fileURLToPath(import.meta.url));
-      const webDirectory = path.resolve(testDirectory, "..");
-      const nodeSource = path.join(
-        webDirectory,
-        "app/runtime-database/runtime-database-source.ts",
-      );
-      const cloudflareSource = path.join(
-        webDirectory,
-        "app/runtime-database/runtime-database-source.cloudflare.ts",
-      );
-      const config = await resolveConfig(
-        {
-          root: webDirectory,
-          configFile: path.join(webDirectory, "vite.config.ts"),
-        },
-        "build",
-      );
-      const resolver = config.createResolver();
-      const resolved = await resolver(nodeSource);
-      const resolvedExtensionless = await resolver(
-        nodeSource.slice(0, -path.extname(nodeSource).length),
-      );
+  it("resolves the exact Node source module to the Cloudflare module in Vinext", async () => {
+    const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+    const webDirectory = path.resolve(testDirectory, "..");
+    const nodeSource = path.join(
+      webDirectory,
+      "app/runtime-database/runtime-database-source.ts",
+    );
+    const cloudflareSource = path.join(
+      webDirectory,
+      "app/runtime-database/runtime-database-source.cloudflare.ts",
+    );
+    const config = await resolveConfig(
+      {
+        root: webDirectory,
+        configFile: path.join(webDirectory, "vite.config.ts"),
+      },
+      "build",
+    );
+    const resolver = config.createResolver();
+    const resolved = await resolver(nodeSource);
+    const resolvedExtensionless = await resolver(
+      nodeSource.slice(0, -path.extname(nodeSource).length),
+    );
 
-      expect(path.normalize(resolved ?? "")).toBe(
-        path.normalize(cloudflareSource),
-      );
-      expect(path.normalize(resolvedExtensionless ?? "")).toBe(
-        path.normalize(cloudflareSource),
-      );
-    },
-    30_000,
-  );
+    expect(path.normalize(resolved ?? "")).toBe(
+      path.normalize(cloudflareSource),
+    );
+    expect(path.normalize(resolvedExtensionless ?? "")).toBe(
+      path.normalize(cloudflareSource),
+    );
+  }, 30_000);
 });

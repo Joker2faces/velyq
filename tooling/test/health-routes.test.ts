@@ -13,6 +13,9 @@ vi.mock("@velyq/database", () => ({
 vi.mock("@velyq/database/client", () => ({
   createPrivilegedDatabaseClient: database.create,
 }));
+vi.mock("@velyq/database/server", () => ({
+  createPrivilegedDatabaseClient: database.create,
+}));
 vi.mock("../../packages/database/dist/index.js", () => ({
   createPrivilegedDatabaseClient: database.create,
 }));
@@ -100,11 +103,11 @@ describe("service health contracts", () => {
   });
 
   it.each([
-    ["customer", customerReady, "velyq-customer"],
-    ["admin", adminReady, "velyq-admin"],
+    ["customer", customerReady, "velyq-customer", { databaseSource: "node" }],
+    ["admin", adminReady, "velyq-admin", {}],
   ] as const)(
     "returns ready for the %s service",
-    async (_name, ready, service) => {
+    async (_name, ready, service, extraChecks) => {
       setRuntimeConfig(true);
       database.query.mockResolvedValueOnce({ rows: [{ ready: 1 }] });
       const authFetch = vi.fn().mockResolvedValue({ ok: true });
@@ -116,7 +119,11 @@ describe("service health contracts", () => {
       expect(await response.json()).toEqual({
         status: "ready",
         service,
-        checks: { authConfigured: true, databaseConfigured: true },
+        checks: {
+          authConfigured: true,
+          databaseConfigured: true,
+          ...extraChecks,
+        },
       });
       expect(database.create).toHaveBeenCalledWith({
         connectionString: process.env["VELYQ_DATABASE_URL"],
@@ -148,7 +155,11 @@ describe("service health contracts", () => {
     expect(await response.json()).toEqual({
       status: "degraded",
       service: "velyq-customer",
-      checks: { authConfigured: true, databaseConfigured: true },
+      checks: {
+        authConfigured: true,
+        databaseConfigured: true,
+        databaseSource: "node",
+      },
     });
     expect(database.close).toHaveBeenCalledOnce();
   });

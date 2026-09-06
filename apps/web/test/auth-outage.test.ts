@@ -241,8 +241,7 @@ describe("authentication outage UX", () => {
     "redirects temporary %s throttling to unavailable",
     async (kind, handler, path) => {
       process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
-      process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] =
-        "publishable-test";
+      process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         new Response(JSON.stringify({ error: "temporarily_unavailable" }), {
           status: 429,

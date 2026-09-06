@@ -13,12 +13,26 @@ export interface RuntimeDatabaseSession {
   close(): Promise<void>;
 }
 
-export async function openRuntimeDatabaseSession(): Promise<RuntimeDatabaseSession | null> {
+export interface RuntimeDatabaseSessionOptions {
+  /**
+   * Bounds how long acquiring a connection may take. Health probes set this so
+   * an unreachable origin fails fast as `degraded` instead of holding the
+   * request open until the platform kills it.
+   */
+  readonly connectionTimeoutMillis?: number;
+}
+
+export async function openRuntimeDatabaseSession(
+  options: RuntimeDatabaseSessionOptions = {},
+): Promise<RuntimeDatabaseSession | null> {
   const source = await resolveRuntimeDatabaseSource();
   if (!source) return null;
 
   const client = createPrivilegedDatabaseClient({
     connectionString: source.connectionString,
+    ...(options.connectionTimeoutMillis === undefined
+      ? {}
+      : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
   });
   let closePromise: Promise<void> | undefined;
 
