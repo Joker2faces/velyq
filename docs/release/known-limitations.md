@@ -27,13 +27,15 @@ Factual, not aspirational. Update this file rather than letting it drift.
   idempotency) once test credentials exist.
 
 ## Entitlements
-- **No authorized QA identity exists** for FREE/PRO/ELITE. Self-registering
-  one would write a permanent `auth.users` row to the owner's production
-  Supabase project that cannot be removed without the service-role key,
-  which this program is explicitly forbidden from requesting or using. Live
-  entitlement acceptance (FREE preview/PRO full/ELITE match access) is
-  therefore **NOT EXECUTABLE** until the owner provisions test accounts or
-  supplies credentials.
+- **No authorized QA identity exists** for FREE/PRO/ELITE. Creating one via
+  the sign-up API writes a permanent `auth.users` row to the owner's
+  production Supabase project; deleting it correctly requires either the
+  Supabase Dashboard (owner login) or the Admin API with the service-role
+  key. This session has neither: no Supabase MCP/tool is connected, and
+  requesting or using the service-role key is explicitly forbidden. Exact
+  Dashboard steps for the owner are in `qa-identities.md`; the checks to run
+  once identities exist are in `entitlement-qa-checklist.md`. Live
+  entitlement acceptance remains **NOT EXECUTABLE** until then.
 
 ## Legal / Compliance
 - No legal review has been performed on terms, privacy notice, subscription
@@ -56,9 +58,15 @@ Factual, not aspirational. Update this file rather than letting it drift.
   functional blocker.
 
 ## Rate limiting / abuse resistance
-- No explicit rate limiting is configured on `/api/v1/auth/*` beyond
-  whatever Cloudflare's platform-level DDoS/bot protections provide by
-  default on the Free plan. Cloudflare's paid rate-limiting rules were not
-  enabled (would require a paid plan). Recommend Cloudflare Turnstile or a
-  Workers-native rate limiter (e.g. Durable Object token bucket) before
-  public, unauthenticated sign-up traffic at any real scale.
+- **Implemented this pass, with a measured caveat.** sign-in, sign-up and
+  forgot-password are now limited to 6 requests/60s per client IP via
+  Workers KV (`apps/web/app/rate-limit/`). There is no Cloudflare zone
+  attached to this Worker's workers.dev subdomain to put a native WAF
+  rate-limiting rule on, and Durable Objects (the correct distributed
+  counter) require the paid Workers plan — KV is the strongest no-cost
+  primitive available. **Measured live:** a sub-second burst of 7 requests
+  landed 401/401/401/401/401/401/401 (KV had not yet converged across
+  colos); at ~1 request/second it enforced from the first excess request
+  onward (429/429/429/…). It fails open on any KV outage. Recommend
+  Cloudflare Turnstile on sign-up, and/or upgrading to a Durable-Object-backed
+  limiter, before public traffic at meaningful scale.

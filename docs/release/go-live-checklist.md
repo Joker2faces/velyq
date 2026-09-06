@@ -16,12 +16,17 @@
 - [x] Main branch protected against force-push/deletion
 - [x] PR #3 unmerged, `main`/`integration/phase-1` untouched
 
+## Closed this pass
+- [x] Dependency audit: `pnpm audit` — 0 vulnerabilities of any severity across 560 dependencies
+- [x] Rate limiting on sign-in/sign-up/forgot-password (KV-backed, measured live — see `known-limitations.md`)
+- [x] Main branch protected against force-push/deletion
+
 ## PILOT READY (additional, not yet done)
 - [ ] Real football/odds data connected for at least one competition
 - [ ] Invited-user-only access control (beyond plan tiers)
 - [ ] Data-freshness/provider-health monitoring
 - [ ] Model backtest baseline (Brier score / log-loss vs. market benchmark)
-- [ ] At least one authorized FREE/PRO/ELITE identity for entitlement QA
+- [ ] At least one authorized FREE/PRO/ELITE identity for entitlement QA — see `qa-identities.md`
 
 ## COMMERCIAL READY (additional, not yet done)
 - [ ] Stripe live mode, full test-mode lifecycle proven first
