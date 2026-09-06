@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   LOCALE_COOKIE,
   parseLocale,
@@ -21,7 +21,27 @@ import {
  */
 export async function getLocale(): Promise<Locale> {
   const store = await cookies();
-  return parseLocale(store.get(LOCALE_COOKIE)?.value);
+  const fromStore = store.get(LOCALE_COOKIE)?.value;
+  if (fromStore) return parseLocale(fromStore);
+
+  /*
+   * Fallback for render paths where the cookie store comes back empty even
+   * though the request carried a cookie — observed on Cloudflare/Vinext for
+   * the not-found boundary, which rendered every 404 in English (and with
+   * `<html lang="en">`) for Greek visitors. Reading the raw header covers
+   * that case and costs nothing anywhere else.
+   */
+  try {
+    const header = (await headers()).get("cookie") ?? "";
+    for (const part of header.split(";")) {
+      const [key, ...rest] = part.trim().split("=");
+      if (key === LOCALE_COOKIE)
+        return parseLocale(decodeURIComponent(rest.join("=")));
+    }
+  } catch {
+    // No request context at all (static render): the default is correct.
+  }
+  return parseLocale(undefined);
 }
 
 /** Resolves the locale and returns a translator bound to it. */
