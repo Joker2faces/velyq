@@ -45,6 +45,47 @@ Factual, not aspirational. Update this file rather than letting it drift.
 - Data licensing/redistribution terms for a real odds/fixtures provider have
   not been reviewed (there is no provider yet).
 
+## Worker CPU budget — the top operational constraint
+
+**This is currently the single biggest limitation, and it is a plan limit,
+not a code defect.**
+
+Measured on the live Worker (Cloudflare GraphQL `workersInvocationsAdaptive`,
+CPU in microseconds):
+
+| bucket | requests | cpuTime P50 | cpuTime P99 |
+|---|---|---|---|
+| `success` | 913 | 16,051µs (16ms) | 171,031µs (171ms) |
+| `exceededResources` | 119 | 10,000µs (exactly the cap) | 16,531µs |
+
+The account has **no Workers paid subscription** (`/accounts/…/workers/subscription`
+returns null), so it is on the Workers Free CPU allowance of ~10ms. A single
+SSR page render for this app costs ~16ms at the median. Individual renders
+burst above the cap fine while budget remains, but sustained traffic exhausts
+the rolling allowance and then **every HTML route returns 503** while cheap
+JSON routes (`/api/health`, `/api/ready`) keep returning 200 — a distinctive
+signature worth recognising during an incident.
+
+Observed during this QA pass: roughly 70–200 paced page loads were enough to
+exhaust it, after which `/` returned 503 continuously for 15+ minutes while
+`/api/health` and `/api/ready` stayed 200 throughout. `wrangler tail` reports
+`"outcome": "exceededCpu"` with `"Worker exceeded CPU time limit."`.
+
+This is not fixable by ordinary tuning: even `/terms`, a nearly empty page,
+exceeds the budget, so the cost is Next.js SSR baseline rather than any one
+page's content.
+
+Remedies, in order of practicality:
+1. **Workers Paid ($5/mo)** — raises the per-request CPU limit to 30s. One
+   click, no code change, no regression risk. This is the recommended fix.
+2. **Prerender the public routes as static assets** — near-zero CPU, stays on
+   the free plan, but needs per-locale static builds plus a rewrite because
+   i18n is currently a per-request cookie read. Days of work and real
+   regression risk.
+3. Edge-caching the HTML was considered and rejected: locale lives in a
+   cookie, and Cloudflare does not reliably honour `Vary: Cookie`, so a cache
+   could serve Greek pages to English visitors.
+
 ## Infrastructure
 - **Admin E2E and integration tests are NOT EXECUTABLE in this environment**:
   both require a local Docker-based Supabase Postgres on `127.0.0.1:54322`,

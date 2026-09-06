@@ -26,6 +26,7 @@ queried, not merely bound.
 ## Common incidents
 | Symptom | Likely cause | Action |
 |---|---|---|
+| Every HTML route 503s but `/api/health` and `/api/ready` return 200 | Workers Free CPU allowance exhausted — see `known-limitations.md` | Confirm with `wrangler tail` (`outcome: exceededCpu`). No code fix; traffic must subside or the account needs Workers Paid. Do not roll back — earlier versions hit the same ceiling. |
 | `/api/ready` = 503, `databaseConfigured: false` | Hyperdrive binding missing or `wrangler.jsonc` vars wiped by a bad deploy | Redeploy from a clean checkout of `cloudflare/velyq-poc`; `vars` are declared in `wrangler.jsonc`, not the dashboard |
 | Sign-in returns 500 | Regression in JSON body parsing (previously fixed in `dfafaf4`) | Check `apps/web/app/api/v1/auth/request-body.ts` wasn't reverted |
 | Any route missing security headers | `proxy.ts` matcher regressed | Check `apps/web/proxy.ts`'s `config.matcher` still covers all non-static routes |
