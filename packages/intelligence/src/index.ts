@@ -48,3 +48,28 @@ export {
   type MatchIntelligence,
   type MatchIntelligenceInput,
 } from "./match-intelligence.js";
+export {
+  analyzeRadarMovement,
+  MOVEMENT_POLICY_VERSION,
+  type RadarMovement,
+  type RadarMovementState,
+  type RadarObservation,
+} from "./radar.js";
+export {
+  calculateMarketConsensus,
+  NO_VIG_NORMALIZATION_VERSION,
+  type MarketConsensus,
+  type MarketConsensusInput,
+  type MarketConsensusOutcome,
+  type MarketKind,
+  type MarketOddsObservation,
+} from "./consensus.js";
+export { buildMarketMap, type MarketMap } from "./market-map.js";
+export {
+  prioritizeToday,
+  rankOpportunities,
+  RANK_POLICY_VERSION,
+  type OpportunityFreshness,
+  type OpportunityInput,
+  type RankedOpportunity,
+} from "./ranking.js";
