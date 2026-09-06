@@ -225,23 +225,35 @@ describe("runtime customer authorization", () => {
 
 describe("request-scoped customer data", () => {
   it("closes the database session after loading Today", async () => {
-    const service = customerService();
+    const service = await customerService();
     if (!service) throw new Error("Expected the database customer service");
 
-    await expect(service.getToday(new Date())).resolves.toMatchObject({
-      ok: true,
-      value: { matches: [] },
-    });
+    expect(runtimeState.sessions).toHaveLength(1);
+    expect(runtimeState.sessions[0]?.close).not.toHaveBeenCalled();
+    try {
+      await expect(service.getToday(new Date())).resolves.toMatchObject({
+        ok: true,
+        value: { matches: [] },
+      });
+    } finally {
+      await service.close();
+    }
     expectEverySessionClosed();
   });
 
   it("closes the database session after loading a Match", async () => {
-    const service = customerService();
+    const service = await customerService();
     if (!service) throw new Error("Expected the database customer service");
 
-    await expect(
-      service.getMatch("missing-event", new Date()),
-    ).resolves.toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(runtimeState.sessions).toHaveLength(1);
+    expect(runtimeState.sessions[0]?.close).not.toHaveBeenCalled();
+    try {
+      await expect(
+        service.getMatch("missing-event", new Date()),
+      ).resolves.toMatchObject({ ok: false, code: "NOT_FOUND" });
+    } finally {
+      await service.close();
+    }
     expectEverySessionClosed();
   });
 

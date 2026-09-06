@@ -85,14 +85,14 @@ describe("security auth hardening", () => {
     });
   });
 
-  it("uses fixtures only outside production or in explicit preview mode", () => {
+  it("uses fixtures only outside production or in explicit preview mode", async () => {
     delete process.env["VELYQ_DATABASE_URL"];
     process.env["NODE_ENV"] = "production";
     delete process.env["VELYQ_SYNTHETIC_PREVIEW"];
-    expect(customerService()).toBeNull();
+    expect(await customerService()).toBeNull();
 
     process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
-    expect(customerService()).not.toBeNull();
+    expect(await customerService()).not.toBeNull();
   });
 
   it.each([

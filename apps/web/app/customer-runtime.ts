@@ -7,6 +7,7 @@ import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import {
   customerDatabaseMapper,
   openDatabaseCustomerQueries,
+  type RuntimeCustomerQueries,
 } from "./customer-database";
 import { customerToday } from "./customer-data";
 import { cookies } from "next/headers";
@@ -42,6 +43,7 @@ type CustomerService = {
       }
     | { ok: false; code: "NOT_FOUND" | "UNAVAILABLE"; messageKey: string }
   >;
+  close(): Promise<void>;
 };
 
 const fixtureService: CustomerService = {
@@ -87,13 +89,13 @@ const fixtureService: CustomerService = {
       { mapToday: () => customerToday, mapMatch: (raw) => raw },
     ).getMatch(eventId, asOf);
   },
+  async close() {},
 };
 /* The two application services keep today and match DTO types distinct. */
 function mappedDatabaseService(
-  database: NonNullable<
-    Awaited<ReturnType<typeof openDatabaseCustomerQueries>>
-  >["queries"],
+  runtime: RuntimeCustomerQueries,
 ): CustomerService {
+  const database = runtime.queries;
   const today = new MappedCustomerQueryService<
     CustomerRawToday,
     CustomerTodayDto,
@@ -109,44 +111,20 @@ function mappedDatabaseService(
   return {
     getToday: (asOf: Date) => today.getToday(asOf),
     getMatch: (eventId: string, asOf: Date) => match.getMatch(eventId, asOf),
+    close: () => runtime.close(),
   };
 }
 
-const runtimeDatabaseService: CustomerService = {
-  async getToday(asOf) {
-    const runtime = await openDatabaseCustomerQueries();
-    if (!runtime)
-      return customerFixtureMode()
-        ? fixtureService.getToday(asOf)
-        : unavailable();
-    try {
-      return await mappedDatabaseService(runtime.queries).getToday(asOf);
-    } finally {
-      await runtime.close();
-    }
-  },
-  async getMatch(eventId, asOf) {
-    const runtime = await openDatabaseCustomerQueries();
-    if (!runtime)
-      return customerFixtureMode()
-        ? fixtureService.getMatch(eventId, asOf)
-        : unavailable();
-    try {
-      return await mappedDatabaseService(runtime.queries).getMatch(
-        eventId,
-        asOf,
-      );
-    } finally {
-      await runtime.close();
-    }
-  },
-};
-
-export function customerService() {
+export async function customerService(): Promise<CustomerService | null> {
   if (process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO") {
     return fixtureService;
   }
-  return runtimeDatabaseService;
+  const runtime = await openDatabaseCustomerQueries();
+  return runtime
+    ? mappedDatabaseService(runtime)
+    : customerFixtureMode()
+      ? fixtureService
+      : null;
 }
 
 export async function loadCustomerToday(
@@ -154,26 +132,37 @@ export async function loadCustomerToday(
 ) {
   const access = await requireCustomerPageAccess(entitlement);
   if (!access) return entitlementRequiredResult();
-  const service = customerService();
+  const service = await customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerTodayDto>;
-  const result = await service.getToday(new Date());
-  if (entitlement === "edge.preview" || entitlement === "radar.preview") {
-    if (result.ok) {
-      return {
-        ...result,
-        value: { ...result.value, matches: result.value.matches.slice(0, 3) },
-      };
+  try {
+    const result = await service.getToday(new Date());
+    if (entitlement === "edge.preview" || entitlement === "radar.preview") {
+      if (result.ok) {
+        return {
+          ...result,
+          value: {
+            ...result.value,
+            matches: result.value.matches.slice(0, 3),
+          },
+        };
+      }
     }
+    return result;
+  } finally {
+    await service.close();
   }
-  return result;
 }
 
 export async function loadCustomerMatch(eventId: string) {
   const access = await requireCustomerPageAccess("match.detail");
   if (!access) return entitlementRequiredResult();
-  const service = customerService();
+  const service = await customerService();
   if (!service) return unavailable() as CustomerReadResult<CustomerMatchDto>;
-  return service.getMatch(eventId, new Date());
+  try {
+    return await service.getMatch(eventId, new Date());
+  } finally {
+    await service.close();
+  }
 }
 
 export async function loadCustomerContext() {

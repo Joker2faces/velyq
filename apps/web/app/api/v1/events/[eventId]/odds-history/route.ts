@@ -38,27 +38,31 @@ export async function GET(
       })),
     });
   }
-  const service = customerService();
+  const service = await customerService();
   if (!service) return problem(unavailable());
-  const result = await service.getMatch(eventId, new Date());
-  if (!result.ok && result.code === "NOT_FOUND") return notFound();
-  if (!result.ok) return problem(unavailable());
-  const match = result.value;
-  if (process.env["VELYQ_DATABASE_URL"]) {
+  try {
+    const result = await service.getMatch(eventId, new Date());
+    if (!result.ok && result.code === "NOT_FOUND") return notFound();
+    if (!result.ok) return problem(unavailable());
+    const match = result.value;
+    if (process.env["VELYQ_DATABASE_URL"]) {
+      return NextResponse.json({
+        eventId,
+        syntheticLabel: match.syntheticLabel,
+        observations: [],
+      });
+    }
     return NextResponse.json({
       eventId,
       syntheticLabel: match.syntheticLabel,
-      observations: [],
+      observations: [
+        { observedAt: "2026-09-04T08:00:00.000Z", odds: match.openingOdds },
+        { observedAt: "2026-09-04T10:00:00.000Z", odds: match.currentOdds },
+      ],
     });
+  } finally {
+    await service.close();
   }
-  return NextResponse.json({
-    eventId,
-    syntheticLabel: match.syntheticLabel,
-    observations: [
-      { observedAt: "2026-09-04T08:00:00.000Z", odds: match.openingOdds },
-      { observedAt: "2026-09-04T10:00:00.000Z", odds: match.currentOdds },
-    ],
-  });
 }
 
 function notFound() {

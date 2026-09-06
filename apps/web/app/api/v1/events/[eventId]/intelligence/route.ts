@@ -10,13 +10,17 @@ export async function GET(
   const denied = await requireCustomerSession(_request, "match.detail");
   if (denied) return denied;
   if (!isUuid(eventId)) return invalidEventId();
-  const service = customerService();
+  const service = await customerService();
   if (!service) return problem(unavailable());
-  const result = await service.getMatch(eventId, new Date());
-  if (!result.ok && result.code === "NOT_FOUND") return notFound();
-  return result.ok
-    ? NextResponse.json(result.value)
-    : problem({ ...unavailable(), requestId: crypto.randomUUID() });
+  try {
+    const result = await service.getMatch(eventId, new Date());
+    if (!result.ok && result.code === "NOT_FOUND") return notFound();
+    return result.ok
+      ? NextResponse.json(result.value)
+      : problem({ ...unavailable(), requestId: crypto.randomUUID() });
+  } finally {
+    await service.close();
+  }
 }
 
 function problem(body: Readonly<Record<string, unknown>>) {
