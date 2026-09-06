@@ -5,6 +5,7 @@ import {
   customerService,
   unavailable,
 } from "../../../../../customer-runtime";
+import { offsetHours } from "../../../../../demo-clock";
 
 export async function GET(
   _request: Request,
@@ -45,12 +46,17 @@ export async function GET(
     if (!result.ok && result.code === "NOT_FOUND") return notFound();
     if (!result.ok) return problem(unavailable());
     const match = result.value;
+    // Synthetic fallback observations: opening two hours before the
+    // snapshot, current at the snapshot itself — relative to the same
+    // rolling clock the match's own feature cutoff is built from, so this
+    // never drifts into the past the way a hardcoded date would.
+    const cutoff = new Date(match.trace.featureCutoff);
     return NextResponse.json({
       eventId,
       syntheticLabel: match.syntheticLabel,
       observations: [
-        { observedAt: "2026-09-04T08:00:00.000Z", odds: match.openingOdds },
-        { observedAt: "2026-09-04T10:00:00.000Z", odds: match.currentOdds },
+        { observedAt: offsetHours(cutoff, -2), odds: match.openingOdds },
+        { observedAt: cutoff.toISOString(), odds: match.currentOdds },
       ],
     });
   } finally {

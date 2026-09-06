@@ -1,18 +1,31 @@
 import { CustomerQueryService } from "@velyq/application";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { DecimalString } from "@velyq/decimal";
+import { offsetHours, resolveDemoClock } from "./demo-clock";
 
 const d = (value: string) => value as DecimalString;
-const customerTodayData: CustomerTodayDto = {
-  syntheticLabel: "Synthetic data",
-  asOf: "2026-09-04T10:00:00.000Z",
-  matches: [
+
+/*
+ * Kickoff and feature-cutoff times as an offset in hours from the snapshot
+ * (`asOf`), not an absolute date. This is what makes "today" actually mean
+ * today: the fixtures used to hardcode 2026-09-04, so a visitor on any later
+ * date saw a "Snapshot as of 10:00 UTC" and kickoffs that were all already in
+ * the past. Every other field — odds, probabilities, EV, edge, quality,
+ * trace identity — is untouched by this and stays pinned exactly as before.
+ */
+function matchTemplates(): ReadonlyArray<
+  Omit<CustomerMatchDto, "startsAt" | "trace"> & {
+    startsAtOffsetHours: number;
+    trace: Omit<CustomerMatchDto["trace"], "featureCutoff">;
+  }
+> {
+  return [
     {
       eventId: "76000000-0000-4000-8000-000000000001",
       homeTeam: "Northbridge United",
       awayTeam: "Riverside Athletic",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-04T18:30:00.000Z",
+      startsAtOffsetHours: 8.5,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000004",
@@ -43,7 +56,6 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["72000000-0000-4000-8000-000000000001"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -51,7 +63,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Eastvale City",
       awayTeam: "Kingsport FC",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-04T20:00:00.000Z",
+      startsAtOffsetHours: 10,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000014",
@@ -82,7 +94,6 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["72000000-0000-4000-8000-000000000011"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -90,7 +101,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Harbor Rovers",
       awayTeam: "Oldtown FC",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-04T21:30:00.000Z",
+      startsAtOffsetHours: 11.5,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000005",
@@ -121,7 +132,6 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["71000000-0000-4000-8000-000000000002"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -129,7 +139,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Lakeside Albion",
       awayTeam: "Metro Vale",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-04T22:00:00.000Z",
+      startsAtOffsetHours: 12,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000002",
@@ -160,7 +170,6 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["73000000-0000-4000-8000-000000000001"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -168,7 +177,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Southport Vale",
       awayTeam: "Cedar Athletic",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-05T18:30:00.000Z",
+      startsAtOffsetHours: 32.5,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000031",
@@ -199,7 +208,6 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["72000000-0000-4000-8000-000000000021"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -207,7 +215,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Westhaven FC",
       awayTeam: "Union Park",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-05T20:00:00.000Z",
+      startsAtOffsetHours: 34,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000023",
@@ -241,7 +249,6 @@ const customerTodayData: CustomerTodayDto = {
           "73000000-0000-4000-8000-000000000011",
           "73000000-0000-4000-8000-000000000012",
         ],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
     {
@@ -249,7 +256,7 @@ const customerTodayData: CustomerTodayDto = {
       homeTeam: "Pinecrest Town",
       awayTeam: "Beacon Rovers",
       competition: "Premier Synthetic League",
-      startsAt: "2026-09-05T21:30:00.000Z",
+      startsAtOffsetHours: 35.5,
       syntheticLabel: "Synthetic data",
       scenario: {
         id: "74000000-0000-4000-8000-000000000021",
@@ -280,11 +287,34 @@ const customerTodayData: CustomerTodayDto = {
         calibrationVersion: "identity.v1",
         scoreVersion: "edge.v1",
         sourceObservationIds: ["73000000-0000-4000-8000-000000000011"],
-        featureCutoff: "2026-09-04T10:00:00.000Z",
       },
     },
-  ],
-};
+  ];
+}
+
+/**
+ * Builds the synthetic "Today" snapshot as of `now`. Kickoffs and the
+ * feature cutoff are `now` plus the fixed offsets above, so the demo's
+ * "today" always tracks whatever day it is actually viewed on; every other
+ * field is identical no matter what `now` is.
+ */
+export function buildCustomerTodayData(now: Date): CustomerTodayDto {
+  const asOf = now.toISOString();
+  return {
+    syntheticLabel: "Synthetic data",
+    asOf,
+    matches: matchTemplates().map(
+      ({ startsAtOffsetHours, trace, ...match }) => ({
+        ...match,
+        startsAt: offsetHours(now, startsAtOffsetHours),
+        trace: { ...trace, featureCutoff: asOf },
+      }),
+    ),
+  };
+}
+
+const customerTodayData: CustomerTodayDto =
+  buildCustomerTodayData(resolveDemoClock());
 
 export const customerReadRepository = {
   getToday: () => customerTodayData,

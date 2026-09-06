@@ -121,6 +121,7 @@ vi.mock("../app/customer-runtime", () => ({
         syntheticLabel: "Synthetic data",
         openingOdds: "2.10",
         currentOdds: "2.20",
+        trace: { featureCutoff: "2026-09-04T10:00:00.000Z" },
       },
     }),
     close: customerState.close,
