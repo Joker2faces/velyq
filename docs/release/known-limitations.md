@@ -45,48 +45,61 @@ Factual, not aspirational. Update this file rather than letting it drift.
 - Data licensing/redistribution terms for a real odds/fixtures provider have
   not been reviewed (there is no provider yet).
 
-## Worker CPU budget — resolved by moving HTML off the Worker
+## Worker CPU budget — resolved; the app no longer server-renders HTML
 
-**Previously the top blocker; now fixed.** Cloudflare Workers Free allows
-~10ms CPU per invocation and one SSR render of this app cost ~16ms at the
-median (P99 171ms), so sustained traffic exhausted the allowance and every
-HTML route returned 503 while cheap JSON routes kept working.
+Cloudflare Workers Free allows ~10ms CPU per invocation and one SSR render of
+this app cost ~16ms at the median (P99 171ms), so sustained traffic exhausted
+the allowance and every HTML route returned 503 while cheap JSON routes kept
+working.
 
-Public pages are now prerendered into the Cloudflare asset directory at build
-time, so the asset layer serves them and the Worker is never invoked.
-Measured on the live deployment:
+**Every HTML route is now a static asset.** Public pages and the four
+customer surfaces (Today, EDGE, RADAR, Account) are prerendered into the
+Cloudflare asset directory; the Worker serves only `/api/*`, `/matches/:id`
+and the branded 404.
+
+Measured live:
 
 | | before | after |
 |---|---|---|
-| 240–280 HTML request load test | sustained 503s for 15+ minutes | 280/280 → 200 |
-| Worker invocations for HTML | 1 per page view | 0 |
-| `exceededResources` | 119 in a 3h window | 0 |
+| public HTML load test | sustained 503s for 15+ min | 280/280 → 200 |
+| customer HTML load test (320 requests) | n/a (was SSR) | 320/320 → 200 |
+| Worker invocations for customer HTML | 1 per page view | **0** |
+| `exceededResources` | 119 in a 3h window | **0** |
+| API CPU | — | median 2ms, p95 4ms, max 26ms |
 
-The Worker still serves `/api/*`, the authenticated routes (`/today`,
-`/edge`, `/radar`, `/account`, `/matches/:id`) and the branded 404 — 14
-invocations covered 280 HTML plus 17 API requests in the final run, at a
-median 6ms CPU.
+**Workers Paid is not required.** The API p95 of 4ms also leaves most of the
+10ms allowance free for the intelligence work still to come.
 
-**Workers Paid is no longer required for the current application.**
+### How access is enforced now
+The shells contain no customer state — the prerender step refuses to write
+one containing an email address, plan code, entitlement, fixture match data,
+subscription/admin state or a record id. Access is enforced by the APIs the
+shells call: 401 without a session (the shell navigates to sign-in), 403
+without the entitlement (the shell shows the locked state). `/api/v1/today`
+applies the EDGE/RADAR preview boundary itself, derived from the customer's
+own entitlements — nothing the caller sends can widen it.
 
-### What this cost architecturally
-- Locale moved into the URL for public pages: English keeps the canonical
-  paths, Greek lives under `/el`. A static file is byte-identical for every
-  visitor, so it cannot read the locale cookie. A returning Greek visitor who
-  lands on a canonical URL is redirected client-side to the `/el` copy.
-- The auth `?error=` banner is decided in the browser, since one static file
-  answers `/sign-in` and `/sign-in?error=invalid` alike. It preserves the
-  outage-vs-credential distinction and re-applies the ARIA wiring.
-- Security headers are generated into `_headers` as well as `proxy.ts`,
-  because a static response never reaches the Worker. Both come from one
-  list and a test pins them together.
+The middleware gate was removed from those four routes deliberately:
+redirecting them at the edge would invoke the Worker on every page view —
+the exact cost this removes — and would protect nothing that is in the file.
+`/matches/:id` is still Worker-rendered and still gated.
 
-### Remaining caveat (§14, rolling Today)
-The homepage's synthetic preview is rendered at build time, so its three
-kickoff *times* are fixed until the next deploy. No date is shown anywhere on
-it, so there is nothing that visibly goes stale. The authenticated `/today`
-page — the one that displays an actual date — is still Worker-rendered and
-remains fully rolling.
+### Match Intelligence is still server-rendered (deliberate)
+`/matches/:id` has unbounded ids, and Cloudflare's asset layer matches exact
+paths. Serving one shell for all of them would need
+`not_found_handling: "single-page-application"`, which would make *every*
+unmatched path return that shell — destroying the branded 404 and the API
+fallthrough that the whole split depends on. Prerendering one asset per match
+is not appropriate for synthetic fixtures and would not survive real ones. It
+is also the lowest-volume customer route, reached by clicking a specific
+match. It stays on the Worker.
+
+### Not verified: the authenticated rendering path
+The shells' loading, 401 and 403 paths are verified live. What is **not**
+verified end-to-end is a signed-in customer actually rendering data through
+them, because no QA identity exists (see Entitlements above). The unit suite
+covers the view logic and the API's entitlement decisions; the live
+authenticated render remains unproven until credentials exist.
 
 ## Infrastructure
 - **Admin E2E and integration tests are NOT EXECUTABLE in this environment**:
