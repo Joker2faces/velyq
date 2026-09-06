@@ -24,6 +24,14 @@ const nextConfig = {
   },
 };
 
+/*
+ * This only takes effect on Next's own server (Node/Vercel) — Vinext's
+ * Cloudflare build does not read next.config at all, so the deployed Worker
+ * gets its headers from `proxy.ts` instead (security-headers.ts is the
+ * canonical list; `test/security-headers.test.ts` pins that this array
+ * matches it, since a plain .mjs config can't import that .ts module at
+ * Node startup).
+ */
 const securityHeaders = [
   {
     key: "Content-Security-Policy",

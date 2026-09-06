@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { applySecurityHeaders } from "./security-headers";
 
 function signInUrl(request: NextRequest) {
   const configured = process.env["VELYQ_APPLICATION_ORIGIN"]?.trim();
@@ -22,7 +23,33 @@ function signInUrl(request: NextRequest) {
   return fixtureMode ? new URL("/sign-in", request.url) : null;
 }
 
+const PROTECTED_PREFIXES = [
+  "/today",
+  "/edge",
+  "/radar",
+  "/matches",
+  "/account",
+];
+
+function isProtectedPath(pathname: string) {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export async function proxy(request: NextRequest) {
+  /*
+   * `next.config.js`'s `headers()` only takes effect on Next's own server
+   * (Node/Vercel). Vinext's Cloudflare build does not apply it, so without
+   * this every response the deployed Worker served — including the public
+   * homepage — carried no CSP, no HSTS, no X-Frame-Options at all. This
+   * function is the one thing both runtimes execute on every request, so it
+   * is where the guarantee has to live rather than in config the platform
+   * that actually serves production ignores.
+   */
+  if (!isProtectedPath(new URL(request.url).pathname))
+    return applySecurityHeaders(NextResponse.next());
+
   const token = request.cookies.get("velyq_access_token")?.value;
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
@@ -40,22 +67,26 @@ export async function proxy(request: NextRequest) {
   }
   if (!authenticated) {
     const redirect = signInUrl(request);
-    return redirect
-      ? NextResponse.redirect(redirect)
-      : NextResponse.json(
-          { code: "APPLICATION_ORIGIN_NOT_CONFIGURED" },
-          { status: 503 },
-        );
+    return applySecurityHeaders(
+      redirect
+        ? NextResponse.redirect(redirect)
+        : NextResponse.json(
+            { code: "APPLICATION_ORIGIN_NOT_CONFIGURED" },
+            { status: 503 },
+          ),
+    );
   }
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {
+  /*
+   * Every route, so the header guarantee is unconditional. Static assets are
+   * excluded only because they are immutable, hashed and already safe by
+   * construction — running the auth check against them would be wasted work,
+   * not a security requirement.
+   */
   matcher: [
-    "/today/:path*",
-    "/edge/:path*",
-    "/radar/:path*",
-    "/matches/:path*",
-    "/account/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|sitemap.xml).*)",
   ],
 };
