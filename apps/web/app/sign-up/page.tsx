@@ -22,7 +22,11 @@ export default async function SignUp({
       body={t("authSignUpBody")}
     >
       {hasError ? (
-        <FormError id={errorId}>{t("authSignUpError")}</FormError>
+        <FormError id={errorId}>
+          {params.error === "unavailable"
+            ? t("authSignUpUnavailable")
+            : t("authSignUpError")}
+        </FormError>
       ) : null}
 
       <form className="auth__form" action="/api/v1/auth/sign-up" method="post">

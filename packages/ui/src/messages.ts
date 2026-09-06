@@ -57,7 +57,7 @@ export const messages = {
   // ------------------------------------------------------------- metadata
   metaTitle: "VELYQ — Football Market Intelligence",
   metaDescription:
-    "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
+    "Traceable football market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
 
   // ------------------------------------------------------- system states
   customerUnavailable: "Data is not available right now.",
@@ -234,7 +234,7 @@ export const messages = {
   homeFinalCta: "Create your free account",
 
   // -------------------------------------------------------- home: footer
-  footerRights: "AI sports market intelligence",
+  footerRights: "AI football market intelligence",
   footerCreatedBy: "Created by",
   footerTerms: "Terms",
   footerPrivacy: "Privacy",
@@ -283,9 +283,11 @@ export const messages = {
   // ----------------------------------------------------------------- auth
   authSignInKicker: "Customer access",
   authSignInTitle: "Welcome back.",
-  authSignInBody: "Sign in to your sports market intelligence workspace.",
+  authSignInBody: "Sign in to your football intelligence workspace.",
   authSignInSubmit: "Sign in",
   authSignInError: "Email or password is incorrect. Please try again.",
+  authSignInUnavailable:
+    "Sign-in is temporarily unavailable. This is not a problem with your details.",
   authSignInFooter: "Your session is held and verified on our servers.",
   authNoAccount: "New to VELYQ?",
   authForgotPassword: "Forgot your password?",
@@ -296,6 +298,8 @@ export const messages = {
   authSignUpSubmit: "Create free account",
   authSignUpError:
     "We could not create the account. Check your details and try again.",
+  authSignUpUnavailable:
+    "Account creation is temporarily unavailable. Please try again shortly.",
   authSignUpFooter:
     "Every new account starts on the FREE plan. Access is assigned on our servers.",
   authSignUpLegal:
@@ -906,6 +910,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   authSignInBody: "Συνδέσου στον χώρο ανάλυσής σου.",
   authSignInSubmit: "Σύνδεση",
   authSignInError: "Λάθος email ή κωδικός. Δοκίμασε ξανά.",
+  authSignInUnavailable:
+    "Η σύνδεση δεν είναι διαθέσιμη αυτή τη στιγμή. Δεν φταίνε τα στοιχεία σου.",
   authSignInFooter:
     "Η σύνδεσή σου ελέγχεται και προστατεύεται από την πλευρά μας.",
   authNoAccount: "Πρώτη φορά στο VELYQ;",
@@ -917,6 +923,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   authSignUpSubmit: "Δημιούργησε δωρεάν λογαριασμό",
   authSignUpError:
     "Δεν έγινε η δημιουργία λογαριασμού. Έλεγξε τα στοιχεία σου και δοκίμασε ξανά.",
+  authSignUpUnavailable:
+    "Η δημιουργία λογαριασμού δεν είναι διαθέσιμη αυτή τη στιγμή. Δοκίμασε ξανά σύντομα.",
   authSignUpFooter: "Κάθε νέος λογαριασμός ξεκινά στο FREE.",
   authSignUpLegal:
     "Με τη δημιουργία λογαριασμού αποδέχεσαι τους όρους χρήσης και το απόρρητο.",

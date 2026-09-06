@@ -29,7 +29,11 @@ export async function POST(request: Request) {
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key)
     return (
-      browserError() ??
+      (browserForm
+        ? NextResponse.redirect(
+            new URL("/sign-up?error=unavailable", request.url),
+          )
+        : null) ??
       NextResponse.json(
         { code: "AUTH_NOT_CONFIGURED", requestId: id },
         { status: 503 },
@@ -43,7 +47,11 @@ export async function POST(request: Request) {
   });
   if (!response.ok)
     return (
-      browserError() ??
+      (browserForm && response.status >= 500
+        ? NextResponse.redirect(
+            new URL("/sign-up?error=unavailable", request.url),
+          )
+        : browserError()) ??
       NextResponse.json(
         { code: "SIGN_UP_FAILED", requestId: id },
         { status: 400 },

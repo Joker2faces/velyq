@@ -52,7 +52,11 @@ export async function POST(request: Request) {
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)
     return (
-      browserError() ??
+      (browserForm
+        ? NextResponse.redirect(
+            new URL("/sign-in?error=unavailable", request.url),
+          )
+        : null) ??
       NextResponse.json(
         {
           type: "https://velyq.dev/problems/not-configured",
@@ -73,7 +77,12 @@ export async function POST(request: Request) {
   if (!response.ok) {
     if (browserForm)
       return NextResponse.redirect(
-        new URL("/sign-in?error=invalid", request.url),
+        new URL(
+          response.status >= 500
+            ? "/sign-in?error=unavailable"
+            : "/sign-in?error=invalid",
+          request.url,
+        ),
       );
     return (
       browserError() ??
