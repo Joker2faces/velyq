@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "scripts": {
     "build": "corepack pnpm --filter @velyq/database... build && next build --webpack",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean:next": "node -e \"const fs=require('node:fs'),path=require('node:path'),root=fs.realpathSync(process.cwd()),target=path.resolve(root,'.next');if(path.dirname(target)!==root)throw new Error('Refusing to clean outside the web workspace');fs.rmSync(target,{recursive:true,force:true})\"",
+    "typegen:next": "corepack pnpm run clean:next && next typegen",
+    "typecheck": "corepack pnpm run typegen:next && tsc --noEmit -p tsconfig.json",
     "dev:vinext": "vinext dev --port 3001",
     "build:vinext": "corepack pnpm --filter @velyq/application... build && corepack pnpm --filter @velyq/database build && vinext build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
