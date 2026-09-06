@@ -73,6 +73,15 @@ export const messages = {
   retry: "Try again",
   backToToday: "Back to Today",
 
+  // -------------------------------------------------- whole-page failures
+  notFoundTitle: "That page does not exist.",
+  notFoundBody:
+    "The link may be out of date, or the address may have a typo in it. Everything else is still where you left it.",
+  backToHome: "Back to home",
+  errorTitle: "Something went wrong on our side.",
+  errorBody:
+    "This is not a problem with your account or anything you did. Try again in a moment — if it keeps happening, the fault is ours and we are already seeing it.",
+
   // ----------------------------------------------------------- home: nav
   homeSignIn: "Sign in",
   homeCreateAccount: "Create account",
@@ -717,6 +726,14 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Ο αγώνας βγήκε εκτός τρέχοντος παραθύρου ή ο σύνδεσμος είναι λάθος.",
   retry: "Δοκίμασε ξανά",
   backToToday: "Επιστροφή στο Σήμερα",
+
+  notFoundTitle: "Αυτή η σελίδα δεν υπάρχει.",
+  notFoundBody:
+    "Ο σύνδεσμος μπορεί να είναι παλιός ή η διεύθυνση να έχει κάποιο λάθος. Όλα τα υπόλοιπα είναι στη θέση τους.",
+  backToHome: "Επιστροφή στην αρχική",
+  errorTitle: "Κάτι πήγε στραβά από τη δική μας πλευρά.",
+  errorBody:
+    "Δεν φταίει ο λογαριασμός σου ούτε κάτι που έκανες. Δοκίμασε ξανά σε λίγο — αν συνεχιστεί, το πρόβλημα είναι δικό μας και το βλέπουμε ήδη.",
 
   homeSignIn: "Σύνδεση",
   homeCreateAccount: "Δημιουργία λογαριασμού",

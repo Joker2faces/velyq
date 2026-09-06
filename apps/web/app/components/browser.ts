@@ -31,6 +31,23 @@ export function writePreferenceCookie(
 }
 
 /**
+ * Reads a first-party preference cookie in the browser.
+ *
+ * Only the error boundary needs this: it renders on the client after a render
+ * failure, so it cannot use the server-side locale resolution every other
+ * surface uses, and it must still speak the visitor's language.
+ */
+export function readPreferenceCookie(name: string): string | null {
+  const host = browser().document;
+  if (!host) return null;
+  for (const part of host.cookie.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+
+/**
  * Reads a parameter out of the URL fragment.
  *
  * The fragment is never transmitted to the server, which is why the Supabase
