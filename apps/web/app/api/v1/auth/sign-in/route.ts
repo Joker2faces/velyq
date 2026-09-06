@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasTrustedRequestOrigin } from "@velyq/auth";
 import { customerRedirectUrl, requestId } from "../../../auth";
 import { readAuthRequestFields } from "../request-body";
+import { rateLimitedAuthResponse } from "../../../../rate-limit";
 
 export async function POST(request: Request) {
   const browserForm =
@@ -64,6 +65,14 @@ export async function POST(request: Request) {
       },
       { status: 403 },
     );
+  /*
+   * Placed after body/CSRF validation (so a malformed or cross-site request
+   * doesn't consume budget) and before the Supabase call it exists to
+   * protect: this is a credential-guessing target, and every attempt reaches
+   * the auth provider unless this stops it first.
+   */
+  const limited = await rateLimitedAuthResponse(request, "sign-in", null);
+  if (limited) return limited;
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !publishableKey)

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { customerRedirectUrl, requestId } from "../../../auth";
 import { readAuthRequestFields } from "../request-body";
+import { rateLimitedAuthResponse } from "../../../../rate-limit";
 
 export async function POST(request: Request) {
   const browserForm =
@@ -31,6 +32,13 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     );
+  // Recovery-abuse target (mail-bombing an address): limit per client.
+  const limited = await rateLimitedAuthResponse(
+    request,
+    "forgot-password",
+    null,
+  );
+  if (limited) return limited;
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key)

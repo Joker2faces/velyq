@@ -25,8 +25,7 @@ const environment = {
   VELYQ_APPLICATION_ORIGIN: `http://127.0.0.1:${customerPort}`,
   // Fixed so the synthetic Today snapshot — and every screenshot baseline
   // that captures it — is identical on every run, not just "today".
-  VELYQ_DEMO_CLOCK:
-    process.env.VELYQ_DEMO_CLOCK ?? "2026-09-04T10:00:00.000Z",
+  VELYQ_DEMO_CLOCK: process.env.VELYQ_DEMO_CLOCK ?? "2026-09-04T10:00:00.000Z",
 };
 
 async function waitForBuild() {

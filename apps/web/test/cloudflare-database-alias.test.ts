@@ -5,14 +5,17 @@ import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
 
 /*
- * The Cloudflare build swaps the Node database source for the Hyperdrive one
- * during resolution. That swap is the only thing standing between a Worker
- * that talks to Hyperdrive and one that looks for `VELYQ_DATABASE_URL` — a
- * variable Cloudflare does not set — and so reports no database at all.
+ * The Cloudflare build swaps each platform-neutral source (database,
+ * rate-limit store) for its Cloudflare variant during resolution. That swap
+ * is the only thing standing between a Worker that talks to Hyperdrive/KV and
+ * one that looks for a Node-only env var or binding that Cloudflare never
+ * sets, and so behaves as though the dependency were entirely absent.
  *
- * It failed silently once already: a `resolve.alias` never matched, the build
- * still succeeded, and the wrong module shipped. Nothing in a passing build
- * tells you this happened, which is why it is pinned here.
+ * It failed silently once already, for the database source: a `resolve.alias`
+ * never matched, the build still succeeded, and the wrong module shipped.
+ * Nothing in a passing build tells you this happened, which is why it is
+ * pinned here directly against the plugin, and against the emitted bundle in
+ * tooling/scripts/verify-worker-bundle.mjs.
  */
 
 const webDirectory = path
@@ -20,8 +23,20 @@ const webDirectory = path
   .split(path.sep)
   .join("/");
 
-const NODE_SOURCE = `${webDirectory}/app/runtime-database/runtime-database-source.ts`;
-const CLOUDFLARE_SOURCE = `${webDirectory}/app/runtime-database/runtime-database-source.cloudflare.ts`;
+const SOURCE_PAIRS = [
+  {
+    label: "database",
+    node: `${webDirectory}/app/runtime-database/runtime-database-source.ts`,
+    cloudflare: `${webDirectory}/app/runtime-database/runtime-database-source.cloudflare.ts`,
+    specifier: "./runtime-database-source",
+  },
+  {
+    label: "rate-limit store",
+    node: `${webDirectory}/app/rate-limit/rate-limit-source.ts`,
+    cloudflare: `${webDirectory}/app/rate-limit/rate-limit-source.cloudflare.ts`,
+    specifier: "./rate-limit-source",
+  },
+] as const;
 
 type ResolveIdHook = (
   this: {
@@ -58,9 +73,9 @@ async function loadPlugin() {
   const config = await import("../vite.config");
   const plugins = flatten(config.default.plugins);
   const plugin = plugins.find(
-    (candidate) => candidate?.name === "velyq:cloudflare-database-source",
+    (candidate) => candidate?.name === "velyq:cloudflare-platform-source",
   );
-  if (!plugin) throw new Error("database source plugin is not installed");
+  if (!plugin) throw new Error("platform-source plugin is not installed");
   return plugin;
 }
 
@@ -79,53 +94,53 @@ async function resolveWith(plugin: Plugin, source: string, resolvedId: string) {
   );
 }
 
-describe("cloudflare database source resolution", () => {
+describe("cloudflare platform source resolution", () => {
   it("runs before Vinext so per-environment resolve settings cannot bypass it", async () => {
     const plugin = await loadPlugin();
     expect(plugin.enforce).toBe("pre");
   });
 
-  it("redirects the extensionless specifier production code actually imports", async () => {
-    const plugin = await loadPlugin();
-    const result = await resolveWith(
-      plugin,
-      "./runtime-database-source",
-      NODE_SOURCE,
-    );
-    expect(result).toBe(CLOUDFLARE_SOURCE);
-  });
+  for (const pair of SOURCE_PAIRS) {
+    describe(pair.label, () => {
+      it("redirects the extensionless specifier production code actually imports", async () => {
+        const plugin = await loadPlugin();
+        const result = await resolveWith(plugin, pair.specifier, pair.node);
+        expect(result).toBe(pair.cloudflare);
+      });
 
-  it("redirects an already-extended specifier", async () => {
-    const plugin = await loadPlugin();
-    const result = await resolveWith(
-      plugin,
-      "./runtime-database-source.ts",
-      NODE_SOURCE,
-    );
-    expect(result).toBe(CLOUDFLARE_SOURCE);
-  });
+      it("redirects an already-extended specifier", async () => {
+        const plugin = await loadPlugin();
+        const result = await resolveWith(
+          plugin,
+          `${pair.specifier}.ts`,
+          pair.node,
+        );
+        expect(result).toBe(pair.cloudflare);
+      });
 
-  it("matches on the resolved id, not on Windows-separated text", async () => {
-    const plugin = await loadPlugin();
-    // What Vite hands back on Windows before normalisation.
-    const windowsId = NODE_SOURCE.split("/").join("\\");
-    const result = await resolveWith(
-      plugin,
-      "./runtime-database-source",
-      windowsId,
-    );
-    expect(result).toBe(CLOUDFLARE_SOURCE);
-  });
+      it("matches on the resolved id, not on Windows-separated text", async () => {
+        const plugin = await loadPlugin();
+        const windowsId = pair.node.split("/").join("\\");
+        const result = await resolveWith(plugin, pair.specifier, windowsId);
+        expect(result).toBe(pair.cloudflare);
+      });
 
-  it("leaves the Cloudflare source itself alone, so it cannot self-redirect", async () => {
-    const plugin = await loadPlugin();
-    const result = await resolveWith(
-      plugin,
-      "./runtime-database-source.cloudflare",
-      CLOUDFLARE_SOURCE,
-    );
-    expect(result).toBeNull();
-  });
+      it("leaves the Cloudflare source itself alone, so it cannot self-redirect", async () => {
+        const plugin = await loadPlugin();
+        const result = await resolveWith(
+          plugin,
+          `${pair.specifier}.cloudflare`,
+          pair.cloudflare,
+        );
+        expect(result).toBeNull();
+      });
+
+      it("keeps the Node source free of Cloudflare-only imports", () => {
+        const nodeSource = readFileSync(pair.node, "utf8");
+        expect(nodeSource).not.toContain("cloudflare:workers");
+      });
+    });
+  }
 
   it("leaves unrelated modules alone", async () => {
     const plugin = await loadPlugin();
@@ -135,10 +150,5 @@ describe("cloudflare database source resolution", () => {
     expect(
       await resolveWith(plugin, "drizzle-orm", `${webDirectory}/y.ts`),
     ).toBeNull();
-  });
-
-  it("keeps the Node source free of Cloudflare-only imports", () => {
-    const nodeSource = readFileSync(NODE_SOURCE, "utf8");
-    expect(nodeSource).not.toContain("cloudflare:workers");
   });
 });

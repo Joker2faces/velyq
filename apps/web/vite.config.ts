@@ -7,13 +7,16 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 /*
  * This config builds the Cloudflare Worker only; the Vercel/Node build goes
  * through next.config and never sees it. So every module graph produced here
- * must resolve the Hyperdrive database source rather than the Node one.
+ * must resolve each platform-neutral source's Cloudflare variant rather than
+ * its Node one — currently the database source and the rate-limit store.
  */
 const toModuleId = (value: string) => value.split(path.sep).join("/");
-
 const webDirectory = toModuleId(path.dirname(fileURLToPath(import.meta.url)));
-const nodeDatabaseSource = `${webDirectory}/app/runtime-database/runtime-database-source.ts`;
-const cloudflareDatabaseSource = `${webDirectory}/app/runtime-database/runtime-database-source.cloudflare.ts`;
+
+const PLATFORM_SOURCES = [
+  "app/runtime-database/runtime-database-source",
+  "app/rate-limit/rate-limit-source",
+] as const;
 
 /*
  * A `resolve.alias` was the obvious way to do this and it silently did not
@@ -29,27 +32,38 @@ const cloudflareDatabaseSource = `${webDirectory}/app/runtime-database/runtime-d
  * Vinext in every environment, and it compares fully-resolved ids instead of
  * matching raw specifier text.
  */
-function cloudflareDatabaseSourcePlugin(): Plugin {
+function cloudflarePlatformSourcePlugin(): Plugin {
+  const nodeSources = PLATFORM_SOURCES.map(
+    (relative) => `${webDirectory}/${relative}.ts`,
+  );
+  // The filename alone: a bare specifier like "./rate-limit-source" never
+  // contains its own directory prefix, so matching has to be on the base
+  // name, not the full relative path.
+  const baseNames = PLATFORM_SOURCES.map((relative) =>
+    relative.split("/").pop()!,
+  );
   return {
-    name: "velyq:cloudflare-database-source",
+    name: "velyq:cloudflare-platform-source",
     enforce: "pre",
     async resolveId(source, importer, options) {
-      if (!source.includes("runtime-database-source")) return null;
+      if (!baseNames.some((name) => source.includes(name))) return null;
       if (source.includes(".cloudflare")) return null;
       const resolved = await this.resolve(source, importer, {
         ...options,
         skipSelf: true,
       });
       if (!resolved) return null;
-      if (toModuleId(resolved.id) !== nodeDatabaseSource) return null;
-      return cloudflareDatabaseSource;
+      const resolvedId = toModuleId(resolved.id);
+      const index = nodeSources.indexOf(resolvedId);
+      if (index === -1) return null;
+      return `${webDirectory}/${PLATFORM_SOURCES[index]}.cloudflare.ts`;
     },
   };
 }
 
 export default defineConfig({
   plugins: [
-    cloudflareDatabaseSourcePlugin(),
+    cloudflarePlatformSourcePlugin(),
     vinext(),
     cloudflare({
       viteEnvironment: {
