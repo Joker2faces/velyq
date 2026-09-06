@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { hasTrustedRequestOrigin } from "@velyq/auth";
 import { customerRedirectUrl, requestId } from "../../../auth";
+import { readAuthRequestFields } from "../request-body";
 
 export async function POST(request: Request) {
   const browserForm =
     request.headers.get("accept")?.includes("text/html") ?? false;
-  const form = await request.formData();
+  /*
+   * Reads a browser form post or a JSON body. An unparseable body
+   * yields an empty field set, so the validation just below reports
+   * INVALID_REQUEST exactly as it does for a missing field — rather
+   * than throwing, which is what `request.formData()` did to every
+   * JSON caller.
+   */
+  const form = (await readAuthRequestFields(request)) ?? {
+    get: () => null,
+  };
   const email = form.get("email");
   const password = form.get("password");
   const browserError = () =>
