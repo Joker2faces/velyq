@@ -7,7 +7,9 @@ import {
   diffDecisionSnapshots,
   evaluateDecision,
   evaluatePriceValidity,
+  type DecisionQuality,
   type DecisionSnapshot,
+  type DecisionVerdict,
 } from "../src/index.js";
 
 const price = evaluatePriceValidity({
@@ -87,6 +89,55 @@ describe("evidence timeline", () => {
     expect(timeline).toHaveLength(3);
     expect(Object.isFrozen(timeline)).toBe(true);
   });
+
+  it("orders offset ISO timestamps by instant with a reference ID tie-breaker", () => {
+    // Break caught: lexically sorting offset timestamps can put a later instant before an earlier one.
+    const timeline = buildEvidenceTimeline([
+      {
+        type: "PRICE",
+        source: "market-feed",
+        observedAt: "2026-09-06T09:00:00.000Z",
+        effectiveAt: "2026-09-06T09:00:00.000Z",
+        freshness: "FRESH",
+        referenceId: "later-utc",
+        status: "AVAILABLE",
+      },
+      {
+        type: "MODEL",
+        source: "model-run",
+        observedAt: "2026-09-06T10:00:00.000+02:00",
+        effectiveAt: "2026-09-06T10:00:00.000+02:00",
+        freshness: "FRESH",
+        referenceId: "earlier-offset",
+        status: "AVAILABLE",
+      },
+      {
+        type: "LINEUP",
+        source: "official-feed",
+        observedAt: "2026-09-06T11:00:00.000Z",
+        effectiveAt: "2026-09-06T11:00:00.000Z",
+        freshness: "FRESH",
+        referenceId: "tie-bravo",
+        status: "AVAILABLE",
+      },
+      {
+        type: "INJURY",
+        source: "official-feed",
+        observedAt: "2026-09-06T11:00:00.000Z",
+        effectiveAt: "2026-09-06T11:00:00.000Z",
+        freshness: "FRESH",
+        referenceId: "tie-alpha",
+        status: "AVAILABLE",
+      },
+    ]);
+
+    expect(timeline.map((entry) => entry.referenceId)).toEqual([
+      "earlier-offset",
+      "later-utc",
+      "tie-alpha",
+      "tie-bravo",
+    ]);
+  });
 });
 
 describe("decision snapshot history", () => {
@@ -142,6 +193,73 @@ describe("decision snapshot history", () => {
     expect(
       changes.every((change) => change.policyVersion === "materiality.v1"),
     ).toBe(true);
+  });
+
+  it("copies and freezes nested quality and verdict changes", () => {
+    // Break caught: mutating a caller snapshot after diffing must not rewrite stored decision history.
+    const mutableQuality = {
+      policyVersion: "quality.v1" as const,
+      grade: "HIGH" as const,
+      score: 100,
+      reasonCodes: ["QUALITY_ORIGINAL"],
+      riskFlags: [],
+      invalidationConditions: [],
+    };
+    const mutableDecision = {
+      state: "STRONG_EDGE" as const,
+      modelMaturity: "EXPERIMENTAL" as const,
+      reasonCodes: ["DECISION_ORIGINAL"],
+    };
+    const previousSnapshot = snapshot({
+      quality: {
+        ...mutableQuality,
+        grade: "LOW",
+        score: 10,
+        reasonCodes: ["QUALITY_PREVIOUS"],
+      } as DecisionQuality,
+      decision: {
+        ...mutableDecision,
+        state: "WATCH",
+        reasonCodes: ["DECISION_PREVIOUS"],
+      } as DecisionVerdict,
+    });
+    const currentSnapshot = snapshot({
+      quality: mutableQuality as DecisionQuality,
+      decision: mutableDecision as DecisionVerdict,
+    });
+    const history = diffDecisionSnapshots(previousSnapshot, currentSnapshot);
+    const intelligence = buildMatchIntelligence({
+      snapshot: currentSnapshot,
+      evidence: [],
+      previousSnapshot,
+    });
+
+    mutableQuality.reasonCodes.push("QUALITY_MUTATED");
+    mutableDecision.reasonCodes.push("DECISION_MUTATED");
+
+    const qualityChange = history.find((change) => change.type === "QUALITY");
+    const decisionChange = history.find((change) => change.type === "DECISION");
+    expect(qualityChange?.current).toMatchObject({
+      reasonCodes: ["QUALITY_ORIGINAL"],
+    });
+    expect(decisionChange?.current).toMatchObject({
+      reasonCodes: ["DECISION_ORIGINAL"],
+    });
+    expect(Object.isFrozen(qualityChange?.current)).toBe(true);
+    expect(Object.isFrozen(decisionChange?.current)).toBe(true);
+    expect(intelligence.snapshot.quality.reasonCodes).toEqual([
+      "QUALITY_ORIGINAL",
+    ]);
+    expect(intelligence.snapshot.decision.reasonCodes).toEqual([
+      "DECISION_ORIGINAL",
+    ]);
+    expect(
+      intelligence.changes.find((change) => change.type === "QUALITY")?.current,
+    ).toMatchObject({ reasonCodes: ["QUALITY_ORIGINAL"] });
+    expect(
+      intelligence.changes.find((change) => change.type === "DECISION")
+        ?.current,
+    ).toMatchObject({ reasonCodes: ["DECISION_ORIGINAL"] });
   });
 });
 

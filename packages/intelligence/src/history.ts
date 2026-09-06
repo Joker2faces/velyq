@@ -36,6 +36,9 @@ export type DecisionSnapshotChange = Readonly<{
   readonly current: string | DecisionQuality | DecisionVerdict | null;
 }>;
 
+type DecisionSnapshotChangeValue =
+  string | DecisionQuality | DecisionVerdict | null;
+
 const ABSOLUTE_DECIMAL_CHANGE = "0.02" as DecimalString;
 const RELATIVE_PRICE_CHANGE = "0.02" as DecimalString;
 
@@ -94,16 +97,39 @@ function materiallyDifferentQuality(
   );
 }
 
+function freezeQuality(quality: DecisionQuality): DecisionQuality {
+  return Object.freeze({
+    ...quality,
+    reasonCodes: Object.freeze([...quality.reasonCodes]),
+    riskFlags: Object.freeze([...quality.riskFlags]),
+    invalidationConditions: Object.freeze([...quality.invalidationConditions]),
+  });
+}
+
+function freezeVerdict(verdict: DecisionVerdict): DecisionVerdict {
+  return Object.freeze({
+    ...verdict,
+    reasonCodes: Object.freeze([...verdict.reasonCodes]),
+  });
+}
+
+function freezeChangeValue(
+  value: DecisionSnapshotChangeValue,
+): DecisionSnapshotChangeValue {
+  if (value === null || typeof value === "string") return value;
+  return "grade" in value ? freezeQuality(value) : freezeVerdict(value);
+}
+
 function change(
   type: DecisionChangeType,
-  previous: string | DecisionQuality | DecisionVerdict | null,
-  current: string | DecisionQuality | DecisionVerdict | null,
+  previous: DecisionSnapshotChangeValue,
+  current: DecisionSnapshotChangeValue,
 ): DecisionSnapshotChange {
   return Object.freeze({
     type,
     policyVersion: MATERIALITY_POLICY_VERSION,
-    previous,
-    current,
+    previous: freezeChangeValue(previous),
+    current: freezeChangeValue(current),
   });
 }
 

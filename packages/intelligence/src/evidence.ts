@@ -20,6 +20,34 @@ function freezeEvidence(evidence: Evidence): Evidence {
   return Object.freeze({ ...evidence });
 }
 
+function compareTimestamp(left: string, right: string): number {
+  const leftTimestamp = Date.parse(left);
+  const rightTimestamp = Date.parse(right);
+  if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp))
+    return leftTimestamp - rightTimestamp;
+  return left.localeCompare(right);
+}
+
+function compareEvidence(
+  left: { readonly entry: Evidence; readonly index: number },
+  right: { readonly entry: Evidence; readonly index: number },
+): number {
+  const observed = compareTimestamp(
+    left.entry.observedAt,
+    right.entry.observedAt,
+  );
+  if (observed !== 0) return observed;
+  const effective = compareTimestamp(
+    left.entry.effectiveAt,
+    right.entry.effectiveAt,
+  );
+  if (effective !== 0) return effective;
+  const reference = left.entry.referenceId.localeCompare(
+    right.entry.referenceId,
+  );
+  return reference !== 0 ? reference : left.index - right.index;
+}
+
 /** Returns the supplied evidence in audit order; it never infers or creates events. */
 export function buildEvidenceTimeline(
   evidence: readonly Evidence[],
@@ -27,16 +55,7 @@ export function buildEvidenceTimeline(
   return Object.freeze(
     evidence
       .map((entry, index) => ({ entry: freezeEvidence(entry), index }))
-      .sort((left, right) => {
-        const observed = left.entry.observedAt.localeCompare(
-          right.entry.observedAt,
-        );
-        if (observed !== 0) return observed;
-        const effective = left.entry.effectiveAt.localeCompare(
-          right.entry.effectiveAt,
-        );
-        return effective !== 0 ? effective : left.index - right.index;
-      })
+      .sort(compareEvidence)
       .map(({ entry }) => entry),
   );
 }
