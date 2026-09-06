@@ -326,7 +326,9 @@ export default tseslint.config(
             "packages/database/drizzle.config.ts",
           ],
           defaultProject: "tsconfig.json",
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
+          // Workspace package tests intentionally use the root default project.
+          // Keep a bounded guardrail while allowing the current suite to grow.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 64,
         },
         tsconfigRootDir: workspaceDirectory,
       },

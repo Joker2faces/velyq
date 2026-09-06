@@ -54,3 +54,17 @@ package-runner rewrite that was reverted without committing the lockfile.
 - Regression test added for invalid odds followed by valid odds.
 - Verification: focused Vitest suite (10 passed), package typecheck, full
   workspace lint, and `git diff --check` all passed.
+
+## Fix Round 2
+
+- Reproduced the workspace lint failure with `corepack pnpm lint`: the explicit
+  `allowDefaultProject` test glob matched 33 files, exceeding its 32-file
+  guardrail.
+- Raised only
+  `maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING` from 32 to
+  64. The existing test glob remains in place, so intelligence tests continue
+  to receive type-aware linting; no ignore or exclusion was added.
+- No lint-configuration test harness exists in the repository, so the
+  regression evidence is the full workspace lint command itself.
+- Verification: `corepack pnpm lint` passed; focused Vitest suite passed (10
+  tests); package typecheck passed.
