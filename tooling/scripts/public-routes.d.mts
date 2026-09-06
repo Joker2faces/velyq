@@ -7,4 +7,5 @@
  * routes the build actually writes are the same set.
  */
 export declare const PUBLIC_ROUTES: readonly string[];
+export declare const CUSTOMER_SHELL_ROUTES: readonly string[];
 export declare const LOCALES: readonly { code: string; prefix: string }[];

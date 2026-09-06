@@ -72,6 +72,9 @@ export const messages = {
     "This match is no longer in the current intelligence window, or the link is incorrect.",
   retry: "Try again",
   backToToday: "Back to Today",
+  accessLockedTitle: "Your plan does not include this yet.",
+  accessLockedBody:
+    "Nothing is wrong with your account. This surface opens on a higher plan — everything else stays exactly as it is.",
 
   // -------------------------------------------------- whole-page failures
   notFoundTitle: "That page does not exist.",
@@ -726,6 +729,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Ο αγώνας βγήκε εκτός τρέχοντος παραθύρου ή ο σύνδεσμος είναι λάθος.",
   retry: "Δοκίμασε ξανά",
   backToToday: "Επιστροφή στο Σήμερα",
+  accessLockedTitle: "Το πακέτο σου δεν το περιλαμβάνει ακόμα.",
+  accessLockedBody:
+    "Δεν υπάρχει κάποιο πρόβλημα με τον λογαριασμό σου. Αυτή η ενότητα ανοίγει σε ανώτερο πακέτο — όλα τα υπόλοιπα μένουν ακριβώς όπως είναι.",
 
   notFoundTitle: "Αυτή η σελίδα δεν υπάρχει.",
   notFoundBody:

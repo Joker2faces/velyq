@@ -1,16 +1,15 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { translator, type Locale } from "@velyq/ui";
-import { loadCustomerContext } from "./customer-runtime";
 import { getLocale } from "./locale";
 import { LanguageSwitcher } from "./language-switcher";
 import { Brand } from "./components/site-chrome";
+import { AdminConsoleLink } from "./customer/admin-console-link";
 import {
   IconAccount,
   IconEdge,
   IconPricing,
   IconRadar,
-  IconShield,
   IconSignOut,
   IconToday,
 } from "./components/icons";
@@ -50,7 +49,6 @@ export async function CustomerShell({
 }) {
   const locale = await getLocale();
   const t = translator(locale);
-  const context = await loadCustomerContext();
   const items = navigation(locale);
 
   return (
@@ -71,17 +69,11 @@ export async function CustomerShell({
         </nav>
         <div className="app__sidebar-foot">
           <LanguageSwitcher locale={locale} />
-          {/* Rendered only when the server-side principal actually carries
-              admin.access. Never inferred from the customer's plan. */}
-          {context?.isAdmin && process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ? (
-            <a
-              className="button button--ghost button--block"
-              href={process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"]}
-            >
-              <IconShield size={15} />
-              {t("adminConsole")}
-            </a>
-          ) : null}
+          {/* Resolved per session from the customer's own context API, never
+              baked into this shell: the shell is a static asset, and
+              admin.access is authorization state. Still never inferred from
+              the customer's plan. */}
+          <AdminConsoleLink locale={locale} />
           <p className="app__note">
             {t("syntheticEnvironment")}
             <br />

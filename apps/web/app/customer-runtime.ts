@@ -165,10 +165,17 @@ export async function loadCustomerMatch(eventId: string) {
   }
 }
 
-export async function loadCustomerContext() {
-  const access = await requireCustomerPageAccess("today.view");
-  if (!access) return null;
-  const cookieHeader = (await cookies()).toString();
+/**
+ * Resolves who the customer is and what they are entitled to, from a cookie
+ * header alone.
+ *
+ * Split out from `loadCustomerContext` so a route handler can use it: the
+ * page version gates through `requireCustomerPageAccess`, which redirects to
+ * /sign-in on an unauthenticated request. A redirect is the right answer for
+ * a page and the wrong one for an API, which must answer 401 and let the
+ * caller decide.
+ */
+export async function resolveCustomerContext(cookieHeader: string) {
   const token = cookieHeader.match(/(?:^|; )velyq_access_token=([^;]+)/)?.[1];
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
   const key = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
@@ -222,6 +229,12 @@ export async function loadCustomerContext() {
   } finally {
     await session.close();
   }
+}
+
+export async function loadCustomerContext() {
+  const access = await requireCustomerPageAccess("today.view");
+  if (!access) return null;
+  return resolveCustomerContext((await cookies()).toString());
 }
 
 async function requireCustomerPageAccess(entitlement: CustomerEntitlement) {

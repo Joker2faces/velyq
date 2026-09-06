@@ -23,13 +23,21 @@ function signInUrl(request: NextRequest) {
   return fixtureMode ? new URL("/sign-in", request.url) : null;
 }
 
-const PROTECTED_PREFIXES = [
-  "/today",
-  "/edge",
-  "/radar",
-  "/matches",
-  "/account",
-];
+/*
+ * Only routes whose HTML is still rendered by the Worker are gated here.
+ *
+ * Today, EDGE, RADAR and Account are static shells now: one file, served to
+ * everyone, containing no customer state whatsoever — the prerender step
+ * refuses to write them otherwise. Redirecting those at the edge would mean
+ * invoking the Worker for every page view, which is exactly the CPU cost the
+ * static architecture exists to avoid, and it would protect nothing that is
+ * in the file.
+ *
+ * Access is enforced where the private data actually is: the shells call
+ * protected APIs, which answer 401 without a session and 403 without the
+ * entitlement, and the shell renders sign-in or the locked state from that.
+ */
+const PROTECTED_PREFIXES = ["/matches"];
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(

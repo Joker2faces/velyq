@@ -23,6 +23,17 @@ export const PUBLIC_ROUTES = [
   "/reset-password",
 ];
 
+/**
+ * Authenticated surfaces, prerendered as *shells* only.
+ *
+ * These carry no customer state at all: identity, plan, entitlements and the
+ * match data itself are fetched from protected APIs once the page is
+ * running. That is what makes them safe to freeze into a file that everyone
+ * receives — and the prerender step scans the output to prove it, refusing
+ * to write anything that looks like one customer's data.
+ */
+export const CUSTOMER_SHELL_ROUTES = ["/today", "/edge", "/radar", "/account"];
+
 /** Locale is carried by the URL for static pages: EN canonical, EL under /el. */
 export const LOCALES = [
   { code: "en", prefix: "" },

@@ -6,9 +6,16 @@ import {
 } from "../../apps/web/app/customer-data.ts";
 
 describe("customer route protection and scenario reachability", () => {
+  /*
+   * /matches/:id is the route whose HTML the Worker still renders, so it is
+   * the one the edge gate still applies to. Today, EDGE, RADAR and Account
+   * are static shells now: they contain no customer state, and access is
+   * enforced by the APIs they call rather than by a redirect that would cost
+   * a Worker invocation on every page view.
+   */
   const request = (cookie?: string) =>
     ({
-      url: "https://velyq.test/today",
+      url: "https://velyq.test/matches/76000000-0000-4000-8000-000000000001",
       cookies: { get: () => (cookie ? { value: cookie } : undefined) },
     }) as never;
 

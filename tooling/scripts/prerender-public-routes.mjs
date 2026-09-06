@@ -21,7 +21,11 @@
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { LOCALES, PUBLIC_ROUTES } from "./public-routes.mjs";
+import {
+  CUSTOMER_SHELL_ROUTES,
+  LOCALES,
+  PUBLIC_ROUTES,
+} from "./public-routes.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:8799";
 const OUT = resolve(process.argv[3] ?? "apps/web/dist/client");
@@ -39,6 +43,51 @@ const FORBIDDEN = [
   "Συνδεδεμένος ως",
 ];
 
+/**
+ * Extra scan for the authenticated shells.
+ *
+ * A shell is one file handed to everyone who asks for it, so a single
+ * customer's identity, plan or match data baked into it would be served to
+ * the next visitor. These patterns are what such a leak would look like:
+ * an address, a plan code, an entitlement string, or a fixture match that
+ * should only ever arrive over the authenticated API.
+ */
+const PRIVATE_PATTERNS = [
+  [/[\w.+-]+@[\w-]+\.[\w.]+/, "an email address"],
+  [/\b(?:PRO|ELITE)\b/, "a paid plan code"],
+  [
+    /\b(?:today\.view|edge\.(?:full|preview)|radar\.(?:full|preview)|match\.detail)\b/,
+    "an entitlement",
+  ],
+  [
+    /\b(?:Northbridge United|Riverside Athletic|Eastvale City)\b/,
+    "fixture match data",
+  ],
+  [/\bsubscriptionStatus\b|\bisAdmin\b/, "subscription or admin state"],
+  [
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/,
+    "a record id",
+  ],
+];
+
+/**
+ * Removes the framework's own machinery before the private-data scan.
+ *
+ * Content-hashed asset URLs contain hex runs that look like ids, and Vinext
+ * stamps a `deploymentVersion` UUID into every page. Both would trip the scan
+ * on every build and teach whoever sees it to ignore the alarm, which is
+ * worse than not having one.
+ */
+function stripFrameworkMetadata(html) {
+  return html
+    .replace(/\/_next\/static\/[A-Za-z0-9._/-]+/g, "")
+    .replace(/(?:href|src)="[^"]*"/g, "")
+    .replace(
+      /\\?"(?:deploymentVersion|graphVersion|buildId)\\?":\\?"[^"\\]*/g,
+      "",
+    );
+}
+
 function assetPathFor(route, prefix) {
   const path = `${prefix}${route === "/" ? "" : route}`;
   return join(OUT, path === "" ? "index.html" : `${path}/index.html`);
@@ -48,8 +97,13 @@ async function prerender() {
   const written = [];
   const problems = [];
 
+  const routes = [
+    ...PUBLIC_ROUTES.map((route) => ({ route, shell: false })),
+    ...CUSTOMER_SHELL_ROUTES.map((route) => ({ route, shell: true })),
+  ];
+
   for (const { code, prefix } of LOCALES) {
-    for (const route of PUBLIC_ROUTES) {
+    for (const { route, shell } of routes) {
       const response = await fetch(`${BASE}${route}`, {
         headers: { cookie: `velyq-locale=${code}` },
         redirect: "manual",
@@ -68,6 +122,22 @@ async function prerender() {
       if (!html.includes(`lang="${code}"`)) {
         problems.push(`${code} ${route} -> rendered wrong lang`);
         continue;
+      }
+
+      if (shell) {
+        /*
+         * The shell must be inert. Anything resembling one customer's state
+         * here would be handed to every other visitor of this file.
+         */
+        const leaked = PRIVATE_PATTERNS.filter(([pattern]) =>
+          pattern.test(stripFrameworkMetadata(html)),
+        ).map(([, description]) => description);
+        if (leaked.length > 0) {
+          problems.push(
+            `${code} ${route} -> refused, shell contains ${leaked.join(", ")}`,
+          );
+          continue;
+        }
       }
 
       /*

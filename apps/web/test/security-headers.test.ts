@@ -62,7 +62,8 @@ describe("security headers", () => {
 
   it("carries the headers on an unauthenticated redirect to sign-in", async () => {
     process.env["VELYQ_APPLICATION_ORIGIN"] = "https://velyq.test";
-    const response = await proxy(request("/today"));
+    // /matches/:id is still Worker-rendered, so it is still edge-gated.
+    const response = await proxy(request("/matches/abc"));
     expect(response.status).toBe(307);
     for (const [key, value] of SECURITY_HEADERS) {
       expect(response.headers.get(key)).toBe(value);
