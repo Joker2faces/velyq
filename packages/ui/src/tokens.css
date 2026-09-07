@@ -495,16 +495,10 @@ svg {
   color: var(--text-muted);
 }
 
-.badge--synthetic {
+.badge--preview {
   background: var(--signal-dim);
   border-color: var(--signal-strong);
   color: var(--signal);
-}
-
-.badge--heuristic {
-  background: var(--gold-dim);
-  border-color: var(--gold-strong);
-  color: var(--gold);
 }
 
 .badge__dot {

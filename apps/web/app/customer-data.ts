@@ -24,7 +24,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000001",
       homeTeam: "Northbridge United",
       awayTeam: "Riverside Athletic",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 8.5,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -62,7 +62,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000002",
       homeTeam: "Eastvale City",
       awayTeam: "Kingsport FC",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 10,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -100,7 +100,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000003",
       homeTeam: "Harbor Rovers",
       awayTeam: "Oldtown FC",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 11.5,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -138,7 +138,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000004",
       homeTeam: "Lakeside Albion",
       awayTeam: "Metro Vale",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 12,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -176,7 +176,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000005",
       homeTeam: "Southport Vale",
       awayTeam: "Cedar Athletic",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 32.5,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -214,7 +214,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000006",
       homeTeam: "Westhaven FC",
       awayTeam: "Union Park",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 34,
       syntheticLabel: "Synthetic data",
       scenario: {
@@ -255,7 +255,7 @@ function matchTemplates(): ReadonlyArray<
       eventId: "76000000-0000-4000-8000-000000000007",
       homeTeam: "Pinecrest Town",
       awayTeam: "Beacon Rovers",
-      competition: "Premier Synthetic League",
+      competition: "Premier Division",
       startsAtOffsetHours: 35.5,
       syntheticLabel: "Synthetic data",
       scenario: {

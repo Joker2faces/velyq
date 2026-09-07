@@ -78,7 +78,7 @@ export function PreviewDataBadge({
 }) {
   if (!requiresPreviewDisclosure(provenance)) return null;
   return (
-    <Badge tone="market" emphasis="supporting" dot>
+    <Badge tone="preview" emphasis="supporting" dot>
       {label}
     </Badge>
   );

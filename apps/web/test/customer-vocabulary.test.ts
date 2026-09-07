@@ -79,6 +79,16 @@ const FORBIDDEN_VOCABULARY: readonly (readonly [string, readonly string[]])[] =
         "debug",
         "development heuristic",
         "δείκτης υπό ανάπτυξη",
+        /*
+         * Omitted from the first version of this list, which is how "An
+         * experimental model produces a probability" survived on the
+         * homepage through a copy audit that had already removed the word
+         * from five other places. The maturity of the model is real and is
+         * recorded in the domain and in the admin console; on a customer page
+         * it is a hedge that says nothing about what the number means.
+         */
+        "experimental",
+        "πειραματ",
         "phase 1",
         "φάση 1",
         "deterministic model",
@@ -239,6 +249,26 @@ describe("customer-facing vocabulary", () => {
       (key) => !translations.el[key as keyof typeof translations.el],
     );
     expect(missing).toEqual([]);
+  });
+
+  it("names no sample data after the mechanism that produced it", () => {
+    /*
+     * Copy was not the only place VELYQ's vocabulary reached a customer. The
+     * preview fixtures listed every match under a competition called
+     * "Premier Synthetic League", which the homepage printed under the team
+     * names — so the product disclosed its samples twice, once discreetly and
+     * once by naming an engineering artefact as a football competition.
+     *
+     * The fixtures are otherwise untouched: same ids, prices, probabilities
+     * and quality states, so every scenario test still exercises what it did.
+     */
+    const fixtures = readFileSync(
+      resolve(customerAppRoot, "customer-data.ts"),
+      "utf8",
+    );
+    for (const term of ["Synthetic League", "Test League", "Demo League"]) {
+      expect(fixtures).not.toContain(term);
+    }
   });
 });
 

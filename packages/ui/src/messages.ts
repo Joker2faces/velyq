@@ -56,7 +56,6 @@ export const messages = {
   previewData: "Preview data",
   previewDataNote:
     "Fixtures and prices shown here are samples, while live market coverage is being connected.",
-  experimental: "Experimental",
   observableOnly: "Observed prices only",
   traceable: "Traceable",
   noEvidence: "No evidence",
@@ -176,7 +175,7 @@ export const messages = {
     "Every match is graded A to F. Out-of-date prices, missing lineups and weak market matching are flagged, not hidden.",
   homeHowThreeTitle: "Estimate",
   homeHowThreeBody:
-    "An experimental model produces a probability, which becomes fair odds and an expected value you can compare against the market.",
+    "The model produces a probability, which becomes fair odds and an expected value you can compare against the market.",
   homeHowFourTitle: "Recommend, or wait",
   homeHowFourBody:
     "A recommendation is issued only when the quality gate passes. Otherwise VELYQ tells you exactly what is missing.",
@@ -709,7 +708,6 @@ const greek: Readonly<Record<MessageKey, string>> = {
   previewData: "Δεδομένα προεπισκόπησης",
   previewDataNote:
     "Οι αγώνες και οι αποδόσεις που βλέπεις είναι δείγματα, όσο συνδέεται η κάλυψη των πραγματικών αγορών.",
-  experimental: "Πειραματικό",
   observableOnly: "Μόνο καταγεγραμμένες αποδόσεις",
   traceable: "Ιχνηλάσιμο",
   noEvidence: "Χωρίς στοιχεία",
@@ -820,7 +818,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Κάθε αγώνας παίρνει βαθμό από Α έως F. Παλιές αποδόσεις, ενδεκάδες που λείπουν και αδύναμες αντιστοιχίσεις φαίνονται, δεν κρύβονται.",
   homeHowThreeTitle: "Εκτίμηση",
   homeHowThreeBody:
-    "Ένα πειραματικό μοντέλο βγάζει πιθανότητα, που γίνεται δίκαιη απόδοση και αναμενόμενη αξία για να τη συγκρίνεις με την αγορά.",
+    "Το μοντέλο βγάζει πιθανότητα, που γίνεται δίκαιη απόδοση και αναμενόμενη αξία για να τη συγκρίνεις με την αγορά.",
   homeHowFourTitle: "Πρόταση ή αναμονή",
   homeHowFourBody:
     "Πρόταση βγαίνει μόνο όταν περάσει ο έλεγχος ποιότητας. Αλλιώς το VELYQ σου λέει ακριβώς τι λείπει.",

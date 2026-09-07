@@ -68,8 +68,16 @@ export type Tone =
   | "neutral"
   | "muted"
   | "market"
-  | "synthetic"
-  | "heuristic";
+  /*
+   * The preview-data disclosure. Named `synthetic` while the badge it styled
+   * said "Synthetic data"; the badge now says "Preview data", and a tone name
+   * that no longer matches what it renders is how the next person
+   * reintroduces the old word.
+   *
+   * The `heuristic` tone that sat beside it is gone. It existed for one badge
+   * — "Development heuristic" — and had no other caller.
+   */
+  | "preview";
 
 export function recommendationTone(code: string): Tone {
   switch (code) {
