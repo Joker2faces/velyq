@@ -42,8 +42,21 @@ const PLAN_ENTITLEMENTS: Readonly<
   Record<CustomerPlan, readonly CustomerEntitlement[]>
 > = {
   FREE: ["today.view", "edge.preview", "radar.preview"],
-  PRO: ["today.view", "edge.full", "radar.full"],
-  ELITE: ["today.view", "edge.full", "radar.full", "match.detail"],
+  PRO: [
+    "today.view",
+    "edge.preview",
+    "edge.full",
+    "radar.preview",
+    "radar.full",
+  ],
+  ELITE: [
+    "today.view",
+    "edge.preview",
+    "edge.full",
+    "radar.preview",
+    "radar.full",
+    "match.detail",
+  ],
 };
 
 export function resolveCustomerEntitlements(context: SubscriptionContext) {
