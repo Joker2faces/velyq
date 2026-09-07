@@ -33,6 +33,12 @@ const PRIVATE_ROUTES = [
 ];
 const ROUTES = [...PUBLIC_ROUTES, ...PRIVATE_ROUTES];
 const WIDTHS = [
+  /* 320 is the narrowest viewport still worth supporting, and the width at
+     which a four-figure stat row or a Greek label is first forced to break.
+     Starting the sweep at 390 meant the two widths most likely to fail were
+     the two it never looked at. */
+  ["mobile-xs", 320, 720],
+  ["mobile-sm", 360, 800],
   ["mobile", 390, 844],
   ["mobile-lg", 430, 932],
   ["tablet", 768, 1024],

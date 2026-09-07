@@ -19,9 +19,9 @@ import {
   CardHead,
   EmptyState,
   Explain,
+  PreviewDataBadge,
   Sparkline,
   Stat,
-  Trend,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
 
@@ -62,10 +62,15 @@ export function RadarView({
           <p>{t("radarBody")}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
+          <PreviewDataBadge
+            provenance={data.syntheticLabel}
+            label={t("previewData")}
+          />
+          {/* Kept: it is a claim about what RADAR does and does not observe,
+              which is decision-relevant, not a note about the build. */}
+          <Badge tone="neutral" emphasis="supporting">
+            {t("observableOnly")}
           </Badge>
-          <Badge tone="heuristic">{t("observableOnly")}</Badge>
         </div>
       </div>
 
@@ -169,16 +174,19 @@ function RadarRow({
           label={t("radarCurrent")}
           value={formatOdds(match.currentOdds, locale)}
         />
+        {/* Movement takes the market hue in both directions. A price that
+            shortened is not "good"; the arrow, the sign and the sentence in
+            the row foot say which way it went. */}
         <Stat
           label={t("radarMovement")}
           value={formatPercent(match.movementPercent, 1, locale)}
-          tone={direction === "down" ? "positive" : undefined}
+          tone="market"
         />
         <div className="stat">
           <span className="stat__label">{t("radarHistory")}</span>
           <Sparkline
             points={[Number(match.openingOdds), Number(match.currentOdds)]}
-            tone={direction === "up" ? "caution" : "pitch"}
+            tone="market"
             label={`${t("radarOpening")} ${formatOdds(match.openingOdds, locale)} → ${t(
               "radarCurrent",
             )} ${formatOdds(match.currentOdds, locale)}`}
@@ -186,24 +194,14 @@ function RadarRow({
         </div>
       </div>
 
+      {/*
+       * The foot used to restate the whole row — both prices and the
+       * percentage a second time, immediately under the labelled stats that
+       * had just given them. What the stats cannot say is what the move
+       * *means*, so that sentence is all that is left here.
+       */}
       <div className="row__foot">
-        <div className="journey">
-          <span className="journey__price journey__price--from">
-            {formatOdds(match.openingOdds, locale)}
-          </span>
-          <span className="journey__arrow" aria-hidden="true">
-            →
-          </span>
-          <span className="journey__price">
-            {formatOdds(match.currentOdds, locale)}
-          </span>
-          <Trend
-            value={match.movementPercent}
-            display={formatPercent(match.movementPercent, 1, locale)}
-            caption={meaning}
-          />
-          <span className="row__sub">{meaning}</span>
-        </div>
+        <span className="row__sub">{meaning}</span>
         <span className="row__sub">{t("openMatchIntelligence")} →</span>
       </div>
     </Link>

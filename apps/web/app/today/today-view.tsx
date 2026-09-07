@@ -29,6 +29,7 @@ import {
   Card,
   CardHead,
   EmptyState,
+  PreviewDataBadge,
   Stat,
   Trend,
 } from "../components/ui";
@@ -111,10 +112,10 @@ export function TodayView({
           <p>{t("todaySnapshot", { time: formatTime(today.asOf, locale) })}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-          <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
+          <PreviewDataBadge
+            provenance={today.syntheticLabel}
+            label={t("previewData")}
+          />
         </div>
       </div>
 
@@ -123,11 +124,21 @@ export function TodayView({
         <div className="lead">
           {lead ? (
             <>
+              {/* The verdict leads; the grade supports it. Drawn at equal
+                  weight — and both green whenever the news was good — the
+                  reader had to work out which pill was VELYQ's answer. */}
               <div className="lead__verdict">
-                <Badge tone={recommendationTone(lead.recommendation)} dot>
+                <Badge
+                  tone={recommendationTone(lead.recommendation)}
+                  emphasis="lead"
+                  dot
+                >
                   {recommendationLabel(lead.recommendation, locale)}
                 </Badge>
-                <Badge tone={qualityTone(lead.quality.grade)}>
+                <Badge
+                  tone={qualityTone(lead.quality.grade)}
+                  emphasis="supporting"
+                >
                   {t("matchGrade")} {lead.quality.grade}
                 </Badge>
               </div>

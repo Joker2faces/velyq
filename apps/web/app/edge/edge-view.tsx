@@ -25,6 +25,7 @@ import {
   EdgeAxis,
   EmptyState,
   Explain,
+  PreviewDataBadge,
   Stat,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
@@ -63,10 +64,10 @@ export function EdgeView({
           <p>{t("edgeBody")}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-          <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
+          <PreviewDataBadge
+            provenance={data.syntheticLabel}
+            label={t("previewData")}
+          />
         </div>
       </div>
 
@@ -158,12 +159,18 @@ function EdgeRow({
             {t("todayFullTime1x2")} · {selectionLabel(match.selection, locale)}
           </div>
         </div>
+        {/* Verdict first and at full weight; the grade qualifies it. The
+            grade used to be printed ahead of the verdict at the same weight,
+            so the first pill a reader met was a supporting measure. */}
         <div className="page__badges">
-          <Badge tone={qualityTone(match.quality.grade)}>
-            {t("matchGrade")} {match.quality.grade}
-          </Badge>
-          <Badge tone={recommendationTone(match.recommendation)}>
+          <Badge
+            tone={recommendationTone(match.recommendation)}
+            emphasis="lead"
+          >
             {recommendationLabel(match.recommendation, locale)}
+          </Badge>
+          <Badge tone={qualityTone(match.quality.grade)} emphasis="supporting">
+            {t("matchGrade")} {match.quality.grade}
           </Badge>
         </div>
       </div>

@@ -28,7 +28,7 @@
 
 .shell-header {
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.78);
+  background: rgb(var(--scrim) / 0.78);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
@@ -190,12 +190,12 @@
   background:
     radial-gradient(
       44rem 26rem at 74% -16%,
-      rgba(61, 220, 145, 0.15),
+      rgb(var(--pitch-rgb) / 0.15),
       transparent 64%
     ),
     radial-gradient(
       34rem 22rem at 6% -6%,
-      rgba(111, 212, 232, 0.09),
+      rgb(var(--signal-rgb) / 0.09),
       transparent 62%
     );
   inset: 0;
@@ -566,7 +566,7 @@
   background:
     radial-gradient(
       30rem 18rem at 82% 0%,
-      rgba(95, 227, 196, 0.14),
+      rgb(var(--pitch-rgb) / 0.14),
       transparent 68%
     ),
     var(--surface);
@@ -787,7 +787,7 @@
 .app__topbar {
   align-items: center;
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.82);
+  background: rgb(var(--scrim) / 0.82);
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--space-4);
@@ -822,7 +822,7 @@
 /* Bottom navigation is the primary mobile navigation. */
 .app__bottomnav {
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.94);
+  background: rgb(var(--scrim) / 0.94);
   border-top: 1px solid var(--line);
   bottom: 0;
   display: grid;
@@ -907,7 +907,7 @@
   background:
     radial-gradient(
       26rem 14rem at 88% 0%,
-      rgba(95, 227, 196, 0.12),
+      rgb(var(--pitch-rgb) / 0.12),
       transparent 70%
     ),
     var(--surface);
@@ -939,7 +939,17 @@
 .lead__figure {
   align-items: baseline;
   display: flex;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* The caption beside the headline figure. Sitting in whatever width the
+   number leaves it, the Greek label — «Διαφορά πιθανότητας · Αναμενόμενη
+   αξία» — was breaking over three lines in a column a few characters wide on
+   a 375px screen. It takes its own line rather than a sliver of this one. */
+.lead__figure .lead__meta {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 
 .lead__figure b {
@@ -950,6 +960,9 @@
   font-weight: 500;
   letter-spacing: -0.04em;
   line-height: 1;
+  /* See `.stat__value`: narrows the no-break space between the figure and its
+     unit, which at this size was reading as a gap. */
+  word-spacing: -0.26em;
 }
 
 .stat-row {
@@ -975,7 +988,11 @@
 }
 
 a.row:hover {
-  background: linear-gradient(90deg, rgba(95, 227, 196, 0.07), transparent 62%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--pitch-rgb) / 0.07),
+    transparent 62%
+  );
 }
 
 .row__head {
@@ -1124,7 +1141,7 @@ a.row:hover {
   background:
     radial-gradient(
       30rem 16rem at 90% -10%,
-      rgba(95, 227, 196, 0.13),
+      rgb(var(--pitch-rgb) / 0.13),
       transparent 68%
     ),
     var(--surface);
@@ -1172,6 +1189,23 @@ a.row:hover {
 .meter {
   display: grid;
   gap: var(--space-2);
+}
+
+/* The quality meter is a supporting measure, and a grade A drew it as a
+   full-width bar in the brightest accent on the page — a larger, louder
+   green object than the verdict it qualifies. Same hues at lower luminance:
+   the meaning is unchanged and the verdict stays the brightest thing on the
+   screen. */
+.meter .bar__fill {
+  background: var(--pitch-strong);
+}
+
+.meter .bar__fill--caution {
+  background: var(--gold-strong);
+}
+
+.meter .bar__fill--negative {
+  background: var(--clay-strong);
 }
 
 .meter__scale {
@@ -1246,7 +1280,7 @@ a.row:hover {
 }
 
 .status-shell__glow {
-  background: rgba(95, 227, 196, 0.1);
+  background: rgb(var(--pitch-rgb) / 0.1);
   border-radius: 50%;
   filter: blur(100px);
   height: 32rem;
@@ -1464,20 +1498,51 @@ a.row:hover {
     background:
       radial-gradient(
         34rem 24rem at 24% 8%,
-        rgba(95, 227, 196, 0.16),
+        rgb(var(--pitch-rgb) / 0.16),
         transparent 64%
       ),
-      radial-gradient(
-        28rem 20rem at 80% 92%,
-        rgba(182, 166, 255, 0.14),
-        transparent 62%
-      ),
+      /* Was a lavender wash — the one hue in the product belonging to no
+         part of the palette, and the exact "purple-blue gradient SaaS" note
+         the palette was written to avoid. Lit by the two product hues
+         instead: model above, market below. */
+        radial-gradient(
+          28rem 20rem at 80% 92%,
+          rgb(var(--signal-rgb) / 0.13),
+          transparent 62%
+        ),
       var(--bg-raised);
     border-right: 1px solid var(--line);
     display: grid;
     align-content: space-between;
     gap: var(--space-7);
     padding: var(--space-7);
+  }
+
+  /* The brand bar exists so the mark and the language switcher are present
+     on a phone, where the aside is dropped entirely. Once the aside is
+     visible it owns the lockup, and showing both put two VELYQ lockups on
+     one screen — and pushed the form down past a band of dead space. The bar
+     keeps only the switcher, right-aligned. */
+  /* Two rows: the bar pinned to the top of the column, the card centred in
+     what is left. As one item in a centred stack the lone switcher floated in
+     the middle of the empty upper half, anchored to nothing. */
+  .auth__main {
+    align-content: start;
+    grid-template-rows: auto 1fr;
+    padding-top: var(--space-5);
+  }
+
+  .auth__brandbar {
+    justify-content: flex-end;
+    margin-bottom: 0;
+  }
+
+  .auth__brandbar > .brand {
+    display: none;
+  }
+
+  .auth__main > .auth__card {
+    align-self: center;
   }
 
   .auth__aside h2 {
@@ -1521,6 +1586,32 @@ a.row:hover {
       "sidebar main";
     grid-template-columns: var(--sidebar) minmax(0, 1fr);
     grid-template-rows: auto 1fr;
+  }
+
+  /* The sidebar is 264px wide, which is not enough for the wordmark and the
+     tag on one line. As a wrapping flex item the tag broke mid-phrase onto a
+     second line and, because the lockup centres its items, dragged the
+     wordmark out of alignment with it. Stacked deliberately instead: mark and
+     wordmark on the first line, tag on its own beneath them. */
+  .app__sidebar > .brand {
+    align-items: start;
+    display: grid;
+    gap: var(--space-1);
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app__sidebar > .brand .brand__logo {
+    grid-row: 1;
+  }
+
+  .app__sidebar > .brand .brand__mark {
+    align-self: center;
+    grid-row: 1;
+  }
+
+  .app__sidebar > .brand .brand__tag {
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .app__sidebar {
@@ -1741,6 +1832,10 @@ a.row:hover {
 
 /* The halfway line, borrowed as a separator between the two sides. */
 .fixture__divider {
+  /* Stretches to whatever height the two names take. It was a fixed 1.9em,
+     so as soon as one side wrapped to two lines the line stopped reaching
+     across the fixture and read as a stray tick beside the longer name. */
+  align-self: stretch;
   background: linear-gradient(
     180deg,
     transparent,
@@ -1751,7 +1846,7 @@ a.row:hover {
   );
   border-radius: 1px;
   flex: none;
-  height: 1.9em;
+  min-height: 1.9em;
   width: 2px;
 }
 
@@ -1777,7 +1872,7 @@ a.row:hover {
 }
 
 .fixture--lg .fixture__divider {
-  height: 2.2em;
+  min-height: 2.2em;
 }
 
 /* Match rows adopt the fixture separator without the full scoreboard grid. */
@@ -1789,5 +1884,280 @@ a.row:hover {
 }
 
 .row__teams .fixture__divider {
-  height: 1.1em;
+  align-self: center;
+  min-height: 1.1em;
+}
+
+/* --------------------------------------- 18. sport scope & track record ---
+
+   Presentation for the two things VELYQ is becoming: a multi-sport product,
+   and one that publishes a record you can check.
+
+   The governing constraint throughout this section is that a track record
+   must read as an audit and not as a scoreboard. Concretely: no result is
+   ever given the brand accent, decision quality and outcome are separated
+   visually as well as semantically, and the community surface is drawn
+   quieter than every quantitative element beside it. */
+
+/* 18.1 Sport scope ------------------------------------------------------- */
+
+.sportscope {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.sportscope__label {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* One sport is context, so it is set as text rather than as a control that
+   cannot be operated. */
+.sportscope__current {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 560;
+}
+
+.sportscope__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+
+.sportscope__option {
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: 560;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+a.sportscope__option:hover {
+  color: var(--text);
+}
+
+.sportscope__option[aria-current] {
+  background: var(--pitch-dim);
+  color: var(--pitch);
+}
+
+/* 18.2 Forecast integrity ------------------------------------------------ */
+
+/* Three checkable statements, not a claim about VELYQ's character. Drawn as
+   quiet evidence: the point is that a reader can verify it, so it should not
+   look like marketing. */
+.integrity {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+.integrity__points {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.integrity__points li {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-3);
+}
+
+.integrity__points svg {
+  color: var(--signal);
+  flex: none;
+}
+
+.integrity__points b {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.integrity__caption {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  max-width: 62ch;
+}
+
+/* 18.3 A settled signal -------------------------------------------------- */
+
+.settled {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) 0;
+}
+
+.settled:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settled__head {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.settled__fixture {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.settled__teams {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+}
+
+.settled__meta {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/*
+ * Decision quality and result, side by side and labelled.
+ *
+ * The separation is the argument. A reader has to be able to see that a sound
+ * decision lost, or that a winner was taken at no edge — which is impossible
+ * if the two are merged into one status. Each keeps its own caption so neither
+ * can be mistaken for the other at a glance.
+ */
+.settled__verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+
+.settled__verdict {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.settled__verdict-label {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.settled__clv {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* 18.4 Record summary ---------------------------------------------------- */
+
+.record {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.record__figures {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+}
+
+.record__bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+
+.record__band {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+/* The sample qualification sits with the figures it qualifies. A rate drawn
+   from eleven settled signals is read long before any footnote under it. */
+.record__sample {
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  padding-top: var(--space-3);
+}
+
+/* 18.5 Community --------------------------------------------------------- */
+
+/*
+ * Deliberately the quietest surface in the product.
+ *
+ * Attention is not evidence, so this is drawn below the weight of every
+ * quantitative element near it: no accent, no fill, no emphasis on the count.
+ * The caption saying what the number does *not* mean is part of the pattern
+ * rather than an optional extra.
+ */
+.pulse {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.pulse__head {
+  margin: 0;
+}
+
+.pulse__caption {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  max-width: 58ch;
+}
+
+.follow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.follow__button {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+}
+
+.follow__button--on {
+  border-color: var(--line-focus);
+  color: var(--text);
+}
+
+/* Tabular so a changing count does not shift the text beside it. */
+.follow__count {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }

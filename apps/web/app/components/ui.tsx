@@ -1,5 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { axisPercent, barPercent, directionOf, type Tone } from "@velyq/ui";
+import {
+  axisPercent,
+  barPercent,
+  directionOf,
+  requiresPreviewDisclosure,
+  type Tone,
+} from "@velyq/ui";
 import {
   IconAlert,
   IconArrowDown,
@@ -22,16 +28,59 @@ export function Badge({
   children,
   tone = "neutral",
   dot = false,
+  emphasis,
 }: {
   children: ReactNode;
   tone?: Tone;
   dot?: boolean;
+  /**
+   * Which badge on a surface is the headline.
+   *
+   * `lead` is the verdict — at most one per surface. `supporting` keeps the
+   * semantic hue on the dot and the label but drops the tinted fill, so a
+   * quality grade sitting beside a verdict no longer reads as a second,
+   * equally weighted answer.
+   */
+  emphasis?: "lead" | "supporting" | undefined;
 }) {
   return (
-    <span className={`badge badge--${tone}`}>
+    <span
+      className={`badge badge--${tone}${emphasis ? ` badge--${emphasis}` : ""}`}
+    >
       {dot ? <span className="badge__dot" /> : null}
       {children}
     </span>
+  );
+}
+
+// --------------------------------------------------------- data disclosure
+
+/**
+ * The preview-data disclosure.
+ *
+ * Renders nothing at all when the surface's provenance says the data is real,
+ * which is the whole point: a customer reading live market data must not have
+ * it hedged as a sample, and a customer reading samples must be told. The
+ * decision comes from the data's own provenance label rather than a setting
+ * beside it, so a build cannot serve fixtures while claiming to be live.
+ *
+ * One per surface. This replaced two badges on every page — "Synthetic data"
+ * and "Development heuristic" — which between them told a customer nothing
+ * they could act on and stamped the product with the vocabulary of its own
+ * source tree.
+ */
+export function PreviewDataBadge({
+  provenance,
+  label,
+}: {
+  provenance: string | null | undefined;
+  label: string;
+}) {
+  if (!requiresPreviewDisclosure(provenance)) return null;
+  return (
+    <Badge tone="preview" emphasis="supporting" dot>
+      {label}
+    </Badge>
   );
 }
 
@@ -93,8 +142,10 @@ export function Stat({
   label: string;
   value: string;
   /* `undefined` is explicit because the workspace enables
-     exactOptionalPropertyTypes and call sites pass a conditional tone. */
-  tone?: "positive" | "negative" | undefined;
+     exactOptionalPropertyTypes and call sites pass a conditional tone.
+     `market` marks a figure the market produced rather than the model, and is
+     the correct tone for observed price movement in either direction. */
+  tone?: "positive" | "negative" | "market" | undefined;
   size?: "lg" | undefined;
   boxed?: boolean;
   hint?: string | undefined;
@@ -248,6 +299,13 @@ export function EdgeAxis({
         <span className="edgeaxis__marker edgeaxis__marker--market" />
         <span className="edgeaxis__marker edgeaxis__marker--model" />
       </div>
+      {/* The scale the two markers are read against. Without it the track is
+          an unlabelled rail and a six-point edge looks arbitrary rather than
+          small-but-real. */}
+      <div className="edgeaxis__scale" aria-hidden="true">
+        <span>0%</span>
+        <span>100%</span>
+      </div>
       <div className="edgeaxis__legend">
         <span className="edgeaxis__key">
           <span className="edgeaxis__swatch edgeaxis__swatch--model" />
@@ -278,7 +336,12 @@ export function Sparkline({
   label,
 }: {
   points: readonly number[];
-  tone?: "pitch" | "caution";
+  /**
+   * `market` is the correct tone for an observed price history: it is market
+   * evidence, not model output, and colouring it with the brand accent both
+   * overstated it and spent green on something VELYQ did not conclude.
+   */
+  tone?: "pitch" | "caution" | "market";
   label: string;
 }) {
   if (points.length < 2) return null;
@@ -304,14 +367,14 @@ export function Sparkline({
     >
       <polyline
         className={
-          tone === "pitch" ? "spark__line" : "spark__line spark__line--caution"
+          tone === "pitch" ? "spark__line" : `spark__line spark__line--${tone}`
         }
         pathLength={1}
         points={coords.join(" ")}
       />
       <circle
         className={
-          tone === "pitch" ? "spark__dot" : "spark__dot spark__dot--caution"
+          tone === "pitch" ? "spark__dot" : `spark__dot spark__dot--${tone}`
         }
         cx={last[0]}
         cy={last[1]}
@@ -326,18 +389,28 @@ export function Sparkline({
 /**
  * Signed movement with a direction arrow.
  *
- * Shortening odds (a negative move) is rendered as the mint "down" tone
- * because a falling price is the market agreeing with the position; drifting
- * odds are amber. The arrow is decorative — the sign is in the text.
+ * Every direction takes the same market hue. A price that shortened is not
+ * "good" and one that drifted is not "bad" — which way it moved is an
+ * observation about the market, and whether it helps depends on the position
+ * a reader holds. This previously rendered a fall in the brand mint and a
+ * rise in amber, which told the reader the market agreeing with the model was
+ * a win and spent the accent on something that is not VELYQ's judgement.
+ *
+ * Direction is therefore carried by three non-colour channels: the arrow, the
+ * sign in `display`, and the optional `gloss` naming it in words. That is also
+ * what a reader who cannot separate the two hues needs.
  */
 export function Trend({
   value,
   display,
   caption,
+  gloss,
 }: {
   value: string | null | undefined;
   display: string;
   caption?: string;
+  /** The direction in words, e.g. "Price shortened in". */
+  gloss?: string | undefined;
 }) {
   const direction = directionOf(value);
   const Arrow =
@@ -350,6 +423,7 @@ export function Trend({
     <span className={`trend trend--${direction}`}>
       {direction === "unknown" ? null : <Arrow size={13} />}
       <span>{display}</span>
+      {gloss ? <span className="trend__gloss">{gloss}</span> : null}
       {caption ? <span className="sr-only">{caption}</span> : null}
     </span>
   );
@@ -463,7 +537,7 @@ export function Skeleton({
   variant = "line",
   width,
 }: {
-  variant?: "line" | "title" | "block";
+  variant?: "line" | "title" | "block" | "pill" | "figure";
   width?: string;
 }) {
   return (
@@ -471,6 +545,90 @@ export function Skeleton({
       className={`skeleton skeleton--${variant}`}
       style={{ display: "block", ...(width ? { width } : {}) }}
     />
+  );
+}
+
+/**
+ * The loading state for an intelligence surface.
+ *
+ * The customer shells are static and fetch their data in the browser, so this
+ * is the first thing every visitor to Today, EDGE and RADAR sees — which
+ * makes matching the real page's geometry the whole job. The previous
+ * skeleton was two cards of stacked bars with no gap between them, so it read
+ * as a pair of grey slabs and then reflowed the page entirely when the data
+ * arrived.
+ *
+ * This mirrors the shape all three surfaces actually render: a page head, the
+ * lead panel that answers the page's question, a row of summary figures and a
+ * two-card split. Same containers, same gaps, so the content lands in place
+ * instead of pushing the page around.
+ */
+export function SurfaceSkeleton({
+  label,
+  title,
+}: {
+  label: string;
+  /**
+   * The heading of the page being waited for, when the caller knows it.
+   *
+   * A customer surface does: its shell is static and this skeleton *is* the
+   * document until the API answers, so it renders the title as a real `h1`.
+   * A page with no top-level heading is a navigation failure for anyone
+   * moving through a page by its headings, and having the title present from
+   * the first byte also stops it shifting in with the data.
+   *
+   * The route-level loading boundary does not, because it covers the
+   * marketing pages too and those render their own `h1` — supplying one here
+   * would give those documents two. Without a title the heading slot falls
+   * back to a placeholder bar.
+   */
+  title?: string | undefined;
+}) {
+  return (
+    <div className="page" aria-busy="true">
+      <span className="sr-only" role="status" aria-live="polite">
+        {label}
+      </span>
+
+      <div className="page__head">
+        <div className="page__head-copy skeleton-stack">
+          <Skeleton width="min(18rem, 70%)" />
+          {title ? <h1>{title}</h1> : <Skeleton variant="title" />}
+          <Skeleton width="min(14rem, 55%)" />
+        </div>
+        <div className="page__badges" aria-hidden="true">
+          <Skeleton variant="pill" width="7.5rem" />
+          <Skeleton variant="pill" width="9rem" />
+        </div>
+      </div>
+
+      <div className="stack" aria-hidden="true">
+        <div className="card skeleton-stack">
+          <Skeleton variant="pill" width="8rem" />
+          <Skeleton width="92%" />
+          <Skeleton width="74%" />
+          <Skeleton variant="figure" width="min(12rem, 60%)" />
+        </div>
+
+        <div className="stat-row">
+          {[0, 1, 2, 3].map((slot) => (
+            <div className="card skeleton-stack" key={slot}>
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+          ))}
+        </div>
+
+        <div className="split">
+          {[0, 1].map((slot) => (
+            <div className="card skeleton-stack" key={slot}>
+              <Skeleton width="55%" />
+              <Skeleton variant="block" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

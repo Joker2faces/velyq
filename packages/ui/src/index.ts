@@ -15,6 +15,46 @@ export {
 } from "./brand.js";
 
 export {
+  SPORTS,
+  isSport,
+  sportLabel,
+  sportScope,
+  type Sport,
+  type SportScope,
+} from "./sport.js";
+
+export {
+  CALIBRATION_BANDS,
+  DECISION_QUALITIES,
+  MINIMUM_REPORTABLE_SAMPLE,
+  MODEL_MATURITIES,
+  OUTCOME_RESULTS,
+  calibrationLabel,
+  calibrationTone,
+  clvDirection,
+  clvLabel,
+  decisionQualityLabel,
+  decisionQualityTone,
+  isReportableSample,
+  modelMaturityLabel,
+  modelMaturityTone,
+  outcomeLabel,
+  outcomeTone,
+  sampleSizeCaption,
+  type CalibrationBand,
+  type ClvDirection,
+  type DecisionQuality,
+  type ModelMaturity,
+  type OutcomeResult,
+} from "./track-record.js";
+
+export {
+  dataMode,
+  requiresPreviewDisclosure,
+  type DataMode,
+} from "./data-mode.js";
+
+export {
   DEFAULT_LOCALE,
   LOCALES,
   LOCALE_COOKIE,

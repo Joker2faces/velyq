@@ -20,6 +20,7 @@ import {
   Badge,
   Card,
   EdgeAxis,
+  PreviewDataBadge,
   Sparkline,
   Trend,
 } from "./components/ui";
@@ -97,9 +98,13 @@ export default async function Home() {
             <div className="preview pitch-corner">
               <div className="preview__bar">
                 <span className="eyebrow">{t("homePreviewLabel")}</span>
-                <Badge tone="synthetic" dot>
-                  {t("syntheticData")}
-                </Badge>
+                {/* Data-driven like every other surface, so the homepage
+                    stops disclosing a preview the day the panel is showing
+                    real observations. */}
+                <PreviewDataBadge
+                  provenance={featured.syntheticLabel}
+                  label={t("previewData")}
+                />
               </div>
 
               <div className="preview__cards">
@@ -167,6 +172,7 @@ export default async function Home() {
                           Number(featured.openingOdds),
                           Number(featured.currentOdds),
                         ]}
+                        tone="market"
                         label={`${t("homePreviewOpening")} ${formatOdds(
                           featured.openingOdds,
                           locale,

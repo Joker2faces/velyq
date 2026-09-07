@@ -68,13 +68,34 @@ export type Tone =
   | "neutral"
   | "muted"
   | "market"
-  | "synthetic"
-  | "heuristic";
+  /*
+   * The preview-data disclosure. Named `synthetic` while the badge it styled
+   * said "Synthetic data"; the badge now says "Preview data", and a tone name
+   * that no longer matches what it renders is how the next person
+   * reintroduces the old word.
+   *
+   * The `heuristic` tone that sat beside it is gone. It existed for one badge
+   * — "Development heuristic" — and had no other caller.
+   */
+  | "preview";
 
 export function recommendationTone(code: string): Tone {
   switch (code) {
+    /*
+     * `EDGE` and `WATCH` are not in the domain's union yet. They are listed
+     * here anyway because the fallback is "neutral", which is the tone
+     * `NO_BET` takes — so the day either code is emitted it would arrive
+     * looking like a refusal to bet, which is the opposite of what it says.
+     * Naming them costs nothing and cannot mislabel a code that never
+     * appears. This is a colour lookup only; the labels for these two still
+     * fall through to the readable de-underscored form, since inventing
+     * customer-facing copy for a state the domain has not defined would be
+     * guessing at someone else's wording.
+     */
     case "STRONG_EDGE":
+    case "EDGE":
       return "positive";
+    case "WATCH":
     case "WAIT":
     case "WAIT_FOR_LINEUP":
       return "caution";

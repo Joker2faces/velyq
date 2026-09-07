@@ -2,7 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { translate, type Locale } from "@velyq/ui";
-import { ErrorState, Skeleton } from "../components/ui";
+import { ErrorState, SurfaceSkeleton } from "../components/ui";
 import { redirectTo } from "../components/browser";
 import { localePath } from "../locale-path";
 import type { CustomerState } from "./customer-data";
@@ -18,10 +18,13 @@ import type { CustomerState } from "./customer-data";
 export function CustomerBoundary<T>({
   state,
   locale,
+  title,
   children,
 }: {
   state: CustomerState<T>;
   locale: Locale;
+  /** Heading of the surface being waited for; see `SurfaceSkeleton`. */
+  title: string;
   children: (data: T) => ReactNode;
 }) {
   const unauthenticated = state.status === "unauthenticated";
@@ -75,17 +78,9 @@ export function CustomerBoundary<T>({
    * region announces the wait instead of leaving a screen reader silent.
    */
   return (
-    <div className="page" aria-busy="true" aria-live="polite">
-      <span className="sr-only">{translate("customerLoading", locale)}</span>
-      <div className="card">
-        <Skeleton variant="title" width="42%" />
-        <Skeleton variant="line" width="70%" />
-        <Skeleton variant="block" />
-      </div>
-      <div className="card">
-        <Skeleton variant="line" width="55%" />
-        <Skeleton variant="block" />
-      </div>
-    </div>
+    <SurfaceSkeleton
+      label={translate("customerLoading", locale)}
+      title={title}
+    />
   );
 }

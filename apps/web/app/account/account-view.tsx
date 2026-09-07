@@ -40,11 +40,9 @@ export function AccountView({
           <h1>{t("accountTitle")}</h1>
           <p>{t("accountBody")}</p>
         </div>
-        <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-        </div>
+        {/* Account is the customer's own record, not an intelligence
+            surface: it carries no market data, so there is nothing here to
+            disclose a provenance for. */}
       </div>
 
       <div className="stack">
@@ -150,11 +148,14 @@ export function AccountView({
           */}
         {context?.isAdmin ? (
           <Card>
-            <CardHead
-              title={t("adminConsole")}
-              aside={<Badge tone="market">admin.access</Badge>}
-            />
-            <p className="row__reason">{t("accountAdminNote")}</p>
+            {/*
+             * No permission string and no explanation of how the permission
+             * was granted. This printed `admin.access` as a badge and a note
+             * saying access "is granted by database permissions" — internal
+             * role structure on a customer page, and of no use to the one
+             * person who can already see it.
+             */}
+            <CardHead title={t("adminConsole")} />
             {process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ? (
               <div className="actions" style={{ marginTop: "var(--space-4)" }}>
                 <a
@@ -170,7 +171,7 @@ export function AccountView({
         ) : null}
 
         <Card>
-          <CardHead title={t("accountEnvironment")} />
+          <CardHead title={t("accountAboutVelyq")} />
           <p className="row__reason">{t("homeNoticeBody")}</p>
           <p style={{ marginTop: "var(--space-3)" }}>
             <ArrowLink href="/responsible-use">{t("homeNoticeLink")}</ArrowLink>

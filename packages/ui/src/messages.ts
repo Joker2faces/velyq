@@ -18,7 +18,7 @@ import { DEFAULT_LOCALE, type Locale } from "./locale.js";
  */
 export const messages = {
   // ---------------------------------------------------------------- brand
-  brandTagline: "Football intelligence",
+  brandTagline: "Sports market intelligence",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Full match analysis",
 
@@ -41,23 +41,155 @@ export const messages = {
   languageSelectorHint: "Choose your language",
 
   // --------------------------------------------------------------- shared
-  syntheticData: "Synthetic data",
-  developmentHeuristic: "Development heuristic",
-  experimental: "Experimental",
-  observableOnly: "Observable evidence only",
+
+  /*
+   * The preview-data disclosure.
+   *
+   * Shown only where `dataMode` resolves to DEMO, and only once per surface.
+   * It replaces a pair of badges — "Synthetic data" and "Development
+   * heuristic" — that stamped every page with the vocabulary of the codebase
+   * rather than telling a customer anything they could act on. What VELYQ
+   * owes a reader here is honesty about what the numbers are, not a recital
+   * of how they are produced: one discreet label carries that, and the note
+   * explains it.
+   */
+  previewData: "Preview data",
+  previewDataNote:
+    "Fixtures and prices shown here are samples, while live market coverage is being connected.",
+  observableOnly: "Observed prices only",
   traceable: "Traceable",
   noEvidence: "No evidence",
   radarMove: "Movement observed",
   viewAll: "View all",
   openMatchIntelligence: "Open Match Intelligence",
   backToSignIn: "Back to sign in",
-  syntheticEnvironment: "Synthetic beta environment",
-  researchUse: "Experimental · research use",
+  previewWorkspaceNote: "Preview data · no guaranteed outcomes",
+
+  /*
+   * Sports.
+   *
+   * VELYQ analyses sports betting markets, and the global brand says so; the
+   * sport is a property of what is being read, not of the product. These are
+   * the labels a sport scope renders from. Only the sports the product
+   * actually carries data for are ever passed to it — a selector offering a
+   * sport with nothing behind it is worse than no selector.
+   */
+  sportFootball: "Football",
+  sportBasketball: "Basketball",
+  sportScopeLabel: "Sport",
+  sportScopeAll: "All sports",
+
+  /*
+   * Track record.
+   *
+   * The product argument is "don't just trust VELYQ, verify its history", so
+   * this vocabulary has to read as an audit rather than a scoreboard. Two
+   * rules shape all of it: a result is stated, never celebrated, and the
+   * quality of the decision is named separately from how it turned out.
+   *
+   * Nothing here asserts a performance figure. Every number these labels sit
+   * beside comes from the data layer, and the sample captions exist so a
+   * figure drawn from too few settled signals says so on the same line.
+   */
+
+  // Outcome: what the market did. Stated flatly.
+  outcomeWon: "Won",
+  outcomeLost: "Lost",
+  outcomePush: "Push",
+  outcomeVoid: "Void",
+
+  // Decision quality: what VELYQ is accountable for, judged at publication.
+  decisionFortress: "Fortress",
+  decisionEdge: "Edge",
+  decisionMarginal: "Marginal",
+  decisionNoEdge: "No edge",
+
+  trackRecordKicker: "Track record",
+  trackRecordTitle: "Verify the history.",
+  trackRecordBody:
+    "Every signal VELYQ publishes is timestamped before the event starts and is never edited afterwards. Results are recorded whether they went our way or not.",
+  trackRecordOutcomeHeading: "Result",
+  trackRecordDecisionHeading: "Decision quality",
+  trackRecordDecisionHint:
+    "Whether the price was worth taking when it was published — which is a separate question from whether it won.",
+  trackRecordEmpty: "No settled signals yet.",
+  trackRecordEmptyBody:
+    "The record fills in as published signals settle. Nothing is shown here before it has.",
+
+  // Forecast integrity.
+  integrityPublished: "Published",
+  integrityBeforeKickoff: "Published before kick-off",
+  integrityTimestamped: "Timestamped",
+  integrityNoEdits: "Never edited after publication",
+  integrityCaption:
+    "Publication time is recorded when the signal is issued. Prices and reasoning are kept as they were.",
+
+  // Prices across a signal's life.
+  trackPublishedOdds: "Published price",
+  trackClosingOdds: "Closing price",
+  trackClv: "Closing line value",
+  trackClvHint:
+    "The published price measured against the price the market closed at. Settled by the market rather than by the result, so it is available on every signal.",
+  clvBeatClose: "Beat the close",
+  clvMatchedClose: "Matched the close",
+  clvMissedClose: "Behind the close",
+  clvUnknown: "No closing price observed",
+
+  // Statistical quality.
+  trackSampleSize: "Settled signals",
+  sampleSettled: "{count} settled signals",
+  sampleTooSmall: "Only {count} settled — too few to read as a rate",
+  trackBrier: "Brier score",
+  trackBrierHint:
+    "Mean squared error of the stated probabilities. Lower is better, and it is only comparable against a reference on the same markets.",
+  trackCalibration: "Calibration",
+  trackCalibrationHint:
+    "Whether outcomes have happened about as often as the stated probabilities said they would.",
+  calibrationStrong: "Closely calibrated",
+  calibrationReasonable: "Reasonably calibrated",
+  calibrationDrifting: "Drifting",
+  calibrationInsufficient: "Not enough settled signals",
+
+  // Model maturity, in customer language.
+  trackModelMaturity: "Model maturity",
+  maturityValidated: "Validated",
+  maturityProvisional: "Provisional",
+  maturityEarly: "Early",
+  maturityHint:
+    "How far the model behind a signal has been tested. A record spanning a model change is not one record.",
+
+  // Filtering.
+  trackFilterSport: "Sport",
+  trackFilterMarket: "Market",
+  trackFilterPeriod: "Period",
+  trackFilterOutcome: "Result",
+  trackFilterReset: "Clear filters",
+
+  /*
+   * Community.
+   *
+   * Following is a signal a reader chose to watch; it is never presented as a
+   * bet. VELYQ cannot know that a wager was placed without bookmaker-level
+   * verification, so no label here claims one was, and none of it outranks
+   * the quantitative evidence on the page.
+   */
+  communityFollow: "Follow signal",
+  communityFollowing: "Following",
+  communityUnfollow: "Stop following",
+  communityWatch: "Watch",
+  communityWatching: "Watching",
+  communityFollowerCount: "{count} following",
+  communityFollowerNone: "No followers yet",
+  communityPulse: "Community pulse",
+  communityMostFollowed: "Most followed",
+  communityTrending: "Trending",
+  communityCaption:
+    "How many people chose to watch this signal. It says nothing about whether anyone staked money on it.",
 
   // ------------------------------------------------------------- metadata
-  metaTitle: "VELYQ — Football Market Intelligence",
+  metaTitle: "VELYQ — Sports Market Intelligence",
   metaDescription:
-    "Traceable football market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
+    "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
 
   // ------------------------------------------------------- system states
   customerUnavailable: "Data is not available right now.",
@@ -90,8 +222,8 @@ export const messages = {
   homeCreateAccount: "Create account",
 
   // ---------------------------------------------------------- home: hero
-  homeHeroEyebrow: "Synthetic beta · Experimental model",
-  homeHeroTitleLead: "Read the football market",
+  homeHeroEyebrow: "Model probability against the market price",
+  homeHeroTitleLead: "Read the market",
   homeHeroTitleAccent: "before it moves.",
   homeHeroBody:
     "VELYQ compares what our model believes with what the market is charging — so you can tell a genuinely mispriced outcome apart from ordinary movement.",
@@ -103,7 +235,7 @@ export const messages = {
   homeTrustBilingual: "Greek and English",
 
   // ------------------------------------------------- home: product visual
-  homePreviewLabel: "Product preview · synthetic data",
+  homePreviewLabel: "Product preview",
   homePreviewEdge: "Probability edge",
   homePreviewModel: "Model",
   homePreviewMarket: "Market",
@@ -164,7 +296,7 @@ export const messages = {
     "Every match is graded A to F. Out-of-date prices, missing lineups and weak market matching are flagged, not hidden.",
   homeHowThreeTitle: "Estimate",
   homeHowThreeBody:
-    "An experimental model produces a probability, which becomes fair odds and an expected value you can compare against the market.",
+    "The model produces a probability, which becomes fair odds and an expected value you can compare against the market.",
   homeHowFourTitle: "Recommend, or wait",
   homeHowFourBody:
     "A recommendation is issued only when the quality gate passes. Otherwise VELYQ tells you exactly what is missing.",
@@ -186,12 +318,12 @@ export const messages = {
     "The whole product in both languages, one click apart — including every explanation and every disclosure.",
 
   // ----------------------------------------- home: live intelligence preview
-  homeLiveEyebrow: "Today, on synthetic data",
+  homeLiveEyebrow: "Inside the product",
   homeLiveTitle: "This is the actual product surface.",
   homeLiveBody:
-    "Not a mock-up. These are the same match cards the workspace renders, running on the Phase 1 synthetic feed.",
+    "The same match cards your workspace renders, exactly as you would read them.",
   homeLiveDisclaimer:
-    "Teams and prices are generated. Nothing here refers to a real fixture.",
+    "Fixtures and prices shown here are samples. None refers to a real match.",
 
   // ------------------------------------------ home: probability is not value
   homeProbabilityEyebrow: "The core idea",
@@ -228,14 +360,14 @@ export const messages = {
   homePricingEyebrow: "Plans",
   homePricingTitle: "Start free. Upgrade when it earns it.",
   homePricingBody:
-    "Plans control customer features only. They never grant administrative access.",
+    "Every plan reads the same market. What changes is how much of it you see.",
   homePricingCta: "Compare all plans",
 
   // --------------------------------------------------------- home: notice
   // COMPLIANCE
-  homeNoticeTitle: "About this beta",
+  homeNoticeTitle: "What VELYQ is, and is not",
   homeNoticeBody:
-    "Phase 1 runs on synthetic data and an experimental model. EDGE and RADAR are development heuristics, not validated betting models. VELYQ is an analysis tool for research and information — it does not provide financial advice, does not guarantee any outcome and does not place wagers. Never stake money you cannot afford to lose.",
+    "VELYQ compares a model-generated probability with the price the market is offering, and shows the evidence behind both. It is an analysis tool for information and research: it does not give financial advice, does not guarantee any outcome and does not place bets. No probability estimate is a prediction of what will happen. Never stake money you cannot afford to lose.",
   homeNoticeLink: "Read the responsible-use notice",
 
   // ------------------------------------------------------ home: final cta
@@ -246,7 +378,7 @@ export const messages = {
   homeFinalCta: "Create your free account",
 
   // -------------------------------------------------------- home: footer
-  footerRights: "AI football market intelligence",
+  footerRights: "Sports market intelligence",
   footerCreatedBy: "Created by",
   footerTerms: "Terms",
   footerPrivacy: "Privacy",
@@ -257,24 +389,21 @@ export const messages = {
   pricingKicker: "Plans",
   pricingTitle: "Choose your intelligence access.",
   pricingBody:
-    "Plans control customer features only. They never grant administrative access — administrator permissions are held separately and resolved server-side.",
+    "Every plan reads the same market. What changes is how much of it you see, and how far you can look into the reasoning behind it.",
   pricingPerMonth: "per month",
-  pricingFreeWhileBeta: "Free during the beta",
+  pricingFreeWhileBeta: "Free while in preview",
   pricingIntroductory: "Introductory price",
   pricingMostPopular: "Most popular",
   pricingCurrentPlan: "Your current plan",
-  pricingBillingPending: "Billing activation pending",
+  pricingBillingPending: "Checkout opens soon",
   pricingBillingPendingHint:
-    "Checkout opens once billing is configured. Nothing is charged today.",
+    "You cannot buy a plan yet, and nothing is charged today.",
   pricingStartCheckout: "Continue to checkout",
   pricingIncluded: "What is included",
   pricingLimits: "Good to know",
-  pricingNotAdminTitle: "ELITE is not administrator access",
-  pricingNotAdminBody:
-    "Every plan here is a customer subscription. Administrator permissions are granted separately in the database and are never derived from a plan.",
   // COMPLIANCE
   pricingFineprint:
-    "Phase 1 data is synthetic. Predictions are experimental; EDGE and RADAR are development heuristics. Checkout activates only once approved Stripe price IDs are configured, and no payment is taken before then.",
+    "Probability estimates are model-generated and are not predictions of any outcome. Checkout is not open yet, so no payment is taken and no plan can be bought today.",
 
   planFreeFor: "For getting oriented",
   planFreePitch: "A clear, honest look at how VELYQ reads a market.",
@@ -282,11 +411,11 @@ export const messages = {
 
   planProFor: "For regular analysis",
   planProPitch: "The full picture on every tracked match, every day.",
-  planProLimit: "Introductory pricing during the beta",
+  planProLimit: "Introductory pricing",
 
   planEliteFor: "For power users",
   planElitePitch: "PRO, plus first access to everything we ship next.",
-  planEliteLimit: "Customer access only — never administrative",
+  planEliteLimit: "Priority access to new modules",
   // Rendered automatically when a tier's entitlement set adds nothing over
   // the tier below it, so the page can never imply capability it lacks.
   planNoAdditionalAccess:
@@ -295,7 +424,7 @@ export const messages = {
   // ----------------------------------------------------------------- auth
   authSignInKicker: "Customer access",
   authSignInTitle: "Welcome back.",
-  authSignInBody: "Sign in to your football intelligence workspace.",
+  authSignInBody: "Sign in to your market intelligence workspace.",
   authSignInSubmit: "Sign in",
   authSignInError: "Email or password is incorrect. Please try again.",
   authSignInUnavailable:
@@ -342,8 +471,7 @@ export const messages = {
   authAsidePoint2: "Opening-to-current movement, with freshness",
   authAsidePoint3: "A recommendation only when the evidence allows one",
   // COMPLIANCE
-  authAsideNotice:
-    "Synthetic beta · experimental model · no guaranteed outcomes",
+  authAsideNotice: "Model-generated estimates · no guaranteed outcomes",
 
   // ---------------------------------------------------------------- today
   todayKicker: "Command centre",
@@ -456,7 +584,7 @@ export const messages = {
   matchLineupEvidenceNote: "Lineup state is evidence, not a prediction.",
   // COMPLIANCE
   matchModelDisclaimer:
-    "This is an experimental deterministic model, not a validated betting model.",
+    "A model-generated probability estimate. It is not a prediction of the result, and not advice.",
   matchTraceModel: "Model",
   matchTraceCalibration: "Calibration",
   matchTraceScore: "Score",
@@ -488,7 +616,7 @@ export const messages = {
   accountEntitlements: "Included in your plan",
   accountBilling: "Billing",
   accountBillingInactive:
-    "Paid billing is not active in the current beta, so nothing is being charged. Your FREE access remains fully usable.",
+    "Billing is not open yet, so nothing is being charged. Your current access remains fully available.",
   accountManageBilling: "Manage billing",
   accountUpgrade: "Compare plans",
   accountLanguage: "Language",
@@ -497,9 +625,7 @@ export const messages = {
   accountSecurityBody:
     "Sessions are held on our servers. Sign out to end this session on this device.",
   accountChangePassword: "Change your password",
-  accountAdminNote:
-    "Administrator access is granted by database permissions and is completely independent of your plan.",
-  accountEnvironment: "Environment",
+  accountAboutVelyq: "About VELYQ",
 
   // ------------------------------------------------------- entitlements
   entitlementTodayView: "Today command centre",
@@ -514,28 +640,28 @@ export const messages = {
   termsTitle: "Terms of use",
   // COMPLIANCE
   termsBody1:
-    "VELYQ provides sports market intelligence for information and research. Phase 1 uses synthetic data and experimental models.",
+    "VELYQ provides sports market intelligence for information and research. Probability estimates are model-generated and are not predictions of any outcome. While the product is in preview, the fixtures and prices it displays are samples rather than live market data.",
   // COMPLIANCE
   termsBody2:
-    "This draft requires legal review before commercial scale. VELYQ does not provide financial advice, does not guarantee outcomes and does not execute wagers.",
+    "VELYQ does not provide financial advice, does not guarantee outcomes and does not place bets. These terms will be updated before paid plans open, and continued use after an update means accepting the version then published.",
   privacyTitle: "Privacy",
   privacyBody1:
     "VELYQ processes the account and service data needed to authenticate you, provide the product and keep the service secure. We do not store card details; Stripe handles all payment data.",
   privacyBody2:
-    "This draft requires legal review for the applicable launch jurisdictions.",
+    "This notice will be updated before the product opens to paid customers, and separately for each market VELYQ serves.",
   responsibleUseTitle: "Responsible use",
   responsibleUseHeading: "Use intelligence responsibly.",
   // COMPLIANCE
   responsibleUseBody1:
-    "VELYQ is not a betting system. It does not execute wagers and it does not promise profit. Predictions are experimental, and EDGE and RADAR are development heuristics built on synthetic Phase 1 data.",
+    "VELYQ is not a betting system. It does not place bets and it does not promise profit. EDGE reports where a model-generated probability differs from the price a market is offering, and RADAR reports price movement that has actually been observed. Neither is a validated forecast, and neither should be read as one.",
   // COMPLIANCE
   responsibleUseBody2:
-    "Never stake money you cannot afford to lose. If gambling is affecting your life, seek support from a licensed service in your country. This draft requires legal review.",
+    "Never stake money you cannot afford to lose. If gambling is affecting your life, seek support from a licensed service in your country.",
   subscriptionTermsTitle: "Subscription terms",
   subscriptionBody1:
     "Paid plans, once enabled, are billed through Stripe Checkout and managed through the Stripe Billing Portal. Cancellation is handled there and takes effect according to the billing period shown at the time.",
   subscriptionBody2:
-    "Refund policy and final commercial terms require owner and legal review before any live charge is taken.",
+    "Refund and final commercial terms will be published here before any payment can be taken.",
 
   // ------------------------------------------------------ admin console
   //
@@ -679,7 +805,7 @@ export type MessageKey = keyof typeof messages;
  * states and never issues betting instructions.
  */
 const greek: Readonly<Record<MessageKey, string>> = {
-  brandTagline: "Ανάλυση ποδοσφαίρου",
+  brandTagline: "Ανάλυση αθλητικών αγορών",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Πλήρης ανάλυση αγώνα",
 
@@ -700,20 +826,103 @@ const greek: Readonly<Record<MessageKey, string>> = {
   languageSelector: "Γλώσσα",
   languageSelectorHint: "Διάλεξε γλώσσα",
 
-  syntheticData: "Συνθετικά δεδομένα",
-  developmentHeuristic: "Δείκτης υπό ανάπτυξη",
-  experimental: "Πειραματικό",
-  observableOnly: "Μόνο ό,τι καταγράφεται",
+  previewData: "Δεδομένα προεπισκόπησης",
+  previewDataNote:
+    "Οι αγώνες και οι αποδόσεις που βλέπεις είναι δείγματα, όσο συνδέεται η κάλυψη των πραγματικών αγορών.",
+  observableOnly: "Μόνο καταγεγραμμένες αποδόσεις",
   traceable: "Ιχνηλάσιμο",
   noEvidence: "Χωρίς στοιχεία",
   radarMove: "Καταγράφηκε κίνηση",
   viewAll: "Δες τα όλα",
   openMatchIntelligence: "Άνοιγμα ανάλυσης αγώνα",
   backToSignIn: "Πίσω στη σύνδεση",
-  syntheticEnvironment: "Περιβάλλον beta με συνθετικά δεδομένα",
-  researchUse: "Πειραματικό · για έρευνα",
+  previewWorkspaceNote: "Δεδομένα προεπισκόπησης · καμία εγγύηση αποτελέσματος",
 
-  metaTitle: "VELYQ — Ανάλυση αγορών ποδοσφαίρου",
+  sportFootball: "Ποδόσφαιρο",
+  sportBasketball: "Μπάσκετ",
+  sportScopeLabel: "Άθλημα",
+  sportScopeAll: "Όλα τα αθλήματα",
+
+  outcomeWon: "Κέρδισε",
+  outcomeLost: "Έχασε",
+  outcomePush: "Επιστροφή",
+  outcomeVoid: "Άκυρο",
+
+  decisionFortress: "Οχυρό",
+  decisionEdge: "Πλεονέκτημα",
+  decisionMarginal: "Οριακό",
+  decisionNoEdge: "Χωρίς πλεονέκτημα",
+
+  trackRecordKicker: "Ιστορικό",
+  trackRecordTitle: "Έλεγξε το ιστορικό.",
+  trackRecordBody:
+    "Κάθε σήμα που δημοσιεύει το VELYQ παίρνει χρονοσήμανση πριν αρχίσει ο αγώνας και δεν αλλάζει μετά. Τα αποτελέσματα καταγράφονται είτε βγήκαν σωστά είτε όχι.",
+  trackRecordOutcomeHeading: "Αποτέλεσμα",
+  trackRecordDecisionHeading: "Ποιότητα απόφασης",
+  trackRecordDecisionHint:
+    "Αν άξιζε η τιμή τη στιγμή που δημοσιεύτηκε — ερώτημα ξεχωριστό από το αν κέρδισε.",
+  trackRecordEmpty: "Δεν έχει κλείσει ακόμη κανένα σήμα.",
+  trackRecordEmptyBody:
+    "Το ιστορικό συμπληρώνεται όσο κλείνουν τα δημοσιευμένα σήματα. Πριν από αυτό δεν εμφανίζεται τίποτα εδώ.",
+
+  integrityPublished: "Δημοσιεύτηκε",
+  integrityBeforeKickoff: "Δημοσιεύτηκε πριν την έναρξη",
+  integrityTimestamped: "Με χρονοσήμανση",
+  integrityNoEdits: "Δεν άλλαξε μετά τη δημοσίευση",
+  integrityCaption:
+    "Η ώρα δημοσίευσης καταγράφεται όταν βγαίνει το σήμα. Οι τιμές και το σκεπτικό μένουν όπως ήταν.",
+
+  trackPublishedOdds: "Τιμή δημοσίευσης",
+  trackClosingOdds: "Τιμή κλεισίματος",
+  trackClv: "Αξία έναντι κλεισίματος",
+  trackClvHint:
+    "Η τιμή δημοσίευσης σε σχέση με την τιμή στην οποία έκλεισε η αγορά. Κρίνεται από την αγορά και όχι από το αποτέλεσμα, οπότε υπάρχει σε κάθε σήμα.",
+  clvBeatClose: "Καλύτερη από το κλείσιμο",
+  clvMatchedClose: "Ίδια με το κλείσιμο",
+  clvMissedClose: "Χειρότερη από το κλείσιμο",
+  clvUnknown: "Δεν καταγράφηκε τιμή κλεισίματος",
+
+  trackSampleSize: "Σήματα που έκλεισαν",
+  sampleSettled: "{count} σήματα που έκλεισαν",
+  sampleTooSmall: "Μόνο {count} έκλεισαν — πολύ λίγα για ποσοστό",
+  trackBrier: "Δείκτης Brier",
+  trackBrierHint:
+    "Μέσο τετραγωνικό σφάλμα των πιθανοτήτων. Όσο χαμηλότερος τόσο καλύτερα, και συγκρίνεται μόνο με μέτρο σύγκρισης στις ίδιες αγορές.",
+  trackCalibration: "Βαθμονόμηση",
+  trackCalibrationHint:
+    "Αν τα αποτελέσματα συνέβησαν περίπου όσο συχνά έλεγαν οι πιθανότητες.",
+  calibrationStrong: "Καλή βαθμονόμηση",
+  calibrationReasonable: "Λογική βαθμονόμηση",
+  calibrationDrifting: "Αποκλίνει",
+  calibrationInsufficient: "Δεν έχουν κλείσει αρκετά σήματα",
+
+  trackModelMaturity: "Ωριμότητα μοντέλου",
+  maturityValidated: "Επικυρωμένο",
+  maturityProvisional: "Προσωρινό",
+  maturityEarly: "Αρχικό",
+  maturityHint:
+    "Πόσο έχει ελεγχθεί το μοντέλο πίσω από ένα σήμα. Ένα ιστορικό που περνάει από αλλαγή μοντέλου δεν είναι ένα ιστορικό.",
+
+  trackFilterSport: "Άθλημα",
+  trackFilterMarket: "Αγορά",
+  trackFilterPeriod: "Περίοδος",
+  trackFilterOutcome: "Αποτέλεσμα",
+  trackFilterReset: "Καθάρισε τα φίλτρα",
+
+  communityFollow: "Παρακολούθηση",
+  communityFollowing: "Παρακολουθείς",
+  communityUnfollow: "Σταμάτα την παρακολούθηση",
+  communityWatch: "Παρακολούθηση",
+  communityWatching: "Σε παρακολούθηση",
+  communityFollowerCount: "{count} παρακολουθούν",
+  communityFollowerNone: "Κανείς δεν παρακολουθεί ακόμη",
+  communityPulse: "Παλμός κοινότητας",
+  communityMostFollowed: "Με τις πιο πολλές παρακολουθήσεις",
+  communityTrending: "Σε άνοδο",
+  communityCaption:
+    "Πόσοι επέλεξαν να παρακολουθούν αυτό το σήμα. Δεν λέει τίποτα για το αν κάποιος πόντραρε χρήματα.",
+
+  metaTitle: "VELYQ — Ανάλυση αθλητικών αγορών",
   metaDescription:
     "Ανάλυση αθλητικών αγορών με ίχνος σε κάθε νούμερο: πιθανότητα μοντέλου απέναντι στις τρέχουσες αποδόσεις και καταγεγραμμένη κίνηση αποδόσεων.",
 
@@ -744,7 +953,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homeSignIn: "Σύνδεση",
   homeCreateAccount: "Δημιουργία λογαριασμού",
 
-  homeHeroEyebrow: "Beta με συνθετικά δεδομένα · Πειραματικό μοντέλο",
+  homeHeroEyebrow: "Η πιθανότητα του μοντέλου απέναντι στην τιμή της αγοράς",
   homeHeroTitleLead: "Διάβασε την αγορά",
   homeHeroTitleAccent: "πριν κινηθεί.",
   homeHeroBody:
@@ -756,7 +965,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homeTrustNoClaims: "Καμία εγγύηση αποτελέσματος",
   homeTrustBilingual: "Ελληνικά και αγγλικά",
 
-  homePreviewLabel: "Προεπισκόπηση · συνθετικά δεδομένα",
+  homePreviewLabel: "Προεπισκόπηση προϊόντος",
   homePreviewEdge: "Διαφορά πιθανότητας",
   homePreviewModel: "Μοντέλο",
   homePreviewMarket: "Αγορά",
@@ -814,7 +1023,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Κάθε αγώνας παίρνει βαθμό από Α έως F. Παλιές αποδόσεις, ενδεκάδες που λείπουν και αδύναμες αντιστοιχίσεις φαίνονται, δεν κρύβονται.",
   homeHowThreeTitle: "Εκτίμηση",
   homeHowThreeBody:
-    "Ένα πειραματικό μοντέλο βγάζει πιθανότητα, που γίνεται δίκαιη απόδοση και αναμενόμενη αξία για να τη συγκρίνεις με την αγορά.",
+    "Το μοντέλο βγάζει πιθανότητα, που γίνεται δίκαιη απόδοση και αναμενόμενη αξία για να τη συγκρίνεις με την αγορά.",
   homeHowFourTitle: "Πρόταση ή αναμονή",
   homeHowFourBody:
     "Πρόταση βγαίνει μόνο όταν περάσει ο έλεγχος ποιότητας. Αλλιώς το VELYQ σου λέει ακριβώς τι λείπει.",
@@ -834,12 +1043,12 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homeWhyFourBody:
     "Όλο το προϊόν και στις δύο γλώσσες, με ένα κλικ — μαζί με κάθε επεξήγηση και κάθε γνωστοποίηση.",
 
-  homeLiveEyebrow: "Σήμερα, σε συνθετικά δεδομένα",
+  homeLiveEyebrow: "Μέσα στο προϊόν",
   homeLiveTitle: "Αυτό είναι το πραγματικό προϊόν.",
   homeLiveBody:
-    "Δεν είναι μακέτα. Είναι οι ίδιες κάρτες αγώνων που βλέπεις μέσα στην πλατφόρμα, πάνω στα συνθετικά δεδομένα της Φάσης 1.",
+    "Οι ίδιες κάρτες αγώνων που εμφανίζει η πλατφόρμα σου, όπως ακριβώς θα τις διάβαζες.",
   homeLiveDisclaimer:
-    "Οι ομάδες και οι αποδόσεις είναι κατασκευασμένες. Τίποτα εδώ δεν αφορά πραγματικό αγώνα.",
+    "Οι αγώνες και οι αποδόσεις εδώ είναι δείγματα. Κανένας δεν αφορά πραγματικό αγώνα.",
 
   homeProbabilityEyebrow: "Η βασική ιδέα",
   homeProbabilityTitle: "Γιατί η πιθανότητα από μόνη της δεν φτάνει.",
@@ -873,12 +1082,12 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homePricingEyebrow: "Πακέτα",
   homePricingTitle: "Ξεκίνα δωρεάν. Αναβάθμισε όταν το αξίζει.",
   homePricingBody:
-    "Τα πακέτα ορίζουν μόνο τι βλέπεις ως χρήστης. Δεν δίνουν ποτέ δικαιώματα διαχειριστή.",
+    "Κάθε πακέτο διαβάζει την ίδια αγορά. Αλλάζει το πόσο βλέπεις από αυτήν.",
   homePricingCta: "Δες όλα τα πακέτα",
 
-  homeNoticeTitle: "Λίγα λόγια για τη beta",
+  homeNoticeTitle: "Τι είναι, και τι δεν είναι, το VELYQ",
   homeNoticeBody:
-    "Η Φάση 1 τρέχει με συνθετικά δεδομένα και πειραματικό μοντέλο. Τα EDGE και RADAR είναι δείκτες υπό ανάπτυξη, όχι επικυρωμένα μοντέλα στοιχηματισμού. Το VELYQ είναι εργαλείο ανάλυσης και ενημέρωσης — δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται κανένα αποτέλεσμα και δεν τοποθετεί στοιχήματα. Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις.",
+    "Το VELYQ συγκρίνει μια πιθανότητα που παράγει το μοντέλο με την τιμή που δίνει η αγορά, και δείχνει τα στοιχεία πίσω από τα δύο. Είναι εργαλείο ανάλυσης και ενημέρωσης: δεν δίνει οικονομικές συμβουλές, δεν εγγυάται κανένα αποτέλεσμα και δεν τοποθετεί στοιχήματα. Καμία εκτίμηση πιθανότητας δεν είναι πρόβλεψη του τι θα συμβεί. Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις.",
   homeNoticeLink: "Διάβασε για την υπεύθυνη χρήση",
 
   homeFinalEyebrow: "Ξεκίνα από το σήμα",
@@ -887,7 +1096,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Η δωρεάν πρόσβαση είναι ανοιχτή — όλο το Σήμερα, το EDGE και το RADAR, στα ελληνικά ή στα αγγλικά.",
   homeFinalCta: "Δημιούργησε δωρεάν λογαριασμό",
 
-  footerRights: "Ανάλυση αθλητικών αγορών με AI",
+  footerRights: "Ανάλυση αθλητικών αγορών",
   footerCreatedBy: "Created by",
   footerTerms: "Όροι χρήσης",
   footerPrivacy: "Απόρρητο",
@@ -897,23 +1106,20 @@ const greek: Readonly<Record<MessageKey, string>> = {
   pricingKicker: "Πακέτα",
   pricingTitle: "Διάλεξε το πακέτο σου.",
   pricingBody:
-    "Τα πακέτα ορίζουν μόνο τι βλέπεις ως χρήστης. Δικαιώματα διαχειριστή δεν δίνονται ποτέ από πακέτο — κρατιούνται ξεχωριστά και ελέγχονται από την πλευρά μας.",
+    "Κάθε πακέτο διαβάζει την ίδια αγορά. Αλλάζει το πόσο βλέπεις από αυτήν, και πόσο βαθιά μπορείς να δεις το σκεπτικό πίσω της.",
   pricingPerMonth: "τον μήνα",
-  pricingFreeWhileBeta: "Δωρεάν όσο τρέχει η beta",
+  pricingFreeWhileBeta: "Δωρεάν στην προεπισκόπηση",
   pricingIntroductory: "Εισαγωγική τιμή",
   pricingMostPopular: "Πιο δημοφιλές",
   pricingCurrentPlan: "Το πακέτο σου",
-  pricingBillingPending: "Η χρέωση δεν έχει ενεργοποιηθεί",
+  pricingBillingPending: "Η πληρωμή ανοίγει σύντομα",
   pricingBillingPendingHint:
-    "Η πληρωμή θα ανοίξει μόλις στηθεί η χρέωση. Σήμερα δεν χρεώνεσαι.",
+    "Δεν μπορείς να αγοράσεις πακέτο ακόμη, και σήμερα δεν χρεώνεσαι.",
   pricingStartCheckout: "Συνέχεια στην πληρωμή",
   pricingIncluded: "Τι περιλαμβάνει",
   pricingLimits: "Καλό να ξέρεις",
-  pricingNotAdminTitle: "Το ELITE δεν είναι πρόσβαση διαχειριστή",
-  pricingNotAdminBody:
-    "Κάθε πακέτο εδώ είναι συνδρομή χρήστη. Τα δικαιώματα διαχειριστή δίνονται ξεχωριστά στη βάση και δεν προκύπτουν ποτέ από πακέτο.",
   pricingFineprint:
-    "Τα δεδομένα της Φάσης 1 είναι συνθετικά. Οι προβλέψεις είναι πειραματικές· τα EDGE και RADAR είναι δείκτες υπό ανάπτυξη. Η πληρωμή ανοίγει μόνο όταν ρυθμιστούν εγκεκριμένα Stripe price IDs — μέχρι τότε δεν γίνεται καμία χρέωση.",
+    "Οι εκτιμήσεις πιθανότητας παράγονται από μοντέλο και δεν είναι προβλέψεις κανενός αποτελέσματος. Η πληρωμή δεν έχει ανοίξει ακόμη, οπότε δεν γίνεται καμία χρέωση και κανένα πακέτο δεν αγοράζεται σήμερα.",
 
   planFreeFor: "Για να πάρεις μια ιδέα",
   planFreePitch: "Καθαρή εικόνα του πώς διαβάζει το VELYQ την αγορά.",
@@ -921,11 +1127,11 @@ const greek: Readonly<Record<MessageKey, string>> = {
 
   planProFor: "Για καθημερινή ανάλυση",
   planProPitch: "Όλη η εικόνα, σε κάθε αγώνα, κάθε μέρα.",
-  planProLimit: "Εισαγωγική τιμή όσο τρέχει η beta",
+  planProLimit: "Εισαγωγική τιμή",
 
   planEliteFor: "Για προχωρημένους",
   planElitePitch: "Ό,τι έχει το PRO, συν πρώτη πρόσβαση σε ό,τι έρχεται.",
-  planEliteLimit: "Μόνο πρόσβαση χρήστη — ποτέ διαχειριστή",
+  planEliteLimit: "Προτεραιότητα σε νέες ενότητες",
   planNoAdditionalAccess: "Προς το παρόν δίνει ό,τι και το προηγούμενο πακέτο",
 
   authSignInKicker: "Πρόσβαση χρήστη",
@@ -977,8 +1183,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   authAsidePoint1: "Πιθανότητα μοντέλου έναντι τρέχουσας απόδοσης",
   authAsidePoint2: "Από την αρχική στην τρέχουσα απόδοση, με ώρα καταγραφής",
   authAsidePoint3: "Πρόταση μόνο όταν τη στηρίζουν τα στοιχεία",
-  authAsideNotice:
-    "Synthetic beta · πειραματικό μοντέλο · καμία εγγύηση αποτελέσματος",
+  authAsideNotice: "Εκτιμήσεις από μοντέλο · καμία εγγύηση αποτελέσματος",
 
   todayKicker: "Κέντρο ελέγχου",
   todayTitle: "Τι αξίζει να προσέξεις σήμερα;",
@@ -1083,7 +1288,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchLineupOtherBody: "Η ενδεκάδα είναι {state}.",
   matchLineupEvidenceNote: "Η ενδεκάδα είναι στοιχείο, όχι πρόβλεψη.",
   matchModelDisclaimer:
-    "Πειραματικό ντετερμινιστικό μοντέλο, όχι επικυρωμένο μοντέλο στοιχηματισμού.",
+    "Εκτίμηση πιθανότητας από μοντέλο. Δεν είναι πρόβλεψη του αποτελέσματος, ούτε συμβουλή.",
   matchTraceModel: "Μοντέλο",
   matchTraceCalibration: "Βαθμονόμηση",
   matchTraceScore: "Δείκτης",
@@ -1114,7 +1319,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   accountEntitlements: "Τι περιλαμβάνει το πακέτο σου",
   accountBilling: "Χρέωση",
   accountBillingInactive:
-    "Η χρέωση δεν είναι ενεργή στη beta, οπότε δεν χρεώνεσαι. Η δωρεάν πρόσβασή σου δουλεύει κανονικά.",
+    "Η χρέωση δεν έχει ανοίξει ακόμη, οπότε δεν χρεώνεσαι. Η πρόσβασή σου δουλεύει κανονικά.",
   accountManageBilling: "Διαχείριση χρέωσης",
   accountUpgrade: "Δες τα πακέτα",
   accountLanguage: "Γλώσσα",
@@ -1123,9 +1328,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   accountSecurityBody:
     "Οι συνδέσεις σου φυλάσσονται από την πλευρά μας. Κάνε αποσύνδεση για να κλείσεις τη σύνδεση σε αυτή τη συσκευή.",
   accountChangePassword: "Άλλαξε τον κωδικό σου",
-  accountAdminNote:
-    "Η πρόσβαση διαχειριστή δίνεται από τη βάση δεδομένων και δεν έχει καμία σχέση με το πακέτο σου.",
-  accountEnvironment: "Περιβάλλον",
+  accountAboutVelyq: "Σχετικά με το VELYQ",
 
   entitlementTodayView: "Το Σήμερα",
   entitlementEdgePreview: "Προεπισκόπηση EDGE",
@@ -1137,25 +1340,25 @@ const greek: Readonly<Record<MessageKey, string>> = {
   legalKicker: "Δημόσια ενημέρωση",
   termsTitle: "Όροι χρήσης",
   termsBody1:
-    "Το VELYQ παρέχει ανάλυση αθλητικών αγορών για ενημέρωση και έρευνα. Η Φάση 1 τρέχει με συνθετικά δεδομένα και πειραματικά μοντέλα.",
+    "Το VELYQ παρέχει ανάλυση αθλητικών αγορών για ενημέρωση και έρευνα. Οι εκτιμήσεις πιθανότητας παράγονται από μοντέλο και δεν είναι προβλέψεις κανενός αποτελέσματος. Όσο το προϊόν βρίσκεται σε προεπισκόπηση, οι αγώνες και οι αποδόσεις που εμφανίζει είναι δείγματα και όχι δεδομένα πραγματικής αγοράς.",
   termsBody2:
-    "Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο πριν από εμπορική διάθεση. Το VELYQ δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται αποτελέσματα και δεν εκτελεί στοιχήματα.",
+    "Το VELYQ δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται αποτελέσματα και δεν τοποθετεί στοιχήματα. Οι όροι θα ενημερωθούν πριν ανοίξουν τα επί πληρωμή πακέτα, και η συνέχιση της χρήσης μετά από μια ενημέρωση σημαίνει αποδοχή της έκδοσης που ισχύει τότε.",
   privacyTitle: "Απόρρητο",
   privacyBody1:
     "Το VELYQ επεξεργάζεται όσα δεδομένα λογαριασμού και χρήσης χρειάζονται για να σε ταυτοποιήσει, να λειτουργήσει το προϊόν και να μείνει ασφαλής η υπηρεσία. Δεν κρατάμε στοιχεία κάρτας· τις πληρωμές τις χειρίζεται η Stripe.",
   privacyBody2:
-    "Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο για κάθε χώρα λειτουργίας.",
+    "Η ενημέρωση αυτή θα επικαιροποιηθεί πριν το προϊόν ανοίξει σε συνδρομητές, και ξεχωριστά για κάθε χώρα στην οποία λειτουργεί το VELYQ.",
   responsibleUseTitle: "Υπεύθυνη χρήση",
   responsibleUseHeading: "Χρησιμοποίησέ το υπεύθυνα.",
   responsibleUseBody1:
-    "Το VELYQ δεν είναι σύστημα στοιχηματισμού. Δεν εκτελεί στοιχήματα και δεν υπόσχεται κέρδος. Οι προβλέψεις είναι πειραματικές και τα EDGE και RADAR είναι δείκτες υπό ανάπτυξη πάνω σε συνθετικά δεδομένα της Φάσης 1.",
+    "Το VELYQ δεν είναι σύστημα στοιχηματισμού. Δεν τοποθετεί στοιχήματα και δεν υπόσχεται κέρδος. Το EDGE δείχνει πού η πιθανότητα του μοντέλου διαφέρει από την τιμή που δίνει μια αγορά, και το RADAR δείχνει κίνηση τιμής που έχει πραγματικά καταγραφεί. Κανένα από τα δύο δεν είναι επικυρωμένη πρόβλεψη, και κανένα δεν πρέπει να διαβάζεται ως τέτοια.",
   responsibleUseBody2:
-    "Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις. Αν ο τζόγος επηρεάζει τη ζωή σου, ζήτησε βοήθεια από αδειοδοτημένη υπηρεσία στη χώρα σου. Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο.",
+    "Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις. Αν ο τζόγος επηρεάζει τη ζωή σου, ζήτησε βοήθεια από αδειοδοτημένη υπηρεσία στη χώρα σου.",
   subscriptionTermsTitle: "Όροι συνδρομής",
   subscriptionBody1:
     "Μόλις ενεργοποιηθούν, τα επί πληρωμή πακέτα χρεώνονται μέσω Stripe Checkout και τα διαχειρίζεσαι από το Stripe Billing Portal. Από εκεί γίνεται και η ακύρωση, που ισχύει για την περίοδο χρέωσης που βλέπεις εκείνη τη στιγμή.",
   subscriptionBody2:
-    "Η πολιτική επιστροφών και οι τελικοί εμπορικοί όροι θέλουν έγκριση από τον ιδιοκτήτη και νομικό έλεγχο πριν από κάθε πραγματική χρέωση.",
+    "Η πολιτική επιστροφών και οι τελικοί εμπορικοί όροι θα δημοσιευτούν εδώ πριν γίνει οποιαδήποτε χρέωση.",
 
   adminConsoleName: "Λειτουργία",
   adminNavOverview: "Επισκόπηση",
@@ -1236,16 +1439,16 @@ const greek: Readonly<Record<MessageKey, string>> = {
   recWait: "Αναμονή",
   recWaitBody:
     "Τα στοιχεία δεν φτάνουν το όριο. Αξίζει παρακολούθηση, όχι κίνηση.",
-  recWaitForLineup: "Χρειάζεται επιβεβαίωση ενδεκάδας",
+  recWaitForLineup: "Αναμονή για ενδεκάδες",
   recWaitForLineupBody:
     "Η πρόταση μένει σε αναμονή μέχρι να βγει η επίσημη ενδεκάδα, γιατί μια αλλαγή τελευταίας στιγμής αλλάζει αισθητά την εκτίμηση.",
   recNoBet: "Χωρίς πρόταση",
   recNoBetBody:
     "Στην τρέχουσα απόδοση δεν φαίνεται καμία αξία. Η ειλικρινής απάντηση είναι να το προσπεράσεις.",
-  recInsufficientData: "Δεν υπάρχουν αρκετά δεδομένα",
+  recInsufficientData: "Ανεπαρκή δεδομένα",
   recInsufficientDataBody:
     "Λείπουν αποδόσεις ή κάλυψη, οπότε δεν βγήκε εκτίμηση. Το VELYQ δεν μαντεύει.",
-  recEdgeDisappeared: "Η ευκαιρία δεν ισχύει πλέον",
+  recEdgeDisappeared: "Το πλεονέκτημα χάθηκε",
   recEdgeDisappearedBody:
     "Η αξία που υπήρχε δεν φαίνεται πια στην τρέχουσα απόδοση — η αγορά αναπροσάρμοσε.",
 
