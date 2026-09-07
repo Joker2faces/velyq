@@ -28,7 +28,7 @@
 
 .shell-header {
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.78);
+  background: rgb(var(--scrim) / 0.78);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
@@ -190,12 +190,12 @@
   background:
     radial-gradient(
       44rem 26rem at 74% -16%,
-      rgba(61, 220, 145, 0.15),
+      rgb(var(--pitch-rgb) / 0.15),
       transparent 64%
     ),
     radial-gradient(
       34rem 22rem at 6% -6%,
-      rgba(111, 212, 232, 0.09),
+      rgb(var(--signal-rgb) / 0.09),
       transparent 62%
     );
   inset: 0;
@@ -566,7 +566,7 @@
   background:
     radial-gradient(
       30rem 18rem at 82% 0%,
-      rgba(95, 227, 196, 0.14),
+      rgb(var(--pitch-rgb) / 0.14),
       transparent 68%
     ),
     var(--surface);
@@ -787,7 +787,7 @@
 .app__topbar {
   align-items: center;
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.82);
+  background: rgb(var(--scrim) / 0.82);
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--space-4);
@@ -822,7 +822,7 @@
 /* Bottom navigation is the primary mobile navigation. */
 .app__bottomnav {
   backdrop-filter: blur(14px);
-  background: rgba(5, 8, 15, 0.94);
+  background: rgb(var(--scrim) / 0.94);
   border-top: 1px solid var(--line);
   bottom: 0;
   display: grid;
@@ -907,7 +907,7 @@
   background:
     radial-gradient(
       26rem 14rem at 88% 0%,
-      rgba(95, 227, 196, 0.12),
+      rgb(var(--pitch-rgb) / 0.12),
       transparent 70%
     ),
     var(--surface);
@@ -988,7 +988,11 @@
 }
 
 a.row:hover {
-  background: linear-gradient(90deg, rgba(95, 227, 196, 0.07), transparent 62%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--pitch-rgb) / 0.07),
+    transparent 62%
+  );
 }
 
 .row__head {
@@ -1137,7 +1141,7 @@ a.row:hover {
   background:
     radial-gradient(
       30rem 16rem at 90% -10%,
-      rgba(95, 227, 196, 0.13),
+      rgb(var(--pitch-rgb) / 0.13),
       transparent 68%
     ),
     var(--surface);
@@ -1185,6 +1189,23 @@ a.row:hover {
 .meter {
   display: grid;
   gap: var(--space-2);
+}
+
+/* The quality meter is a supporting measure, and a grade A drew it as a
+   full-width bar in the brightest accent on the page — a larger, louder
+   green object than the verdict it qualifies. Same hues at lower luminance:
+   the meaning is unchanged and the verdict stays the brightest thing on the
+   screen. */
+.meter .bar__fill {
+  background: var(--pitch-strong);
+}
+
+.meter .bar__fill--caution {
+  background: var(--gold-strong);
+}
+
+.meter .bar__fill--negative {
+  background: var(--clay-strong);
 }
 
 .meter__scale {
@@ -1259,7 +1280,7 @@ a.row:hover {
 }
 
 .status-shell__glow {
-  background: rgba(95, 227, 196, 0.1);
+  background: rgb(var(--pitch-rgb) / 0.1);
   border-radius: 50%;
   filter: blur(100px);
   height: 32rem;
@@ -1477,20 +1498,51 @@ a.row:hover {
     background:
       radial-gradient(
         34rem 24rem at 24% 8%,
-        rgba(95, 227, 196, 0.16),
+        rgb(var(--pitch-rgb) / 0.16),
         transparent 64%
       ),
-      radial-gradient(
-        28rem 20rem at 80% 92%,
-        rgba(182, 166, 255, 0.14),
-        transparent 62%
-      ),
+      /* Was a lavender wash — the one hue in the product belonging to no
+         part of the palette, and the exact "purple-blue gradient SaaS" note
+         the palette was written to avoid. Lit by the two product hues
+         instead: model above, market below. */
+        radial-gradient(
+          28rem 20rem at 80% 92%,
+          rgb(var(--signal-rgb) / 0.13),
+          transparent 62%
+        ),
       var(--bg-raised);
     border-right: 1px solid var(--line);
     display: grid;
     align-content: space-between;
     gap: var(--space-7);
     padding: var(--space-7);
+  }
+
+  /* The brand bar exists so the mark and the language switcher are present
+     on a phone, where the aside is dropped entirely. Once the aside is
+     visible it owns the lockup, and showing both put two VELYQ lockups on
+     one screen — and pushed the form down past a band of dead space. The bar
+     keeps only the switcher, right-aligned. */
+  /* Two rows: the bar pinned to the top of the column, the card centred in
+     what is left. As one item in a centred stack the lone switcher floated in
+     the middle of the empty upper half, anchored to nothing. */
+  .auth__main {
+    align-content: start;
+    grid-template-rows: auto 1fr;
+    padding-top: var(--space-5);
+  }
+
+  .auth__brandbar {
+    justify-content: flex-end;
+    margin-bottom: 0;
+  }
+
+  .auth__brandbar > .brand {
+    display: none;
+  }
+
+  .auth__main > .auth__card {
+    align-self: center;
   }
 
   .auth__aside h2 {

@@ -48,11 +48,30 @@
   --pitch: #3ddc91;
   --pitch-strong: #16a86a;
   --pitch-deep: #0d6f47;
-  --pitch-dim: rgba(61, 220, 145, 0.11);
+  --pitch-dim: rgb(var(--pitch-rgb) / 0.11);
 
   --signal: #6fd4e8;
   --signal-strong: #2e93ad;
-  --signal-dim: rgba(111, 212, 232, 0.12);
+  --signal-dim: rgb(var(--signal-rgb) / 0.12);
+
+  /* Channel triplets for the two product hues.
+
+     Every washed background, glow and hover tint in the composition layers
+     is mixed from these rather than hand-written. That rule exists because
+     it was already broken: the brand accent moved from a cyan-mint to this
+     emerald, but six `rgba(95, 227, 196, …)` washes across the customer
+     app, the Today lead, the verdict card and the auth panel were left
+     behind — so the glow around VELYQ's brand colour was still the colour it
+     had replaced. A literal cannot follow a token; a channel list can. */
+  --pitch-rgb: 61 220 145;
+  --pitch-strong-rgb: 22 168 106;
+  --signal-rgb: 111 212 232;
+
+  /* Backdrop for the translucent sticky bars. Derived from `--bg` so the
+     header and the bottom navigation sit on the same green-cast charcoal as
+     the page; these were `rgba(5, 8, 15, …)`, a blue-black a few degrees off
+     the page behind them. */
+  --scrim: 7 11 13;
 
   --gold: #e8bd72;
   --gold-strong: #a8792c;
@@ -68,8 +87,8 @@
   /* Pitch-line geometry. One motif, reused: touchline rules between
      sections, the centre-circle arc behind the hero, corner arcs on premium
      cards and the trajectory used by EDGE and RADAR. */
-  --pitch-line: rgba(61, 220, 145, 0.14);
-  --pitch-line-faint: rgba(61, 220, 145, 0.06);
+  --pitch-line: rgb(var(--pitch-rgb) / 0.14);
+  --pitch-line-faint: rgb(var(--pitch-rgb) / 0.06);
   --pitch-grid: 64px;
 
   /* Typography. All three stacks resolve to locally installed faces with
@@ -126,7 +145,8 @@
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.34);
   --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.46);
   --glow-pitch:
-    0 0 0 1px rgba(61, 220, 145, 0.3), 0 14px 46px rgba(22, 168, 106, 0.18);
+    0 0 0 1px rgb(var(--pitch-rgb) / 0.3),
+    0 14px 46px rgb(var(--pitch-strong-rgb) / 0.18);
 
   /* Motion. Every duration is routed through these two tokens so that the
      reduced-motion block can neutralise all of them in one place. */

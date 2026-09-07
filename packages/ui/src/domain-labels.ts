@@ -73,8 +73,21 @@ export type Tone =
 
 export function recommendationTone(code: string): Tone {
   switch (code) {
+    /*
+     * `EDGE` and `WATCH` are not in the domain's union yet. They are listed
+     * here anyway because the fallback is "neutral", which is the tone
+     * `NO_BET` takes — so the day either code is emitted it would arrive
+     * looking like a refusal to bet, which is the opposite of what it says.
+     * Naming them costs nothing and cannot mislabel a code that never
+     * appears. This is a colour lookup only; the labels for these two still
+     * fall through to the readable de-underscored form, since inventing
+     * customer-facing copy for a state the domain has not defined would be
+     * guessing at someone else's wording.
+     */
     case "STRONG_EDGE":
+    case "EDGE":
       return "positive";
+    case "WATCH":
     case "WAIT":
     case "WAIT_FOR_LINEUP":
       return "caution";

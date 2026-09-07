@@ -43,7 +43,7 @@
 .ops__topbar {
   align-items: center;
   backdrop-filter: blur(14px);
-  background: rgba(7, 11, 13, 0.86);
+  background: rgb(var(--scrim) / 0.86);
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--space-4);
@@ -82,7 +82,7 @@
 
 .ops__bottomnav {
   backdrop-filter: blur(14px);
-  background: rgba(7, 11, 13, 0.95);
+  background: rgb(var(--scrim) / 0.95);
   border-top: 1px solid var(--line);
   bottom: 0;
   display: grid;
@@ -290,7 +290,7 @@
   background:
     radial-gradient(
       36rem 22rem at 78% -10%,
-      rgba(111, 212, 232, 0.12),
+      rgb(var(--signal-rgb) / 0.12),
       transparent 64%
     ),
     var(--bg);
