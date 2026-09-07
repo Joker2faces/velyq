@@ -23,7 +23,8 @@
     "db:verify": "node tooling/scripts/database-stage.mjs verify",
     "worker:verify": "node tooling/scripts/worker-readiness.mjs",
     "mock:replay": "tsx packages/providers/src/cli.ts",
-    "data:apisports:probe": "tsx packages/providers/src/apisports-cli.ts"
+    "data:apisports:probe": "tsx packages/providers/src/apisports-cli.ts",
+    "data:apisports:ingest": "tsx tooling/scripts/apisports-ingest.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
