@@ -1,6 +1,18 @@
 import { marketLine, type MarketLine } from "@velyq/decimal";
 import type { EventId, PlayerId, TeamId } from "@velyq/domain";
 
+export {
+  devig,
+  devigMultiplicative,
+  devigPower,
+  devigShin,
+  marketConsensus,
+  type BookmakerQuote,
+  type DevigMethod,
+  type DevigResult,
+  type MarketConsensus,
+} from "./devig.js";
+
 export type SportCode = "FOOTBALL";
 export type MarketFamilyCode =
   | "MATCH_RESULT"
