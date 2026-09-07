@@ -167,6 +167,7 @@ export default async function Home() {
                           Number(featured.openingOdds),
                           Number(featured.currentOdds),
                         ]}
+                        tone="market"
                         label={`${t("homePreviewOpening")} ${formatOdds(
                           featured.openingOdds,
                           locale,

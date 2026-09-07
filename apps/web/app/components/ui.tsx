@@ -22,13 +22,25 @@ export function Badge({
   children,
   tone = "neutral",
   dot = false,
+  emphasis,
 }: {
   children: ReactNode;
   tone?: Tone;
   dot?: boolean;
+  /**
+   * Which badge on a surface is the headline.
+   *
+   * `lead` is the verdict — at most one per surface. `supporting` keeps the
+   * semantic hue on the dot and the label but drops the tinted fill, so a
+   * quality grade sitting beside a verdict no longer reads as a second,
+   * equally weighted answer.
+   */
+  emphasis?: "lead" | "supporting" | undefined;
 }) {
   return (
-    <span className={`badge badge--${tone}`}>
+    <span
+      className={`badge badge--${tone}${emphasis ? ` badge--${emphasis}` : ""}`}
+    >
       {dot ? <span className="badge__dot" /> : null}
       {children}
     </span>
@@ -93,8 +105,10 @@ export function Stat({
   label: string;
   value: string;
   /* `undefined` is explicit because the workspace enables
-     exactOptionalPropertyTypes and call sites pass a conditional tone. */
-  tone?: "positive" | "negative" | undefined;
+     exactOptionalPropertyTypes and call sites pass a conditional tone.
+     `market` marks a figure the market produced rather than the model, and is
+     the correct tone for observed price movement in either direction. */
+  tone?: "positive" | "negative" | "market" | undefined;
   size?: "lg" | undefined;
   boxed?: boolean;
   hint?: string | undefined;
@@ -248,6 +262,13 @@ export function EdgeAxis({
         <span className="edgeaxis__marker edgeaxis__marker--market" />
         <span className="edgeaxis__marker edgeaxis__marker--model" />
       </div>
+      {/* The scale the two markers are read against. Without it the track is
+          an unlabelled rail and a six-point edge looks arbitrary rather than
+          small-but-real. */}
+      <div className="edgeaxis__scale" aria-hidden="true">
+        <span>0%</span>
+        <span>100%</span>
+      </div>
       <div className="edgeaxis__legend">
         <span className="edgeaxis__key">
           <span className="edgeaxis__swatch edgeaxis__swatch--model" />
@@ -278,7 +299,12 @@ export function Sparkline({
   label,
 }: {
   points: readonly number[];
-  tone?: "pitch" | "caution";
+  /**
+   * `market` is the correct tone for an observed price history: it is market
+   * evidence, not model output, and colouring it with the brand accent both
+   * overstated it and spent green on something VELYQ did not conclude.
+   */
+  tone?: "pitch" | "caution" | "market";
   label: string;
 }) {
   if (points.length < 2) return null;
@@ -304,14 +330,14 @@ export function Sparkline({
     >
       <polyline
         className={
-          tone === "pitch" ? "spark__line" : "spark__line spark__line--caution"
+          tone === "pitch" ? "spark__line" : `spark__line spark__line--${tone}`
         }
         pathLength={1}
         points={coords.join(" ")}
       />
       <circle
         className={
-          tone === "pitch" ? "spark__dot" : "spark__dot spark__dot--caution"
+          tone === "pitch" ? "spark__dot" : `spark__dot spark__dot--${tone}`
         }
         cx={last[0]}
         cy={last[1]}
@@ -326,18 +352,28 @@ export function Sparkline({
 /**
  * Signed movement with a direction arrow.
  *
- * Shortening odds (a negative move) is rendered as the mint "down" tone
- * because a falling price is the market agreeing with the position; drifting
- * odds are amber. The arrow is decorative — the sign is in the text.
+ * Every direction takes the same market hue. A price that shortened is not
+ * "good" and one that drifted is not "bad" — which way it moved is an
+ * observation about the market, and whether it helps depends on the position
+ * a reader holds. This previously rendered a fall in the brand mint and a
+ * rise in amber, which told the reader the market agreeing with the model was
+ * a win and spent the accent on something that is not VELYQ's judgement.
+ *
+ * Direction is therefore carried by three non-colour channels: the arrow, the
+ * sign in `display`, and the optional `gloss` naming it in words. That is also
+ * what a reader who cannot separate the two hues needs.
  */
 export function Trend({
   value,
   display,
   caption,
+  gloss,
 }: {
   value: string | null | undefined;
   display: string;
   caption?: string;
+  /** The direction in words, e.g. "Price shortened in". */
+  gloss?: string | undefined;
 }) {
   const direction = directionOf(value);
   const Arrow =
@@ -350,6 +386,7 @@ export function Trend({
     <span className={`trend trend--${direction}`}>
       {direction === "unknown" ? null : <Arrow size={13} />}
       <span>{display}</span>
+      {gloss ? <span className="trend__gloss">{gloss}</span> : null}
       {caption ? <span className="sr-only">{caption}</span> : null}
     </span>
   );

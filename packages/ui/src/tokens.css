@@ -496,6 +496,31 @@ svg {
   width: 6px;
 }
 
+/* Badge hierarchy.
+
+   A verdict and a data-quality grade were being drawn as two identically
+   weighted pills side by side, both of them green whenever the news was
+   good. Two equal pills means neither is primary, and the reader has to
+   work out which one is VELYQ's actual answer.
+
+   `--lead` marks the one badge on a surface that carries the verdict: same
+   palette, more weight and a slightly larger type size. Everything beside it
+   takes `--supporting`, which keeps the semantic hue on the dot and the text
+   but drops the tinted fill, so only one pill reads as the headline. */
+.badge--lead {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  padding: 0.5rem 0.85rem;
+  text-transform: none;
+}
+
+.badge--supporting {
+  background: transparent;
+  border-color: var(--line-strong);
+}
+
 /* 3.6 Metric / stat ------------------------------------------------------- */
 
 .stat {
@@ -535,6 +560,13 @@ svg {
 
 .stat__value--negative {
   color: var(--clay);
+}
+
+/* Market-derived, in either direction: observed price and observed movement.
+   Distinct from `--positive` on purpose, so nothing the market did can be
+   mistaken for something VELYQ concluded. */
+.stat__value--market {
+  color: var(--signal);
 }
 
 .stat__value--lg {
@@ -643,6 +675,13 @@ svg {
   stroke: var(--gold);
 }
 
+/* Observed price history is market evidence, so it takes the market hue.
+   RADAR is built almost entirely from these, which is what gives the module
+   its own recognisable colour without inventing a fourth accent. */
+.spark__line--market {
+  stroke: var(--signal);
+}
+
 .spark__dot {
   fill: var(--pitch);
 }
@@ -651,15 +690,32 @@ svg {
   fill: var(--gold);
 }
 
+.spark__dot--market {
+  fill: var(--signal);
+}
+
 @keyframes spark-draw {
   to {
     stroke-dashoffset: 0;
   }
 }
 
-/* Direction arrow next to a movement figure. */
+/* Direction arrow next to a movement figure.
+
+   Deliberately one hue for every direction. A price that shortened is not
+   "good" and a price that drifted is not "bad" — which way a price moved is
+   an observation about the market, and whether that helps depends entirely
+   on the position. Colouring a fall mint and a rise amber, as this did, told
+   the reader the market moving toward the model was a win, and it spent the
+   brand accent on something that is not VELYQ's own judgement.
+
+   So movement carries the *market* hue, signal, wherever it appears, and the
+   direction is read from the arrow, the sign and the sentence beside it —
+   three non-colour channels, which is also what colour-blind readers need.
+   Green now means one thing only: the model, and the edge derived from it. */
 .trend {
   align-items: center;
+  color: var(--signal);
   display: inline-flex;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -667,17 +723,17 @@ svg {
   gap: var(--space-2);
 }
 
-.trend--up {
-  color: var(--gold);
-}
-
-.trend--down {
-  color: var(--pitch);
-}
-
 .trend--flat,
 .trend--unknown {
   color: var(--text-muted);
+}
+
+/* The sentence that names the direction in words ("Price shortened in").
+   It, not the hue, is what tells the reader which way the market went. */
+.trend__gloss {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
 }
 
 /* 3.7b The EDGE axis ------------------------------------------------------
@@ -715,8 +771,26 @@ svg {
   border-radius: inherit;
   content: "";
   inset: 0;
-  opacity: 0.5;
+  opacity: 0.7;
   position: absolute;
+}
+
+/* Scale ends. Without them the axis is an unscaled rail, and a reader has no
+   way to tell that the span they are looking at is measured against the full
+   0-100% probability range rather than against the two values themselves —
+   which is exactly what makes a 6-point edge meaningful rather than large.
+
+   Deliberately the ends and not the marker values: labelling each marker in
+   place collides with the other whenever the edge is small, which is the
+   normal case. The two figures are printed in the legend below instead. */
+.edgeaxis__scale {
+  color: var(--text-faint);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  margin-top: 0.35rem;
 }
 
 .edgeaxis__span {
@@ -730,6 +804,11 @@ svg {
   left: var(--span-start);
   position: absolute;
   transform-origin: left center;
+  /* A genuine edge is a few percentage points, which on a 0-100% scale is a
+     sliver too thin to see. The floor keeps a real edge visible without
+     moving either marker, so the reading stays truthful — the markers, not
+     the shaded width, are what the reader measures against the scale. */
+  min-width: 6px;
   width: var(--span-width);
   animation: edge-span var(--duration-slow) var(--ease) both;
 }
@@ -747,13 +826,23 @@ svg {
   }
 }
 
+/* Markers.
+
+   These were 3px hairlines the height of the track. On a 0-100% scale a real
+   edge is a few points wide, so the whole signature visual resolved to a
+   grey rail with an almost invisible nub near the middle — the one picture
+   that carries the product argument communicated nothing.
+
+   They are now full-height verticals that overhang the rail top and bottom,
+   each with its value printed at its own position, so the gap is legible at
+   any realistic edge size while the scale stays honest. */
 .edgeaxis__marker {
-  border-radius: var(--radius-pill);
-  bottom: -4px;
+  border-radius: 1px;
+  bottom: -7px;
   position: absolute;
-  top: -4px;
+  top: -7px;
   transform: translateX(-50%);
-  width: 3px;
+  width: 2px;
 }
 
 .edgeaxis__marker--market {
@@ -763,8 +852,9 @@ svg {
 
 .edgeaxis__marker--model {
   background: var(--pitch);
-  box-shadow: 0 0 0 3px var(--pitch-dim);
+  box-shadow: 0 0 0 4px var(--pitch-dim);
   left: var(--model-position);
+  width: 3px;
 }
 
 .edgeaxis__legend {

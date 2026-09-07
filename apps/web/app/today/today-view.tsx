@@ -123,11 +123,21 @@ export function TodayView({
         <div className="lead">
           {lead ? (
             <>
+              {/* The verdict leads; the grade supports it. Drawn at equal
+                  weight — and both green whenever the news was good — the
+                  reader had to work out which pill was VELYQ's answer. */}
               <div className="lead__verdict">
-                <Badge tone={recommendationTone(lead.recommendation)} dot>
+                <Badge
+                  tone={recommendationTone(lead.recommendation)}
+                  emphasis="lead"
+                  dot
+                >
                   {recommendationLabel(lead.recommendation, locale)}
                 </Badge>
-                <Badge tone={qualityTone(lead.quality.grade)}>
+                <Badge
+                  tone={qualityTone(lead.quality.grade)}
+                  emphasis="supporting"
+                >
                   {t("matchGrade")} {lead.quality.grade}
                 </Badge>
               </div>

@@ -129,12 +129,14 @@ export default async function Match({
               {match.competition} · {formatDateTime(match.startsAt, locale)} UTC
             </p>
           </div>
+          {/* The quality grade is not repeated here: it has its own card
+              lower down, with the meter and the reason codes that make it
+              mean something. Printed twice it put a second badge of equal
+              weight beside the verdict, which is the one answer this page
+              exists to give. */}
           <div className="page__badges">
             <Badge tone="synthetic" dot>
               {t("syntheticData")}
-            </Badge>
-            <Badge tone={qualityTone(match.quality.grade)}>
-              {t("matchGrade")} {match.quality.grade}
             </Badge>
           </div>
         </div>
@@ -146,7 +148,11 @@ export default async function Match({
               <p className="eyebrow">{t("matchVerdict")}</p>
               <div className="lead__verdict">
                 <h2>{recommendationLabel(match.recommendation, locale)}</h2>
-                <Badge tone={recommendationTone(match.recommendation)} dot>
+                <Badge
+                  tone={recommendationTone(match.recommendation)}
+                  emphasis="lead"
+                  dot
+                >
                   {selectionLabel(match.selection, locale)}
                 </Badge>
               </div>
@@ -249,7 +255,7 @@ export default async function Match({
                       Number(match.openingOdds),
                       Number(match.currentOdds),
                     ]}
-                    tone={direction === "up" ? "caution" : "pitch"}
+                    tone="market"
                     label={t("matchOpeningToCurrent", {
                       opening: formatOdds(match.openingOdds, locale),
                       current: formatOdds(match.currentOdds, locale),
@@ -271,15 +277,9 @@ export default async function Match({
                     <Trend
                       value={match.movementPercent}
                       display={formatPercent(match.movementPercent, 1, locale)}
-                      caption={movementMeaning}
+                      gloss={movementMeaning}
                     />
                   </div>
-                  <p
-                    className="card__hint"
-                    style={{ marginTop: "var(--space-3)" }}
-                  >
-                    {movementMeaning}
-                  </p>
                 </>
               ) : (
                 <p className="row__reason">{t("radarNoHistory")}</p>
