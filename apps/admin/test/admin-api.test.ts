@@ -34,6 +34,24 @@ const queries: AdminQueries = {
     throw new Error("NOT_FOUND");
   },
   listAudit: async () => ({ items: [], nextCursor: null }),
+  listDecisionFunnel: async () => ({
+    items: [
+      {
+        id: "00000000-0000-4000-8000-000000000009",
+        sportCode: "FOOTBALL",
+        asOf: "2026-09-07T16:00:00Z",
+        horizonHours: 48,
+        modelVersionId: "00000000-0000-4000-8000-00000000000a",
+        modelVersion: "football-dixon-coles.v1",
+        modelMaturity: "EXPERIMENTAL",
+        counts: { eventsDiscovered: 6, predictionsCreated: 6, edge: 0 },
+        noBetReasons: { QUALITY_MISSING_LINEUP: 6 },
+        triggerSource: "SCHEDULED",
+        createdAt: "2026-09-07T16:00:01Z",
+      },
+    ],
+    nextCursor: null,
+  }),
 };
 
 function api(overrides: Partial<Principal> = {}) {
@@ -79,5 +97,59 @@ describe("admin BFF authorization and problem details", () => {
       providerCode: "synthetic-provider",
       sourceFixtureHash: "sha256:source",
     });
+  });
+});
+
+describe("the decision funnel endpoint", () => {
+  it("requires the prediction-lineage permission", async () => {
+    /*
+     * The funnel exposes which events were evaluated and what the model
+     * concluded, so it sits behind the same permission as an individual
+     * prediction's trace. An administrator holding only provider-run access
+     * must not see it.
+     */
+    const response = await createAdminApi({
+      authenticate: async () => ({
+        principal: {
+          userId: principal.userId,
+          role: "ADMIN" as const,
+          permissions: ["admin.access", "provider_runs.read"] as const,
+        },
+      }),
+      queries,
+    }).listDecisionFunnel(
+      new Request("https://admin.velyq.test/api/v1/admin/funnel"),
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("returns the counts and the reasons a cycle stopped", async () => {
+    const response = await createAdminApi({
+      authenticate: async () => ({
+        principal: {
+          userId: principal.userId,
+          role: "ADMIN" as const,
+          permissions: ["admin.access", "predictions.trace"] as const,
+        },
+      }),
+      queries,
+    }).listDecisionFunnel(
+      new Request("https://admin.velyq.test/api/v1/admin/funnel"),
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      items: readonly {
+        counts: Record<string, number>;
+        noBetReasons: Record<string, number>;
+        modelMaturity: string;
+      }[];
+    };
+    // The point of the view: zero EDGE alongside six predictions and a named
+    // reason is a working pipeline; zero EDGE with nothing to explain it is
+    // not, and only these two fields together tell them apart.
+    expect(body.items[0]?.counts["predictionsCreated"]).toBe(6);
+    expect(body.items[0]?.counts["edge"]).toBe(0);
+    expect(body.items[0]?.noBetReasons["QUALITY_MISSING_LINEUP"]).toBe(6);
+    expect(body.items[0]?.modelMaturity).toBe("EXPERIMENTAL");
   });
 });

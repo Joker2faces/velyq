@@ -98,6 +98,12 @@ export async function GET(request: Request) {
         withheld: all.length - visible.length,
         surface,
         full,
+        /*
+         * Passed straight through. It carries no customer state and is the
+         * same for everyone, which is why it is safe alongside the
+         * entitlement-shaped fields above.
+         */
+        suppressed: result.value.suppressed,
       },
       {
         // Customer-specific and entitlement-shaped: never shared or stored.

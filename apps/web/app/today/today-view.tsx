@@ -211,6 +211,8 @@ export function TodayView({
           </Card>
         </div>
 
+        <SuppressionSummary summary={today.suppressed} locale={locale} />
+
         <div className="split">
           <Card>
             <CardHead
@@ -384,6 +386,61 @@ export function TodayView({
 }
 
 /** A compact opportunity row used by the Today EDGE panel. */
+/**
+ * The events the intelligence universe excludes, summarised.
+ *
+ * A single line with a count and its reasons, rather than a row per event.
+ * The alternative was what this page used to do to itself: dozens of
+ * identical "insufficient data" cards for competitions the model has never
+ * been fitted on, which crowd out the handful of matches it actually has an
+ * opinion about. Nothing is deleted or hidden from operations — every one of
+ * these events is still in the database and still inspectable in admin.
+ *
+ * Renders nothing at all when there is nothing to report, so a clean day
+ * stays clean instead of carrying an empty explanation.
+ */
+function SuppressionSummary({
+  summary,
+  locale,
+}: {
+  summary:
+    | Readonly<{ total: number; byReason: Readonly<Record<string, number>> }>
+    | undefined;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  if (!summary || summary.total === 0) return null;
+  const label = (reason: string) => {
+    if (reason === "COMPETITION_NOT_IN_POLICY")
+      return t("suppressedCompetitionNotInPolicy");
+    if (reason === "COMPETITION_EXPERIMENTAL")
+      return t("suppressedCompetitionExperimental");
+    if (reason === "COMPETITION_ADMIN_ONLY")
+      return t("suppressedCompetitionAdminOnly");
+    if (reason === "COMPETITION_EXCLUDED")
+      return t("suppressedCompetitionExcluded");
+    return reason;
+  };
+  const reasons = Object.entries(summary.byReason).sort(
+    ([, left], [, right]) => right - left,
+  );
+  return (
+    <Card>
+      <CardHead
+        title={`${formatCount(summary.total)} ${t("todaySuppressedTitle")}`}
+      />
+      <p className="suppressed__note">{t("todaySuppressedBody")}</p>
+      <ul className="checklist">
+        {reasons.map(([reason, count]) => (
+          <li key={reason}>
+            <Badge tone="neutral">{formatCount(count)}</Badge> {label(reason)}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 function MatchRow({
   match,
   locale,

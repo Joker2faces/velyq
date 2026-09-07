@@ -193,6 +193,7 @@ export const customerDatabaseMapper = {
         : LIVE_DATA_LABEL,
       asOf: raw.asOf.toISOString(),
       matches: raw.matches.map(mapMatch),
+      suppressed: raw.suppressed,
     };
   },
   mapMatch,

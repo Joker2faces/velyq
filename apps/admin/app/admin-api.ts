@@ -47,6 +47,31 @@ export type AdminPredictionTraceDto = Readonly<{
   createdAt: string;
 }>;
 
+/**
+ * One decision cycle, in counts.
+ *
+ * This is the view that answers "why is there no recommendation today". An
+ * empty recommendation list is indistinguishable from a broken pipeline, so
+ * every stage reports what it saw and every stop reports why — the difference
+ * between "the model evaluated six qualifying markets and the lineup gate
+ * refused them" and "no prediction was ever generated" is the difference
+ * between working as designed and being broken, and only these counts can
+ * tell them apart.
+ */
+export type AdminDecisionFunnelDto = Readonly<{
+  id: string;
+  sportCode: string;
+  asOf: string;
+  horizonHours: number;
+  modelVersionId: string | null;
+  modelVersion: string | null;
+  modelMaturity: string | null;
+  counts: AdminJsonValue;
+  noBetReasons: AdminJsonValue;
+  triggerSource: string;
+  createdAt: string;
+}>;
+
 export type AdminScoreDto = Readonly<{
   id: string;
   scoreDefinitionVersionId: string;
@@ -104,6 +129,9 @@ export type AdminQueries = Readonly<{
   listAudit(
     input: Readonly<{ limit: number; cursor: string | null }>,
   ): Promise<AdminPage<AdminAuditEventDto>>;
+  listDecisionFunnel(
+    input: Readonly<{ limit: number; cursor: string | null }>,
+  ): Promise<AdminPage<AdminDecisionFunnelDto>>;
 }>;
 
 type AuthenticationResult =
@@ -125,6 +153,13 @@ const permissionByOperation = {
   scoreInspect: "scores.inspect",
   qualityInspect: "quality.inspect",
   auditRead: "audit.read",
+  /*
+   * The funnel is the aggregate lineage of the predictions a cycle produced,
+   * so it sits behind the same permission as an individual prediction's
+   * trace rather than inventing a new one whose grant path in production is
+   * not yet established.
+   */
+  decisionFunnelRead: "predictions.trace",
 } as const satisfies Record<string, PermissionCode>;
 
 function problem(
@@ -349,6 +384,14 @@ export function createAdminApi(dependencies: AdminDependencies) {
           throw new AdminRequestError(input.problem.title);
         return dependencies.queries.listAudit(input);
       }),
+    listDecisionFunnel: (request: Request) =>
+      run(request, permissionByOperation.decisionFunnelRead, async () => {
+        const requestId = adminRequestId(request);
+        const input = pageInput(request, requestId);
+        if ("problem" in input)
+          throw new AdminRequestError(input.problem.title);
+        return dependencies.queries.listDecisionFunnel(input);
+      }),
   });
 }
 
@@ -369,6 +412,9 @@ const unavailableQueries: AdminQueries = Object.freeze({
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
   async listAudit() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
+  async listDecisionFunnel() {
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
 });

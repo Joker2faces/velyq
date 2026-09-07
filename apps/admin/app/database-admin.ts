@@ -5,6 +5,8 @@ import { createPrivilegedDatabaseClient } from "@velyq/database/server";
 import { adminAuditEvents } from "@velyq/database/schema/audit";
 import {
   dataQualityAssessments,
+  decisionFunnelRuns,
+  modelVersions,
   predictionInputs,
   predictionRuns,
   predictions,
@@ -14,6 +16,7 @@ import {
 import { providers, providerSyncRuns } from "@velyq/database/schema/operations";
 import type { ProviderRun } from "@velyq/contracts";
 import type {
+  AdminDecisionFunnelDto,
   AdminPage,
   AdminPredictionTraceDto,
   AdminQualityDto,
@@ -201,6 +204,41 @@ export class DatabaseAdminQueries implements AdminQueries {
       })),
       nextCursor: nextCursor(offset, input.limit, rows.length),
     };
+  }
+
+  async listDecisionFunnel(input: { limit: number; cursor: string | null }) {
+    const offset = cursorOffset(input.cursor);
+    /*
+     * Left-joined to the model version on purpose: a cycle that ran with no
+     * registered artifact is exactly the case an administrator most needs to
+     * see, and an inner join would hide it.
+     */
+    const rows = await this.database
+      .select({ run: decisionFunnelRuns, model: modelVersions })
+      .from(decisionFunnelRuns)
+      .leftJoin(
+        modelVersions,
+        eq(decisionFunnelRuns.modelVersionId, modelVersions.id),
+      )
+      .orderBy(desc(decisionFunnelRuns.asOf), desc(decisionFunnelRuns.id))
+      .limit(input.limit)
+      .offset(offset);
+    return {
+      items: rows.map(({ run, model }) => ({
+        id: run.id,
+        sportCode: run.sportCode,
+        asOf: run.asOf.toISOString(),
+        horizonHours: run.horizonHours,
+        modelVersionId: run.modelVersionId,
+        modelVersion: model?.version ?? null,
+        modelMaturity: model?.maturityStatus ?? null,
+        counts: json(run.counts),
+        noBetReasons: json(run.noBetReasons),
+        triggerSource: run.triggerSource,
+        createdAt: run.createdAt.toISOString(),
+      })),
+      nextCursor: nextCursor(offset, input.limit, rows.length),
+    } satisfies AdminPage<AdminDecisionFunnelDto>;
   }
 }
 

@@ -670,10 +670,26 @@ export type CustomerScenarioDto = Readonly<{
   state: ScenarioState;
   label: string;
 }>;
+/**
+ * What the provider delivered but the intelligence view is not showing.
+ *
+ * A count and reason codes, never the events. Rendering every unmodelled
+ * fixture with an identical "insufficient data" badge fills the page with rows
+ * that say nothing and buries the handful of events the model has an opinion
+ * about. Optional because the fixture path and older stored payloads predate
+ * it, and a missing summary must read as "nothing to report" rather than
+ * failing validation.
+ */
+export type CustomerSuppressionDto = Readonly<{
+  total: number;
+  byReason: Readonly<Record<string, number>>;
+}>;
+
 export type CustomerTodayDto = Readonly<{
   syntheticLabel: CustomerDataLabel;
   asOf: string;
   matches: readonly CustomerMatchDto[];
+  suppressed?: CustomerSuppressionDto;
 }>;
 
 export type CustomerDtoValidation<T> =
@@ -936,6 +952,20 @@ export function validateCustomerTodayDto(
       for (const error of validateCustomerMatchInput(match))
         errors.push(`matches[${index}].${error}`);
     });
+  }
+  const suppressed = input["suppressed"];
+  if (suppressed !== undefined) {
+    if (
+      !isObject(suppressed) ||
+      typeof suppressed["total"] !== "number" ||
+      !Number.isInteger(suppressed["total"]) ||
+      suppressed["total"] < 0 ||
+      !isObject(suppressed["byReason"]) ||
+      !Object.values(suppressed["byReason"]).every(
+        (count) => typeof count === "number" && Number.isInteger(count),
+      )
+    )
+      errors.push("suppressed is invalid");
   }
   return errors.length
     ? { ok: false, errors }

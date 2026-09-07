@@ -484,6 +484,14 @@ export const messages = {
   todayLeadSummary:
     "{waiting} waiting on more evidence · {blocked} blocked on data quality",
   todayTracked: "Tracked matches",
+  todaySuppressedTitle: "Hidden from Intelligence",
+  todaySuppressedBody:
+    "These events are tracked and available to operations, but the model has no validated basis for them yet.",
+  suppressedCompetitionNotInPolicy: "Competition not in the model universe",
+  suppressedCompetitionExperimental:
+    "Competition modelled but not yet validated",
+  suppressedCompetitionAdminOnly: "Insufficient evidence for this competition",
+  suppressedCompetitionExcluded: "Competition excluded from intelligence",
   todayFreshMoves: "Fresh price moves",
   todayQualityWarnings: "Quality warnings",
   todayActionable: "Actionable now",
@@ -1205,6 +1213,15 @@ const greek: Readonly<Record<MessageKey, string>> = {
   todayLeadSummary:
     "{waiting} περιμένουν στοιχεία · {blocked} μπλοκαρισμένα από ποιότητα δεδομένων",
   todayTracked: "Αγώνες σε παρακολούθηση",
+  todaySuppressedTitle: "Εκτός Intelligence",
+  todaySuppressedBody:
+    "Τα γεγονότα αυτά παρακολουθούνται και είναι διαθέσιμα στη διαχείριση, αλλά το μοντέλο δεν έχει ακόμη επικυρωμένη βάση για αυτά.",
+  suppressedCompetitionNotInPolicy:
+    "Η διοργάνωση δεν ανήκει στο σύμπαν του μοντέλου",
+  suppressedCompetitionExperimental:
+    "Η διοργάνωση μοντελοποιείται αλλά δεν έχει επικυρωθεί",
+  suppressedCompetitionAdminOnly: "Ανεπαρκή στοιχεία για αυτή τη διοργάνωση",
+  suppressedCompetitionExcluded: "Η διοργάνωση εξαιρείται από το Intelligence",
   todayFreshMoves: "Πρόσφατες κινήσεις αποδόσεων",
   todayQualityWarnings: "Προειδοποιήσεις ποιότητας",
   todayActionable: "Έτοιμα τώρα",

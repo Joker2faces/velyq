@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, lt, lte } from "drizzle-orm";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
+  competitionPolicies,
   competitions,
   eventMarketOutcomes,
   eventMarkets,
@@ -55,11 +56,43 @@ export type CustomerRawMatch = Readonly<{
   asOf: Date;
 }>;
 
+/**
+ * Why events the provider delivered are not in this list.
+ *
+ * A count and a set of reason codes rather than the events themselves. The
+ * alternative — rendering every unmodelled fixture with an "insufficient
+ * data" badge — fills the page with dozens of identical rows that say nothing,
+ * and buries the handful of events the model actually has an opinion about.
+ * Administrators can still inspect every suppressed event individually; a
+ * customer gets the count and the reasons.
+ */
+export type CustomerSuppressionSummary = Readonly<{
+  total: number;
+  byReason: Readonly<Record<string, number>>;
+}>;
+
 export type CustomerRawToday = Readonly<{
   asOf: Date;
   windowStart: Date;
   windowEnd: Date;
   matches: readonly CustomerRawMatch[];
+  suppressed: CustomerSuppressionSummary;
+}>;
+
+/**
+ * Which slice of the provider's universe to read.
+ *
+ * INTELLIGENCE is the default and the only one a customer surface should use
+ * unqualified: competitions whose policy makes them customer-visible. ALL is
+ * the secondary "everything tracked" view, and it is still bounded by the
+ * horizon — it is not a raw dump of the provider.
+ */
+export type CustomerTodayScope = "INTELLIGENCE" | "ALL";
+
+export type CustomerTodayOptions = Readonly<{
+  scope?: CustomerTodayScope;
+  /** Defaults to today plus tomorrow. */
+  horizonHours?: number;
 }>;
 
 export type CustomerRawOddsHistory = Readonly<{
@@ -82,6 +115,25 @@ export interface CustomerReadModelMapper<TOutput> {
 type ReadOnlyDatabase = Pick<PrivilegedVelyqDatabase, "select">;
 
 const MAX_TODAY_EVENTS = 100;
+
+/**
+ * Today and tomorrow, not the whole provider.
+ *
+ * The customer workspace answers "what should I be looking at now". A window
+ * that reaches further turns it into a fixture list, and the intelligence for
+ * a match four days out is mostly stale by kickoff anyway.
+ */
+const DEFAULT_HORIZON_HOURS = 48;
+
+/**
+ * The competition states whose events may become customer intelligence.
+ *
+ * EXPERIMENTAL, ADMIN_ONLY and EXCLUDED are all deliberately absent, and an
+ * event whose competition has no policy row at all is absent too — the
+ * resolver fails closed rather than guessing, so a competition nobody has
+ * reviewed is never shown.
+ */
+const CUSTOMER_VISIBLE_STATES = ["PRIME", "SUPPORTED"] as const;
 const MAX_MATCH_MARKETS = 100;
 const MAX_ODDS_HISTORY = 500;
 
@@ -100,21 +152,86 @@ export function utcDayWindow(asOf: Date): Readonly<{
 export class DatabaseCustomerQueryAdapter {
   constructor(private readonly database: ReadOnlyDatabase) {}
 
-  async getToday(asOf: Date): Promise<CustomerRawToday> {
-    const { start, end } = utcDayWindow(asOf);
+  async getToday(
+    asOf: Date,
+    options: CustomerTodayOptions = {},
+  ): Promise<CustomerRawToday> {
+    const scope = options.scope ?? "INTELLIGENCE";
+    const { start } = utcDayWindow(asOf);
+    const end = new Date(
+      start.getTime() +
+        (options.horizonHours ?? DEFAULT_HORIZON_HOURS) * 3_600_000,
+    );
+
+    /*
+     * The competition's eligibility travels with the event, so the decision
+     * about what a customer may see is made in one place from policy data
+     * rather than re-derived per surface. `canonicalCode` is nullable and a
+     * left join keeps those events visible to the ALL scope while the state
+     * check below excludes them from the intelligence view.
+     */
     const rows = await this.database
-      .select({ event: events })
+      .select({
+        event: events,
+        canonicalCode: competitions.canonicalCode,
+        state: competitionPolicies.state,
+        customerVisible: competitionPolicies.customerVisible,
+      })
       .from(events)
+      .innerJoin(competitions, eq(events.competitionId, competitions.id))
+      .leftJoin(
+        competitionPolicies,
+        eq(competitionPolicies.canonicalCode, competitions.canonicalCode),
+      )
       .where(and(gte(events.startsAt, start), lt(events.startsAt, end)))
       .orderBy(asc(events.startsAt), asc(events.id))
       .limit(MAX_TODAY_EVENTS);
 
+    const visible: typeof rows = [];
+    const byReason: Record<string, number> = {};
+    const suppress = (reason: string) => {
+      byReason[reason] = (byReason[reason] ?? 0) + 1;
+    };
+    for (const row of rows) {
+      if (scope === "ALL") {
+        visible.push(row);
+        continue;
+      }
+      if (row.canonicalCode === null) {
+        suppress("COMPETITION_NOT_IN_POLICY");
+        continue;
+      }
+      if (row.state === null) {
+        suppress("COMPETITION_NOT_IN_POLICY");
+        continue;
+      }
+      if (
+        !row.customerVisible ||
+        !CUSTOMER_VISIBLE_STATES.includes(
+          row.state as (typeof CUSTOMER_VISIBLE_STATES)[number],
+        )
+      ) {
+        suppress(`COMPETITION_${row.state}`);
+        continue;
+      }
+      visible.push(row);
+    }
+
     const matches = await Promise.all(
-      rows.map(({ event }) => this.getMatch(event.id, asOf)),
+      visible.map(({ event }) => this.getMatch(event.id, asOf)),
     ).then((items): CustomerRawMatch[] =>
       items.filter((item): item is CustomerRawMatch => item !== null),
     );
-    return { asOf, windowStart: start, windowEnd: end, matches };
+    return {
+      asOf,
+      windowStart: start,
+      windowEnd: end,
+      matches,
+      suppressed: {
+        total: rows.length - visible.length,
+        byReason,
+      },
+    };
   }
 
   async getMatch(

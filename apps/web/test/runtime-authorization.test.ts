@@ -17,6 +17,9 @@ function queryResult(rows: readonly Record<string, unknown>[]) {
   const query = {
     from: () => query,
     innerJoin: () => query,
+    /* Today now left-joins the competition eligibility policy, so that a
+       competition with no policy row is suppressed rather than shown. */
+    leftJoin: () => query,
     where: () => query,
     orderBy: () => query,
     limit: async () => rows,

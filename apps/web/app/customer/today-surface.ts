@@ -1,4 +1,7 @@
-import type { CustomerMatchDto } from "@velyq/contracts";
+import type {
+  CustomerMatchDto,
+  CustomerSuppressionDto,
+} from "@velyq/contracts";
 
 /**
  * What `/api/v1/today` returns to a customer surface.
@@ -17,4 +20,11 @@ export type TodaySurfaceDto = {
   readonly withheld: number;
   readonly surface: "today" | "edge" | "radar";
   readonly full: boolean;
+  /**
+   * Events the provider delivered that the intelligence universe excludes, as
+   * a count and reasons rather than as rows. Distinct from `withheld`, which
+   * is about this customer's entitlement: `suppressed` is the same for every
+   * customer and is about what the model can justify at all.
+   */
+  readonly suppressed?: CustomerSuppressionDto;
 };

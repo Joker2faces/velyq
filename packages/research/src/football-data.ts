@@ -193,9 +193,7 @@ export const FOOTBALL_DATA_BOOKMAKER_CODES: readonly string[] = Object.freeze([
  * Shared with the upcoming-fixtures feed, which uses the same column names for
  * prices and simply has no result columns.
  */
-export function csvRows(
-  csv: string,
-): Readonly<{
+export function csvRows(csv: string): Readonly<{
   header: readonly string[];
   rows: readonly ReadonlyMap<string, string>[];
 }> {
