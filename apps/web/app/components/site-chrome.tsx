@@ -5,6 +5,7 @@ import { LanguageSwitcher } from "../language-switcher";
 import { LocalePreference } from "../locale-preference";
 import { VelyqMark } from "./logo";
 import { localePath } from "../locale-path";
+import { PublicSessionActions } from "./public-session-actions";
 
 /**
  * Public marketing chrome: header, footer and the shell that wraps them.
@@ -44,18 +45,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
         </nav>
         <div className="shell-header__actions">
           <LanguageSwitcher locale={locale} />
-          <a
-            className="button button--ghost shell-header__signin"
-            href={localePath("/sign-in", locale)}
-          >
-            {t("homeSignIn")}
-          </a>
-          <a
-            className="button button--primary"
-            href={localePath("/sign-up", locale)}
-          >
-            {t("homeCreateAccount")}
-          </a>
+          <PublicSessionActions locale={locale} />
         </div>
       </div>
     </header>

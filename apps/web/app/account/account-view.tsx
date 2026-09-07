@@ -11,6 +11,7 @@ import { ArrowLink, Badge, Card, CardHead } from "../components/ui";
 import { IconCheck, IconShield, IconSignOut } from "../components/icons";
 import { LanguageSwitcher } from "../language-switcher";
 import type { CustomerContextDto } from "../customer/customer-context";
+import { getConfiguredAdminUrl } from "../customer-config";
 
 /**
  * The account surface, rendered in the browser from the protected API.
@@ -31,6 +32,7 @@ export function AccountView({
   const billingConfigured = paidBillingConfigured();
   const plan = context?.plan ?? "FREE";
   const entitlements = context?.entitlements ?? [];
+  const adminUrl = getConfiguredAdminUrl();
 
   return (
     <div className="page">
@@ -156,12 +158,9 @@ export function AccountView({
              * person who can already see it.
              */}
             <CardHead title={t("adminConsole")} />
-            {process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"] ? (
+            {adminUrl ? (
               <div className="actions" style={{ marginTop: "var(--space-4)" }}>
-                <a
-                  className="button button--secondary"
-                  href={process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"]}
-                >
+                <a className="button button--secondary" href={adminUrl}>
                   <IconShield size={15} />
                   {t("adminConsole")}
                 </a>

@@ -4,9 +4,15 @@ import { AuthShell } from "../components/auth-shell";
 import { AuthError } from "../components/auth-error";
 import { PasswordField } from "../components/password-field";
 import { localePath } from "../locale-path";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { resolveCustomerContext } from "../customer-runtime";
 
 export default async function SignIn() {
   const locale = await getLocale();
+  const cookieHeader = (await cookies()).toString();
+  if (await resolveCustomerContext(cookieHeader))
+    redirect(localePath("/today", locale));
   const t = translator(locale);
   const errorId = "sign-in-error";
 

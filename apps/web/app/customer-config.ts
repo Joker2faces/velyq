@@ -13,6 +13,13 @@ export function getConfiguredAdminUrl() {
   try {
     const url = new URL(configured);
     if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (
+      process.env["NODE_ENV"] === "production" &&
+      url.hostname.endsWith(".vercel.app") &&
+      (url.hostname.includes("-git-") ||
+        /-[a-z0-9]{8,}-joker2faces-projects\.vercel\.app$/i.test(url.hostname))
+    )
+      return null;
     return url.toString().replace(/\/$/, "");
   } catch {
     return null;

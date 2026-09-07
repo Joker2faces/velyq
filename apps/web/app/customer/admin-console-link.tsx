@@ -3,6 +3,7 @@
 import { translate, type Locale } from "@velyq/ui";
 import { IconShield } from "../components/icons";
 import { useCustomerData } from "./customer-data";
+import { getConfiguredAdminUrl } from "../customer-config";
 
 type CustomerContext = { isAdmin: boolean };
 
@@ -21,7 +22,7 @@ type CustomerContext = { isAdmin: boolean };
  * is offered.
  */
 export function AdminConsoleLink({ locale }: { locale: Locale }) {
-  const adminUrl = process.env["NEXT_PUBLIC_VELYQ_ADMIN_URL"];
+  const adminUrl = getConfiguredAdminUrl();
   const state = useCustomerData<CustomerContext>("/api/v1/customer/context");
   if (!adminUrl) return null;
   if (state.status !== "ready" || !state.data.isAdmin) return null;

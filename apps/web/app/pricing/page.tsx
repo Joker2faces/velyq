@@ -5,6 +5,7 @@ import { PublicShell } from "../components/site-chrome";
 import { Badge, Card } from "../components/ui";
 import { IconCheck } from "../components/icons";
 import { localePath } from "../locale-path";
+import { PricingFreeAction } from "../components/public-session-actions";
 
 /**
  * Pricing.
@@ -91,12 +92,7 @@ export default async function Pricing() {
 
               <div className="plan__cta">
                 {plan.code === "FREE" ? (
-                  <a
-                    className="button button--secondary button--block"
-                    href={localePath("/sign-up", locale)}
-                  >
-                    {t("homeCreateAccount")}
-                  </a>
+                  <PricingFreeAction locale={locale} />
                 ) : billingConfigured ? (
                   <form action="/api/v1/billing/checkout" method="post">
                     <input type="hidden" name="plan" value={plan.code} />
