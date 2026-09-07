@@ -116,17 +116,17 @@ export async function runApiSportsIngestion(options: {
         ? "20000000-0000-4000-8000-000000000001"
         : "20000000-0000-4000-8000-000000000002";
     lines.push(
-      `insert into catalog.competitions (id,sport_id,code,name_key) values (${uuid(competitionId)},${uuid(sportId)},${sql(event.competition.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))},${sql(event.competition)}) on conflict (sport_id,code) do update set name_key=excluded.name_key;`,
+      `insert into catalog.competitions (id,sport_id,code,name_key) values (${uuid(competitionId)},${sql(sportId)},${sql(event.competition.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))},${sql(event.competition)}) on conflict (sport_id,code) do update set name_key=excluded.name_key;`,
     );
     for (const [participantId, name] of [
       [homeId, homeName],
       [awayId, awayName],
     ] as const)
       lines.push(
-        `insert into catalog.participants (id,sport_id,type,code,display_name) values (${uuid(participantId)},${uuid(sportId)},'TEAM',${sql(name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))},${sql(name)}) on conflict (sport_id,type,code) do update set display_name=excluded.display_name;`,
+        `insert into catalog.participants (id,sport_id,type,code,display_name) values (${uuid(participantId)},${sql(sportId)},'TEAM',${sql(name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))},${sql(name)}) on conflict (sport_id,type,code) do update set display_name=excluded.display_name;`,
       );
     lines.push(
-      `insert into catalog.events (id,sport_id,competition_id,starts_at,status,synthetic) values (${uuid(eventId)},${uuid(sportId)},${uuid(competitionId)},${sql(event.scheduledAt)},${sql(event.status)},false) on conflict (id) do update set starts_at=excluded.starts_at,status=excluded.status,synthetic=false;`,
+      `insert into catalog.events (id,sport_id,competition_id,starts_at,status,synthetic) values (${uuid(eventId)},${sql(sportId)},${uuid(competitionId)},${sql(event.scheduledAt)},${sql(event.status)},false) on conflict (id) do update set starts_at=excluded.starts_at,status=excluded.status,synthetic=false;`,
     );
     lines.push(
       `insert into catalog.event_participants (event_id,participant_id,role) values (${uuid(eventId)},${uuid(homeId)},'HOME'),(${uuid(eventId)},${uuid(awayId)},'AWAY') on conflict do nothing;`,
