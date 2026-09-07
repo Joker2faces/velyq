@@ -30,7 +30,8 @@
     "data:historical:report": "tsx tooling/scripts/historical-corpus.ts",
     "model:train": "tsx tooling/scripts/train-football-model.ts",
     "intelligence:cycle": "tsx tooling/scripts/prediction-cycle.ts",
-    "data:footballdata:ingest": "tsx tooling/scripts/prediction-cycle.ts --skip-register"
+    "data:footballdata:ingest": "tsx tooling/scripts/prediction-cycle.ts --skip-register",
+    "model:report": "tsx tooling/scripts/backtest-report.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
