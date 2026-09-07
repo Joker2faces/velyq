@@ -87,6 +87,31 @@ const FORBIDDEN_VOCABULARY: readonly (readonly [string, readonly string[]])[] =
       ],
     ],
     [
+      /*
+       * Notes the team left for itself, published to customers.
+       *
+       * The legal pages carried "This draft requires legal review before
+       * commercial scale" and, on the subscription terms, "require owner and
+       * legal review before any live charge is taken" — in both languages.
+       * Honest internally, and much worse on a customer page than any badge:
+       * it told people the terms they were being asked to accept were not
+       * finished, in the vocabulary of the team's own to-do list. The fact
+       * that the terms are provisional is worth stating; it just has to be
+       * stated to the reader rather than about the project.
+       */
+      "internal process",
+      [
+        "requires legal review",
+        "legal review",
+        "owner review",
+        "owner and legal",
+        "before commercial scale",
+        "προσχέδιο",
+        "νομικό έλεγχο",
+        "ιδιοκτήτη",
+      ],
+    ],
+    [
       "authorization internals",
       [
         "admin.access",

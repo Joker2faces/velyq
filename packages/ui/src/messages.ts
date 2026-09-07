@@ -275,9 +275,9 @@ export const messages = {
   pricingIntroductory: "Introductory price",
   pricingMostPopular: "Most popular",
   pricingCurrentPlan: "Your current plan",
-  pricingBillingPending: "Billing activation pending",
+  pricingBillingPending: "Checkout opens soon",
   pricingBillingPendingHint:
-    "Checkout opens once billing is configured. Nothing is charged today.",
+    "You cannot buy a plan yet, and nothing is charged today.",
   pricingStartCheckout: "Continue to checkout",
   pricingIncluded: "What is included",
   pricingLimits: "Good to know",
@@ -523,12 +523,12 @@ export const messages = {
     "VELYQ provides football market intelligence for information and research. Probability estimates are model-generated and are not predictions of any outcome. While the product is in preview, the fixtures and prices it displays are samples rather than live market data.",
   // COMPLIANCE
   termsBody2:
-    "This draft requires legal review before commercial scale. VELYQ does not provide financial advice, does not guarantee outcomes and does not execute wagers.",
+    "VELYQ does not provide financial advice, does not guarantee outcomes and does not place bets. These terms will be updated before paid plans open, and continued use after an update means accepting the version then published.",
   privacyTitle: "Privacy",
   privacyBody1:
     "VELYQ processes the account and service data needed to authenticate you, provide the product and keep the service secure. We do not store card details; Stripe handles all payment data.",
   privacyBody2:
-    "This draft requires legal review for the applicable launch jurisdictions.",
+    "This notice will be updated before the product opens to paid customers, and separately for each market VELYQ serves.",
   responsibleUseTitle: "Responsible use",
   responsibleUseHeading: "Use intelligence responsibly.",
   // COMPLIANCE
@@ -536,12 +536,12 @@ export const messages = {
     "VELYQ is not a betting system. It does not place bets and it does not promise profit. EDGE reports where a model-generated probability differs from the price a market is offering, and RADAR reports price movement that has actually been observed. Neither is a validated forecast, and neither should be read as one.",
   // COMPLIANCE
   responsibleUseBody2:
-    "Never stake money you cannot afford to lose. If gambling is affecting your life, seek support from a licensed service in your country. This draft requires legal review.",
+    "Never stake money you cannot afford to lose. If gambling is affecting your life, seek support from a licensed service in your country.",
   subscriptionTermsTitle: "Subscription terms",
   subscriptionBody1:
     "Paid plans, once enabled, are billed through Stripe Checkout and managed through the Stripe Billing Portal. Cancellation is handled there and takes effect according to the billing period shown at the time.",
   subscriptionBody2:
-    "Refund policy and final commercial terms require owner and legal review before any live charge is taken.",
+    "Refund and final commercial terms will be published here before any payment can be taken.",
 
   // ------------------------------------------------------ admin console
   //
@@ -909,9 +909,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   pricingIntroductory: "Εισαγωγική τιμή",
   pricingMostPopular: "Πιο δημοφιλές",
   pricingCurrentPlan: "Το πακέτο σου",
-  pricingBillingPending: "Η χρέωση δεν έχει ενεργοποιηθεί",
+  pricingBillingPending: "Η πληρωμή ανοίγει σύντομα",
   pricingBillingPendingHint:
-    "Η πληρωμή θα ανοίξει μόλις στηθεί η χρέωση. Σήμερα δεν χρεώνεσαι.",
+    "Δεν μπορείς να αγοράσεις πακέτο ακόμη, και σήμερα δεν χρεώνεσαι.",
   pricingStartCheckout: "Συνέχεια στην πληρωμή",
   pricingIncluded: "Τι περιλαμβάνει",
   pricingLimits: "Καλό να ξέρεις",
@@ -1139,23 +1139,23 @@ const greek: Readonly<Record<MessageKey, string>> = {
   termsBody1:
     "Το VELYQ παρέχει ανάλυση αγορών ποδοσφαίρου για ενημέρωση και έρευνα. Οι εκτιμήσεις πιθανότητας παράγονται από μοντέλο και δεν είναι προβλέψεις κανενός αποτελέσματος. Όσο το προϊόν βρίσκεται σε προεπισκόπηση, οι αγώνες και οι αποδόσεις που εμφανίζει είναι δείγματα και όχι δεδομένα πραγματικής αγοράς.",
   termsBody2:
-    "Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο πριν από εμπορική διάθεση. Το VELYQ δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται αποτελέσματα και δεν εκτελεί στοιχήματα.",
+    "Το VELYQ δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται αποτελέσματα και δεν τοποθετεί στοιχήματα. Οι όροι θα ενημερωθούν πριν ανοίξουν τα επί πληρωμή πακέτα, και η συνέχιση της χρήσης μετά από μια ενημέρωση σημαίνει αποδοχή της έκδοσης που ισχύει τότε.",
   privacyTitle: "Απόρρητο",
   privacyBody1:
     "Το VELYQ επεξεργάζεται όσα δεδομένα λογαριασμού και χρήσης χρειάζονται για να σε ταυτοποιήσει, να λειτουργήσει το προϊόν και να μείνει ασφαλής η υπηρεσία. Δεν κρατάμε στοιχεία κάρτας· τις πληρωμές τις χειρίζεται η Stripe.",
   privacyBody2:
-    "Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο για κάθε χώρα λειτουργίας.",
+    "Η ενημέρωση αυτή θα επικαιροποιηθεί πριν το προϊόν ανοίξει σε συνδρομητές, και ξεχωριστά για κάθε χώρα στην οποία λειτουργεί το VELYQ.",
   responsibleUseTitle: "Υπεύθυνη χρήση",
   responsibleUseHeading: "Χρησιμοποίησέ το υπεύθυνα.",
   responsibleUseBody1:
     "Το VELYQ δεν είναι σύστημα στοιχηματισμού. Δεν τοποθετεί στοιχήματα και δεν υπόσχεται κέρδος. Το EDGE δείχνει πού η πιθανότητα του μοντέλου διαφέρει από την τιμή που δίνει μια αγορά, και το RADAR δείχνει κίνηση τιμής που έχει πραγματικά καταγραφεί. Κανένα από τα δύο δεν είναι επικυρωμένη πρόβλεψη, και κανένα δεν πρέπει να διαβάζεται ως τέτοια.",
   responsibleUseBody2:
-    "Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις. Αν ο τζόγος επηρεάζει τη ζωή σου, ζήτησε βοήθεια από αδειοδοτημένη υπηρεσία στη χώρα σου. Το κείμενο είναι προσχέδιο και χρειάζεται νομικό έλεγχο.",
+    "Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις. Αν ο τζόγος επηρεάζει τη ζωή σου, ζήτησε βοήθεια από αδειοδοτημένη υπηρεσία στη χώρα σου.",
   subscriptionTermsTitle: "Όροι συνδρομής",
   subscriptionBody1:
     "Μόλις ενεργοποιηθούν, τα επί πληρωμή πακέτα χρεώνονται μέσω Stripe Checkout και τα διαχειρίζεσαι από το Stripe Billing Portal. Από εκεί γίνεται και η ακύρωση, που ισχύει για την περίοδο χρέωσης που βλέπεις εκείνη τη στιγμή.",
   subscriptionBody2:
-    "Η πολιτική επιστροφών και οι τελικοί εμπορικοί όροι θέλουν έγκριση από τον ιδιοκτήτη και νομικό έλεγχο πριν από κάθε πραγματική χρέωση.",
+    "Η πολιτική επιστροφών και οι τελικοί εμπορικοί όροι θα δημοσιευτούν εδώ πριν γίνει οποιαδήποτε χρέωση.",
 
   adminConsoleName: "Λειτουργία",
   adminNavOverview: "Επισκόπηση",
@@ -1236,16 +1236,16 @@ const greek: Readonly<Record<MessageKey, string>> = {
   recWait: "Αναμονή",
   recWaitBody:
     "Τα στοιχεία δεν φτάνουν το όριο. Αξίζει παρακολούθηση, όχι κίνηση.",
-  recWaitForLineup: "Χρειάζεται επιβεβαίωση ενδεκάδας",
+  recWaitForLineup: "Αναμονή για ενδεκάδες",
   recWaitForLineupBody:
     "Η πρόταση μένει σε αναμονή μέχρι να βγει η επίσημη ενδεκάδα, γιατί μια αλλαγή τελευταίας στιγμής αλλάζει αισθητά την εκτίμηση.",
   recNoBet: "Χωρίς πρόταση",
   recNoBetBody:
     "Στην τρέχουσα απόδοση δεν φαίνεται καμία αξία. Η ειλικρινής απάντηση είναι να το προσπεράσεις.",
-  recInsufficientData: "Δεν υπάρχουν αρκετά δεδομένα",
+  recInsufficientData: "Ανεπαρκή δεδομένα",
   recInsufficientDataBody:
     "Λείπουν αποδόσεις ή κάλυψη, οπότε δεν βγήκε εκτίμηση. Το VELYQ δεν μαντεύει.",
-  recEdgeDisappeared: "Η ευκαιρία δεν ισχύει πλέον",
+  recEdgeDisappeared: "Το πλεονέκτημα χάθηκε",
   recEdgeDisappearedBody:
     "Η αξία που υπήρχε δεν φαίνεται πια στην τρέχουσα απόδοση — η αγορά αναπροσάρμοσε.",
 
