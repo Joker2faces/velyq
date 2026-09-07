@@ -1,5 +1,5 @@
 import {
-  parseDecimalString,
+  expectedValue,
   subtractDecimalStrings,
   type DecimalString,
 } from "@velyq/decimal";
@@ -25,8 +25,8 @@ export type RankedOpportunity = OpportunityInput &
 
 function validExpectedValue(value: string | null): DecimalString | null {
   if (value === null) return null;
-  const parsed = parseDecimalString(value);
-  return parsed.ok ? parsed.value : null;
+  const parsed = expectedValue(value);
+  return parsed.ok ? parsed.value.value : null;
 }
 
 function compareExpectedValue(

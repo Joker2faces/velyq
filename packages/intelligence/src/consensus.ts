@@ -27,6 +27,7 @@ export type MarketConsensusOutcome = Readonly<{
   readonly normalizedImpliedProbability: DecimalString;
   readonly normalizedProbabilitySum: DecimalString;
   readonly bestOdds: DecimalString;
+  readonly bestOddsBookmakers: readonly string[];
   readonly medianOdds: DecimalString;
   readonly minOdds: DecimalString;
   readonly maxOdds: DecimalString;
@@ -34,6 +35,7 @@ export type MarketConsensusOutcome = Readonly<{
   readonly bookmakerCount: number;
   readonly agreement: DecimalString;
   readonly outlierCandidate: boolean;
+  readonly outlierBookmakers: readonly string[];
 }>;
 
 export type MarketConsensus = Readonly<{
@@ -212,6 +214,16 @@ export function calculateMarketConsensus(
     const outlierCount = deviations.filter(
       (value) => compareDecimal(value, OUTLIER_DISTANCE) > 0,
     ).length;
+    const bestOddsBookmakers = books
+      .filter((book) => compareDecimal(book.values.get(outcome)!, maxOdds) === 0)
+      .map((book) => book.bookmaker)
+      .sort((left, right) => left.localeCompare(right));
+    const outlierBookmakers = books
+      .filter(
+        (_, index) => compareDecimal(deviations[index]!, OUTLIER_DISTANCE) > 0,
+      )
+      .map((book) => book.bookmaker)
+      .sort((left, right) => left.localeCompare(right));
     const agreement = divideDecimalStrings(
       String(normalized.length - outlierCount) as DecimalString,
       String(normalized.length) as DecimalString,
@@ -222,6 +234,7 @@ export function calculateMarketConsensus(
       normalizedImpliedProbability: average(normalized)!,
       normalizedProbabilitySum,
       bestOdds: maxOdds,
+      bestOddsBookmakers: Object.freeze(bestOddsBookmakers),
       medianOdds,
       minOdds,
       maxOdds,
@@ -229,6 +242,7 @@ export function calculateMarketConsensus(
       bookmakerCount: books.length,
       agreement: agreement.ok ? agreement.value : ("0" as DecimalString),
       outlierCandidate: outlierCount > 0,
+      outlierBookmakers: Object.freeze(outlierBookmakers),
     });
   });
   return freezeConsensus(

@@ -67,6 +67,87 @@ describe("RADAR movement", () => {
       ]),
     });
   });
+
+  it("orders timezone-offset ISO timestamps by instant", () => {
+    // Break caught: lexical timestamp ordering reverses observations with different UTC offsets.
+    expect(
+      analyzeRadarMovement({
+        observations: [
+          {
+            bookmaker: "alpha",
+            observedAt: "2026-09-06T08:30:00Z",
+            odds: "1.9",
+          },
+          {
+            bookmaker: "alpha",
+            observedAt: "2026-09-06T10:00:00+02:00",
+            odds: "2.1",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      state: "SHORTENED",
+      openingOdds: "2.1",
+      currentOdds: "1.9",
+      sourceBookmakers: ["alpha"],
+    });
+  });
+
+  it("rejects observations with invalid ISO timestamps", () => {
+    // Break caught: an unparseable timestamp could be ordered into a movement stream.
+    expect(
+      analyzeRadarMovement({
+        observations: [
+          { bookmaker: "alpha", observedAt: "not-an-ISO-timestamp", odds: "2.1" },
+          {
+            bookmaker: "alpha",
+            observedAt: "2026-09-06T10:30:00Z",
+            odds: "1.9",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      state: "INSUFFICIENT_HISTORY",
+      reasonCodes: expect.arrayContaining(["INVALID_OBSERVED_AT"]),
+    });
+  });
+
+  it("selects one deterministic bookmaker stream instead of combining bookmakers", () => {
+    // Break caught: combining alpha's opening price with beta's current price fabricates provenance.
+    const result = analyzeRadarMovement({
+      observations: [
+        {
+          bookmaker: "beta",
+          observedAt: "2026-09-06T10:00:00Z",
+          odds: "1.8",
+        },
+        {
+          bookmaker: "alpha",
+          observedAt: "2026-09-06T11:00:00Z",
+          odds: "2",
+        },
+        {
+          bookmaker: "alpha",
+          observedAt: "2026-09-06T10:00:00Z",
+          odds: "2.1",
+        },
+        {
+          bookmaker: "beta",
+          observedAt: "2026-09-06T11:00:00Z",
+          odds: "1.7",
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      state: "SHORTENED",
+      openingOdds: "2.1",
+      currentOdds: "2",
+      bookmakerCount: 2,
+      sourceBookmakers: ["alpha"],
+      reasonCodes: expect.arrayContaining(["MULTIPLE_BOOKMAKER_STREAMS"]),
+    });
+  });
 });
 
 describe("market consensus", () => {
@@ -131,6 +212,32 @@ describe("market consensus", () => {
         expect.objectContaining({
           outcome: "UNDER",
           normalizedProbabilitySum: "1",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps neutral bookmaker provenance for best odds and outlier assessments", () => {
+    // Break caught: derived price summaries without their bookmaker sources cannot be audited.
+    const consensus = calculateMarketConsensus({
+      market: "TWO_WAY",
+      observations: [
+        { bookmaker: "alpha", outcome: "OVER", odds: "2" },
+        { bookmaker: "alpha", outcome: "UNDER", odds: "2" },
+        { bookmaker: "beta", outcome: "OVER", odds: "2.1" },
+        { bookmaker: "beta", outcome: "UNDER", odds: "1.91" },
+        { bookmaker: "gamma", outcome: "OVER", odds: "5" },
+        { bookmaker: "gamma", outcome: "UNDER", odds: "1.25" },
+      ],
+    });
+
+    expect(consensus.outcomes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "OVER",
+          bestOdds: "5",
+          bestOddsBookmakers: ["gamma"],
+          outlierBookmakers: ["gamma"],
         }),
       ]),
     );

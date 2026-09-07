@@ -27,6 +27,33 @@ describe("market maps", () => {
       }),
     ]);
   });
+
+  it("exposes neutral best-odds and outlier bookmaker provenance", () => {
+    // Break caught: market maps that omit consensus provenance make derived quotes unauditable.
+    const [market] = buildMarketMap([
+      {
+        market: "TWO_WAY",
+        observations: [
+          { bookmaker: "alpha", outcome: "OVER", odds: "2" },
+          { bookmaker: "alpha", outcome: "UNDER", odds: "2" },
+          { bookmaker: "beta", outcome: "OVER", odds: "2.1" },
+          { bookmaker: "beta", outcome: "UNDER", odds: "1.91" },
+          { bookmaker: "gamma", outcome: "OVER", odds: "5" },
+          { bookmaker: "gamma", outcome: "UNDER", odds: "1.25" },
+        ],
+      },
+    ]);
+
+    expect(market?.outcomes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "OVER",
+          bestOddsBookmakers: ["gamma"],
+          outlierBookmakers: ["gamma"],
+        }),
+      ]),
+    );
+  });
 });
 
 describe("opportunity ranking", () => {
@@ -77,5 +104,36 @@ describe("opportunity ranking", () => {
     expect(
       prioritizeToday(opportunities).map((opportunity) => opportunity.id),
     ).toEqual(["fresh-low", "stale-high", "fresh-watch"]);
+  });
+
+  it("rejects expected values outside the semantic expected-value bounds and scale", () => {
+    // Break caught: generic decimals allow EV values that cannot satisfy the expected-value contract.
+    const ranked = rankOpportunities([
+      {
+        id: "too-many-decimals",
+        expectedValue: "0.1234567890123",
+        freshness: "FRESH",
+        actionable: true,
+      },
+      {
+        id: "too-large",
+        expectedValue: "1000000",
+        freshness: "FRESH",
+        actionable: true,
+      },
+    ]);
+
+    expect(ranked).toEqual([
+      expect.objectContaining({
+        id: "too-large",
+        expectedValue: null,
+        reasonCodes: expect.arrayContaining(["INVALID_EXPECTED_VALUE"]),
+      }),
+      expect.objectContaining({
+        id: "too-many-decimals",
+        expectedValue: null,
+        reasonCodes: expect.arrayContaining(["INVALID_EXPECTED_VALUE"]),
+      }),
+    ]);
   });
 });
