@@ -26,6 +26,7 @@ const EXPECTED_TABLES = [
   "intelligence.model_versions",
   "intelligence.prediction_inputs",
   "intelligence.prediction_runs",
+  "intelligence.prediction_settlements",
   "intelligence.predictions",
   "intelligence.radar_evidence",
   "intelligence.score_definition_versions",
@@ -33,6 +34,7 @@ const EXPECTED_TABLES = [
   "market.bookmakers",
   "market.event_market_outcomes",
   "market.event_markets",
+  "market.event_results",
   "market.market_definitions",
   "market.odds_observations",
   "market.outcome_definitions",
@@ -61,9 +63,11 @@ const APPEND_ONLY_TABLES = [
   "intelligence.decision_funnel_runs",
   "intelligence.model_artifacts",
   "intelligence.prediction_inputs",
+  "intelligence.prediction_settlements",
   "intelligence.predictions",
   "intelligence.radar_evidence",
   "intelligence.score_results",
+  "market.event_results",
   "market.odds_observations",
   "operations.lineup_request_log",
   "operations.source_observations",
@@ -131,7 +135,7 @@ function appendOnlyTargets(sql: string): string[] {
 }
 
 describe("reviewed Phase 1 migration contract", () => {
-  it("creates exactly the approved 47-table allowlist", () => {
+  it("creates exactly the approved 49-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 
@@ -336,7 +340,7 @@ describe("reviewed Phase 1 migration contract", () => {
     );
   });
 
-  it("protects exactly the 13 approved append-only histories", () => {
+  it("protects exactly the 15 approved append-only histories", () => {
     expect(appendOnlyTargets(migrationSql())).toEqual(APPEND_ONLY_TABLES);
   });
 

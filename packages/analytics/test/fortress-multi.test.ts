@@ -25,6 +25,7 @@ const eligibleGate: FortressInput = {
   modelMaturity: "VALIDATED",
   criticalRisk: false,
   priceValid: true,
+  lineupConfirmed: true,
 };
 
 function leg(

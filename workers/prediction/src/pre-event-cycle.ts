@@ -23,6 +23,13 @@ import {
   type PrivilegedVelyqDatabase,
 } from "@velyq/database";
 import { assessDataQuality, type QualityInput } from "@velyq/analytics";
+import {
+  assessTiming,
+  customerPresentation,
+  fortressEvidenceSatisfied,
+  type DecisionLifecycleState,
+  type LineupAvailabilityState,
+} from "@velyq/analytics/decision-timing";
 /* research-v3 is its own entry point; the package index deliberately does
    not re-export it, so the robust metrics are imported from there. */
 import { robustMetrics } from "@velyq/analytics/research-v3";
@@ -47,6 +54,7 @@ import {
 } from "@velyq/research";
 import { createHash } from "node:crypto";
 import { runDurablePipelineJobOnce } from "./index.js";
+import { loadLineupStates } from "./lineup-state.js";
 
 /**
  * The server-side prediction trigger.
@@ -81,6 +89,18 @@ export const RADAR_SCORE_VERSION = "radar.pre-event.v1";
 export const DEFAULT_HORIZON_HOURS = 48;
 
 /**
+ * How old the newest price may be and still be called fresh.
+ *
+ * A day, matching the pre-event quality policy. A tighter window would make
+ * every market stale between two scheduled ingestion runs, which on a
+ * 100-request daily provider budget are hours apart by necessity.
+ */
+export const PRICE_FRESHNESS_SECONDS = 86_400;
+
+/** Ceiling on candidates persisted per funnel run. */
+const MAX_PERSISTED_CANDIDATES = 250;
+
+/**
  * Markets this cycle evaluates, with their outcome order.
  *
  * The order is the market's canonical order and is load-bearing: the model's
@@ -111,6 +131,18 @@ export type FunnelCounts = Readonly<{
   freshPredictions: number;
   positiveRawEdge: number;
   positiveRobustEdge: number;
+  /** Markets with usable evidence whose lineup is not yet due. */
+  watch: number;
+  /** Markets whose lineup is overdue: covered, close to kickoff, absent. */
+  waitForLineup: number;
+  /** Markets with too little usable evidence to say anything yet. */
+  earlyResearch: number;
+  /** Markets that reached the final gates at all. */
+  readyForFinalEvaluation: number;
+  /** Competitions the provider says will never publish a lineup. */
+  lineupNotCovered: number;
+  /** Markets with a confirmed XI for both sides. */
+  lineupConfirmed: number;
   edge: number;
   strongEdge: number;
   fortressEligible: number;
@@ -150,6 +182,15 @@ export type MarketEvaluationRecord = Readonly<{
   expectedValue: string | null;
   robustExpectedValue: string | null;
   uncertaintyAvailable: boolean;
+  /** Where this market sits in its own lifecycle, not what to do about it. */
+  lifecycleState: DecisionLifecycleState;
+  lineupAvailability: LineupAvailabilityState;
+  /** What a customer surface may claim, derived from the lifecycle state. */
+  presentation: string;
+  minutesToKickoff: number;
+  nextReviewInMinutes: number | null;
+  /** Whether FORTRESS could even be considered, and never why not silently. */
+  fortressEvidenceSatisfied: boolean;
   reasonCodes: readonly string[];
 }>;
 
@@ -580,6 +621,12 @@ export async function runPreEventPredictionCycle(
     freshPredictions: 0,
     positiveRawEdge: 0,
     positiveRobustEdge: 0,
+    watch: 0,
+    waitForLineup: 0,
+    earlyResearch: 0,
+    readyForFinalEvaluation: 0,
+    lineupNotCovered: 0,
+    lineupConfirmed: 0,
     edge: 0,
     strongEdge: 0,
     fortressEligible: 0,
@@ -642,6 +689,16 @@ export async function runPreEventPredictionCycle(
       commit,
     );
   }
+
+  /*
+   * One query for every candidate rather than one per event: the join runs
+   * through competition identities and coverage, and doing it per event would
+   * turn a cycle over a hundred fixtures into several hundred round trips.
+   */
+  const lineupStates = await loadLineupStates(
+    options.database,
+    candidates.map((candidate) => candidate.eventId),
+  );
 
   const jobRepository = new DatabaseJobRepository(options.database);
   const knownTeamKeys = new Map<string, Set<string>>();
@@ -753,6 +810,38 @@ export async function runPreEventPredictionCycle(
         });
       }
 
+      /*
+       * The timing assessment, computed before any decision logic. It answers
+       * "how far has the evidence got" separately from "is the price good",
+       * which is the separation that lets a market a day out be reported as
+       * WATCH rather than as a failed quality check.
+       */
+      const lineupState = lineupStates.get(candidate.eventId);
+      const lineupAvailability: LineupAvailabilityState =
+        lineupState?.availability ?? "LINEUP_NOT_PUBLISHED_YET";
+      const minutesToKickoff =
+        (candidate.startsAt.getTime() - asOf.getTime()) / 60_000;
+      const newestObservedAt = observations.reduce(
+        (latest, observation) =>
+          observation.receivedAt > latest ? observation.receivedAt : latest,
+        observations[0]?.receivedAt ?? asOf,
+      );
+      const timing = assessTiming({
+        minutesToKickoff,
+        lineup: lineupAvailability,
+        marketCoverageSufficient:
+          quotes.length >= competitionPolicy.minBookmakerCoverage,
+        priceFresh:
+          asOf.getTime() - newestObservedAt.getTime() <=
+          PRICE_FRESHNESS_SECONDS * 1000,
+        modelEstimateAvailable: true,
+        uncertaintyAvailable: true,
+      });
+      const fortressEvidence = fortressEvidenceSatisfied({
+        lineup: lineupAvailability,
+        minutesToKickoff,
+      });
+
       const record = (
         extra: Partial<MarketEvaluationRecord>,
         reasonCodes: readonly string[],
@@ -773,10 +862,27 @@ export async function runPreEventPredictionCycle(
           expectedValue: null,
           robustExpectedValue: null,
           uncertaintyAvailable: false,
+          lifecycleState: timing.state,
+          lineupAvailability,
+          presentation: customerPresentation(timing.state),
+          minutesToKickoff: Math.round(minutesToKickoff),
+          nextReviewInMinutes: timing.nextReviewInMinutes,
+          fortressEvidenceSatisfied: fortressEvidence.satisfied,
           ...extra,
           reasonCodes,
         });
       };
+
+      if (lineupAvailability === "LINEUP_NOT_COVERED")
+        counts.lineupNotCovered += 1;
+      if (lineupAvailability === "LINEUP_AVAILABLE")
+        counts.lineupConfirmed += 1;
+      if (timing.state === "WATCH") counts.watch += 1;
+      if (timing.state === "WAIT_FOR_LINEUP") counts.waitForLineup += 1;
+      if (timing.state === "EARLY_RESEARCH") counts.earlyResearch += 1;
+      if (timing.state === "READY_FOR_FINAL_EVALUATION")
+        counts.readyForFinalEvaluation += 1;
+      for (const code of timing.reasonCodes) note(`TIMING_${code}`);
 
       if (quotes.length < competitionPolicy.minBookmakerCoverage) {
         note("INSUFFICIENT_BOOKMAKER_COVERAGE");
@@ -926,6 +1032,18 @@ export async function runPreEventPredictionCycle(
       );
 
       /*
+       * The final gates run only when the lifecycle says a final decision is
+       * due. Before that the market is still gathering evidence: it has been
+       * recorded as a candidate with its model estimate and its market
+       * consensus, which is what an operator needs, and creating a prediction
+       * row for it would file a non-decision alongside real ones.
+       */
+      if (!timing.finalEvaluationDue) {
+        note(`LIFECYCLE_${timing.state}`);
+        continue;
+      }
+
+      /*
        * A quality assessment must exist before the handler runs, and it must
        * be the durable one: the handler reads it back by event, outcome and
        * cutoff and refuses to compute a prediction without it.
@@ -947,13 +1065,15 @@ export async function runPreEventPredictionCycle(
         priceCount: quotes.length,
         bookmakerCount: quotes.length,
         /*
-         * This source publishes no lineups, and a decision made a day before
-         * kickoff could not have a confirmed one anyway. The existing EDGE
-         * gate treats a missing lineup as disqualifying, so this is the stage
-         * the funnel will usually stop at — reported honestly rather than
-         * routed around by relaxing a decision gate.
+         * The real lineup state, not a constant. A confirmed XI is OFFICIAL;
+         * everything else is MISSING as far as the existing quality policy is
+         * concerned, and that policy is untouched. What changed is that the
+         * *lifecycle* no longer treats a not-yet-due lineup as a failure, so
+         * an early market is reported as WATCH while still being refused a
+         * final decision.
          */
-        lineup: "MISSING",
+        lineup:
+          lineupAvailability === "LINEUP_AVAILABLE" ? "OFFICIAL" : "MISSING",
         mappingConfidence: "HIGH",
         edgeAvailable: best.uncertaintyAvailable,
         edgePresent: rawEdgePositive,
@@ -1120,6 +1240,12 @@ async function finish(
         modelVersionId: artifact?.modelVersionId ?? null,
         counts,
         noBetReasons,
+        /*
+         * Bounded. The funnel row is an operational record, not an archive,
+         * and a cycle over a few hundred fixtures could otherwise write a
+         * multi-megabyte jsonb every run.
+         */
+        candidates: evaluations.slice(0, MAX_PERSISTED_CANDIDATES),
         triggerSource: options.triggerSource,
         idempotencyKey: `funnel:FOOTBALL:${asOf.toISOString()}:${options.triggerSource}`,
       })

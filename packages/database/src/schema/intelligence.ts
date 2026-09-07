@@ -582,6 +582,16 @@ export const decisionFunnelRuns = intelligenceSchema.table(
     ),
     counts: jsonb("counts").notNull(),
     noBetReasons: jsonb("no_bet_reasons").notNull(),
+    /*
+     * Every market the cycle evaluated, with what the model and the market
+     * said. The counts alone tell an administrator that six markets stopped
+     * at the lineup gate; they do not say which six or how far the model was
+     * from the market, and that detail used to be reachable only by knowing a
+     * prediction UUID in advance.
+     */
+    candidates: jsonb("candidates")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     triggerSource: text("trigger_source").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -604,10 +614,84 @@ export const decisionFunnelRuns = intelligenceSchema.table(
       "decision_funnel_runs_no_bet_reasons_object_check",
       sql`jsonb_typeof(${table.noBetReasons}) = 'object'`,
     ),
+    check(
+      "decision_funnel_runs_candidates_array_check",
+      sql`jsonb_typeof(${table.candidates}) = 'array'`,
+    ),
     check("decision_funnel_runs_horizon_check", sql`${table.horizonHours} > 0`),
     check(
       "decision_funnel_runs_trigger_source_check",
       sql`${table.triggerSource} in ('SCHEDULED', 'ADMIN', 'CLI')`,
+    ),
+  ],
+);
+
+/**
+ * What happened to a published prediction, and separately, whether making it
+ * was defensible.
+ *
+ * The separation is enforced by two columns rather than described in a
+ * comment. A losing bet at a genuinely good price is a GOOD decision with a
+ * LOST outcome, and collapsing the two into "was it right" destroys the only
+ * feedback signal that can improve a decision policy — outcomes are mostly
+ * noise at this sample size, decision quality is not.
+ */
+export const predictionSettlements = intelligenceSchema.table(
+  "prediction_settlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    predictionId: uuid("prediction_id")
+      .notNull()
+      .references(() => predictions.id, { onDelete: "restrict" }),
+    eventResultId: uuid("event_result_id").notNull(),
+    outcome: text("outcome").notNull(),
+    decisionQuality: text("decision_quality").notNull(),
+    publicationOdds: numeric("publication_odds", {
+      precision: 18,
+      scale: 8,
+      mode: "string",
+    }),
+    publicationProbability: numeric("publication_probability", {
+      precision: 18,
+      scale: 12,
+      mode: "string",
+    }),
+    closingOdds: numeric("closing_odds", {
+      precision: 18,
+      scale: 8,
+      mode: "string",
+    }),
+    /* Closing-line value: a different and more informative signal than the
+       outcome, because it is measurable on every prediction rather than only
+       on the ones that happened to resolve one way. */
+    closingLineValue: numeric("closing_line_value", {
+      precision: 18,
+      scale: 12,
+      mode: "string",
+    }),
+    reasonCodes: text("reason_codes").array().notNull(),
+    settledAt: timestamp("settled_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    /* One settlement per prediction: a prediction settled twice would make
+       the forecast ledger's own counts unreliable. */
+    unique("prediction_settlements_prediction_unique").on(table.predictionId),
+    index("prediction_settlements_settled_idx").on(table.settledAt.desc()),
+    index("prediction_settlements_event_result_idx").on(table.eventResultId),
+    check(
+      "prediction_settlements_outcome_check",
+      sql`${table.outcome} in ('WON', 'LOST', 'PUSH', 'VOID')`,
+    ),
+    check(
+      "prediction_settlements_quality_check",
+      sql`${table.decisionQuality} in ('GOOD', 'ACCEPTABLE', 'POOR', 'INSUFFICIENT_EVIDENCE')`,
+    ),
+    check(
+      "prediction_settlements_numeric_check",
+      sql`(${table.publicationOdds} is null or ${table.publicationOdds} > 1) and (${table.closingOdds} is null or ${table.closingOdds} > 1) and (${table.publicationProbability} is null or ${table.publicationProbability} between 0 and 1)`,
     ),
   ],
 );

@@ -125,6 +125,7 @@ describe("isFortress", () => {
     modelMaturity: "VALIDATED",
     criticalRisk: false,
     priceValid: true,
+    lineupConfirmed: true,
   };
 
   it("qualifies when every gate passes", () => {
@@ -168,6 +169,20 @@ describe("isFortress", () => {
 
   it("never qualifies with a critical risk flag or an invalid price", () => {
     expect(isFortress({ ...baseline, criticalRisk: true })).toBe(false);
+    /*
+     * The lineup gate. FORTRESS claims the pre-match evidence is complete, so
+     * an unpublished or uncovered XI disqualifies it outright — however large
+     * the edge, which is exactly the case where the temptation is greatest.
+     */
+    expect(isFortress({ ...baseline, lineupConfirmed: false })).toBe(false);
+    expect(
+      isFortress({
+        ...baseline,
+        lineupConfirmed: false,
+        robustEdge: "0.40" as DecimalString,
+        robustEV: "0.35" as DecimalString,
+      }),
+    ).toBe(false);
     expect(isFortress({ ...baseline, priceValid: false })).toBe(false);
   });
 });

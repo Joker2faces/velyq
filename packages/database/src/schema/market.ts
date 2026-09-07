@@ -291,3 +291,55 @@ export const oddsObservations = marketSchema.table(
     ),
   ],
 );
+
+/**
+ * The final score, as the provider reported it.
+ *
+ * Separate from `catalog.events.status` because a status is a lifecycle flag
+ * while this is evidence: it carries the provider run that observed it and the
+ * instant it was observed, so a settlement traces to the observation it rested
+ * on rather than to whatever the score column happens to say now.
+ */
+export const eventResults = marketSchema.table(
+  "event_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull(),
+    sourceObservationId: uuid("source_observation_id").notNull(),
+    status: text("status").notNull(),
+    homeGoals: smallint("home_goals"),
+    awayGoals: smallint("away_goals"),
+    halfTimeHomeGoals: smallint("half_time_home_goals"),
+    halfTimeAwayGoals: smallint("half_time_away_goals"),
+    providerObservedAt: timestamp("provider_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("event_results_identity_unique").on(
+      table.eventId,
+      table.sourceObservationId,
+    ),
+    index("event_results_event_observed_idx").on(
+      table.eventId,
+      table.providerObservedAt.desc(),
+    ),
+    check(
+      "event_results_status_check",
+      sql`${table.status} in ('FINISHED', 'ABANDONED', 'POSTPONED', 'CANCELLED', 'AWARDED')`,
+    ),
+    /* A finished match has a score; anything else legitimately may not. */
+    check(
+      "event_results_finished_score_check",
+      sql`${table.status} <> 'FINISHED' or (${table.homeGoals} is not null and ${table.awayGoals} is not null)`,
+    ),
+    check(
+      "event_results_goals_check",
+      sql`(${table.homeGoals} is null or ${table.homeGoals} between 0 and 30) and (${table.awayGoals} is null or ${table.awayGoals} between 0 and 30)`,
+    ),
+  ],
+);

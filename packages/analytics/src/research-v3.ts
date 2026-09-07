@@ -321,6 +321,18 @@ export type FortressInput = Readonly<{
     "EXPERIMENTAL" | "SHADOW" | "VALIDATED" | "PILOT" | "PRODUCTION";
   criticalRisk: boolean;
   priceValid: boolean;
+  /**
+   * Whether a confirmed starting eleven backs this selection.
+   *
+   * FORTRESS is the grade that claims the evidence is as complete as it will
+   * ever get before kickoff, and before the XI is published it demonstrably
+   * is not: a keeper rested or a striker benched moves a 1X2 price further
+   * than most of what the model measures. A competition the provider does not
+   * cover for lineups therefore cannot reach FORTRESS at all — that is the
+   * intended consequence, not an oversight, and the honest alternative to
+   * awarding the top grade on evidence nobody has.
+   */
+  lineupConfirmed: boolean;
 }>;
 export function isFortress(
   input: FortressInput,
@@ -338,7 +350,8 @@ export function isFortress(
     input.mappingConfidence === "HIGH" &&
     input.modelMaturity !== "EXPERIMENTAL" &&
     !input.criticalRisk &&
-    input.priceValid
+    input.priceValid &&
+    input.lineupConfirmed
   );
 }
 
