@@ -21,6 +21,9 @@ function queryResult(rows: readonly Record<string, unknown>[]) {
        competition with no policy row is suppressed rather than shown. */
     leftJoin: () => query,
     where: () => query,
+    /* Suppression counts are a grouped aggregate over the whole window now,
+       not a tally of whatever a paged query returned. */
+    groupBy: () => query,
     orderBy: () => query,
     limit: async () => rows,
     then: <TResult1 = readonly Record<string, unknown>[], TResult2 = never>(

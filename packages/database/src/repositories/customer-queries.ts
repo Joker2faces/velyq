@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt, lte } from "drizzle-orm";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
@@ -71,12 +71,33 @@ export type CustomerSuppressionSummary = Readonly<{
   byReason: Readonly<Record<string, number>>;
 }>;
 
+/**
+ * How much of the eligible universe this response actually carries.
+ *
+ * Reported rather than implied. A page cap is a legitimate way to keep a
+ * response bounded; presenting the capped page as if it were the whole window
+ * is not, and it is the failure mode that makes a suppression count quietly
+ * wrong — count the first hundred fixtures, show the forty that qualify, and
+ * report "sixty suppressed" when the real window held three hundred.
+ */
+export type CustomerUniverseCoverage = Readonly<{
+  /** Every event in the window, before any eligibility filtering. */
+  eventsInWindow: number;
+  /** Events whose competition policy makes them customer-visible. */
+  eligible: number;
+  /** Eligible events carried in `matches` — never more than `pageSize`. */
+  returned: number;
+  pageSize: number;
+  truncated: boolean;
+}>;
+
 export type CustomerRawToday = Readonly<{
   asOf: Date;
   windowStart: Date;
   windowEnd: Date;
   matches: readonly CustomerRawMatch[];
   suppressed: CustomerSuppressionSummary;
+  coverage: CustomerUniverseCoverage;
 }>;
 
 /**
@@ -114,6 +135,14 @@ export interface CustomerReadModelMapper<TOutput> {
 
 type ReadOnlyDatabase = Pick<PrivilegedVelyqDatabase, "select">;
 
+/**
+ * The page cap on returned matches.
+ *
+ * It bounds the response, not the counts. Every number in `suppressed` and
+ * `coverage` is a full aggregate over the window, computed in the database
+ * before this cap applies, so a truncated page still reports the true size of
+ * what it truncated.
+ */
 const MAX_TODAY_EVENTS = 100;
 
 /**
@@ -136,6 +165,32 @@ const DEFAULT_HORIZON_HOURS = 48;
 const CUSTOMER_VISIBLE_STATES = ["PRIME", "SUPPORTED"] as const;
 const MAX_MATCH_MARKETS = 100;
 const MAX_ODDS_HISTORY = 500;
+
+/**
+ * Why a group of events is not customer intelligence, or null when it is.
+ *
+ * One expression, shared by the aggregate that counts suppressions and
+ * mirrored by the SQL filter that applies them, so the reported reason and
+ * the applied rule cannot drift apart.
+ */
+export function suppressionReason(
+  group: Readonly<{
+    canonicalCode: string | null;
+    state: string | null;
+    customerVisible: boolean | null;
+  }>,
+): string | null {
+  if (group.canonicalCode === null || group.state === null)
+    return "COMPETITION_NOT_IN_POLICY";
+  if (
+    group.customerVisible !== true ||
+    !CUSTOMER_VISIBLE_STATES.includes(
+      group.state as (typeof CUSTOMER_VISIBLE_STATES)[number],
+    )
+  )
+    return `COMPETITION_${group.state}`;
+  return null;
+}
 
 export function utcDayWindow(asOf: Date): Readonly<{
   start: Date;
@@ -170,12 +225,20 @@ export class DatabaseCustomerQueryAdapter {
      * left join keeps those events visible to the ALL scope while the state
      * check below excludes them from the intelligence view.
      */
-    const rows = await this.database
+    const window = and(gte(events.startsAt, start), lt(events.startsAt, end));
+
+    /*
+     * The counts come first, as a grouped aggregate over the entire window.
+     * Counting the rows a paged query happened to return would make every
+     * summary a function of the page size, which is the one thing a summary
+     * must not be.
+     */
+    const grouped = await this.database
       .select({
-        event: events,
         canonicalCode: competitions.canonicalCode,
         state: competitionPolicies.state,
         customerVisible: competitionPolicies.customerVisible,
+        total: count(),
       })
       .from(events)
       .innerJoin(competitions, eq(events.competitionId, competitions.id))
@@ -183,42 +246,59 @@ export class DatabaseCustomerQueryAdapter {
         competitionPolicies,
         eq(competitionPolicies.canonicalCode, competitions.canonicalCode),
       )
-      .where(and(gte(events.startsAt, start), lt(events.startsAt, end)))
+      .where(window)
+      .groupBy(
+        competitions.canonicalCode,
+        competitionPolicies.state,
+        competitionPolicies.customerVisible,
+      );
+
+    let eventsInWindow = 0;
+    let eligible = 0;
+    const byReason: Record<string, number> = {};
+    for (const group of grouped) {
+      eventsInWindow += group.total;
+      const reason = scope === "ALL" ? null : suppressionReason(group);
+      if (reason === null) {
+        eligible += group.total;
+        continue;
+      }
+      byReason[reason] = (byReason[reason] ?? 0) + group.total;
+    }
+
+    /*
+     * Then the page, filtered in SQL rather than in memory. Filtering after
+     * the limit is what previously let a window full of unmodelled fixtures
+     * crowd every eligible one off the page.
+     */
+    const rows = await this.database
+      .select({ event: events })
+      .from(events)
+      .innerJoin(competitions, eq(events.competitionId, competitions.id))
+      .leftJoin(
+        competitionPolicies,
+        eq(competitionPolicies.canonicalCode, competitions.canonicalCode),
+      )
+      .where(
+        scope === "ALL"
+          ? window
+          : and(
+              window,
+              eq(competitionPolicies.customerVisible, true),
+              inArray(competitionPolicies.state, [...CUSTOMER_VISIBLE_STATES]),
+            ),
+      )
+      /*
+       * Relevance is kickoff proximity. Inside a 48-hour window the match
+       * starting soonest is the one a customer can still act on, and a
+       * cleverer ranking would order the page by a quantity the reader
+       * cannot see.
+       */
       .orderBy(asc(events.startsAt), asc(events.id))
       .limit(MAX_TODAY_EVENTS);
 
-    const visible: typeof rows = [];
-    const byReason: Record<string, number> = {};
-    const suppress = (reason: string) => {
-      byReason[reason] = (byReason[reason] ?? 0) + 1;
-    };
-    for (const row of rows) {
-      if (scope === "ALL") {
-        visible.push(row);
-        continue;
-      }
-      if (row.canonicalCode === null) {
-        suppress("COMPETITION_NOT_IN_POLICY");
-        continue;
-      }
-      if (row.state === null) {
-        suppress("COMPETITION_NOT_IN_POLICY");
-        continue;
-      }
-      if (
-        !row.customerVisible ||
-        !CUSTOMER_VISIBLE_STATES.includes(
-          row.state as (typeof CUSTOMER_VISIBLE_STATES)[number],
-        )
-      ) {
-        suppress(`COMPETITION_${row.state}`);
-        continue;
-      }
-      visible.push(row);
-    }
-
     const matches = await Promise.all(
-      visible.map(({ event }) => this.getMatch(event.id, asOf)),
+      rows.map(({ event }) => this.getMatch(event.id, asOf)),
     ).then((items): CustomerRawMatch[] =>
       items.filter((item): item is CustomerRawMatch => item !== null),
     );
@@ -228,8 +308,15 @@ export class DatabaseCustomerQueryAdapter {
       windowEnd: end,
       matches,
       suppressed: {
-        total: rows.length - visible.length,
+        total: eventsInWindow - eligible,
         byReason,
+      },
+      coverage: {
+        eventsInWindow,
+        eligible,
+        returned: rows.length,
+        pageSize: MAX_TODAY_EVENTS,
+        truncated: eligible > rows.length,
       },
     };
   }
