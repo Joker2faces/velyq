@@ -6,6 +6,7 @@
       "env": [
         "VELYQ_APPLICATION_ORIGIN",
         "VELYQ_INGEST_SECRET",
+        "CRON_SECRET",
         "APISPORTS_KEY",
         "VELYQ_CUSTOMER_INTELLIGENCE_MODE",
         "VELYQ_DATABASE_URL",
