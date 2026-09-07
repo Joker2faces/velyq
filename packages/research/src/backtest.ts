@@ -72,6 +72,19 @@ export type CorpusMatch = TrainingMatch &
     preClosingAverageOdds: Readonly<
       Partial<Record<SupportedMarketCode, readonly string[]>>
     >;
+    /**
+     * The panel-average *closing* prices, where the source carried them.
+     *
+     * Evaluation data only, and separated from the field above precisely so
+     * that distinction is structural rather than a convention someone has to
+     * remember. Nothing in `runBacktest` reads it: a closing price used to
+     * make a decision taken days earlier is looking at the answer. The
+     * closing-line study in `backtest-v2` reads it as a target, which is a
+     * different question from match outcome.
+     */
+    closingAverageOdds?: Readonly<
+      Partial<Record<SupportedMarketCode, readonly string[]>>
+    >;
   }>;
 
 export type BacktestOptions = Readonly<{

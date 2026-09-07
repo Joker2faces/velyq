@@ -1,0 +1,989 @@
+{
+  "generatedAt": "2026-09-07T17:41:44.657Z",
+  "walkForwardCutoffs": [
+    "2018-07-23",
+    "2018-10-21",
+    "2019-01-19",
+    "2019-04-19",
+    "2019-07-18",
+    "2019-10-16",
+    "2020-01-14",
+    "2020-04-13",
+    "2020-07-12",
+    "2020-10-10",
+    "2021-01-08",
+    "2021-04-08",
+    "2021-07-07",
+    "2021-10-05",
+    "2022-01-03",
+    "2022-04-03",
+    "2022-07-02",
+    "2022-09-30",
+    "2022-12-29",
+    "2023-03-29",
+    "2023-06-27",
+    "2023-09-25",
+    "2023-12-24",
+    "2024-03-23",
+    "2024-06-21",
+    "2024-09-19"
+  ],
+  "holdoutFrom": "2024-12-09",
+  "trainRecords": 11328,
+  "validationRecords": 24503,
+  "holdoutRecords": 6324,
+  "ensembles": [
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "ensemble": {
+        "outcomeCount": 3,
+        "intercepts": [
+          -0.02726965842714645,
+          0.05432362448898085,
+          0
+        ],
+        "marketWeight": 1.14658552,
+        "modelWeight": -0.0689012,
+        "hyperparameters": {
+          "penalty": 0.001,
+          "maxIterations": 600,
+          "learningRate": 0.05,
+          "tolerance": 1e-11
+        },
+        "iterations": 145,
+        "converged": true,
+        "fittedLogLoss": 0.9719022576106124,
+        "sampleCount": 23818
+      },
+      "calibrator": {
+        "method": "TEMPERATURE_SCALING",
+        "temperature": 1,
+        "fittedOn": 23818,
+        "logLossBefore": 0.9719022563471235,
+        "logLossAfter": 0.9719022563471235
+      },
+      "modelContribution": 0.056686098553178764
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "ensemble": {
+        "outcomeCount": 2,
+        "intercepts": [
+          -0.0067256042953543135,
+          0
+        ],
+        "marketWeight": 1.06848083,
+        "modelWeight": 0.00092866,
+        "hyperparameters": {
+          "penalty": 0.001,
+          "maxIterations": 600,
+          "learningRate": 0.05,
+          "tolerance": 1e-11
+        },
+        "iterations": 138,
+        "converged": true,
+        "fittedLogLoss": 0.6729353984291928,
+        "sampleCount": 23815
+      },
+      "calibrator": {
+        "method": "TEMPERATURE_SCALING",
+        "temperature": 1,
+        "fittedOn": 23815,
+        "logLossBefore": 0.6729353983586434,
+        "logLossAfter": 0.6729353983586434
+      },
+      "modelContribution": 0.0008683857855048584
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_BTTS",
+      "ensemble": {
+        "outcomeCount": 2,
+        "intercepts": [
+          0,
+          0
+        ],
+        "marketWeight": 1,
+        "modelWeight": 0,
+        "hyperparameters": {
+          "penalty": 0.001,
+          "maxIterations": 600,
+          "learningRate": 0.05,
+          "tolerance": 1e-11
+        },
+        "iterations": 0,
+        "converged": true,
+        "fittedLogLoss": null,
+        "sampleCount": 0
+      },
+      "calibrator": {
+        "method": "TEMPERATURE_SCALING",
+        "temperature": 1,
+        "fittedOn": 0,
+        "logLossBefore": null,
+        "logLossAfter": null
+      },
+      "modelContribution": 0
+    }
+  ],
+  "perMarket": [
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "BEL_PRO_LEAGUE",
+      "holdoutSamples": 476,
+      "market": {
+        "sampleCount": 476,
+        "brier": 0.5890029901283382,
+        "logLoss": 0.9887539968112993,
+        "calibrationError": 0.04192752480770315
+      },
+      "modelV1": {
+        "sampleCount": 476,
+        "brier": 0.6261625063987655,
+        "logLoss": 1.0441620333105994,
+        "calibrationError": 0.06665833418362593
+      },
+      "modelV2": {
+        "sampleCount": 476,
+        "brier": 0.5867654805393635,
+        "logLoss": 0.984928688576192,
+        "calibrationError": 0.03988964447339201
+      },
+      "deltaLogLossVsMarket": -0.0038253082351072942,
+      "deltaBrierVsMarket": -0.0022375095889747287
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "BEL_PRO_LEAGUE",
+      "holdoutSamples": 476,
+      "market": {
+        "sampleCount": 476,
+        "brier": 0.4955174632004471,
+        "logLoss": 0.688558756030474,
+        "calibrationError": 0.03521849114957964
+      },
+      "modelV1": {
+        "sampleCount": 476,
+        "brier": 0.5013754895954693,
+        "logLoss": 0.6949530009933682,
+        "calibrationError": 0.04706631653393941
+      },
+      "modelV2": {
+        "sampleCount": 476,
+        "brier": 0.49579252844028726,
+        "logLoss": 0.6888388222699211,
+        "calibrationError": 0.04151037120227531
+      },
+      "deltaLogLossVsMarket": 0.0002800662394470965,
+      "deltaBrierVsMarket": 0.0002750652398401665
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "DEU_BUNDESLIGA",
+      "holdoutSamples": 503,
+      "market": {
+        "sampleCount": 503,
+        "brier": 0.5824687040367684,
+        "logLoss": 0.9802463805164038,
+        "calibrationError": 0.03665408865023192
+      },
+      "modelV1": {
+        "sampleCount": 503,
+        "brier": 0.595878234438291,
+        "logLoss": 1.0008301554731471,
+        "calibrationError": 0.034126022852715716
+      },
+      "modelV2": {
+        "sampleCount": 503,
+        "brier": 0.5815773826694566,
+        "logLoss": 0.9788389779099724,
+        "calibrationError": 0.0408710786043968
+      },
+      "deltaLogLossVsMarket": -0.0014074026064313516,
+      "deltaBrierVsMarket": -0.0008913213673118481
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "DEU_BUNDESLIGA",
+      "holdoutSamples": 503,
+      "market": {
+        "sampleCount": 503,
+        "brier": 0.4476858833847762,
+        "logLoss": 0.6380511571688755,
+        "calibrationError": 0.027758518571968115
+      },
+      "modelV1": {
+        "sampleCount": 503,
+        "brier": 0.4602647068039992,
+        "logLoss": 0.6511866992637108,
+        "calibrationError": 0.06844217799738885
+      },
+      "modelV2": {
+        "sampleCount": 503,
+        "brier": 0.44686867252356777,
+        "logLoss": 0.636962058269132,
+        "calibrationError": 0.031679015845829654
+      },
+      "deltaLogLossVsMarket": -0.0010890988997435125,
+      "deltaBrierVsMarket": -0.0008172108612084505
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "ENG_CHAMPIONSHIP",
+      "holdoutSamples": 870,
+      "market": {
+        "sampleCount": 870,
+        "brier": 0.6213743747315998,
+        "logLoss": 1.0313036891313783,
+        "calibrationError": 0.021246746445938783
+      },
+      "modelV1": {
+        "sampleCount": 870,
+        "brier": 0.6430061933625483,
+        "logLoss": 1.0649674286571416,
+        "calibrationError": 0.03165138711897183
+      },
+      "modelV2": {
+        "sampleCount": 870,
+        "brier": 0.6226235609490075,
+        "logLoss": 1.0326935624560487,
+        "calibrationError": 0.02564644894137594
+      },
+      "deltaLogLossVsMarket": 0.0013898733246704431,
+      "deltaBrierVsMarket": 0.0012491862174076607
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "ENG_CHAMPIONSHIP",
+      "holdoutSamples": 870,
+      "market": {
+        "sampleCount": 870,
+        "brier": 0.49414058548616707,
+        "logLoss": 0.6873030161019638,
+        "calibrationError": 0.027072923030229977
+      },
+      "modelV1": {
+        "sampleCount": 870,
+        "brier": 0.5100506281226125,
+        "logLoss": 0.7040879152799402,
+        "calibrationError": 0.07193903130965841
+      },
+      "modelV2": {
+        "sampleCount": 870,
+        "brier": 0.49449748283557704,
+        "logLoss": 0.6876813772746324,
+        "calibrationError": 0.031144328633592223
+      },
+      "deltaLogLossVsMarket": 0.0003783611726686509,
+      "deltaBrierVsMarket": 0.0003568973494099681
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "ENG_PREMIER_LEAGUE",
+      "holdoutSamples": 630,
+      "market": {
+        "sampleCount": 630,
+        "brier": 0.6006484010849004,
+        "logLoss": 1.0009173430735128,
+        "calibrationError": 0.03671761879074073
+      },
+      "modelV1": {
+        "sampleCount": 630,
+        "brier": 0.6217919023101638,
+        "logLoss": 1.0319417817897536,
+        "calibrationError": 0.04375983694806295
+      },
+      "modelV2": {
+        "sampleCount": 630,
+        "brier": 0.601176278393945,
+        "logLoss": 1.001058773874171,
+        "calibrationError": 0.03852696884906951
+      },
+      "deltaLogLossVsMarket": 0.00014143080065820435,
+      "deltaBrierVsMarket": 0.0005278773090446887
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "ENG_PREMIER_LEAGUE",
+      "holdoutSamples": 630,
+      "market": {
+        "sampleCount": 630,
+        "brier": 0.4898749819073276,
+        "logLoss": 0.6829451686196123,
+        "calibrationError": 0.027130548285714262
+      },
+      "modelV1": {
+        "sampleCount": 630,
+        "brier": 0.4910864325903909,
+        "logLoss": 0.6845721610199655,
+        "calibrationError": 0.032711282708085106
+      },
+      "modelV2": {
+        "sampleCount": 630,
+        "brier": 0.490430474068871,
+        "logLoss": 0.6835620353365991,
+        "calibrationError": 0.029644701161532182
+      },
+      "deltaLogLossVsMarket": 0.000616866716986797,
+      "deltaBrierVsMarket": 0.0005554921615434361
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "ESP_LA_LIGA",
+      "holdoutSamples": 592,
+      "market": {
+        "sampleCount": 592,
+        "brier": 0.5693620065676716,
+        "logLoss": 0.9614508463916654,
+        "calibrationError": 0.03371481166745501
+      },
+      "modelV1": {
+        "sampleCount": 592,
+        "brier": 0.5892921293708266,
+        "logLoss": 0.9920748212134298,
+        "calibrationError": 0.031705235677527734
+      },
+      "modelV2": {
+        "sampleCount": 592,
+        "brier": 0.5686864348552657,
+        "logLoss": 0.9606779463000116,
+        "calibrationError": 0.04139025510454194
+      },
+      "deltaLogLossVsMarket": -0.000772900091653872,
+      "deltaBrierVsMarket": -0.0006755717124058425
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "ESP_LA_LIGA",
+      "holdoutSamples": 592,
+      "market": {
+        "sampleCount": 592,
+        "brier": 0.48679814951549505,
+        "logLoss": 0.6798738218590694,
+        "calibrationError": 0.03545303707770293
+      },
+      "modelV1": {
+        "sampleCount": 592,
+        "brier": 0.5015927414597707,
+        "logLoss": 0.6958212788406366,
+        "calibrationError": 0.060131331067499134
+      },
+      "modelV2": {
+        "sampleCount": 592,
+        "brier": 0.4877696487137934,
+        "logLoss": 0.6809718444996175,
+        "calibrationError": 0.042502769504878746
+      },
+      "deltaLogLossVsMarket": 0.0010980226405480353,
+      "deltaBrierVsMarket": 0.0009714991982983645
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "FRA_LIGUE_1",
+      "holdoutSamples": 467,
+      "market": {
+        "sampleCount": 467,
+        "brier": 0.5751288123652417,
+        "logLoss": 0.9676902185767168,
+        "calibrationError": 0.03409469100985007
+      },
+      "modelV1": {
+        "sampleCount": 467,
+        "brier": 0.5863683230649483,
+        "logLoss": 0.9843762561762277,
+        "calibrationError": 0.04743752338952901
+      },
+      "modelV2": {
+        "sampleCount": 467,
+        "brier": 0.5761837689652908,
+        "logLoss": 0.9695665014935378,
+        "calibrationError": 0.03361614691551749
+      },
+      "deltaLogLossVsMarket": 0.0018762829168210704,
+      "deltaBrierVsMarket": 0.0010549566000490618
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "FRA_LIGUE_1",
+      "holdoutSamples": 467,
+      "market": {
+        "sampleCount": 467,
+        "brier": 0.4771926466289293,
+        "logLoss": 0.6700266572478227,
+        "calibrationError": 0.03809616118351159
+      },
+      "modelV1": {
+        "sampleCount": 467,
+        "brier": 0.48599904896483526,
+        "logLoss": 0.6787626485937802,
+        "calibrationError": 0.038123404135703295
+      },
+      "modelV2": {
+        "sampleCount": 467,
+        "brier": 0.47681513380153834,
+        "logLoss": 0.6696727967158698,
+        "calibrationError": 0.03389895124002679
+      },
+      "deltaLogLossVsMarket": -0.0003538605319529653,
+      "deltaBrierVsMarket": -0.0003775128273909578
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "GRC_SUPER_LEAGUE",
+      "holdoutSamples": 383,
+      "market": {
+        "sampleCount": 383,
+        "brier": 0.5598801202526567,
+        "logLoss": 0.9418546677367402,
+        "calibrationError": 0.033453772520713694
+      },
+      "modelV1": {
+        "sampleCount": 383,
+        "brier": 0.5715703540876806,
+        "logLoss": 0.958211701608649,
+        "calibrationError": 0.04638354291533562
+      },
+      "modelV2": {
+        "sampleCount": 383,
+        "brier": 0.5610772920071793,
+        "logLoss": 0.9434787623841568,
+        "calibrationError": 0.036180902281762184
+      },
+      "deltaLogLossVsMarket": 0.0016240946474166407,
+      "deltaBrierVsMarket": 0.001197171754522608
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "GRC_SUPER_LEAGUE",
+      "holdoutSamples": 383,
+      "market": {
+        "sampleCount": 383,
+        "brier": 0.49523621781474975,
+        "logLoss": 0.6883463439430132,
+        "calibrationError": 0.03559839989530032
+      },
+      "modelV1": {
+        "sampleCount": 383,
+        "brier": 0.4956296162135003,
+        "logLoss": 0.6889452060815476,
+        "calibrationError": 0.06344549429300546
+      },
+      "modelV2": {
+        "sampleCount": 383,
+        "brier": 0.49602321489814866,
+        "logLoss": 0.6891640060723817,
+        "calibrationError": 0.03783123424898746
+      },
+      "deltaLogLossVsMarket": 0.0008176621293685127,
+      "deltaBrierVsMarket": 0.0007869970833989104
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "ITA_SERIE_A",
+      "holdoutSamples": 594,
+      "market": {
+        "sampleCount": 594,
+        "brier": 0.5767707499958287,
+        "logLoss": 0.9693086721456795,
+        "calibrationError": 0.03606538464579125
+      },
+      "modelV1": {
+        "sampleCount": 594,
+        "brier": 0.6139139181076032,
+        "logLoss": 1.0234685607914107,
+        "calibrationError": 0.04162494089955398
+      },
+      "modelV2": {
+        "sampleCount": 594,
+        "brier": 0.5756221064195708,
+        "logLoss": 0.9675774578619051,
+        "calibrationError": 0.03480195694992822
+      },
+      "deltaLogLossVsMarket": -0.0017312142837744293,
+      "deltaBrierVsMarket": -0.0011486435762578795
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "ITA_SERIE_A",
+      "holdoutSamples": 595,
+      "market": {
+        "sampleCount": 595,
+        "brier": 0.5018040846880409,
+        "logLoss": 0.6952793229435267,
+        "calibrationError": 0.05301681115999991
+      },
+      "modelV1": {
+        "sampleCount": 595,
+        "brier": 0.5285814952725945,
+        "logLoss": 0.7229948228092014,
+        "calibrationError": 0.11424903031024537
+      },
+      "modelV2": {
+        "sampleCount": 595,
+        "brier": 0.5025925499213223,
+        "logLoss": 0.6961650545372243,
+        "calibrationError": 0.05158460657879011
+      },
+      "deltaLogLossVsMarket": 0.0008857315936976473,
+      "deltaBrierVsMarket": 0.0007884652332813546
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "NLD_EREDIVISIE",
+      "holdoutSamples": 473,
+      "market": {
+        "sampleCount": 473,
+        "brier": 0.5811343733921605,
+        "logLoss": 0.9759736511353367,
+        "calibrationError": 0.04172843577244536
+      },
+      "modelV1": {
+        "sampleCount": 473,
+        "brier": 0.596566470736687,
+        "logLoss": 0.9967399155929394,
+        "calibrationError": 0.05859578835534548
+      },
+      "modelV2": {
+        "sampleCount": 473,
+        "brier": 0.5814500763693121,
+        "logLoss": 0.9762721234294834,
+        "calibrationError": 0.04528703587595631
+      },
+      "deltaLogLossVsMarket": 0.00029847229414670107,
+      "deltaBrierVsMarket": 0.0003157029771516662
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "NLD_EREDIVISIE",
+      "holdoutSamples": 473,
+      "market": {
+        "sampleCount": 473,
+        "brier": 0.46182657200753374,
+        "logLoss": 0.6528195046211204,
+        "calibrationError": 0.03444879085031708
+      },
+      "modelV1": {
+        "sampleCount": 473,
+        "brier": 0.4698033485133031,
+        "logLoss": 0.6608423447383153,
+        "calibrationError": 0.03315818981872088
+      },
+      "modelV2": {
+        "sampleCount": 473,
+        "brier": 0.4617423326453023,
+        "logLoss": 0.6525392835703515,
+        "calibrationError": 0.03204393205676505
+      },
+      "deltaLogLossVsMarket": -0.0002802210507688585,
+      "deltaBrierVsMarket": -0.00008423936223145301
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "PRT_PRIMEIRA_LIGA",
+      "holdoutSamples": 488,
+      "market": {
+        "sampleCount": 488,
+        "brier": 0.5566435563413153,
+        "logLoss": 0.9369542746451703,
+        "calibrationError": 0.04964258570068308
+      },
+      "modelV1": {
+        "sampleCount": 488,
+        "brier": 0.5600050335044172,
+        "logLoss": 0.942251614604515,
+        "calibrationError": 0.037879993101666315
+      },
+      "modelV2": {
+        "sampleCount": 488,
+        "brier": 0.5567394221302198,
+        "logLoss": 0.9364782279858902,
+        "calibrationError": 0.05240301575354559
+      },
+      "deltaLogLossVsMarket": -0.00047604665928013823,
+      "deltaBrierVsMarket": 0.00009586578890441455
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "PRT_PRIMEIRA_LIGA",
+      "holdoutSamples": 488,
+      "market": {
+        "sampleCount": 488,
+        "brier": 0.4712396317070492,
+        "logLoss": 0.6636622452565045,
+        "calibrationError": 0.06712356047233604
+      },
+      "modelV1": {
+        "sampleCount": 488,
+        "brier": 0.4826658436963139,
+        "logLoss": 0.6758413500013739,
+        "calibrationError": 0.055456983554719
+      },
+      "modelV2": {
+        "sampleCount": 488,
+        "brier": 0.4708665127990363,
+        "logLoss": 0.6632037133458127,
+        "calibrationError": 0.06797750639121372
+      },
+      "deltaLogLossVsMarket": -0.000458531910691784,
+      "deltaBrierVsMarket": -0.0003731189080128927
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "outcomeCount": 3,
+      "competitionCode": "TUR_SUPER_LIG",
+      "holdoutSamples": 497,
+      "market": {
+        "sampleCount": 497,
+        "brier": 0.5578564013361973,
+        "logLoss": 0.9436174475514919,
+        "calibrationError": 0.04719195671911469
+      },
+      "modelV1": {
+        "sampleCount": 497,
+        "brier": 0.5874144221185018,
+        "logLoss": 0.9863439973959489,
+        "calibrationError": 0.033802796633957445
+      },
+      "modelV2": {
+        "sampleCount": 497,
+        "brier": 0.5566551659145555,
+        "logLoss": 0.9412093972106563,
+        "calibrationError": 0.03819335860842677
+      },
+      "deltaLogLossVsMarket": -0.002408050340835577,
+      "deltaBrierVsMarket": -0.0012012354216417442
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "outcomeCount": 2,
+      "competitionCode": "TUR_SUPER_LIG",
+      "holdoutSamples": 497,
+      "market": {
+        "sampleCount": 497,
+        "brier": 0.47212094019613454,
+        "logLoss": 0.6637490890726865,
+        "calibrationError": 0.05572071918450721
+      },
+      "modelV1": {
+        "sampleCount": 497,
+        "brier": 0.48242162624305934,
+        "logLoss": 0.6749273522830448,
+        "calibrationError": 0.04471033309274727
+      },
+      "modelV2": {
+        "sampleCount": 497,
+        "brier": 0.4715934530955506,
+        "logLoss": 0.6630549192484108,
+        "calibrationError": 0.051416781552581906
+      },
+      "deltaLogLossVsMarket": -0.0006941698242757255,
+      "deltaBrierVsMarket": -0.0005274871005839232
+    }
+  ],
+  "disagreement": [
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "buckets": [
+        {
+          "lowerBound": -1,
+          "upperBound": -0.1,
+          "samples": 1471,
+          "meanDisagreement": -0.1615765129467232,
+          "observedFrequency": 0.4813052345343304,
+          "marketExpectedFrequency": 0.4804667013576481,
+          "modelExpectedFrequency": 0.3188901884109242,
+          "meanClosingMovement": 0.0008211813951053704,
+          "closingSamples": 1471
+        },
+        {
+          "lowerBound": -0.1,
+          "upperBound": -0.05,
+          "samples": 2058,
+          "meanDisagreement": -0.07058240707333996,
+          "observedFrequency": 0.39067055393586003,
+          "marketExpectedFrequency": 0.39122396892560735,
+          "modelExpectedFrequency": 0.3206415618522677,
+          "meanClosingMovement": 0.00019135581673151688,
+          "closingSamples": 2056
+        },
+        {
+          "lowerBound": -0.05,
+          "upperBound": -0.02,
+          "samples": 2707,
+          "meanDisagreement": -0.03339826491797,
+          "observedFrequency": 0.3247137052087181,
+          "marketExpectedFrequency": 0.32426850443852934,
+          "modelExpectedFrequency": 0.29087023952055946,
+          "meanClosingMovement": 0.0002184090134096786,
+          "closingSamples": 2707
+        },
+        {
+          "lowerBound": -0.02,
+          "upperBound": 0.02,
+          "samples": 5514,
+          "meanDisagreement": -0.00011773726373106547,
+          "observedFrequency": 0.2956111715632934,
+          "marketExpectedFrequency": 0.2933100036176103,
+          "modelExpectedFrequency": 0.29319226635387896,
+          "meanClosingMovement": 0.0005697930230127028,
+          "closingSamples": 5510
+        },
+        {
+          "lowerBound": 0.02,
+          "upperBound": 0.05,
+          "samples": 2632,
+          "meanDisagreement": 0.03331413804171176,
+          "observedFrequency": 0.2986322188449848,
+          "marketExpectedFrequency": 0.2926329264079014,
+          "modelExpectedFrequency": 0.32594706444961424,
+          "meanClosingMovement": 0.00023127711414448494,
+          "closingSamples": 2630
+        },
+        {
+          "lowerBound": 0.05,
+          "upperBound": 0.1,
+          "samples": 2035,
+          "meanDisagreement": 0.07146988233520064,
+          "observedFrequency": 0.33415233415233414,
+          "marketExpectedFrequency": 0.33564561683267774,
+          "modelExpectedFrequency": 0.40711549916788,
+          "meanClosingMovement": -0.0016002515783185803,
+          "closingSamples": 2034
+        },
+        {
+          "lowerBound": 0.1,
+          "upperBound": 1,
+          "samples": 1502,
+          "meanDisagreement": 0.16036746260319726,
+          "observedFrequency": 0.3235685752330226,
+          "marketExpectedFrequency": 0.34137127844880144,
+          "modelExpectedFrequency": 0.5017387410520001,
+          "meanClosingMovement": -0.0017879662070572572,
+          "closingSamples": 1502
+        }
+      ]
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "buckets": [
+        {
+          "lowerBound": -1,
+          "upperBound": -0.1,
+          "samples": 1386,
+          "meanDisagreement": -0.1449653924421891,
+          "observedFrequency": 0.5158730158730159,
+          "marketExpectedFrequency": 0.5301642984390331,
+          "modelExpectedFrequency": 0.38519890599684437,
+          "meanClosingMovement": 0.0018614516447330468,
+          "closingSamples": 1386
+        },
+        {
+          "lowerBound": -0.1,
+          "upperBound": -0.05,
+          "samples": 1802,
+          "meanDisagreement": -0.07201880014343115,
+          "observedFrequency": 0.5016648168701443,
+          "marketExpectedFrequency": 0.5126472608137617,
+          "modelExpectedFrequency": 0.44062846067033246,
+          "meanClosingMovement": 0.0004572345459744586,
+          "closingSamples": 1801
+        },
+        {
+          "lowerBound": -0.05,
+          "upperBound": -0.02,
+          "samples": 1612,
+          "meanDisagreement": -0.03443475740852777,
+          "observedFrequency": 0.4981389578163772,
+          "marketExpectedFrequency": 0.5046608419211538,
+          "modelExpectedFrequency": 0.47022608451262715,
+          "meanClosingMovement": 0.0005729233548387106,
+          "closingSamples": 1612
+        },
+        {
+          "lowerBound": -0.02,
+          "upperBound": 0.02,
+          "samples": 2348,
+          "meanDisagreement": 2.009560415100901e-18,
+          "observedFrequency": 0.5,
+          "marketExpectedFrequency": 0.5,
+          "modelExpectedFrequency": 0.5,
+          "meanClosingMovement": 8.991576073264268e-19,
+          "closingSamples": 2346
+        },
+        {
+          "lowerBound": 0.02,
+          "upperBound": 0.05,
+          "samples": 1612,
+          "meanDisagreement": 0.034434757408527784,
+          "observedFrequency": 0.5018610421836228,
+          "marketExpectedFrequency": 0.4953391580788462,
+          "modelExpectedFrequency": 0.5297739154873724,
+          "meanClosingMovement": -0.0005729233548387078,
+          "closingSamples": 1612
+        },
+        {
+          "lowerBound": 0.05,
+          "upperBound": 0.1,
+          "samples": 1802,
+          "meanDisagreement": 0.07201880014343114,
+          "observedFrequency": 0.4983351831298557,
+          "marketExpectedFrequency": 0.4873527391862384,
+          "modelExpectedFrequency": 0.559371539329668,
+          "meanClosingMovement": -0.0004572345459744585,
+          "closingSamples": 1801
+        },
+        {
+          "lowerBound": 0.1,
+          "upperBound": 1,
+          "samples": 1386,
+          "meanDisagreement": 0.14496539244218912,
+          "observedFrequency": 0.48412698412698413,
+          "marketExpectedFrequency": 0.4698357015609665,
+          "modelExpectedFrequency": 0.6148010940031555,
+          "meanClosingMovement": -0.0018614516447330437,
+          "closingSamples": 1386
+        }
+      ]
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_BTTS",
+      "buckets": [
+        {
+          "lowerBound": -1,
+          "upperBound": -0.1,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": -0.1,
+          "upperBound": -0.05,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": -0.05,
+          "upperBound": -0.02,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": -0.02,
+          "upperBound": 0.02,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": 0.02,
+          "upperBound": 0.05,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": 0.05,
+          "upperBound": 0.1,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        },
+        {
+          "lowerBound": 0.1,
+          "upperBound": 1,
+          "samples": 0,
+          "meanDisagreement": null,
+          "observedFrequency": null,
+          "marketExpectedFrequency": null,
+          "modelExpectedFrequency": null,
+          "meanClosingMovement": null,
+          "closingSamples": 0
+        }
+      ]
+    }
+  ],
+  "closingLine": [
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_1X2",
+      "study": {
+        "samples": 17910,
+        "disagreementMovementCorrelation": -0.028990565795803846,
+        "shortenedWhenModelBullish": 0.5032105441027374,
+        "shortenedWhenModelBearish": 0.5276209454223403,
+        "meanAbsoluteMovement": 0.017855207278626526
+      }
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_TOTAL",
+      "study": {
+        "samples": 11944,
+        "disagreementMovementCorrelation": -0.03142789310459976,
+        "shortenedWhenModelBullish": 0.47940388479571333,
+        "shortenedWhenModelBearish": 0.5066979236436705,
+        "meanAbsoluteMovement": 0.021902490536570698
+      }
+    },
+    {
+      "marketCode": "FOOTBALL_FULL_TIME_BTTS",
+      "study": {
+        "samples": 0,
+        "disagreementMovementCorrelation": null,
+        "shortenedWhenModelBullish": null,
+        "shortenedWhenModelBearish": null,
+        "meanAbsoluteMovement": null
+      }
+    }
+  ],
+  "verdict": "MATCHES_MARKET",
+  "verdictReasons": [
+    "WEIGHTED_DELTA_LOG_LOSS_BETTER_THAN_MARKET",
+    "BEATS_MARKET_IN_11_OF_22_SEGMENTS",
+    "WEIGHTED_DELTA_LOG_LOSS_-0.00013",
+    "WEIGHTED_DELTA_BRIER_0.00004"
+  ]
+}

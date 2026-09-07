@@ -104,9 +104,17 @@ export function loadCorpusFiles(directory: string): readonly CorpusFile[] {
   return files;
 }
 
-/** The panel-average pre-closing prices, in each market's canonical order. */
-function preClosingAverageOdds(
+/**
+ * The panel-average prices for one phase, in each market's canonical order.
+ *
+ * Parameterised by phase rather than duplicated, so the pre-closing and
+ * closing sets are provably the same extraction over different columns — the
+ * only difference between a decision input and an evaluation target here is
+ * which phase was asked for.
+ */
+function averageOdds(
   match: HistoricalMatch,
+  phase: "PRE_CLOSING" | "CLOSING",
 ): Readonly<Partial<Record<SupportedMarketCode, readonly string[]>>> {
   const pick = (
     marketCode: SupportedMarketCode,
@@ -118,7 +126,7 @@ function preClosingAverageOdds(
           (quote) =>
             quote.marketCode === marketCode &&
             quote.outcomeCode === outcomeCode &&
-            quote.phase === "PRE_CLOSING" &&
+            quote.phase === phase &&
             quote.scope === "AVERAGE",
         )?.decimalOdds,
     );
@@ -235,7 +243,8 @@ export function loadCorpus(directory: string): LoadedCorpus {
           (quotesByPhaseAndScope[bucket] ?? 0) + 1;
       }
 
-      const odds = preClosingAverageOdds(match);
+      const odds = averageOdds(match, "PRE_CLOSING");
+      const closing = averageOdds(match, "CLOSING");
       matches.push({
         competitionCode: file.canonicalCompetitionCode,
         homeTeamKey,
@@ -244,6 +253,8 @@ export function loadCorpus(directory: string): LoadedCorpus {
         awayGoals: match.awayGoals,
         kickoffDate: match.kickoffDate,
         preClosingAverageOdds: odds,
+        /* Kept for the closing-line study; never read as a decision input. */
+        closingAverageOdds: closing,
       });
 
       const accumulator = byCompetition.get(file.canonicalCompetitionCode) ?? {

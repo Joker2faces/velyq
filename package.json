@@ -31,7 +31,8 @@
     "model:train": "tsx tooling/scripts/train-football-model.ts",
     "intelligence:cycle": "tsx tooling/scripts/prediction-cycle.ts",
     "data:footballdata:ingest": "tsx tooling/scripts/prediction-cycle.ts --skip-register",
-    "model:report": "tsx tooling/scripts/backtest-report.ts"
+    "model:report": "tsx tooling/scripts/backtest-report.ts",
+    "model:ensemble": "tsx tooling/scripts/ensemble-report.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

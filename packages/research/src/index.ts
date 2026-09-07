@@ -13,3 +13,5 @@ export * from "./uncertainty.js";
 export * from "./walk-forward.js";
 export * from "./artifact.js";
 export * from "./backtest.js";
+export * from "./market-ensemble.js";
+export * from "./backtest-v2.js";
