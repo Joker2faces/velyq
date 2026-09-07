@@ -81,6 +81,27 @@ function sum(values: readonly DecimalString[]): DecimalResult<DecimalString> {
   }
   return { ok: true, value: result };
 }
+/**
+ * De-vigs a set of already-implied probabilities (`1/odds`, not the odds
+ * themselves — see `@velyq/market-semantics`'s `devig` module for the
+ * odds-based equivalent used elsewhere).
+ *
+ * The POWER and SHIN branches here previously did not solve for anything:
+ * POWER halved every input and SHIN multiplied every input by a fixed 0.99,
+ * then both divided by `total` — the sum of the *original, untransformed*
+ * inputs. Since neither transform preserves the sum, the results summed to
+ * 0.5 (POWER) or 0.99 (SHIN), not 1: every "de-vigged" probability this
+ * function ever returned for those two methods understated every outcome by
+ * a fixed, market-independent factor, silently. Nothing in this codebase
+ * called this function outside its own (nonexistent) tests, so nothing live
+ * was ever affected — but the function was wrong on its own terms.
+ *
+ * Both methods now actually solve for the parameter that makes the outputs
+ * sum to 1, matching `@velyq/market-semantics`'s odds-based implementations
+ * exactly (POWER: `sum(p_i^k) = 1`; SHIN: the standard closed-form-per-`z`
+ * relation), just operating on implied probabilities directly instead of
+ * odds.
+ */
 export function deVig(
   rawImplied: readonly DecimalString[],
   method: DeVigMethod = "MULTIPLICATIVE",
@@ -95,24 +116,75 @@ export function deVig(
     };
   const total = sum(rawImplied);
   if (!total.ok) return total;
-  const output: DecimalString[] = [];
-  for (const raw of rawImplied) {
-    let numerator = raw;
-    if (method === "POWER") {
-      const half = divideDecimalStrings(raw, "2" as DecimalString);
-      if (!half.ok) return half;
-      numerator = half.value;
+  const implied = rawImplied.map(Number);
+  const rawSum = implied.reduce((a, b) => a + b, 0);
+  if (method === "MULTIPLICATIVE") {
+    const output: DecimalString[] = [];
+    for (const raw of rawImplied) {
+      const normalized = divideDecimalStrings(raw, total.value);
+      if (!normalized.ok) return normalized;
+      output.push(normalized.value);
     }
-    if (method === "SHIN") {
-      const adjusted = multiplyDecimalStrings(raw, "0.99" as DecimalString);
-      if (!adjusted.ok) return adjusted;
-      numerator = adjusted.value;
-    }
-    const normalized = divideDecimalStrings(numerator, total.value);
-    if (!normalized.ok) return normalized;
-    output.push(normalized.value);
+    return { ok: true, value: output };
   }
+  if (rawSum <= 1) {
+    return {
+      ok: false,
+      error: {
+        code: "OUT_OF_RANGE",
+        message:
+          "Probabilities imply zero or negative overround; not a de-vig-able book.",
+      },
+    };
+  }
+  const fair =
+    method === "POWER" ? powerDevig(implied) : shinDevig(implied, rawSum);
+  return toDecimalOutput(fair);
+}
+
+function toDecimalOutput(
+  values: readonly number[],
+): DecimalResult<readonly DecimalString[]> {
+  const output = values.map((value) => {
+    const fixed = value.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
+    return (fixed === "" ? "0" : fixed) as DecimalString;
+  });
   return { ok: true, value: output };
+}
+
+/** Solves `sum(implied_i ^ k) = 1` for `k` via bisection; see
+    `@velyq/market-semantics`'s `devigPower` for the full reasoning. */
+function powerDevig(implied: readonly number[]): number[] {
+  const sumAtK = (k: number) => implied.reduce((s, p) => s + p ** k, 0);
+  let low = 1;
+  let high = 64;
+  for (let i = 0; i < 200 && sumAtK(high) > 1; i += 1) high *= 2;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (low + high) / 2;
+    if (sumAtK(mid) > 1) low = mid;
+    else high = mid;
+  }
+  const k = (low + high) / 2;
+  return implied.map((p) => p ** k);
+}
+
+/** Solves for the Shin insider-fraction `z`; see `@velyq/market-semantics`'s
+    `devigShin` for the full reasoning. */
+function shinDevig(implied: readonly number[], rawSum: number): number[] {
+  const probabilitiesAtZ = (z: number) =>
+    implied.map((p) => {
+      const radicand = z * z + (4 * (1 - z) * (p * p)) / rawSum;
+      return (Math.sqrt(Math.max(radicand, 0)) - z) / (2 * (1 - z));
+    });
+  const sumAtZ = (z: number) => probabilitiesAtZ(z).reduce((a, b) => a + b, 0);
+  let low = 0;
+  let high = 0.999999;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (low + high) / 2;
+    if (sumAtZ(mid) > 1) low = mid;
+    else high = mid;
+  }
+  return probabilitiesAtZ((low + high) / 2);
 }
 export function probabilityRange(
   rawImplied: readonly DecimalString[],
