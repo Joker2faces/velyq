@@ -526,62 +526,69 @@ export function Skeleton({
  * two-card split. Same containers, same gaps, so the content lands in place
  * instead of pushing the page around.
  */
-export function SurfaceSkeleton({ label }: { label: string }) {
+export function SurfaceSkeleton({
+  label,
+  title,
+}: {
+  label: string;
+  /**
+   * The heading of the page being waited for, when the caller knows it.
+   *
+   * A customer surface does: its shell is static and this skeleton *is* the
+   * document until the API answers, so it renders the title as a real `h1`.
+   * A page with no top-level heading is a navigation failure for anyone
+   * moving through a page by its headings, and having the title present from
+   * the first byte also stops it shifting in with the data.
+   *
+   * The route-level loading boundary does not, because it covers the
+   * marketing pages too and those render their own `h1` — supplying one here
+   * would give those documents two. Without a title the heading slot falls
+   * back to a placeholder bar.
+   */
+  title?: string | undefined;
+}) {
   return (
     <div className="page" aria-busy="true">
       <span className="sr-only" role="status" aria-live="polite">
         {label}
       </span>
-      <div aria-hidden="true">
-        <div className="page__head">
-          <div className="page__head-copy skeleton-stack">
-            <Skeleton width="min(18rem, 70%)" />
-            <Skeleton variant="title" />
-            <Skeleton width="min(14rem, 55%)" />
-          </div>
-          <div className="page__badges">
-            <Skeleton variant="pill" width="7.5rem" />
-            <Skeleton variant="pill" width="9rem" />
-          </div>
+
+      <div className="page__head">
+        <div className="page__head-copy skeleton-stack">
+          <Skeleton width="min(18rem, 70%)" />
+          {title ? <h1>{title}</h1> : <Skeleton variant="title" />}
+          <Skeleton width="min(14rem, 55%)" />
+        </div>
+        <div className="page__badges" aria-hidden="true">
+          <Skeleton variant="pill" width="7.5rem" />
+          <Skeleton variant="pill" width="9rem" />
+        </div>
+      </div>
+
+      <div className="stack" aria-hidden="true">
+        <div className="card skeleton-stack">
+          <Skeleton variant="pill" width="8rem" />
+          <Skeleton width="92%" />
+          <Skeleton width="74%" />
+          <Skeleton variant="figure" width="min(12rem, 60%)" />
         </div>
 
-        <div className="stack">
-          <div className="card skeleton-stack">
-            <Skeleton variant="pill" width="8rem" />
-            <Skeleton width="92%" />
-            <Skeleton width="74%" />
-            <Skeleton variant="figure" width="min(12rem, 60%)" />
-          </div>
+        <div className="stat-row">
+          {[0, 1, 2, 3].map((slot) => (
+            <div className="card skeleton-stack" key={slot}>
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+          ))}
+        </div>
 
-          <div className="stat-row">
-            <div className="card skeleton-stack">
-              <Skeleton width="70%" />
-              <Skeleton variant="figure" width="4rem" />
-            </div>
-            <div className="card skeleton-stack">
-              <Skeleton width="70%" />
-              <Skeleton variant="figure" width="4rem" />
-            </div>
-            <div className="card skeleton-stack">
-              <Skeleton width="70%" />
-              <Skeleton variant="figure" width="4rem" />
-            </div>
-            <div className="card skeleton-stack">
-              <Skeleton width="70%" />
-              <Skeleton variant="figure" width="4rem" />
-            </div>
-          </div>
-
-          <div className="split">
-            <div className="card skeleton-stack">
+        <div className="split">
+          {[0, 1].map((slot) => (
+            <div className="card skeleton-stack" key={slot}>
               <Skeleton width="55%" />
               <Skeleton variant="block" />
             </div>
-            <div className="card skeleton-stack">
-              <Skeleton width="55%" />
-              <Skeleton variant="block" />
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

@@ -18,10 +18,13 @@ import type { CustomerState } from "./customer-data";
 export function CustomerBoundary<T>({
   state,
   locale,
+  title,
   children,
 }: {
   state: CustomerState<T>;
   locale: Locale;
+  /** Heading of the surface being waited for; see `SurfaceSkeleton`. */
+  title: string;
   children: (data: T) => ReactNode;
 }) {
   const unauthenticated = state.status === "unauthenticated";
@@ -74,5 +77,10 @@ export function CustomerBoundary<T>({
    * shape suggesting data they cannot see. `aria-busy` with a polite live
    * region announces the wait instead of leaving a screen reader silent.
    */
-  return <SurfaceSkeleton label={translate("customerLoading", locale)} />;
+  return (
+    <SurfaceSkeleton
+      label={translate("customerLoading", locale)}
+      title={title}
+    />
+  );
 }

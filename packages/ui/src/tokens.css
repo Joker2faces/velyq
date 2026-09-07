@@ -530,12 +530,15 @@ svg {
 }
 
 .stat__label {
-  align-items: center;
   color: var(--text-muted);
-  display: flex;
+  /* Deliberately not a flex row. As a flex container the label text was one
+     item and the "?" marker another, so once the text wrapped — which Greek
+     labels do at 320px — the marker was pushed to the far right of the cell
+     and centred against two lines, reading as detached from the label it
+     belongs to. Inline flow keeps it against the final word at every width. */
+  display: block;
   font-family: var(--font-label);
   font-size: var(--text-2xs);
-  gap: var(--space-1);
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -1036,7 +1039,9 @@ svg {
   font-size: var(--text-2xs);
   height: 18px;
   line-height: 1;
+  margin-left: 0.3em;
   place-items: center;
+  vertical-align: -0.3em;
   width: 18px;
 }
 
