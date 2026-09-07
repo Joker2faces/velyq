@@ -98,9 +98,13 @@ function mappedDatabaseService(
   const database = runtime.queries;
   const reportFailure = (operation: "today" | "match", error: unknown) => {
     const message = error instanceof Error ? error.message : "unknown failure";
-    const sanitized = message
+    const cause =
+      error instanceof Error && error.cause instanceof Error
+        ? ` | cause: ${error.cause.message}`
+        : "";
+    const sanitized = `${message}${cause}`
       .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[DATABASE_URL_REDACTED]")
-      .slice(0, 500);
+      .slice(-900);
     console.error(`[customer-read:${operation}] ${sanitized}`);
   };
   const today = new MappedCustomerQueryService<
