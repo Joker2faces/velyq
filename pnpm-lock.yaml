@@ -61,9 +61,15 @@ importers:
       "@velyq/database":
         specifier: workspace:*
         version: link:../../packages/database
+      "@velyq/providers":
+        specifier: workspace:*
+        version: link:../../packages/providers
       "@velyq/ui":
         specifier: workspace:*
         version: link:../../packages/ui
+      "@velyq/worker-ingestion":
+        specifier: workspace:*
+        version: link:../../workers/ingestion
       "@velyq/worker-prediction":
         specifier: workspace:*
         version: link:../../workers/prediction
@@ -188,6 +194,9 @@ importers:
 
   packages/database:
     dependencies:
+      "@velyq/analytics":
+        specifier: workspace:*
+        version: link:../analytics
       "@velyq/auth":
         specifier: workspace:*
         version: link:../auth

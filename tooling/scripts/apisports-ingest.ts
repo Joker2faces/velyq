@@ -330,6 +330,16 @@ export async function runApiSportsIngestion(
     lines.push(
       `insert into catalog.events (id,sport_id,competition_id,starts_at,status,synthetic) values (${uuid(eventId)},${sql(sportId)},${uuid(competitionId)},${sql(event.scheduledAt)},${sql(event.status)},false) on conflict (id) do update set starts_at=excluded.starts_at,status=excluded.status,synthetic=false;`,
     );
+    /*
+     * The reverse mapping. The event's UUID is derived by hashing the
+     * provider's fixture id, which resolves one way only; without this row
+     * nothing can later ask the provider about a fixture already stored —
+     * its lineup, its result — without re-discovering it and spending quota
+     * to learn something already known.
+     */
+    lines.push(
+      `insert into catalog.event_identities (event_id,source_code,source_key) values (${uuid(eventId)},'API_SPORTS',${sql(event.providerEventId)}) on conflict (source_code,source_key) do nothing;`,
+    );
     lines.push(
       `insert into catalog.event_participants (event_id,participant_id,role) values (${uuid(eventId)},${uuid(homeId)},'HOME'),(${uuid(eventId)},${uuid(awayId)},'AWAY') on conflict do nothing;`,
     );

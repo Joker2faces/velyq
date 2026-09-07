@@ -7,6 +7,18 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./apisports": {
+      "types": "./src/apisports.ts",
+      "default": "./dist/apisports.js"
+    },
+    "./apisports-lineups": {
+      "types": "./src/apisports-lineups.ts",
+      "default": "./dist/apisports-lineups.js"
+    },
+    "./lineup-schedule": {
+      "types": "./src/lineup-schedule.ts",
+      "default": "./dist/lineup-schedule.js"
     }
   },
   "scripts": {

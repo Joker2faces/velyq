@@ -1,7 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/client";
 import { runPreEventPredictionCycle } from "@velyq/worker-prediction";
+
+import { authorizedScheduledRequest } from "../../scheduled-auth";
 
 /**
  * The scheduled prediction cycle.
@@ -28,22 +29,8 @@ import { runPreEventPredictionCycle } from "@velyq/worker-prediction";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(request: Request) {
-  const expected = process.env["CRON_SECRET"];
-  const supplied = request.headers
-    .get("authorization")
-    ?.match(/^Bearer (.+)$/)?.[1];
-  if (!expected || !supplied) return false;
-  const expectedBytes = Buffer.from(expected);
-  const suppliedBytes = Buffer.from(supplied);
-  return (
-    expectedBytes.length === suppliedBytes.length &&
-    timingSafeEqual(expectedBytes, suppliedBytes)
-  );
-}
-
 export async function GET(request: Request) {
-  if (!authorized(request))
+  if (!authorizedScheduledRequest(request))
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });
 
   const connectionString = process.env["VELYQ_DATABASE_URL"];

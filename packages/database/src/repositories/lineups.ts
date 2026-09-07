@@ -1,14 +1,15 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
+import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
   competitionIdentities,
   competitionProviderCoverage,
   competitions,
+  eventIdentities,
   events,
   lineupObservations,
   lineupRequestLog,
   providers,
-  type PrivilegedVelyqDatabase,
-} from "@velyq/database";
+} from "../schema/index.js";
 import type { LineupAvailabilityState } from "@velyq/analytics/decision-timing";
 
 /**
@@ -238,7 +239,14 @@ export async function recordLineupRequest(
   });
 }
 
-/** Events still ahead of kickoff, for the lineup scheduler to consider. */
+/**
+ * Events still ahead of kickoff that the provider can actually be asked about.
+ *
+ * Inner-joined to the provider identity rather than left-joined: a fixture
+ * VELYQ knows about from another source has no API-Sports id to send, and
+ * carrying it through the scheduler as a candidate with a null id would spend
+ * planning effort on a request that can never be made.
+ */
 export async function loadLineupCandidateEvents(
   database: PrivilegedVelyqDatabase,
   asOf: Date,
@@ -246,6 +254,7 @@ export async function loadLineupCandidateEvents(
 ): Promise<
   readonly Readonly<{
     eventId: string;
+    providerFixtureId: string;
     kickoffAt: string;
     canonicalCode: string | null;
   }>[]
@@ -256,14 +265,23 @@ export async function loadLineupCandidateEvents(
       eventId: events.id,
       startsAt: events.startsAt,
       canonicalCode: competitions.canonicalCode,
+      providerFixtureId: eventIdentities.sourceKey,
     })
     .from(events)
     .innerJoin(competitions, eq(events.competitionId, competitions.id))
+    .innerJoin(
+      eventIdentities,
+      and(
+        eq(eventIdentities.eventId, events.id),
+        eq(eventIdentities.sourceCode, "API_SPORTS"),
+      ),
+    )
     .where(and(eq(events.synthetic, false), gt(events.startsAt, asOf)));
   return rows
     .filter((row) => row.startsAt <= horizonEnd)
     .map((row) => ({
       eventId: row.eventId,
+      providerFixtureId: row.providerFixtureId,
       kickoffAt: row.startsAt.toISOString(),
       canonicalCode: row.canonicalCode,
     }));

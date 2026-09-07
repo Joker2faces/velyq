@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/internal/coverage-sync/scheduled",
+      "schedule": "10 3 * * *"
+    },
+    {
+      "path": "/api/internal/lineup-cycle/scheduled",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/internal/prediction-cycle/scheduled",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

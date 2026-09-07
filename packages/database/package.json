@@ -54,7 +54,8 @@
     "@velyq/auth": "workspace:*",
     "@velyq/contracts": "workspace:*",
     "drizzle-orm": "0.45.2",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "@velyq/analytics": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",

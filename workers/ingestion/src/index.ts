@@ -1,5 +1,6 @@
 export * from "./apisports-coverage.js";
 export * from "./football-data-fixtures.js";
+export * from "./lineup-cycle.js";
 import {
   InMemoryIngestionSink,
   InMemoryJobRepository,

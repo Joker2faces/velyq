@@ -6,11 +6,11 @@ import {
   providers,
   type PrivilegedVelyqDatabase,
 } from "@velyq/database";
+import type { ApiSportsClient } from "@velyq/providers/apisports";
 import {
   fetchCurrentSeasonCoverage,
-  type ApiSportsClient,
   type LeagueCoverage,
-} from "@velyq/providers";
+} from "@velyq/providers/apisports-lineups";
 /* The canonical competition policy lives in @velyq/research, which owns it. */
 import {
   API_SPORTS_COMPETITIONS,

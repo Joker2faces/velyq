@@ -12,6 +12,7 @@ import {
   eventMarkets,
   eventParticipants,
   events,
+  loadLineupStates,
   marketDefinitions,
   modelArtifacts,
   modelVersions,
@@ -54,7 +55,6 @@ import {
 } from "@velyq/research";
 import { createHash } from "node:crypto";
 import { runDurablePipelineJobOnce } from "./index.js";
-import { loadLineupStates } from "./lineup-state.js";
 
 /**
  * The server-side prediction trigger.

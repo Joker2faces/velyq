@@ -233,6 +233,41 @@ export const competitionIdentities = catalogSchema.table(
   ],
 );
 
+/**
+ * The bridge from a provider's own fixture key back to a VELYQ event.
+ *
+ * Ingestion derives an event's UUID by hashing the provider's fixture id, so
+ * the mapping ran one way only: given the provider's id you can compute the
+ * event, and given the event you can compute nothing. Anything that later
+ * needs to ask the provider about a fixture already stored — a lineup, a
+ * result, a repriced market — needs this row to exist.
+ */
+export const eventIdentities = catalogSchema.table(
+  "event_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    sourceCode: text("source_code").notNull(),
+    sourceKey: text("source_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("event_identities_identity_unique").on(
+      table.sourceCode,
+      table.sourceKey,
+    ),
+    unique("event_identities_event_source_unique").on(
+      table.eventId,
+      table.sourceCode,
+    ),
+    index("event_identities_event_idx").on(table.eventId),
+  ],
+);
+
 export const participants = catalogSchema.table(
   "participants",
   {

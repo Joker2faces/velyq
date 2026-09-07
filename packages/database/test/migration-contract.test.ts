@@ -12,6 +12,7 @@ const EXPECTED_TABLES = [
   "catalog.competition_policy_versions",
   "catalog.competition_provider_coverage",
   "catalog.competitions",
+  "catalog.event_identities",
   "catalog.event_participants",
   "catalog.events",
   "catalog.participants",
@@ -135,7 +136,7 @@ function appendOnlyTargets(sql: string): string[] {
 }
 
 describe("reviewed Phase 1 migration contract", () => {
-  it("creates exactly the approved 49-table allowlist", () => {
+  it("creates exactly the approved 50-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 

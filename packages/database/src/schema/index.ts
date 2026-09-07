@@ -1,6 +1,7 @@
 import { adminAuditEvents } from "./audit.js";
 import {
   competitionIdentities,
+  eventIdentities,
   competitionPolicies,
   competitionPolicyVersions,
   competitionProviderCoverage,
@@ -75,6 +76,7 @@ export * from "./schemas.js";
 export const phaseOneTables = [
   adminAuditEvents,
   competitionIdentities,
+  eventIdentities,
   competitionPolicies,
   competitionPolicyVersions,
   competitionProviderCoverage,
