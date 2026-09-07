@@ -73,3 +73,49 @@ export {
   type OpportunityInput,
   type RankedOpportunity,
 } from "./ranking.js";
+export {
+  analyzeScenario,
+  type ScenarioAnalysis,
+  type ScenarioInput,
+  type ScenarioQuality,
+  type ScenarioQualityChange,
+} from "./scenario.js";
+export {
+  buildDecisionTimeline,
+  createDecisionExplanation,
+  type DecisionExplanation,
+  type DecisionExplanationInput,
+  type DecisionTimelineEvent,
+  type DecisionTimelineEventType,
+  type InvalidationCondition,
+  type InvalidationKind,
+  type VersionedRiskFlag,
+} from "./decision-explanation.js";
+export {
+  createPostMatchAutopsy,
+  type ClosingLine,
+  type EventOutcome,
+  type PostMatchAutopsy,
+  type PostMatchAutopsyInput,
+} from "./autopsy.js";
+export {
+  evaluateModelAudit,
+  type AuditRecord,
+  type CalibrationBin,
+  type ModelAudit,
+  type ModelAuditInput,
+  type ModelAuditResult,
+} from "./audit.js";
+export {
+  validateBacktestRecord,
+  type BacktestInputKind,
+  type BacktestRecord,
+  type BacktestValidation,
+  type ValidatedBacktestRecord,
+} from "./backtest.js";
+export {
+  validateModelProvenance,
+  type ModelProvenance,
+  type ProvenanceValidation,
+  type SourceObservation,
+} from "./provenance.js";
