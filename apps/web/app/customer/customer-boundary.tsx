@@ -2,7 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { translate, type Locale } from "@velyq/ui";
-import { ErrorState, Skeleton } from "../components/ui";
+import { ErrorState, SurfaceSkeleton } from "../components/ui";
 import { redirectTo } from "../components/browser";
 import { localePath } from "../locale-path";
 import type { CustomerState } from "./customer-data";
@@ -74,18 +74,5 @@ export function CustomerBoundary<T>({
    * shape suggesting data they cannot see. `aria-busy` with a polite live
    * region announces the wait instead of leaving a screen reader silent.
    */
-  return (
-    <div className="page" aria-busy="true" aria-live="polite">
-      <span className="sr-only">{translate("customerLoading", locale)}</span>
-      <div className="card">
-        <Skeleton variant="title" width="42%" />
-        <Skeleton variant="line" width="70%" />
-        <Skeleton variant="block" />
-      </div>
-      <div className="card">
-        <Skeleton variant="line" width="55%" />
-        <Skeleton variant="block" />
-      </div>
-    </div>
-  );
+  return <SurfaceSkeleton label={translate("customerLoading", locale)} />;
 }

@@ -500,7 +500,7 @@ export function Skeleton({
   variant = "line",
   width,
 }: {
-  variant?: "line" | "title" | "block";
+  variant?: "line" | "title" | "block" | "pill" | "figure";
   width?: string;
 }) {
   return (
@@ -508,6 +508,83 @@ export function Skeleton({
       className={`skeleton skeleton--${variant}`}
       style={{ display: "block", ...(width ? { width } : {}) }}
     />
+  );
+}
+
+/**
+ * The loading state for an intelligence surface.
+ *
+ * The customer shells are static and fetch their data in the browser, so this
+ * is the first thing every visitor to Today, EDGE and RADAR sees — which
+ * makes matching the real page's geometry the whole job. The previous
+ * skeleton was two cards of stacked bars with no gap between them, so it read
+ * as a pair of grey slabs and then reflowed the page entirely when the data
+ * arrived.
+ *
+ * This mirrors the shape all three surfaces actually render: a page head, the
+ * lead panel that answers the page's question, a row of summary figures and a
+ * two-card split. Same containers, same gaps, so the content lands in place
+ * instead of pushing the page around.
+ */
+export function SurfaceSkeleton({ label }: { label: string }) {
+  return (
+    <div className="page" aria-busy="true">
+      <span className="sr-only" role="status" aria-live="polite">
+        {label}
+      </span>
+      <div aria-hidden="true">
+        <div className="page__head">
+          <div className="page__head-copy skeleton-stack">
+            <Skeleton width="min(18rem, 70%)" />
+            <Skeleton variant="title" />
+            <Skeleton width="min(14rem, 55%)" />
+          </div>
+          <div className="page__badges">
+            <Skeleton variant="pill" width="7.5rem" />
+            <Skeleton variant="pill" width="9rem" />
+          </div>
+        </div>
+
+        <div className="stack">
+          <div className="card skeleton-stack">
+            <Skeleton variant="pill" width="8rem" />
+            <Skeleton width="92%" />
+            <Skeleton width="74%" />
+            <Skeleton variant="figure" width="min(12rem, 60%)" />
+          </div>
+
+          <div className="stat-row">
+            <div className="card skeleton-stack">
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+            <div className="card skeleton-stack">
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+            <div className="card skeleton-stack">
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+            <div className="card skeleton-stack">
+              <Skeleton width="70%" />
+              <Skeleton variant="figure" width="4rem" />
+            </div>
+          </div>
+
+          <div className="split">
+            <div className="card skeleton-stack">
+              <Skeleton width="55%" />
+              <Skeleton variant="block" />
+            </div>
+            <div className="card skeleton-stack">
+              <Skeleton width="55%" />
+              <Skeleton variant="block" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

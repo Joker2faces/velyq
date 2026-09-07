@@ -552,6 +552,13 @@ svg {
      clipping its grid cell at tablet width. */
   min-width: 0;
   overflow-wrap: anywhere;
+  /* The unit is joined to the figure with a no-break space, and a monospace
+     no-break space is a full character wide. At display sizes that read as a
+     gap rather than a space — "+5.9" and "pp" looked like two unrelated
+     things, and worse in Greek, where the unit is «μον.». A no-break space is
+     a word-separator character, so `word-spacing` narrows exactly that gap
+     and leaves tabular figure alignment untouched. */
+  word-spacing: -0.26em;
 }
 
 .stat__value--positive {
@@ -751,27 +758,37 @@ svg {
 .edgeaxis {
   display: grid;
   gap: var(--space-3);
+  /* Capped deliberately. Stretched across a full-width card the track ran to
+     850px, and a real edge — a few percentage points — was a 50px feature in
+     a rail eight times longer than it needed to be, which read as a section
+     divider rather than a measurement. At instrument width the same reading
+     is unmistakably a scale with two values marked on it. */
+  max-width: 34rem;
 }
 
 .edgeaxis__track {
   background: var(--surface-3);
-  border-radius: var(--radius-pill);
-  height: 10px;
+  /* Squared off rather than a pill: a pill-ended bar reads as a progress
+     meter running from empty to full, which is the wrong idea entirely — this
+     is a fixed 0-100% scale with two points marked on it. */
+  border-radius: 3px;
+  height: 12px;
   position: relative;
 }
 
-/* Faint 25% ticks: the axis reads as a measured scale, not a progress bar. */
+/* Ticks every 10%, with a stronger rule at each quarter, so the axis reads as
+   a measured scale rather than a bar. These were quarters only, at half
+   opacity, and were effectively invisible. */
 .edgeaxis__track::before {
-  background-image: linear-gradient(
-    90deg,
-    var(--line-strong) 1px,
-    transparent 1px
-  );
-  background-size: 25% 100%;
+  background-image:
+    linear-gradient(90deg, var(--line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:
+    25% 100%,
+    10% 100%;
   border-radius: inherit;
   content: "";
   inset: 0;
-  opacity: 0.7;
   position: absolute;
 }
 
@@ -799,7 +816,7 @@ svg {
     var(--signal-strong) 0%,
     var(--pitch) 100%
   );
-  border-radius: inherit;
+  border-radius: 2px;
   height: 100%;
   left: var(--span-start);
   position: absolute;
@@ -838,9 +855,9 @@ svg {
    any realistic edge size while the scale stays honest. */
 .edgeaxis__marker {
   border-radius: 1px;
-  bottom: -7px;
+  bottom: -8px;
   position: absolute;
-  top: -7px;
+  top: -8px;
   transform: translateX(-50%);
   width: 2px;
 }
@@ -1078,6 +1095,24 @@ svg {
 
 .skeleton--block {
   height: 8rem;
+}
+
+/* Sized to the things they stand in for, so the real content lands in the
+   space the placeholder was already holding. */
+.skeleton--pill {
+  border-radius: var(--radius-pill);
+  height: 1.85rem;
+}
+
+.skeleton--figure {
+  height: 2.2rem;
+}
+
+/* Placeholder bars had no gap between them, so a card of three read as one
+   grey slab. Every skeleton group is spaced like the content it replaces. */
+.skeleton-stack {
+  display: grid;
+  gap: var(--space-3);
 }
 
 @keyframes skeleton-sweep {

@@ -939,7 +939,17 @@
 .lead__figure {
   align-items: baseline;
   display: flex;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* The caption beside the headline figure. Sitting in whatever width the
+   number leaves it, the Greek label — «Διαφορά πιθανότητας · Αναμενόμενη
+   αξία» — was breaking over three lines in a column a few characters wide on
+   a 375px screen. It takes its own line rather than a sliver of this one. */
+.lead__figure .lead__meta {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 
 .lead__figure b {
@@ -950,6 +960,9 @@
   font-weight: 500;
   letter-spacing: -0.04em;
   line-height: 1;
+  /* See `.stat__value`: narrows the no-break space between the figure and its
+     unit, which at this size was reading as a gap. */
+  word-spacing: -0.26em;
 }
 
 .stat-row {
@@ -1523,6 +1536,32 @@ a.row:hover {
     grid-template-rows: auto 1fr;
   }
 
+  /* The sidebar is 264px wide, which is not enough for the wordmark and the
+     tag on one line. As a wrapping flex item the tag broke mid-phrase onto a
+     second line and, because the lockup centres its items, dragged the
+     wordmark out of alignment with it. Stacked deliberately instead: mark and
+     wordmark on the first line, tag on its own beneath them. */
+  .app__sidebar > .brand {
+    align-items: start;
+    display: grid;
+    gap: var(--space-1);
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app__sidebar > .brand .brand__logo {
+    grid-row: 1;
+  }
+
+  .app__sidebar > .brand .brand__mark {
+    align-self: center;
+    grid-row: 1;
+  }
+
+  .app__sidebar > .brand .brand__tag {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .app__sidebar {
     background: var(--bg-raised);
     border-right: 1px solid var(--line);
@@ -1741,6 +1780,10 @@ a.row:hover {
 
 /* The halfway line, borrowed as a separator between the two sides. */
 .fixture__divider {
+  /* Stretches to whatever height the two names take. It was a fixed 1.9em,
+     so as soon as one side wrapped to two lines the line stopped reaching
+     across the fixture and read as a stray tick beside the longer name. */
+  align-self: stretch;
   background: linear-gradient(
     180deg,
     transparent,
@@ -1751,7 +1794,7 @@ a.row:hover {
   );
   border-radius: 1px;
   flex: none;
-  height: 1.9em;
+  min-height: 1.9em;
   width: 2px;
 }
 
@@ -1777,7 +1820,7 @@ a.row:hover {
 }
 
 .fixture--lg .fixture__divider {
-  height: 2.2em;
+  min-height: 2.2em;
 }
 
 /* Match rows adopt the fixture separator without the full scoreboard grid. */
@@ -1789,5 +1832,6 @@ a.row:hover {
 }
 
 .row__teams .fixture__divider {
-  height: 1.1em;
+  align-self: center;
+  min-height: 1.1em;
 }
