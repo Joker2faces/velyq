@@ -485,6 +485,10 @@ export const messages = {
     "{waiting} waiting on more evidence · {blocked} blocked on data quality",
   todayTracked: "Tracked matches",
   todaySuppressedTitle: "Hidden from Intelligence",
+  todayCoverage:
+    "{eligible} of {total} events in this window are in the Intelligence universe.",
+  todayCoverageTruncated:
+    "Showing the first {returned} of {eligible} eligible events, soonest kickoff first.",
   todaySuppressedBody:
     "These events are tracked and available to operations, but the model has no validated basis for them yet.",
   suppressedCompetitionNotInPolicy: "Competition not in the model universe",
@@ -1214,6 +1218,10 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "{waiting} περιμένουν στοιχεία · {blocked} μπλοκαρισμένα από ποιότητα δεδομένων",
   todayTracked: "Αγώνες σε παρακολούθηση",
   todaySuppressedTitle: "Εκτός Intelligence",
+  todayCoverage:
+    "{eligible} από {total} γεγονότα σε αυτό το παράθυρο ανήκουν στο σύμπαν Intelligence.",
+  todayCoverageTruncated:
+    "Εμφανίζονται τα πρώτα {returned} από {eligible} επιλέξιμα γεγονότα, με τη σειρά έναρξης.",
   todaySuppressedBody:
     "Τα γεγονότα αυτά παρακολουθούνται και είναι διαθέσιμα στη διαχείριση, αλλά το μοντέλο δεν έχει ακόμη επικυρωμένη βάση για αυτά.",
   suppressedCompetitionNotInPolicy:

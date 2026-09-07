@@ -1,4 +1,5 @@
 import type {
+  CustomerCoverageDto,
   CustomerMatchDto,
   CustomerSuppressionDto,
 } from "@velyq/contracts";
@@ -27,4 +28,11 @@ export type TodaySurfaceDto = {
    * customer and is about what the model can justify at all.
    */
   readonly suppressed?: CustomerSuppressionDto;
+  /**
+   * Full-window aggregates: how many events the window held, how many were
+   * eligible, and whether the page was truncated. Distinct from `withheld`
+   * and from `suppressed` — this one is about the size of the answer rather
+   * than about entitlement or eligibility.
+   */
+  readonly coverage?: CustomerCoverageDto;
 };

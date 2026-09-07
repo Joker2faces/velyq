@@ -211,6 +211,8 @@ export function TodayView({
           </Card>
         </div>
 
+        <CoverageNote coverage={today.coverage} locale={locale} />
+
         <SuppressionSummary summary={today.suppressed} locale={locale} />
 
         <div className="split">
@@ -399,6 +401,48 @@ export function TodayView({
  * Renders nothing at all when there is nothing to report, so a clean day
  * stays clean instead of carrying an empty explanation.
  */
+/**
+ * What this page is actually showing, against the whole window.
+ *
+ * Stated rather than left to inference. The counts behind it are database
+ * aggregates over the entire requested window, not a tally of the rows that
+ * happened to load, so "eight of two hundred and sixty-seven" is a fact about
+ * the day rather than about the page size — and when the page genuinely is
+ * truncated, it says so instead of looking like a quiet afternoon.
+ */
+function CoverageNote({
+  coverage,
+  locale,
+}: {
+  coverage:
+    | Readonly<{
+        eventsInWindow: number;
+        eligible: number;
+        returned: number;
+        pageSize: number;
+        truncated: boolean;
+      }>
+    | undefined;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  if (!coverage || coverage.eventsInWindow === 0) return null;
+  return (
+    <p className="suppressed__note">
+      {t("todayCoverage", {
+        eligible: formatCount(coverage.eligible),
+        total: formatCount(coverage.eventsInWindow),
+      })}
+      {coverage.truncated
+        ? ` ${t("todayCoverageTruncated", {
+            returned: formatCount(coverage.returned),
+            eligible: formatCount(coverage.eligible),
+          })}`
+        : ""}
+    </p>
+  );
+}
+
 function SuppressionSummary({
   summary,
   locale,

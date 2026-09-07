@@ -194,6 +194,7 @@ export const customerDatabaseMapper = {
       asOf: raw.asOf.toISOString(),
       matches: raw.matches.map(mapMatch),
       suppressed: raw.suppressed,
+      coverage: raw.coverage,
     };
   },
   mapMatch,

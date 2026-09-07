@@ -685,11 +685,30 @@ export type CustomerSuppressionDto = Readonly<{
   byReason: Readonly<Record<string, number>>;
 }>;
 
+/**
+ * How much of the window this response actually carries.
+ *
+ * Reported rather than implied, because the alternative is a summary that
+ * silently describes a page. `eventsInWindow` and `eligible` are database
+ * aggregates over the whole requested window; `returned` is what is in
+ * `matches` before any entitlement trimming. A reader can therefore tell the
+ * difference between "the day is quiet" and "we showed you the first
+ * hundred".
+ */
+export type CustomerCoverageDto = Readonly<{
+  eventsInWindow: number;
+  eligible: number;
+  returned: number;
+  pageSize: number;
+  truncated: boolean;
+}>;
+
 export type CustomerTodayDto = Readonly<{
   syntheticLabel: CustomerDataLabel;
   asOf: string;
   matches: readonly CustomerMatchDto[];
   suppressed?: CustomerSuppressionDto;
+  coverage?: CustomerCoverageDto;
 }>;
 
 export type CustomerDtoValidation<T> =

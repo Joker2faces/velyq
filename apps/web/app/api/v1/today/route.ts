@@ -104,6 +104,13 @@ export async function GET(request: Request) {
          * entitlement-shaped fields above.
          */
         suppressed: result.value.suppressed,
+        /*
+         * Also passed straight through, and deliberately *not* recomputed
+         * from `visible`. These are full-window database aggregates; deriving
+         * them from the trimmed page is exactly the bug they exist to make
+         * impossible.
+         */
+        coverage: result.value.coverage,
       },
       {
         // Customer-specific and entitlement-shaped: never shared or stored.
