@@ -6,6 +6,7 @@ import {
   unavailable,
 } from "../../../../../customer-runtime";
 import { offsetHours } from "../../../../../demo-clock";
+import { LIVE_DATA_LABEL, SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
 
 export async function GET(
   _request: Request,
@@ -32,7 +33,11 @@ export async function GET(
   if (history) {
     return NextResponse.json({
       eventId,
-      syntheticLabel: "Synthetic data",
+      syntheticLabel: history.observations.some(
+        (observation) => observation.isSynthetic,
+      )
+        ? SYNTHETIC_DATA_LABEL
+        : LIVE_DATA_LABEL,
       observations: history.observations.map((observation) => ({
         observedAt: observation.providerObservedAt,
         odds: observation.decimalOdds,
