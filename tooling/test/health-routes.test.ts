@@ -68,6 +68,28 @@ describe("service health contracts", () => {
     });
   });
 
+  /*
+   * `syntheticOnly` used to be a hardcoded `true` — it never reflected
+   * whether this deployment could actually reach the real customer database,
+   * so a real production deployment reported itself as synthetic-only
+   * forever. It must now track `customerFixtureMode()`, which is false
+   * exactly when `NODE_ENV === "production"` — the state every real
+   * deployment is in.
+   */
+  it("derives syntheticOnly from the real fixture-mode state, not a fixed value", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await (await customerHealth()).json()).toMatchObject({
+      syntheticOnly: false,
+    });
+  });
+
+  it("derives the admin health check's syntheticOnly the same way", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await (await adminHealth()).json()).toMatchObject({
+      syntheticOnly: false,
+    });
+  });
+
   it("fails readiness closed when runtime configuration is absent", async () => {
     setRuntimeConfig(false);
     const customerResponse = await customerReady();

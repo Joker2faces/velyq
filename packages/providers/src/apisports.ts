@@ -66,6 +66,21 @@ const origins: Record<ApiSport, string> = {
   football: "https://v3.football.api-sports.io",
   basketball: "https://v1.basketball.api-sports.io",
 };
+/**
+ * Reads the provider's *daily* remaining-request count, not its per-minute
+ * one.
+ *
+ * API-Sports exposes two independent rate limits on every response:
+ * `x-ratelimit-remaining` is the per-minute burst limit (small — 10 on the
+ * plan this key is on, resetting every ~60 seconds), while
+ * `x-ratelimit-requests-remaining` is the actual daily budget the quota
+ * policy below has to protect. Reading the per-minute header here meant
+ * `requestsRemaining` never legitimately exceeded 10, so the `< 30`
+ * (CONSERVE) threshold could never fire from a real value and the `< 10`
+ * (CRITICAL) threshold fired on nearly every response regardless of how much
+ * of the actual daily budget was left — the one number the 25% daily reserve
+ * policy exists to protect was never being read.
+ */
 function quota(value: string | null): ProviderQuota {
   const remaining = value === null ? null : Number(value);
   return {
@@ -126,7 +141,9 @@ export function createApiSportsClient(
           return {
             status: response.status,
             body,
-            quota: quota(response.headers.get("x-ratelimit-remaining")),
+            quota: quota(
+              response.headers.get("x-ratelimit-requests-remaining"),
+            ),
           };
         } catch (error) {
           last = error;

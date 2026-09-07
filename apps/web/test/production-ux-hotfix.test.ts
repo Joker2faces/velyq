@@ -15,6 +15,37 @@ afterEach(() => {
 });
 
 describe("production UX hotfixes", () => {
+  /*
+   * The bug this guards cannot be caught by exercising the function's logic
+   * in Vitest, because Vitest runs it as plain Node with `process.env` fully
+   * populated — exactly the environment in which the bug is invisible. The
+   * failure only exists in a browser bundle: Next.js inlines `NEXT_PUBLIC_*`
+   * values into client code by statically pattern-matching a literal
+   * `process.env.NEXT_PUBLIC_X` (or `process.env["NEXT_PUBLIC_X"]` with a
+   * literal string) expression at the call site. `getConfiguredAdminUrl`
+   * used to read `process.env[ADMIN_URL_ENVIRONMENT_VARIABLE]` — an indexed
+   * access through a separately declared constant — which the compiler
+   * cannot resolve to a specific key, so nothing was ever inlined and every
+   * browser read an always-empty `process.env` at runtime: every visitor, in
+   * every environment, always saw the admin console link fail to render.
+   * Live-verified against the deployed client bundle, which is what actually
+   * caught it — this source-pattern check is what stops it coming back.
+   */
+  it("reads NEXT_PUBLIC_VELYQ_ADMIN_URL as a literal expression Next.js can inline", () => {
+    const source = readFileSync(
+      path.join(appRoot, "customer-config.ts"),
+      "utf8",
+    );
+    expect(source).toMatch(
+      /process\.env(\.NEXT_PUBLIC_VELYQ_ADMIN_URL|\["NEXT_PUBLIC_VELYQ_ADMIN_URL"\])/,
+    );
+    // The indirection constant that caused the bug must not come back:
+    // reintroducing it is how a future edit re-breaks the client inlining
+    // without anyone noticing, since every other test here runs in Node and
+    // cannot detect it.
+    expect(source).not.toContain("ADMIN_URL_ENVIRONMENT_VARIABLE");
+  });
+
   it("rejects Vercel git preview admin URLs in production", () => {
     process.env = {
       ...savedEnvironment,

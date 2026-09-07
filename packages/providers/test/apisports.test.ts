@@ -79,7 +79,16 @@ describe("API-Sports provider boundary", () => {
         );
         return new Response(JSON.stringify({ results: 0, response: [] }), {
           status: 200,
-          headers: { "x-ratelimit-remaining": "42" },
+          // Two independent rate-limit headers on every API-Sports response:
+          // the per-minute burst limit (small, resets every ~60s) and the
+          // daily budget the quota policy actually protects. Both are set
+          // here, deliberately to different values, so a regression that
+          // reads the wrong one is caught below rather than passing by
+          // coincidence.
+          headers: {
+            "x-ratelimit-remaining": "6",
+            "x-ratelimit-requests-remaining": "42",
+          },
         });
       },
     );
@@ -92,6 +101,31 @@ describe("API-Sports provider boundary", () => {
     expect(
       sanitizeProviderError(new Error("x-apisports-key=secret")).toLowerCase(),
     ).not.toContain("secret");
+  });
+
+  it("reads the daily quota header, not the per-minute burst header", async () => {
+    /*
+     * The bug this guards: `requestsRemaining` was derived from
+     * `x-ratelimit-remaining` (per-minute, capped at 10 on this plan), so it
+     * could never exceed 10 no matter how much of the actual daily budget
+     * remained — the 25% daily reserve policy built on top of this value was
+     * silently protecting the wrong number.
+     */
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ results: 0, response: [] }), {
+          status: 200,
+          headers: {
+            "x-ratelimit-remaining": "3",
+            "x-ratelimit-requests-remaining": "58",
+          },
+        }),
+    );
+    const response = await createApiSportsClient("football", {
+      apiKey: "secret",
+      fetch: fetcher,
+    }).get("/fixtures", { date: "2026-09-07" });
+    expect(response.quota.requestsRemaining).toBe(58);
   });
   it("retries rate limits and server failures, then exposes the final response", async () => {
     const fetcher = vi
