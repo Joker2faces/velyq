@@ -143,17 +143,68 @@ export async function discoverAllEvents(
 }
 
 /**
- * Orders discovered events by how urgently RADAR needs a fresh price for
- * them: soonest kickoff first, on either side of "now". An event that has
- * already started still needs its closing price observed, so recency of
- * kickoff — not "is this still upcoming" — is what drives the order.
+ * Orders discovered events for odds collection.
+ *
+ * Eligibility first, then kickoff urgency. Ordering by kickoff alone spent a
+ * whole day's odds budget on whichever fixtures happened to start soonest,
+ * and on a 259-fixture matchday those are South American and reserve leagues
+ * nobody has mapped: nineteen requests bought nineteen sets of prices for
+ * competitions the model cannot price and the customer never sees, while the
+ * two fixtures that were actually eligible got none and stopped at
+ * NO_ODDS_AT_CUTOFF.
+ *
+ * Within each tier the old rule still applies — soonest kickoff first, on
+ * either side of "now", because an event that has already started still
+ * needs its closing price observed.
+ *
+ * Unmapped competitions are not excluded, only deprioritised. They are the
+ * raw provider universe and their prices are still worth having when budget
+ * is left over; they simply must not be bought before the universe the
+ * product is built on.
  */
+/**
+ * The provider league ids of competitions somebody has reviewed and mapped.
+ *
+ * Read fresh each run rather than hard-coded: the identity table is what an
+ * operator edits when a competition is promoted, and a second hard-coded list
+ * here would silently disagree with it.
+ *
+ * Returns an empty set when no database is configured — a dry run then simply
+ * falls back to kickoff ordering rather than failing.
+ */
+async function loadEligibleProviderLeagueIds(): Promise<ReadonlySet<string>> {
+  const connectionString = process.env["VELYQ_DATABASE_URL"];
+  if (!connectionString) return new Set();
+  const dbClient = createPrivilegedDatabaseClient({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+  });
+  try {
+    const result = await dbClient.pool.query<{ source_key: string }>(
+      "select source_key from catalog.competition_identities where source_code = $1",
+      ["API_SPORTS"],
+    );
+    return new Set(result.rows.map((row) => row.source_key));
+  } finally {
+    await dbClient.close();
+  }
+}
+
 export function prioritizeEventsForOddsCollection(
   events: readonly NormalizedEvent[],
   now: Date,
+  eligibleCompetitionIds: ReadonlySet<string> = new Set(),
 ): readonly NormalizedEvent[] {
   const reference = now.getTime();
+  const tier = (event: NormalizedEvent) =>
+    event.competitionProviderId !== null &&
+    eligibleCompetitionIds.has(event.competitionProviderId)
+      ? 0
+      : 1;
   return [...events].sort((a, b) => {
+    const byTier = tier(a) - tier(b);
+    if (byTier !== 0) return byTier;
     const da = Math.abs(Date.parse(a.scheduledAt) - reference);
     const db = Math.abs(Date.parse(b.scheduledAt) - reference);
     return da - db || a.providerEventId.localeCompare(b.providerEventId);
@@ -241,7 +292,18 @@ export async function runApiSportsIngestion(
       : normalizeBasketballGame(record),
   );
 
-  const prioritized = prioritizeEventsForOddsCollection(events, now);
+  /*
+   * The reviewed competition identities, read straight from the catalog. This
+   * is the same table the canonical-code resolution uses, so "worth spending
+   * quota on" and "eligible to become customer intelligence" cannot drift
+   * apart into two different definitions.
+   */
+  const eligibleCompetitionIds = await loadEligibleProviderLeagueIds();
+  const prioritized = prioritizeEventsForOddsCollection(
+    events,
+    now,
+    eligibleCompetitionIds,
+  );
   const oddsBudget = oddsRequestBudget(
     prioritized.length,
     discovery.quota,

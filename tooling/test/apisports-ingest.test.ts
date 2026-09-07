@@ -203,11 +203,76 @@ describe("prioritizeEventsForOddsCollection", () => {
     ]);
   });
 
-  function normalize(providerEventId: string, scheduledAt: string) {
+  /*
+   * The defect this pins cost a whole day of odds budget. Ordering by kickoff
+   * alone spent all nineteen available requests on whichever fixtures started
+   * soonest, and on a 259-fixture matchday those are unmapped South American
+   * and reserve leagues — so the two fixtures that were actually eligible got
+   * no prices at all and stopped at NO_ODDS_AT_CUTOFF.
+   */
+  it("buys prices for eligible competitions before anything else", () => {
+    const now = new Date("2026-09-07T12:00:00Z");
+    const events = [
+      normalize("obscure-imminent", "2026-09-07T12:01:00Z", "999"),
+      normalize("eligible-later", "2026-09-08T12:00:00Z", "88"),
+      normalize("obscure-soon", "2026-09-07T12:05:00Z", "998"),
+      normalize("eligible-latest", "2026-09-08T18:00:00Z", "135"),
+    ];
+
+    const ordered = prioritizeEventsForOddsCollection(
+      events,
+      now,
+      new Set(["88", "135"]),
+    );
+
+    expect(ordered.map((e) => e.providerEventId)).toEqual([
+      "eligible-later",
+      "eligible-latest",
+      "obscure-imminent",
+      "obscure-soon",
+    ]);
+  });
+
+  it("deprioritises rather than excludes, so leftover budget still buys them", () => {
+    const now = new Date("2026-09-07T12:00:00Z");
+    const events = [
+      normalize("obscure", "2026-09-07T12:01:00Z", "999"),
+      normalize("eligible", "2026-09-08T12:00:00Z", "88"),
+    ];
+
+    /* Both are still present; only the order changed. */
+    expect(
+      prioritizeEventsForOddsCollection(events, now, new Set(["88"])),
+    ).toHaveLength(2);
+  });
+
+  it("falls back to kickoff order when no eligibility is supplied", () => {
+    const now = new Date("2026-09-07T12:00:00Z");
+    const events = [
+      normalize("later", "2026-09-08T12:00:00Z", "88"),
+      normalize("sooner", "2026-09-07T12:01:00Z", "999"),
+    ];
+
+    expect(
+      prioritizeEventsForOddsCollection(events, now).map(
+        (e) => e.providerEventId,
+      ),
+    ).toEqual(["sooner", "later"]);
+  });
+
+  function normalize(
+    providerEventId: string,
+    scheduledAt: string,
+    competitionProviderId: string | null = null,
+  ) {
     return {
       sport: "FOOTBALL" as const,
       providerEventId,
       competition: "Test",
+      competitionProviderId,
+      competitionCountry: null,
+      competitionCountryCode: null,
+      season: null,
       participants: ["A", "B"],
       scheduledAt,
       status: "NS",
