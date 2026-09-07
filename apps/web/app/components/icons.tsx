@@ -117,6 +117,16 @@ export function IconAccount({ size = 18, className }: IconProps) {
   );
 }
 
+/** A clock: publication time, which is what makes a record verifiable. */
+export function IconClock({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <circle {...stroke} cx="8" cy="8" r="5.6" />
+      <path {...stroke} d="M8 4.9V8.2l2.3 1.5" />
+    </svg>
+  );
+}
+
 export function IconShield({ size = 16, className }: IconProps) {
   return (
     <svg {...base(size, className)}>

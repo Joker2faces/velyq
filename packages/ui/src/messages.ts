@@ -18,7 +18,7 @@ import { DEFAULT_LOCALE, type Locale } from "./locale.js";
  */
 export const messages = {
   // ---------------------------------------------------------------- brand
-  brandTagline: "Football intelligence",
+  brandTagline: "Sports market intelligence",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Full match analysis",
 
@@ -65,10 +65,131 @@ export const messages = {
   backToSignIn: "Back to sign in",
   previewWorkspaceNote: "Preview data · no guaranteed outcomes",
 
+  /*
+   * Sports.
+   *
+   * VELYQ analyses sports betting markets, and the global brand says so; the
+   * sport is a property of what is being read, not of the product. These are
+   * the labels a sport scope renders from. Only the sports the product
+   * actually carries data for are ever passed to it — a selector offering a
+   * sport with nothing behind it is worse than no selector.
+   */
+  sportFootball: "Football",
+  sportBasketball: "Basketball",
+  sportScopeLabel: "Sport",
+  sportScopeAll: "All sports",
+
+  /*
+   * Track record.
+   *
+   * The product argument is "don't just trust VELYQ, verify its history", so
+   * this vocabulary has to read as an audit rather than a scoreboard. Two
+   * rules shape all of it: a result is stated, never celebrated, and the
+   * quality of the decision is named separately from how it turned out.
+   *
+   * Nothing here asserts a performance figure. Every number these labels sit
+   * beside comes from the data layer, and the sample captions exist so a
+   * figure drawn from too few settled signals says so on the same line.
+   */
+
+  // Outcome: what the market did. Stated flatly.
+  outcomeWon: "Won",
+  outcomeLost: "Lost",
+  outcomePush: "Push",
+  outcomeVoid: "Void",
+
+  // Decision quality: what VELYQ is accountable for, judged at publication.
+  decisionFortress: "Fortress",
+  decisionEdge: "Edge",
+  decisionMarginal: "Marginal",
+  decisionNoEdge: "No edge",
+
+  trackRecordKicker: "Track record",
+  trackRecordTitle: "Verify the history.",
+  trackRecordBody:
+    "Every signal VELYQ publishes is timestamped before the event starts and is never edited afterwards. Results are recorded whether they went our way or not.",
+  trackRecordOutcomeHeading: "Result",
+  trackRecordDecisionHeading: "Decision quality",
+  trackRecordDecisionHint:
+    "Whether the price was worth taking when it was published — which is a separate question from whether it won.",
+  trackRecordEmpty: "No settled signals yet.",
+  trackRecordEmptyBody:
+    "The record fills in as published signals settle. Nothing is shown here before it has.",
+
+  // Forecast integrity.
+  integrityPublished: "Published",
+  integrityBeforeKickoff: "Published before kick-off",
+  integrityTimestamped: "Timestamped",
+  integrityNoEdits: "Never edited after publication",
+  integrityCaption:
+    "Publication time is recorded when the signal is issued. Prices and reasoning are kept as they were.",
+
+  // Prices across a signal's life.
+  trackPublishedOdds: "Published price",
+  trackClosingOdds: "Closing price",
+  trackClv: "Closing line value",
+  trackClvHint:
+    "The published price measured against the price the market closed at. Settled by the market rather than by the result, so it is available on every signal.",
+  clvBeatClose: "Beat the close",
+  clvMatchedClose: "Matched the close",
+  clvMissedClose: "Behind the close",
+  clvUnknown: "No closing price observed",
+
+  // Statistical quality.
+  trackSampleSize: "Settled signals",
+  sampleSettled: "{count} settled signals",
+  sampleTooSmall: "Only {count} settled — too few to read as a rate",
+  trackBrier: "Brier score",
+  trackBrierHint:
+    "Mean squared error of the stated probabilities. Lower is better, and it is only comparable against a reference on the same markets.",
+  trackCalibration: "Calibration",
+  trackCalibrationHint:
+    "Whether outcomes have happened about as often as the stated probabilities said they would.",
+  calibrationStrong: "Closely calibrated",
+  calibrationReasonable: "Reasonably calibrated",
+  calibrationDrifting: "Drifting",
+  calibrationInsufficient: "Not enough settled signals",
+
+  // Model maturity, in customer language.
+  trackModelMaturity: "Model maturity",
+  maturityValidated: "Validated",
+  maturityProvisional: "Provisional",
+  maturityEarly: "Early",
+  maturityHint:
+    "How far the model behind a signal has been tested. A record spanning a model change is not one record.",
+
+  // Filtering.
+  trackFilterSport: "Sport",
+  trackFilterMarket: "Market",
+  trackFilterPeriod: "Period",
+  trackFilterOutcome: "Result",
+  trackFilterReset: "Clear filters",
+
+  /*
+   * Community.
+   *
+   * Following is a signal a reader chose to watch; it is never presented as a
+   * bet. VELYQ cannot know that a wager was placed without bookmaker-level
+   * verification, so no label here claims one was, and none of it outranks
+   * the quantitative evidence on the page.
+   */
+  communityFollow: "Follow signal",
+  communityFollowing: "Following",
+  communityUnfollow: "Stop following",
+  communityWatch: "Watch",
+  communityWatching: "Watching",
+  communityFollowerCount: "{count} following",
+  communityFollowerNone: "No followers yet",
+  communityPulse: "Community pulse",
+  communityMostFollowed: "Most followed",
+  communityTrending: "Trending",
+  communityCaption:
+    "How many people chose to watch this signal. It says nothing about whether anyone staked money on it.",
+
   // ------------------------------------------------------------- metadata
-  metaTitle: "VELYQ — Football Market Intelligence",
+  metaTitle: "VELYQ — Sports Market Intelligence",
   metaDescription:
-    "Traceable football market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
+    "Traceable sports market intelligence: model probability against live prices, observed odds movement and a full trace behind every number.",
 
   // ------------------------------------------------------- system states
   customerUnavailable: "Data is not available right now.",
@@ -102,7 +223,7 @@ export const messages = {
 
   // ---------------------------------------------------------- home: hero
   homeHeroEyebrow: "Model probability against the market price",
-  homeHeroTitleLead: "Read the football market",
+  homeHeroTitleLead: "Read the market",
   homeHeroTitleAccent: "before it moves.",
   homeHeroBody:
     "VELYQ compares what our model believes with what the market is charging — so you can tell a genuinely mispriced outcome apart from ordinary movement.",
@@ -257,7 +378,7 @@ export const messages = {
   homeFinalCta: "Create your free account",
 
   // -------------------------------------------------------- home: footer
-  footerRights: "Football market intelligence",
+  footerRights: "Sports market intelligence",
   footerCreatedBy: "Created by",
   footerTerms: "Terms",
   footerPrivacy: "Privacy",
@@ -303,7 +424,7 @@ export const messages = {
   // ----------------------------------------------------------------- auth
   authSignInKicker: "Customer access",
   authSignInTitle: "Welcome back.",
-  authSignInBody: "Sign in to your football intelligence workspace.",
+  authSignInBody: "Sign in to your market intelligence workspace.",
   authSignInSubmit: "Sign in",
   authSignInError: "Email or password is incorrect. Please try again.",
   authSignInUnavailable:
@@ -519,7 +640,7 @@ export const messages = {
   termsTitle: "Terms of use",
   // COMPLIANCE
   termsBody1:
-    "VELYQ provides football market intelligence for information and research. Probability estimates are model-generated and are not predictions of any outcome. While the product is in preview, the fixtures and prices it displays are samples rather than live market data.",
+    "VELYQ provides sports market intelligence for information and research. Probability estimates are model-generated and are not predictions of any outcome. While the product is in preview, the fixtures and prices it displays are samples rather than live market data.",
   // COMPLIANCE
   termsBody2:
     "VELYQ does not provide financial advice, does not guarantee outcomes and does not place bets. These terms will be updated before paid plans open, and continued use after an update means accepting the version then published.",
@@ -684,7 +805,7 @@ export type MessageKey = keyof typeof messages;
  * states and never issues betting instructions.
  */
 const greek: Readonly<Record<MessageKey, string>> = {
-  brandTagline: "Ανάλυση ποδοσφαίρου",
+  brandTagline: "Ανάλυση αθλητικών αγορών",
   productMatchIntelligence: "Match Intelligence",
   productMatchIntelligenceSubtitle: "Πλήρης ανάλυση αγώνα",
 
@@ -717,7 +838,91 @@ const greek: Readonly<Record<MessageKey, string>> = {
   backToSignIn: "Πίσω στη σύνδεση",
   previewWorkspaceNote: "Δεδομένα προεπισκόπησης · καμία εγγύηση αποτελέσματος",
 
-  metaTitle: "VELYQ — Ανάλυση αγορών ποδοσφαίρου",
+  sportFootball: "Ποδόσφαιρο",
+  sportBasketball: "Μπάσκετ",
+  sportScopeLabel: "Άθλημα",
+  sportScopeAll: "Όλα τα αθλήματα",
+
+  outcomeWon: "Κέρδισε",
+  outcomeLost: "Έχασε",
+  outcomePush: "Επιστροφή",
+  outcomeVoid: "Άκυρο",
+
+  decisionFortress: "Οχυρό",
+  decisionEdge: "Πλεονέκτημα",
+  decisionMarginal: "Οριακό",
+  decisionNoEdge: "Χωρίς πλεονέκτημα",
+
+  trackRecordKicker: "Ιστορικό",
+  trackRecordTitle: "Έλεγξε το ιστορικό.",
+  trackRecordBody:
+    "Κάθε σήμα που δημοσιεύει το VELYQ παίρνει χρονοσήμανση πριν αρχίσει ο αγώνας και δεν αλλάζει μετά. Τα αποτελέσματα καταγράφονται είτε βγήκαν σωστά είτε όχι.",
+  trackRecordOutcomeHeading: "Αποτέλεσμα",
+  trackRecordDecisionHeading: "Ποιότητα απόφασης",
+  trackRecordDecisionHint:
+    "Αν άξιζε η τιμή τη στιγμή που δημοσιεύτηκε — ερώτημα ξεχωριστό από το αν κέρδισε.",
+  trackRecordEmpty: "Δεν έχει κλείσει ακόμη κανένα σήμα.",
+  trackRecordEmptyBody:
+    "Το ιστορικό συμπληρώνεται όσο κλείνουν τα δημοσιευμένα σήματα. Πριν από αυτό δεν εμφανίζεται τίποτα εδώ.",
+
+  integrityPublished: "Δημοσιεύτηκε",
+  integrityBeforeKickoff: "Δημοσιεύτηκε πριν την έναρξη",
+  integrityTimestamped: "Με χρονοσήμανση",
+  integrityNoEdits: "Δεν άλλαξε μετά τη δημοσίευση",
+  integrityCaption:
+    "Η ώρα δημοσίευσης καταγράφεται όταν βγαίνει το σήμα. Οι τιμές και το σκεπτικό μένουν όπως ήταν.",
+
+  trackPublishedOdds: "Τιμή δημοσίευσης",
+  trackClosingOdds: "Τιμή κλεισίματος",
+  trackClv: "Αξία έναντι κλεισίματος",
+  trackClvHint:
+    "Η τιμή δημοσίευσης σε σχέση με την τιμή στην οποία έκλεισε η αγορά. Κρίνεται από την αγορά και όχι από το αποτέλεσμα, οπότε υπάρχει σε κάθε σήμα.",
+  clvBeatClose: "Καλύτερη από το κλείσιμο",
+  clvMatchedClose: "Ίδια με το κλείσιμο",
+  clvMissedClose: "Χειρότερη από το κλείσιμο",
+  clvUnknown: "Δεν καταγράφηκε τιμή κλεισίματος",
+
+  trackSampleSize: "Σήματα που έκλεισαν",
+  sampleSettled: "{count} σήματα που έκλεισαν",
+  sampleTooSmall: "Μόνο {count} έκλεισαν — πολύ λίγα για ποσοστό",
+  trackBrier: "Δείκτης Brier",
+  trackBrierHint:
+    "Μέσο τετραγωνικό σφάλμα των πιθανοτήτων. Όσο χαμηλότερος τόσο καλύτερα, και συγκρίνεται μόνο με μέτρο σύγκρισης στις ίδιες αγορές.",
+  trackCalibration: "Βαθμονόμηση",
+  trackCalibrationHint:
+    "Αν τα αποτελέσματα συνέβησαν περίπου όσο συχνά έλεγαν οι πιθανότητες.",
+  calibrationStrong: "Καλή βαθμονόμηση",
+  calibrationReasonable: "Λογική βαθμονόμηση",
+  calibrationDrifting: "Αποκλίνει",
+  calibrationInsufficient: "Δεν έχουν κλείσει αρκετά σήματα",
+
+  trackModelMaturity: "Ωριμότητα μοντέλου",
+  maturityValidated: "Επικυρωμένο",
+  maturityProvisional: "Προσωρινό",
+  maturityEarly: "Αρχικό",
+  maturityHint:
+    "Πόσο έχει ελεγχθεί το μοντέλο πίσω από ένα σήμα. Ένα ιστορικό που περνάει από αλλαγή μοντέλου δεν είναι ένα ιστορικό.",
+
+  trackFilterSport: "Άθλημα",
+  trackFilterMarket: "Αγορά",
+  trackFilterPeriod: "Περίοδος",
+  trackFilterOutcome: "Αποτέλεσμα",
+  trackFilterReset: "Καθάρισε τα φίλτρα",
+
+  communityFollow: "Παρακολούθηση",
+  communityFollowing: "Παρακολουθείς",
+  communityUnfollow: "Σταμάτα την παρακολούθηση",
+  communityWatch: "Παρακολούθηση",
+  communityWatching: "Σε παρακολούθηση",
+  communityFollowerCount: "{count} παρακολουθούν",
+  communityFollowerNone: "Κανείς δεν παρακολουθεί ακόμη",
+  communityPulse: "Παλμός κοινότητας",
+  communityMostFollowed: "Με τις πιο πολλές παρακολουθήσεις",
+  communityTrending: "Σε άνοδο",
+  communityCaption:
+    "Πόσοι επέλεξαν να παρακολουθούν αυτό το σήμα. Δεν λέει τίποτα για το αν κάποιος πόντραρε χρήματα.",
+
+  metaTitle: "VELYQ — Ανάλυση αθλητικών αγορών",
   metaDescription:
     "Ανάλυση αθλητικών αγορών με ίχνος σε κάθε νούμερο: πιθανότητα μοντέλου απέναντι στις τρέχουσες αποδόσεις και καταγεγραμμένη κίνηση αποδόσεων.",
 
@@ -891,7 +1096,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Η δωρεάν πρόσβαση είναι ανοιχτή — όλο το Σήμερα, το EDGE και το RADAR, στα ελληνικά ή στα αγγλικά.",
   homeFinalCta: "Δημιούργησε δωρεάν λογαριασμό",
 
-  footerRights: "Ανάλυση αγορών ποδοσφαίρου",
+  footerRights: "Ανάλυση αθλητικών αγορών",
   footerCreatedBy: "Created by",
   footerTerms: "Όροι χρήσης",
   footerPrivacy: "Απόρρητο",
@@ -1135,7 +1340,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   legalKicker: "Δημόσια ενημέρωση",
   termsTitle: "Όροι χρήσης",
   termsBody1:
-    "Το VELYQ παρέχει ανάλυση αγορών ποδοσφαίρου για ενημέρωση και έρευνα. Οι εκτιμήσεις πιθανότητας παράγονται από μοντέλο και δεν είναι προβλέψεις κανενός αποτελέσματος. Όσο το προϊόν βρίσκεται σε προεπισκόπηση, οι αγώνες και οι αποδόσεις που εμφανίζει είναι δείγματα και όχι δεδομένα πραγματικής αγοράς.",
+    "Το VELYQ παρέχει ανάλυση αθλητικών αγορών για ενημέρωση και έρευνα. Οι εκτιμήσεις πιθανότητας παράγονται από μοντέλο και δεν είναι προβλέψεις κανενός αποτελέσματος. Όσο το προϊόν βρίσκεται σε προεπισκόπηση, οι αγώνες και οι αποδόσεις που εμφανίζει είναι δείγματα και όχι δεδομένα πραγματικής αγοράς.",
   termsBody2:
     "Το VELYQ δεν παρέχει οικονομικές συμβουλές, δεν εγγυάται αποτελέσματα και δεν τοποθετεί στοιχήματα. Οι όροι θα ενημερωθούν πριν ανοίξουν τα επί πληρωμή πακέτα, και η συνέχιση της χρήσης μετά από μια ενημέρωση σημαίνει αποδοχή της έκδοσης που ισχύει τότε.",
   privacyTitle: "Απόρρητο",

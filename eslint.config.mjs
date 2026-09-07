@@ -326,7 +326,13 @@ export default tseslint.config(
             "packages/database/drizzle.config.ts",
           ],
           defaultProject: "tsconfig.json",
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
+          // Package test files have no tsconfig project of their own, so
+          // they fall to the default one and this cap bounds how many may.
+          // It was 32, which was exactly the number that existed — so the
+          // next test file added under any package test directory failed
+          // the lint with a parser error rather than a lint error. Raised
+          // with headroom; the cap is a performance guard, not a budget.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 48,
         },
         tsconfigRootDir: workspaceDirectory,
       },

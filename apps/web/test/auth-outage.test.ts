@@ -413,16 +413,44 @@ describe("authentication outage UX", () => {
     );
   });
 
-  it("keeps compliance terms unchanged while applying football-specific product copy", () => {
+  /*
+   * The global brand names no single sport; a football page still does.
+   *
+   * This test previously pinned the opposite — it required "football market
+   * intelligence" in the metadata, the footer and the sign-in copy. That was
+   * right while VELYQ was football-only. Now that basketball is coming, brand
+   * copy that names football would have to be rewritten for every sport
+   * added, and would misdescribe the product in the meantime.
+   *
+   * The distinction is the thing worth asserting, so both halves are: the
+   * global surfaces are sport-neutral, and the match surface keeps its sport.
+   */
+  it("keeps the global brand sport-neutral without stripping sport context", () => {
+    for (const locale of ["en", "el"] as const) {
+      for (const key of [
+        "brandTagline",
+        "metaTitle",
+        "metaDescription",
+        "footerRights",
+        "authSignInBody",
+      ] as const) {
+        const copy = translate(key, locale).toLowerCase();
+        expect(copy).not.toContain("football");
+        expect(copy).not.toContain("ποδοσφαίρ");
+        expect(copy).not.toContain("ποδόσφαιρ");
+      }
+    }
+
     expect(translate("metaDescription", "en")).toContain(
-      "football market intelligence",
+      "sports market intelligence",
     );
-    expect(translate("footerRights", "en")).toBe(
-      "Football market intelligence",
-    );
-    expect(translate("authSignInBody", "en")).toBe(
-      "Sign in to your football intelligence workspace.",
-    );
+    expect(translate("footerRights", "en")).toBe("Sports market intelligence");
+
+    /* Football pages keep saying football: the sport is context a reader
+       needs, and removing it would make every match look sportless. */
+    expect(translate("matchKicker", "en").toLowerCase()).toContain("football");
+    expect(translate("matchKicker", "el").toLowerCase()).toContain("ποδόσφαιρ");
+
     expect(translate("termsBody1", "en")).toContain(
       "for information and research",
     );
