@@ -29,6 +29,7 @@ import {
   Card,
   CardHead,
   EmptyState,
+  PreviewDataBadge,
   Stat,
   Trend,
 } from "../components/ui";
@@ -111,10 +112,10 @@ export function TodayView({
           <p>{t("todaySnapshot", { time: formatTime(today.asOf, locale) })}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-          <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
+          <PreviewDataBadge
+            provenance={today.syntheticLabel}
+            label={t("previewData")}
+          />
         </div>
       </div>
 

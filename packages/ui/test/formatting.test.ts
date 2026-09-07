@@ -120,7 +120,7 @@ describe("locale resolution", () => {
 describe("bilingual catalog", () => {
   it("exposes stable English message keys", () => {
     expect(message("navMatchIntelligence")).toBe("Match Intelligence");
-    expect(message("syntheticData")).toBe("Synthetic data");
+    expect(message("previewData")).toBe("Preview data");
   });
 
   it("translates into Greek", () => {

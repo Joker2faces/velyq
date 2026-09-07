@@ -98,7 +98,7 @@ export default async function Home() {
               <div className="preview__bar">
                 <span className="eyebrow">{t("homePreviewLabel")}</span>
                 <Badge tone="synthetic" dot>
-                  {t("syntheticData")}
+                  {t("previewData")}
                 </Badge>
               </div>
 

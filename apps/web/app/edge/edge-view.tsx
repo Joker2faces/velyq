@@ -25,6 +25,7 @@ import {
   EdgeAxis,
   EmptyState,
   Explain,
+  PreviewDataBadge,
   Stat,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
@@ -63,10 +64,10 @@ export function EdgeView({
           <p>{t("edgeBody")}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-          <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
+          <PreviewDataBadge
+            provenance={data.syntheticLabel}
+            label={t("previewData")}
+          />
         </div>
       </div>
 

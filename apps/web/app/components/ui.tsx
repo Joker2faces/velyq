@@ -1,5 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { axisPercent, barPercent, directionOf, type Tone } from "@velyq/ui";
+import {
+  axisPercent,
+  barPercent,
+  directionOf,
+  requiresPreviewDisclosure,
+  type Tone,
+} from "@velyq/ui";
 import {
   IconAlert,
   IconArrowDown,
@@ -44,6 +50,37 @@ export function Badge({
       {dot ? <span className="badge__dot" /> : null}
       {children}
     </span>
+  );
+}
+
+// --------------------------------------------------------- data disclosure
+
+/**
+ * The preview-data disclosure.
+ *
+ * Renders nothing at all when the surface's provenance says the data is real,
+ * which is the whole point: a customer reading live market data must not have
+ * it hedged as a sample, and a customer reading samples must be told. The
+ * decision comes from the data's own provenance label rather than a setting
+ * beside it, so a build cannot serve fixtures while claiming to be live.
+ *
+ * One per surface. This replaced two badges on every page — "Synthetic data"
+ * and "Development heuristic" — which between them told a customer nothing
+ * they could act on and stamped the product with the vocabulary of its own
+ * source tree.
+ */
+export function PreviewDataBadge({
+  provenance,
+  label,
+}: {
+  provenance: string | null | undefined;
+  label: string;
+}) {
+  if (!requiresPreviewDisclosure(provenance)) return null;
+  return (
+    <Badge tone="market" emphasis="supporting" dot>
+      {label}
+    </Badge>
   );
 }
 

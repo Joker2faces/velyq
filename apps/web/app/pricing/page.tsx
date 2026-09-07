@@ -3,7 +3,7 @@ import { getLocale } from "../locale";
 import { paidBillingConfigured, planCatalog } from "../plan-config";
 import { PublicShell } from "../components/site-chrome";
 import { Badge, Card } from "../components/ui";
-import { IconCheck, IconShield } from "../components/icons";
+import { IconCheck } from "../components/icons";
 import { localePath } from "../locale-path";
 
 /**
@@ -131,15 +131,13 @@ export default async function Pricing() {
           ))}
         </div>
 
-        {/* The plan/permission boundary, stated where ELITE is actually read. */}
-        <div className="notice" style={{ marginTop: "var(--space-6)" }}>
-          <h2>
-            <IconShield size={20} />
-            {t("pricingNotAdminTitle")}
-          </h2>
-          <p>{t("pricingNotAdminBody")}</p>
-        </div>
-
+        {/*
+         * The "ELITE is not administrator access" panel is gone. It answered a
+         * question no customer had asked, in the vocabulary of the permission
+         * model — administrator rights, held separately, resolved server-side,
+         * granted in the database. The boundary it described is real and still
+         * enforced; a pricing page is not where a customer learns about it.
+         */}
         <p className="fine-print" style={{ marginTop: "var(--space-5)" }}>
           {t("pricingFineprint")}
         </p>

@@ -19,6 +19,7 @@ import {
   CardHead,
   EmptyState,
   Explain,
+  PreviewDataBadge,
   Sparkline,
   Stat,
 } from "../components/ui";
@@ -61,10 +62,15 @@ export function RadarView({
           <p>{t("radarBody")}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
+          <PreviewDataBadge
+            provenance={data.syntheticLabel}
+            label={t("previewData")}
+          />
+          {/* Kept: it is a claim about what RADAR does and does not observe,
+              which is decision-relevant, not a note about the build. */}
+          <Badge tone="neutral" emphasis="supporting">
+            {t("observableOnly")}
           </Badge>
-          <Badge tone="heuristic">{t("observableOnly")}</Badge>
         </div>
       </div>
 

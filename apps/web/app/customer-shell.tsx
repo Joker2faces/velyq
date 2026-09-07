@@ -74,11 +74,14 @@ export async function CustomerShell({
               admin.access is authorization state. Still never inferred from
               the customer's plan. */}
           <AdminConsoleLink locale={locale} />
-          <p className="app__note">
-            {t("syntheticEnvironment")}
-            <br />
-            {t("researchUse")}
-          </p>
+          {/*
+           * The standing "synthetic beta environment · experimental ·
+           * research use" note that sat here is gone. This shell is a static
+           * asset with no sight of the data, so it could only ever assert one
+           * mode — meaning it would keep disclosing a preview long after the
+           * data was real. Disclosure belongs where the provenance is, on the
+           * surface rendering the rows.
+           */}
           <form action="/api/v1/auth/sign-out" method="post">
             <button
               className="button button--secondary button--block"

@@ -15,6 +15,12 @@ export {
 } from "./brand.js";
 
 export {
+  dataMode,
+  requiresPreviewDisclosure,
+  type DataMode,
+} from "./data-mode.js";
+
+export {
   DEFAULT_LOCALE,
   LOCALES,
   LOCALE_COOKIE,

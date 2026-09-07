@@ -418,13 +418,58 @@ describe("authentication outage UX", () => {
       "football market intelligence",
     );
     expect(translate("footerRights", "en")).toBe(
-      "AI football market intelligence",
+      "Football market intelligence",
     );
     expect(translate("authSignInBody", "en")).toBe(
       "Sign in to your football intelligence workspace.",
     );
-    expect(translate("termsBody1", "en")).toBe(
-      "VELYQ provides sports market intelligence for information and research. Phase 1 uses synthetic data and experimental models.",
+    expect(translate("termsBody1", "en")).toContain(
+      "for information and research",
+    );
+  });
+
+  /*
+   * The substance of the compliance copy, asserted rather than the wording.
+   *
+   * Sanitising the product copy meant rewriting these sentences, and pinning
+   * them verbatim only proves they have not been edited — it does not prove
+   * the disclosures are still in them. Each clause below is a commitment
+   * VELYQ has to keep making however the surrounding prose is phrased: no
+   * advice, no guaranteed outcome, no bet placed on anyone's behalf, and a
+   * probability that is never presented as a forecast.
+   */
+  it("keeps every compliance disclosure present in both languages", () => {
+    for (const [locale, clauses] of [
+      [
+        "en",
+        [
+          "does not give financial advice",
+          "does not guarantee any outcome",
+          "does not place bets",
+          "No probability estimate is a prediction of what will happen",
+          "Never stake money you cannot afford to lose",
+        ],
+      ],
+      [
+        "el",
+        [
+          "δεν δίνει οικονομικές συμβουλές",
+          "δεν εγγυάται κανένα αποτέλεσμα",
+          "δεν τοποθετεί στοιχήματα",
+          "δεν είναι πρόβλεψη του τι θα συμβεί",
+          "Μην ποντάρεις ποτέ χρήματα που δεν αντέχεις να χάσεις",
+        ],
+      ],
+    ] as const) {
+      const notice = translate("homeNoticeBody", locale);
+      for (const clause of clauses) expect(notice).toContain(clause);
+    }
+
+    expect(translate("responsibleUseBody1", "en")).toContain(
+      "not a betting system",
+    );
+    expect(translate("responsibleUseBody1", "el")).toContain(
+      "δεν είναι σύστημα στοιχηματισμού",
     );
   });
 });

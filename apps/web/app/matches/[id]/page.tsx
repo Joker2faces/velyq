@@ -31,6 +31,7 @@ import {
   EdgeAxis,
   ErrorState,
   Explain,
+  PreviewDataBadge,
   Sparkline,
   Stat,
   Trend,
@@ -135,9 +136,10 @@ export default async function Match({
               weight beside the verdict, which is the one answer this page
               exists to give. */}
           <div className="page__badges">
-            <Badge tone="synthetic" dot>
-              {t("syntheticData")}
-            </Badge>
+            <PreviewDataBadge
+              provenance={match.syntheticLabel}
+              label={t("previewData")}
+            />
           </div>
         </div>
 
