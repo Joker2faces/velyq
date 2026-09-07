@@ -326,7 +326,7 @@ export default tseslint.config(
             "packages/database/drizzle.config.ts",
           ],
           defaultProject: "tsconfig.json",
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 128,
         },
         tsconfigRootDir: workspaceDirectory,
       },
