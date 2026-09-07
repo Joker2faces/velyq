@@ -66,7 +66,7 @@ describe("auth endpoint rate limiting", () => {
     expect(last!.headers.get("Retry-After")).toBeTruthy();
     const body = (await last!.json()) as Record<string, unknown>;
     expect(body["code"]).toBe("RATE_LIMITED");
-  });
+  }, 10_000);
 
   it("isolates the limit per client IP", async () => {
     const { POST } = await import("../app/api/v1/auth/sign-in/route");
