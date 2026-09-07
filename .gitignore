@@ -16,3 +16,9 @@ apps/*/.next/
 
 .vercel
 .env*
+
+# Third-party historical research corpus. Downloaded by
+# `tooling/scripts/historical-download.mjs`, never committed: Football-Data.co.uk
+# publishes no explicit redistribution licence, so the files stay local and only
+# their provenance, checksums and derived model artifacts are versioned.
+data/historical/

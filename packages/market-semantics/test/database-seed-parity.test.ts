@@ -46,7 +46,15 @@ function insertRows(
 
   const columns = insert[1].split(",").map((column) => column.trim());
 
-  return [...insert[2].matchAll(/\(([^()]+)\)/g)].map(([, row]) => {
+  /*
+   * The seed's inserts are upserts now, because migrations provision the same
+   * canonical rows. Everything from `ON CONFLICT` onward is a conflict target
+   * and an update list rather than data, and its parenthesised column list
+   * would otherwise be read as one more row of values.
+   */
+  const valuesClause = insert[2].split(/\bON\s+CONFLICT\b/i)[0] ?? "";
+
+  return [...valuesClause.matchAll(/\(([^()]+)\)/g)].map(([, row]) => {
     const values = row.split(/,(?=(?:[^']*'[^']*')*[^']*$)/).map((value) => {
       const token = value.trim();
       return (

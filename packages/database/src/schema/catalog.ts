@@ -97,7 +97,19 @@ export const events = catalogSchema.table(
       table.startsAt,
     ),
     index("events_sport_id_idx").on(table.sportId),
-    check("events_phase_one_synthetic_check", sql`${table.synthetic} = true`),
+    /*
+     * Mirrors 20260907121500_allow_real_catalog_events, which dropped the
+     * phase-one constraint that forced every catalog event to be synthetic.
+     * Real provider ingestion writes `synthetic = false` into these same
+     * tables; provenance lives on the event/provider/observation rows. This
+     * definition had been left at `= true`, so regenerating migrations from
+     * the schema would have re-added a constraint production has removed and
+     * that real ingestion violates.
+     */
+    check(
+      "events_synthetic_boolean_check",
+      sql`${table.synthetic} in (true, false)`,
+    ),
   ],
 );
 

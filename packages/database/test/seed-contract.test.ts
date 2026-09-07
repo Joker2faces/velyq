@@ -105,6 +105,17 @@ function valueTupleArities(sql: string): readonly Readonly<{
 
       if (quoted) continue;
       if (character === ";" && depth === 0) break;
+      /*
+       * The seed's inserts are upserts now, because migrations provision the
+       * same canonical rows. `ON CONFLICT (a, b) DO ...` is a conflict target
+       * and an update list rather than a value tuple, so the row scan has to
+       * stop here or it counts that column list as one more row.
+       */
+      if (
+        depth === 0 &&
+        /^on\s+conflict\b/i.test(sql.slice(index, index + 16))
+      )
+        break;
 
       if (character === "(") {
         if (depth === 0) tupleStart = index + 1;

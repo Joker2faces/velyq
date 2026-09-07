@@ -9,7 +9,16 @@ INSERT INTO public.profiles (user_id, display_name, locale, timezone, created_at
 VALUES
   ('00000000-0000-4000-8000-000000000001', 'Synthetic Owner', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z'),
   ('00000000-0000-4000-8000-000000000002', 'Synthetic Other User', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z'),
-  ('00000000-0000-4000-8000-000000000003', 'Synthetic Administrator', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z');
+  ('00000000-0000-4000-8000-000000000003', 'Synthetic Administrator', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z')
+-- `provision_customer_after_signup` fires on the auth.users insert above and
+-- has already created a bare profile row for each of these users, so a plain
+-- insert collides on profiles_pkey and aborts the whole seed. The seed owns
+-- the display values; the trigger owns row existence.
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  locale = EXCLUDED.locale,
+  timezone = EXCLUDED.timezone,
+  updated_at = EXCLUDED.updated_at;
 
 INSERT INTO private.roles (id, code, description, created_at)
 VALUES
@@ -40,10 +49,12 @@ VALUES
   ('00000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000003', '2026-09-03T08:00:00Z'),
   ('00000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000003', '2026-09-03T08:00:00Z'),
   ('00000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000003', '2026-09-03T08:00:00Z'),
-  ('00000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003', '2026-09-03T08:00:00Z');
+  ('00000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003', '2026-09-03T08:00:00Z')
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 INSERT INTO catalog.sports (id, code, name_key, created_at)
-VALUES ('20000000-0000-4000-8000-000000000001', 'FOOTBALL', 'sport.football', '2026-01-01T00:00:00Z');
+VALUES ('20000000-0000-4000-8000-000000000001', 'FOOTBALL', 'sport.football', '2026-01-01T00:00:00Z')
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO catalog.competitions (id, sport_id, code, name_key, country_code, created_at)
 VALUES (
@@ -171,7 +182,8 @@ INSERT INTO market.market_definitions (
 )
 VALUES
   ('40000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'FOOTBALL_FULL_TIME_1X2', 'MATCH_RESULT', 'FULL_TIME', 'THREE_WAY', 'EVENT', false, '{"allowed":false}'::jsonb, 'FOOTBALL_1X2_FULL_TIME_V1', 'market.match_result.full_time', '2026-01-01T00:00:00Z'),
-  ('40000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'FOOTBALL_FULL_TIME_TOTAL', 'TOTAL', 'FULL_TIME', 'TWO_WAY', 'EVENT', true, '{"increments":["0.5"]}'::jsonb, 'FOOTBALL_TOTAL_2_5_FULL_TIME_V1', 'market.total.full_time', '2026-01-01T00:00:00Z');
+  ('40000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'FOOTBALL_FULL_TIME_TOTAL', 'TOTAL', 'FULL_TIME', 'TWO_WAY', 'EVENT', true, '{"increments":["0.5"]}'::jsonb, 'FOOTBALL_TOTAL_2_5_FULL_TIME_V1', 'market.total.full_time', '2026-01-01T00:00:00Z')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO market.outcome_definitions (id, market_definition_id, code, label_key, sort_order, created_at)
 VALUES
@@ -179,7 +191,8 @@ VALUES
   ('41000000-0000-4000-8000-000000000002', '40000000-0000-4000-8000-000000000001', 'DRAW', 'outcome.draw', 2, '2026-01-01T00:00:00Z'),
   ('41000000-0000-4000-8000-000000000003', '40000000-0000-4000-8000-000000000001', 'AWAY', 'outcome.away', 3, '2026-01-01T00:00:00Z'),
   ('41000000-0000-4000-8000-000000000004', '40000000-0000-4000-8000-000000000002', 'OVER', 'outcome.over', 1, '2026-01-01T00:00:00Z'),
-  ('41000000-0000-4000-8000-000000000005', '40000000-0000-4000-8000-000000000002', 'UNDER', 'outcome.under', 2, '2026-01-01T00:00:00Z');
+  ('41000000-0000-4000-8000-000000000005', '40000000-0000-4000-8000-000000000002', 'UNDER', 'outcome.under', 2, '2026-01-01T00:00:00Z')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO market.provider_market_mappings (
   id,
@@ -536,6 +549,10 @@ VALUES
   ('57000000-0000-4000-8000-000000000001', 'EDGE', 'PHASE_1_EDGE', 'edge.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["probabilityEdge","expectedValue","quality"],"weights":{"probabilityEdge":"1","expectedValue":"1","quality":"1"},"capsPenalties":{}}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
   ('57000000-0000-4000-8000-000000000002', 'RADAR', 'PHASE_1_RADAR', 'radar.v1', 'DEVELOPMENT_HEURISTIC', '{"components":["movement","coverage"],"weights":{"movement":"1","coverage":"1"},"capsPenalties":{}}'::jsonb, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
 
+-- `idempotency_key` became NOT NULL in
+-- 20260907133000_add_score_result_idempotency, and the seed had no value for
+-- it, so the entire seed aborted on the not-null constraint. The keys below
+-- mirror what the prediction worker writes: score type plus prediction id.
 INSERT INTO intelligence.score_results (
   id,
   score_definition_version_id,
@@ -548,11 +565,12 @@ INSERT INTO intelligence.score_results (
   weights,
   caps_penalties,
   reason_codes,
+  idempotency_key,
   created_at
 )
 VALUES
-  ('58000000-0000-4000-8000-000000000001', '57000000-0000-4000-8000-000000000001', '56000000-0000-4000-8000-000000000001', '44000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '2026-09-03T10:00:02Z', '64.2500', '{"edge":"60","expectedValue":"70"}'::jsonb, '{"edge":"0.5","expectedValue":"0.5"}'::jsonb, '{}'::jsonb, ARRAY['DEVELOPMENT_ONLY']::text[], '2026-09-03T10:00:03Z'),
-  ('58000000-0000-4000-8000-000000000002', '57000000-0000-4000-8000-000000000002', '56000000-0000-4000-8000-000000000001', '44000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '2026-09-03T10:00:02Z', '52.0000', '{"movement":"60","coverage":"44"}'::jsonb, '{"movement":"0.5","coverage":"0.5"}'::jsonb, '{}'::jsonb, ARRAY['SYNTHETIC_MOVEMENT']::text[], '2026-09-03T10:00:03Z');
+  ('58000000-0000-4000-8000-000000000001', '57000000-0000-4000-8000-000000000001', '56000000-0000-4000-8000-000000000001', '44000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '2026-09-03T10:00:02Z', '64.2500', '{"edge":"60","expectedValue":"70"}'::jsonb, '{"edge":"0.5","expectedValue":"0.5"}'::jsonb, '{}'::jsonb, ARRAY['DEVELOPMENT_ONLY']::text[], 'edge:56000000-0000-4000-8000-000000000001', '2026-09-03T10:00:03Z'),
+  ('58000000-0000-4000-8000-000000000002', '57000000-0000-4000-8000-000000000002', '56000000-0000-4000-8000-000000000001', '44000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '2026-09-03T10:00:02Z', '52.0000', '{"movement":"60","coverage":"44"}'::jsonb, '{"movement":"0.5","coverage":"0.5"}'::jsonb, '{}'::jsonb, ARRAY['SYNTHETIC_MOVEMENT']::text[], 'radar:56000000-0000-4000-8000-000000000001', '2026-09-03T10:00:03Z');
 
 INSERT INTO intelligence.radar_evidence (
   id,
