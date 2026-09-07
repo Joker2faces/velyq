@@ -21,13 +21,11 @@ try {
   const records = fixtureResponse.body.response ?? [];
   const normalized: readonly unknown[] = records.slice(0, 25).map((record) => {
     try {
-      return [
-        sport === "football"
-          ? normalizeFootballFixture(record)
-          : normalizeBasketballGame(record),
-      ];
+      return sport === "football"
+        ? normalizeFootballFixture(record)
+        : normalizeBasketballGame(record);
     } catch (error) {
-      return [{ error: sanitizeProviderError(error) }];
+      return { error: sanitizeProviderError(error) };
     }
   });
   console.log(

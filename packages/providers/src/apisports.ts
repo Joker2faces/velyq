@@ -222,14 +222,15 @@ export function normalizeBasketballGame(
 }
 const footballMarkets: Record<string, string> = {
   "1": "MATCH_WINNER_1X2",
-  "2": "TOTAL_GOALS",
-  "5": "BTTS",
+  "5": "TOTAL_GOALS",
+  "8": "BTTS",
 };
 const basketballMarkets: Record<string, string> = {
-  "1": "MONEYLINE",
-  "2": "SPREAD",
-  "3": "TOTAL_POINTS",
-  "4": "TEAM_TOTAL",
+  "2": "MONEYLINE",
+  "3": "SPREAD",
+  "4": "TOTAL_POINTS",
+  "100": "TEAM_TOTAL",
+  "101": "TEAM_TOTAL",
 };
 export function normalizeOdds(
   raw: unknown,
@@ -238,8 +239,11 @@ export function normalizeOdds(
   sourceReference = "api-sports:odds",
 ): readonly NormalizedOdds[] {
   const item = valueRecord(raw);
+  const eventValue = item["fixture"] ?? item["game"] ?? item["event"];
   const eventId = String(
-    item["fixture"] ?? item["game"] ?? item["event"] ?? "",
+    typeof eventValue === "object" && eventValue !== null
+      ? (valueRecord(eventValue)["id"] ?? "")
+      : (eventValue ?? ""),
   );
   const bookmakers = Array.isArray(item["bookmakers"])
     ? item["bookmakers"]
