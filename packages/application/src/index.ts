@@ -63,6 +63,10 @@ export class MappedCustomerQueryService<
       TRawMatch,
       TDtoMatch
     >,
+    private readonly onError?: (
+      operation: "today" | "match",
+      error: unknown,
+    ) => void,
   ) {}
 
   async getToday(asOf: Date): Promise<CustomerReadResult<TDtoToday>> {
@@ -71,7 +75,8 @@ export class MappedCustomerQueryService<
         ok: true,
         value: this.mapper.mapToday(await this.repository.getToday(asOf)),
       };
-    } catch {
+    } catch (error) {
+      this.onError?.("today", error);
       return {
         ok: false,
         code: "UNAVAILABLE",
@@ -89,7 +94,8 @@ export class MappedCustomerQueryService<
       return raw
         ? { ok: true, value: this.mapper.mapMatch(raw) }
         : { ok: false, code: "NOT_FOUND", messageKey: "matchNotFound" };
-    } catch {
+    } catch (error) {
+      this.onError?.("match", error);
       return {
         ok: false,
         code: "UNAVAILABLE",

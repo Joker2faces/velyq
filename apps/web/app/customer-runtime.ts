@@ -96,18 +96,25 @@ function mappedDatabaseService(
   runtime: RuntimeCustomerQueries,
 ): CustomerService {
   const database = runtime.queries;
+  const reportFailure = (operation: "today" | "match", error: unknown) => {
+    const message = error instanceof Error ? error.message : "unknown failure";
+    const sanitized = message
+      .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[DATABASE_URL_REDACTED]")
+      .slice(0, 500);
+    console.error(`[customer-read:${operation}] ${sanitized}`);
+  };
   const today = new MappedCustomerQueryService<
     CustomerRawToday,
     CustomerTodayDto,
     CustomerRawMatch,
     CustomerMatchDto
-  >(database, customerDatabaseMapper);
+  >(database, customerDatabaseMapper, reportFailure);
   const match = new MappedCustomerQueryService<
     CustomerRawToday,
     CustomerTodayDto,
     CustomerRawMatch,
     CustomerMatchDto
-  >(database, customerDatabaseMapper);
+  >(database, customerDatabaseMapper, reportFailure);
   return {
     getToday: (asOf: Date) => today.getToday(asOf),
     getMatch: (eventId: string, asOf: Date) => match.getMatch(eventId, asOf),
