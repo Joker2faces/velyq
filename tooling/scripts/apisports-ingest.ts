@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { writeFile, rm } from "node:fs/promises";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { createPrivilegedDatabaseClient } from "../../packages/database/src/client.js";
 import {
   createApiSportsClient,
   normalizeBasketballGame,
@@ -11,7 +9,6 @@ import {
   sanitizeProviderError,
 } from "../../packages/providers/src/apisports.js";
 
-const run = promisify(exec);
 const argv = process.argv.filter((value) => value !== "--");
 const args = new Map<string, string>();
 for (let i = 2; i < argv.length; i += 1) {
@@ -168,21 +165,27 @@ async function main() {
       `update operations.provider_sync_runs set status='COMPLETED',completed_at=${sql(new Date().toISOString())},received_count=${events.length + odds.length},accepted_count=${events.length + odds.filter((o) => Boolean(marketCode(o.providerMarket) && outcomeCode(o.selection))).length},rejected_count=${odds.length} - ${odds.filter((o) => Boolean(marketCode(o.providerMarket) && outcomeCode(o.selection))).length} where id=${uuid(runId)}; commit;`,
     );
     if (commit) {
-      const file = `.codex-apisports-${sport}-${Date.now()}.sql`;
-      await writeFile(file, lines.join("\n"), "utf8");
+      const connectionString = process.env["VELYQ_DATABASE_URL"];
+      if (!connectionString) throw new Error("VELYQ_DATABASE_URL_UNAVAILABLE");
+      const client = createPrivilegedDatabaseClient({
+        connectionString,
+        ssl: { rejectUnauthorized: false },
+        max: 1,
+      });
+      const connection = await client.pool.connect();
       try {
-        await run(
-          `pnpm exec supabase db query --linked --project-ref zvdqkmevjfwprexshpap --file ${file}`,
-        );
+        await connection.query("begin");
+        for (const statement of lines.slice(1, -1)) {
+          await connection.query(statement);
+        }
+        await connection.query(lines.at(-1)!.replace(/\s*commit;\s*$/i, ""));
+        await connection.query("commit");
       } catch (error) {
-        const detail = error as { stderr?: string; stdout?: string };
-        throw new Error(
-          sanitizeProviderError(
-            detail.stderr?.trim() || detail.stdout?.trim() || error,
-          ),
-        );
+        await connection.query("rollback");
+        throw error;
       } finally {
-        await rm(file, { force: true });
+        connection.release();
+        await client.close();
       }
     }
     console.log(
