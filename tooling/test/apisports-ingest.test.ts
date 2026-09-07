@@ -104,6 +104,69 @@ describe("discoverAllEvents", () => {
     expect(calls).toHaveLength(2);
   });
 
+  /*
+   * Caught live, against the real API, while deploying: the first request
+   * for a date's fixtures was sending `page=1` unconditionally. The real
+   * endpoint does not accept a `page` parameter at all for a single date —
+   * it rejects the whole request (`errors: { page: "The Page field do not
+   * exist." }`) and returns `results: 0`, which read as an ordinary empty
+   * sports day rather than a malformed request, and would have silently
+   * discarded every fixture for the date in production.
+   */
+  it("omits the page parameter on the first request", async () => {
+    const { client, calls } = fakeClient({
+      "/fixtures": [{ status: 200, body: { response: [] }, quota: HEALTHY }],
+    });
+    await discoverAllEvents(client, "football", "2026-09-07");
+    expect(calls).toEqual(['/fixtures:{"date":"2026-09-07"}']);
+  });
+
+  it("includes the page parameter only once a response reports more pages", async () => {
+    const { client, calls } = fakeClient({
+      "/fixtures": [
+        {
+          status: 200,
+          body: {
+            response: [fixture(1, "2026-09-07T10:00:00Z", "A", "B")],
+            paging: { current: 1, total: 2 },
+          },
+          quota: HEALTHY,
+        },
+        {
+          status: 200,
+          body: {
+            response: [fixture(2, "2026-09-07T12:00:00Z", "C", "D")],
+            paging: { current: 2, total: 2 },
+          },
+          quota: HEALTHY,
+        },
+      ],
+    });
+    await discoverAllEvents(client, "football", "2026-09-07");
+    expect(calls).toEqual([
+      '/fixtures:{"date":"2026-09-07"}',
+      '/fixtures:{"date":"2026-09-07","page":2}',
+    ]);
+  });
+
+  it("aborts discovery when the provider rejects the request, rather than treating it as an empty day", async () => {
+    const { client } = fakeClient({
+      "/fixtures": [
+        {
+          status: 200,
+          body: {
+            response: [],
+            errors: { page: "The Page field do not exist." },
+          },
+          quota: HEALTHY,
+        },
+      ],
+    });
+    await expect(
+      discoverAllEvents(client, "football", "2026-09-07"),
+    ).rejects.toThrow("PROVIDER_DISCOVERY_REJECTED");
+  });
+
   it("stops paginating once the provider reports quota exhaustion", async () => {
     const { client, calls } = fakeClient({
       "/fixtures": [

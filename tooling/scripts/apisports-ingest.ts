@@ -102,8 +102,32 @@ export async function discoverAllEvents(
   let totalPages: number;
   let quota: ProviderQuota;
   do {
-    const response = await client.get(fixturePath, { date, page });
+    /*
+     * `page` is omitted entirely on the first request. Live-verified against
+     * the real API: this date-scoped endpoint does not accept a `page`
+     * parameter at all — sending `page=1` on a request that would otherwise
+     * return every fixture for the date instead makes the provider reject
+     * the whole request (`errors: { page: "The Page field do not exist." }`)
+     * and return zero results, which silently looked like an empty sports
+     * day rather than a malformed request. `page` is added only once a
+     * response has actually reported more than one page exists — which this
+     * endpoint has never been observed to do for a single date, so the loop
+     * below runs exactly once in practice, and the pagination path stays
+     * ready without ever sending a parameter the endpoint does not expect.
+     */
+    const response = await client.get(
+      fixturePath,
+      page === 1 ? { date } : { date, page },
+    );
     quota = response.quota;
+    const errors = response.body.errors;
+    if (
+      errors !== null &&
+      typeof errors === "object" &&
+      Object.keys(errors).length > 0
+    ) {
+      throw new Error(`PROVIDER_DISCOVERY_REJECTED:${JSON.stringify(errors)}`);
+    }
     records.push(...(response.body.response ?? []));
     totalPages = Math.max(1, response.body.paging?.total ?? 1);
     page += 1;
