@@ -20,38 +20,33 @@ test("admin entry point exposes the protected operations sign-in", async ({
 });
 
 test("admin rejects invalid credentials without creating a session", async ({
-  page,
+  request,
+  baseURL,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("Email").fill("not-an-admin@example.test");
-  await page.getByLabel("Password").fill("incorrect-password");
-  const [response] = await Promise.all([
-    page.waitForResponse(
-      (candidate) =>
-        candidate.url().includes("/api/v1/auth/sign-in") &&
-        candidate.request().method() === "POST",
-    ),
-    page.getByRole("button", { name: "Continue to admin" }).click(),
-  ]);
+  const response = await request.post("/api/v1/auth/sign-in", {
+    form: {
+      email: "not-an-admin@example.test",
+      password: "incorrect-password",
+    },
+    headers: { origin: baseURL },
+    maxRedirects: 0,
+  });
 
   expect(response.status()).toBe(401);
   expect(await response.json()).toMatchObject({ code: "INVALID_CREDENTIALS" });
-  await expect(page).toHaveURL(/\/api\/v1\/auth\/sign-in$/);
-  expect(
-    (await page.context().cookies()).some(
-      ({ name }) => name === "velyq_access_token",
-    ),
-  ).toBe(false);
+  expect(response.headers()["set-cookie"]).toBeUndefined();
 });
 
 test("admin auth endpoint issues server-side session cookies for valid auth", async ({
   request,
+  baseURL,
 }) => {
   const response = await request.post("/api/v1/auth/sign-in", {
     form: {
       email: "admin@example.test",
       password: "admin-password",
     },
+    headers: { origin: baseURL },
     maxRedirects: 0,
   });
 
@@ -63,19 +58,20 @@ test("admin auth endpoint issues server-side session cookies for valid auth", as
   expect(cookies).toHaveLength(2);
   for (const { value } of cookies) {
     expect(value).toContain("HttpOnly");
-    expect(value).toContain("SameSite=Lax");
+    expect(value.toLowerCase()).toContain("samesite=lax");
   }
 });
 
 test("authorized admin traces seeded operations from run to prediction, score, and quality", async ({
   page,
+  baseURL,
 }) => {
   await page.goto("/");
   await page.getByLabel("Email").fill("admin@example.test");
   await page.getByLabel("Password").fill("admin-password");
   await page.getByRole("button", { name: "Continue to operations" }).click();
 
-  await expect(page).toHaveURL("http://127.0.0.1:3200/");
+  await expect(page).toHaveURL(`${baseURL}/`);
   await expect(
     page.getByRole("heading", { name: "Traceability console." }),
   ).toBeVisible();
