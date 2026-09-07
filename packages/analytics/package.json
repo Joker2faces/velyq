@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./research-v3": "./src/research-v3.ts",
-    "./fortress-multi": "./src/fortress-multi.ts"
+    "./fortress-multi": "./src/fortress-multi.ts",
+    "./decision-timing": "./src/decision-timing.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

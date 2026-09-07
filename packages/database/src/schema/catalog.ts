@@ -59,6 +59,56 @@ export const competitions = catalogSchema.table(
   ],
 );
 
+/**
+ * What the provider says it can supply for a league and season.
+ *
+ * Cached deliberately. The free plan allows 100 requests a day across every
+ * endpoint, and asking a league whose `lineups` flag is false for a lineup is
+ * a request wasted permanently rather than just now. One
+ * `/leagues?current=true` call fills this for every league at once.
+ *
+ * An unknown coverage state is the *absence* of a row rather than a null
+ * column, which the lineup scheduler treats as "ask once" — neither of the
+ * two confident answers.
+ */
+export const competitionProviderCoverage = catalogSchema.table(
+  "competition_provider_coverage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id").notNull(),
+    providerLeagueId: text("provider_league_id").notNull(),
+    leagueName: text("league_name").notNull(),
+    countryName: text("country_name"),
+    countryCode: char("country_code", { length: 2 }),
+    season: integer("season").notNull(),
+    isCurrent: boolean("is_current").notNull(),
+    lineups: boolean("lineups").notNull(),
+    odds: boolean("odds").notNull(),
+    predictions: boolean("predictions").notNull(),
+    injuries: boolean("injuries").notNull(),
+    statistics: boolean("statistics").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("competition_provider_coverage_identity_unique").on(
+      table.providerId,
+      table.providerLeagueId,
+      table.season,
+    ),
+    index("competition_provider_coverage_current_idx").on(
+      table.providerId,
+      table.isCurrent,
+    ),
+    check(
+      "competition_provider_coverage_season_check",
+      sql`${table.season} between 1900 and 2100`,
+    ),
+  ],
+);
+
 export const competitionPolicyVersions = catalogSchema.table(
   "competition_policy_versions",
   {

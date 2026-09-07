@@ -6,6 +6,7 @@ import {
   jsonb,
   numeric,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -32,6 +33,18 @@ export const lineupObservations = intelligenceSchema.table(
       .references(() => participants.id, { onDelete: "restrict" }),
     schemaVersion: text("schema_version").notNull(),
     status: text("status").notNull(),
+    /* The provider's own fixture id, so a stored lineup traces back to the
+       exact request that produced it without going via the catalog event. */
+    providerFixtureId: text("provider_fixture_id"),
+    /* A managerial change is one of the few pre-match facts that plausibly
+       moves a price, and it is not recoverable from the player list. */
+    coachName: text("coach_name"),
+    providerCoachId: text("provider_coach_id"),
+    /* Counts beside the jsonb, so "is this a complete XI" is answerable in a
+       query. A one-sided or short lineup is not a lineup for decision
+       purposes and the pipeline has to filter on that cheaply. */
+    starters: smallint("starters"),
+    substitutes: smallint("substitutes"),
     confidence: numeric("confidence", {
       precision: 8,
       scale: 7,
@@ -71,6 +84,13 @@ export const lineupObservations = intelligenceSchema.table(
     check(
       "lineup_observations_players_array_check",
       sql`jsonb_typeof(${table.players}) = 'array'`,
+    ),
+    check(
+      "lineup_observations_squad_counts_check",
+      sql`(${table.starters} is null or ${table.starters} between 0 and 30) and (${table.substitutes} is null or ${table.substitutes} between 0 and 30)`,
+    ),
+    index("lineup_observations_provider_fixture_idx").on(
+      table.providerFixtureId,
     ),
   ],
 );

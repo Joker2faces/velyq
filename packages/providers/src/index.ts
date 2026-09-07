@@ -25,3 +25,5 @@ export {
   type SyntheticSequenceDocument,
 } from "./schemas.js";
 export * from "./apisports.js";
+export * from "./apisports-lineups.js";
+export * from "./lineup-schedule.js";

@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  smallint,
   text,
   timestamp,
   unique,
@@ -184,6 +185,52 @@ export const jobs = operationsSchema.table(
         or (${table.status} = 'COMPLETED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is null)
         or (${table.status} = 'FAILED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is not null)
       )`,
+    ),
+  ],
+);
+
+/**
+ * When each fixture's lineup was last asked for, and what came back.
+ *
+ * Without this the scheduler cannot honour a recheck interval, and polling
+ * inside the priority window would spend a request a minute to learn the same
+ * thing repeatedly. It also records the availability each request resolved
+ * to, which is what lets the decision policy tell a pending lineup from an
+ * uncovered competition without re-deriving it.
+ *
+ * Append-only, like the observation history: a log that can be rewritten
+ * cannot explain a decision that cited it.
+ */
+export const lineupRequestLog = operationsSchema.table(
+  "lineup_request_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    providerFixtureId: text("provider_fixture_id").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull(),
+    availability: text("availability").notNull(),
+    minutesToKickoff: integer("minutes_to_kickoff").notNull(),
+    pollWindow: text("poll_window").notNull(),
+    teamsReturned: smallint("teams_returned").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("lineup_request_log_event_requested_idx").on(
+      table.eventId,
+      table.requestedAt.desc(),
+    ),
+    check(
+      "lineup_request_log_availability_check",
+      sql`${table.availability} in ('LINEUP_AVAILABLE', 'LINEUP_NOT_PUBLISHED_YET', 'LINEUP_NOT_COVERED')`,
+    ),
+    check(
+      "lineup_request_log_window_check",
+      sql`${table.pollWindow} in ('OUTSIDE_WINDOW', 'OCCASIONAL', 'POLLING', 'PRIORITY', 'KICKED_OFF')`,
     ),
   ],
 );

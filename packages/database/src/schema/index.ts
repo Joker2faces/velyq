@@ -3,6 +3,7 @@ import {
   competitionIdentities,
   competitionPolicies,
   competitionPolicyVersions,
+  competitionProviderCoverage,
   competitions,
   eventParticipants,
   events,
@@ -36,6 +37,7 @@ import {
 } from "./market.js";
 import {
   jobs,
+  lineupRequestLog,
   providerPolicyVersions,
   providerSyncRuns,
   providers,
@@ -73,6 +75,7 @@ export const phaseOneTables = [
   competitionIdentities,
   competitionPolicies,
   competitionPolicyVersions,
+  competitionProviderCoverage,
   competitions,
   eventParticipants,
   events,
@@ -100,6 +103,7 @@ export const phaseOneTables = [
   outcomeDefinitions,
   providerMarketMappings,
   jobs,
+  lineupRequestLog,
   providerPolicyVersions,
   providerSyncRuns,
   providers,
