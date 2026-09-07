@@ -52,7 +52,19 @@ export async function POST(request: Request) {
     return NextResponse.json(result, {
       headers: { "cache-control": "private, no-store" },
     });
-  } catch {
+  } catch (error) {
+    console.error("provider-ingest", {
+      code:
+        typeof error === "object" && error !== null && "code" in error
+          ? String(error.code)
+          : "INGESTION_FAILED",
+      message: String(error instanceof Error ? error.message : error)
+        .replaceAll(
+          /(?:postgres(?:ql)?:\/\/)[^\s]+/gi,
+          "[DATABASE_URL_REDACTED]",
+        )
+        .replaceAll(/(password|token|key)=[^\s,;]+/gi, "$1=[REDACTED]"),
+    });
     return NextResponse.json(
       { code: "INGESTION_FAILED" },
       {
