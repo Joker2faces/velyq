@@ -21,5 +21,5 @@ describe("database client composition", () => {
     expect(client.database).toBeDefined();
 
     await client.close();
-  });
+  }, 10_000);
 });

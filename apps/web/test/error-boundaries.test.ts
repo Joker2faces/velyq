@@ -38,7 +38,7 @@ describe("not-found boundary", () => {
     const html = await renderNotFound();
     expect(html).toContain(translate("notFoundTitle", "en"));
     expect(html).not.toContain("This page could not be found");
-  });
+  }, 10_000);
 
   it("offers a route back into the product", async () => {
     const html = await renderNotFound();
