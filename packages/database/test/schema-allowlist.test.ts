@@ -3,6 +3,9 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 
 const EXPECTED_PHASE_ONE_TABLES = [
   "audit.admin_audit_events",
+  "catalog.competition_identities",
+  "catalog.competition_policies",
+  "catalog.competition_policy_versions",
   "catalog.competitions",
   "catalog.event_participants",
   "catalog.events",
@@ -11,7 +14,9 @@ const EXPECTED_PHASE_ONE_TABLES = [
   "intelligence.calibration_versions",
   "intelligence.data_quality_assessments",
   "intelligence.data_quality_policy_versions",
+  "intelligence.decision_funnel_runs",
   "intelligence.lineup_observations",
+  "intelligence.model_artifacts",
   "intelligence.model_definitions",
   "intelligence.model_versions",
   "intelligence.prediction_inputs",
@@ -37,6 +42,11 @@ const EXPECTED_PHASE_ONE_TABLES = [
   "private.roles",
   "private.user_roles",
   "public.profiles",
+  "research.data_sources",
+  "research.imports",
+  "research.mapping_quarantine",
+  "research.match_odds",
+  "research.matches",
 ] as const;
 
 async function loadPhaseOneTableNames(): Promise<readonly string[]> {
@@ -62,10 +72,10 @@ async function loadPhaseOneTableNames(): Promise<readonly string[]> {
 }
 
 describe("Phase 1 database schema allowlist", () => {
-  it("exports exactly the 35 approved qualified table names", async () => {
+  it("exports exactly the 45 approved qualified table names", async () => {
     const tableNames = await loadPhaseOneTableNames();
 
     expect(tableNames).toEqual(EXPECTED_PHASE_ONE_TABLES);
-    expect(new Set(tableNames).size).toBe(35);
+    expect(new Set(tableNames).size).toBe(45);
   });
 });

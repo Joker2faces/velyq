@@ -1,5 +1,8 @@
 import { adminAuditEvents } from "./audit.js";
 import {
+  competitionIdentities,
+  competitionPolicies,
+  competitionPolicyVersions,
   competitions,
   eventParticipants,
   events,
@@ -10,7 +13,9 @@ import {
   calibrationVersions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
+  decisionFunnelRuns,
   lineupObservations,
+  modelArtifacts,
   modelDefinitions,
   modelVersions,
   predictionInputs,
@@ -38,6 +43,13 @@ import {
 } from "./operations.js";
 import { permissions, rolePermissions, roles, userRoles } from "./private.js";
 import { profiles } from "./public.js";
+import {
+  dataSources,
+  imports,
+  mappingQuarantine,
+  matchOdds,
+  matches,
+} from "./research.js";
 
 export * from "./audit.js";
 export * from "./catalog.js";
@@ -46,10 +58,21 @@ export * from "./market.js";
 export * from "./operations.js";
 export * from "./private.js";
 export * from "./public.js";
+export * from "./research.js";
 export * from "./schemas.js";
 
+/**
+ * Every table the application owns, in one reviewed allowlist.
+ *
+ * Named for the phase that introduced it; it has always been the full set
+ * rather than a phase-scoped subset, and `schema-allowlist.test.ts` pins it so
+ * that adding a table is a deliberate, reviewed edit rather than a side effect.
+ */
 export const phaseOneTables = [
   adminAuditEvents,
+  competitionIdentities,
+  competitionPolicies,
+  competitionPolicyVersions,
   competitions,
   eventParticipants,
   events,
@@ -58,7 +81,9 @@ export const phaseOneTables = [
   calibrationVersions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
+  decisionFunnelRuns,
   lineupObservations,
+  modelArtifacts,
   modelDefinitions,
   modelVersions,
   predictionInputs,
@@ -84,6 +109,11 @@ export const phaseOneTables = [
   roles,
   userRoles,
   profiles,
+  dataSources,
+  imports,
+  matches,
+  matchOdds,
+  mappingQuarantine,
 ] as const;
 
 export { databaseSchema } from "./database.js";

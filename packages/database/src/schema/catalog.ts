@@ -4,7 +4,10 @@ import {
   char,
   check,
   index,
+  integer,
+  jsonb,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -39,12 +42,144 @@ export const competitions = catalogSchema.table(
     code: text("code").notNull(),
     nameKey: text("name_key").notNull(),
     countryCode: char("country_code", { length: 2 }),
+    /*
+     * Nullable on purpose. An event whose competition has no canonical
+     * mapping is not an error, it is a competition with no policy: it stays
+     * in the catalog, stays visible in admin, and is ineligible for customer
+     * intelligence because the resolver fails closed rather than guessing.
+     */
+    canonicalCode: text("canonical_code"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
     unique("competitions_sport_id_code_unique").on(table.sportId, table.code),
+    index("competitions_canonical_code_idx").on(table.canonicalCode),
+  ],
+);
+
+export const competitionPolicyVersions = catalogSchema.table(
+  "competition_policy_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    version: text("version").notNull(),
+    definition: jsonb("definition").notNull(),
+    effectiveFrom: timestamp("effective_from", {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("competition_policy_versions_version_unique").on(table.version),
+    check(
+      "competition_policy_versions_definition_object_check",
+      sql`jsonb_typeof(${table.definition}) = 'object'`,
+    ),
+  ],
+);
+
+/**
+ * Which competitions may become customer intelligence, and on what evidence.
+ *
+ * "Discovered" and "worth showing a customer" are different questions.
+ * Eligibility is decided by whether a trained model covers the competition,
+ * whether enough historical sample sits behind it and whether enough
+ * bookmakers price it — never by how famous the teams are.
+ */
+export const competitionPolicies = catalogSchema.table(
+  "competition_policies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    policyVersionId: uuid("policy_version_id")
+      .notNull()
+      .references(() => competitionPolicyVersions.id, { onDelete: "restrict" }),
+    sportId: uuid("sport_id")
+      .notNull()
+      .references(() => sports.id, { onDelete: "restrict" }),
+    canonicalCode: text("canonical_code").notNull(),
+    displayName: text("display_name").notNull(),
+    countryCode: char("country_code", { length: 2 }),
+    tier: smallint("tier").notNull(),
+    state: text("state").notNull(),
+    modelEligible: boolean("model_eligible").notNull(),
+    customerVisible: boolean("customer_visible").notNull(),
+    minHistoricalSample: integer("min_historical_sample").notNull(),
+    minBookmakerCoverage: integer("min_bookmaker_coverage").notNull(),
+    /*
+     * An administrator can narrow eligibility but never widen it past the
+     * evidence: widening would be a way to publish an unvalidated model
+     * through a configuration change. The narrowing rule is enforced in
+     * application code, which is where the evidence being compared against
+     * actually lives.
+     */
+    manualOverride: text("manual_override"),
+    overrideReason: text("override_reason"),
+    reasonCodes: text("reason_codes").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("competition_policies_identity_unique").on(
+      table.policyVersionId,
+      table.canonicalCode,
+    ),
+    index("competition_policies_canonical_code_idx").on(table.canonicalCode),
+    index("competition_policies_sport_id_idx").on(table.sportId),
+    check(
+      "competition_policies_state_check",
+      sql`${table.state} in ('PRIME', 'SUPPORTED', 'EXPERIMENTAL', 'ADMIN_ONLY', 'EXCLUDED')`,
+    ),
+    check(
+      "competition_policies_manual_override_check",
+      sql`${table.manualOverride} is null or ${table.manualOverride} in ('PRIME', 'SUPPORTED', 'EXPERIMENTAL', 'ADMIN_ONLY', 'EXCLUDED')`,
+    ),
+    check(
+      "competition_policies_override_reason_check",
+      sql`${table.manualOverride} is null or ${table.overrideReason} is not null`,
+    ),
+    // Running inference on a competition nobody may see has no purpose.
+    check(
+      "competition_policies_visibility_check",
+      sql`${table.customerVisible} or not ${table.modelEligible}`,
+    ),
+    check(
+      "competition_policies_thresholds_check",
+      sql`${table.minHistoricalSample} >= 0 and ${table.minBookmakerCoverage} >= 0`,
+    ),
+  ],
+);
+
+/**
+ * The bridge from a provider's own competition key to the canonical code the
+ * policy is written against.
+ *
+ * Provider names are ambiguous across countries — "Premier League" exists in
+ * a dozen of them — so a provider key resolves only through an explicit row
+ * here, never through a name match alone.
+ */
+export const competitionIdentities = catalogSchema.table(
+  "competition_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    canonicalCode: text("canonical_code").notNull(),
+    sourceCode: text("source_code").notNull(),
+    sourceKey: text("source_key").notNull(),
+    sourceName: text("source_name").notNull(),
+    countryCode: char("country_code", { length: 2 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("competition_identities_identity_unique").on(
+      table.sourceCode,
+      table.sourceKey,
+    ),
+    index("competition_identities_canonical_code_idx").on(table.canonicalCode),
   ],
 );
 

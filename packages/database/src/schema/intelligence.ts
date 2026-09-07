@@ -487,3 +487,107 @@ export const radarEvidence = intelligenceSchema.table(
     ),
   ],
 );
+
+/**
+ * The immutable artifact production inference loads.
+ *
+ * A model that refits on demand cannot reproduce the prediction it made last
+ * Tuesday and therefore cannot be audited, so everything needed to reproduce
+ * a probability travels together here: parameters, calibrators, measured
+ * uncertainty profiles, the training cutoff, a fingerprint of the exact
+ * training rows and the full validation report.
+ */
+export const modelArtifacts = intelligenceSchema.table(
+  "model_artifacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    modelVersionId: uuid("model_version_id")
+      .notNull()
+      .references(() => modelVersions.id, { onDelete: "restrict" }),
+    artifactReference: text("artifact_reference").notNull(),
+    trainingDatasetFingerprint: text("training_dataset_fingerprint").notNull(),
+    trainingCutoff: timestamp("training_cutoff", {
+      withTimezone: true,
+    }).notNull(),
+    parameters: jsonb("parameters").notNull(),
+    calibrators: jsonb("calibrators").notNull(),
+    uncertaintyProfiles: jsonb("uncertainty_profiles").notNull(),
+    validationReport: jsonb("validation_report").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("model_artifacts_artifact_reference_unique").on(
+      table.artifactReference,
+    ),
+    unique("model_artifacts_model_version_unique").on(table.modelVersionId),
+    check(
+      "model_artifacts_parameters_object_check",
+      sql`jsonb_typeof(${table.parameters}) = 'object'`,
+    ),
+    check(
+      "model_artifacts_calibrators_array_check",
+      sql`jsonb_typeof(${table.calibrators}) = 'array'`,
+    ),
+    check(
+      "model_artifacts_uncertainty_array_check",
+      sql`jsonb_typeof(${table.uncertaintyProfiles}) = 'array'`,
+    ),
+    check(
+      "model_artifacts_validation_report_object_check",
+      sql`jsonb_typeof(${table.validationReport}) = 'object'`,
+    ),
+  ],
+);
+
+/**
+ * Why there is no recommendation today, in counts rather than in prose.
+ *
+ * This is what distinguishes "the model evaluated the qualifying events and
+ * none cleared the gates" from "no prediction was ever generated". Those two
+ * are indistinguishable from an empty recommendation list, and only one of
+ * them is a bug.
+ */
+export const decisionFunnelRuns = intelligenceSchema.table(
+  "decision_funnel_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sportCode: text("sport_code").notNull(),
+    asOf: timestamp("as_of", { withTimezone: true }).notNull(),
+    horizonHours: integer("horizon_hours").notNull(),
+    modelVersionId: uuid("model_version_id").references(
+      () => modelVersions.id,
+      { onDelete: "restrict" },
+    ),
+    counts: jsonb("counts").notNull(),
+    noBetReasons: jsonb("no_bet_reasons").notNull(),
+    triggerSource: text("trigger_source").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("decision_funnel_runs_idempotency_key_unique").on(
+      table.idempotencyKey,
+    ),
+    index("decision_funnel_runs_sport_as_of_idx").on(
+      table.sportCode,
+      table.asOf.desc(),
+    ),
+    check(
+      "decision_funnel_runs_counts_object_check",
+      sql`jsonb_typeof(${table.counts}) = 'object'`,
+    ),
+    check(
+      "decision_funnel_runs_no_bet_reasons_object_check",
+      sql`jsonb_typeof(${table.noBetReasons}) = 'object'`,
+    ),
+    check("decision_funnel_runs_horizon_check", sql`${table.horizonHours} > 0`),
+    check(
+      "decision_funnel_runs_trigger_source_check",
+      sql`${table.triggerSource} in ('SCHEDULED', 'ADMIN', 'CLI')`,
+    ),
+  ],
+);

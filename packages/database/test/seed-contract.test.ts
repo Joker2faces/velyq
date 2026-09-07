@@ -111,10 +111,7 @@ function valueTupleArities(sql: string): readonly Readonly<{
        * and an update list rather than a value tuple, so the row scan has to
        * stop here or it counts that column list as one more row.
        */
-      if (
-        depth === 0 &&
-        /^on\s+conflict\b/i.test(sql.slice(index, index + 16))
-      )
+      if (depth === 0 && /^on\s+conflict\b/i.test(sql.slice(index, index + 16)))
         break;
 
       if (character === "(") {

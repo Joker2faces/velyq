@@ -25,7 +25,10 @@
     "worker:verify": "node tooling/scripts/worker-readiness.mjs",
     "mock:replay": "tsx packages/providers/src/cli.ts",
     "data:apisports:probe": "tsx packages/providers/src/apisports-cli.ts",
-    "data:apisports:ingest": "tsx tooling/scripts/apisports-ingest.ts"
+    "data:apisports:ingest": "tsx tooling/scripts/apisports-ingest.ts",
+    "data:historical:download": "tsx tooling/scripts/historical-download.ts",
+    "data:historical:report": "tsx tooling/scripts/historical-corpus.ts",
+    "model:train": "tsx tooling/scripts/train-football-model.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

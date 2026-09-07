@@ -7,6 +7,9 @@ const ROOT = resolve(import.meta.dirname, "../../..");
 
 const EXPECTED_TABLES = [
   "audit.admin_audit_events",
+  "catalog.competition_identities",
+  "catalog.competition_policies",
+  "catalog.competition_policy_versions",
   "catalog.competitions",
   "catalog.event_participants",
   "catalog.events",
@@ -15,7 +18,9 @@ const EXPECTED_TABLES = [
   "intelligence.calibration_versions",
   "intelligence.data_quality_assessments",
   "intelligence.data_quality_policy_versions",
+  "intelligence.decision_funnel_runs",
   "intelligence.lineup_observations",
+  "intelligence.model_artifacts",
   "intelligence.model_definitions",
   "intelligence.model_versions",
   "intelligence.prediction_inputs",
@@ -41,17 +46,26 @@ const EXPECTED_TABLES = [
   "private.roles",
   "private.user_roles",
   "public.profiles",
+  "research.data_sources",
+  "research.imports",
+  "research.mapping_quarantine",
+  "research.match_odds",
+  "research.matches",
 ] as const;
 
 const APPEND_ONLY_TABLES = [
   "audit.admin_audit_events",
   "intelligence.data_quality_assessments",
+  "intelligence.decision_funnel_runs",
+  "intelligence.model_artifacts",
   "intelligence.prediction_inputs",
   "intelligence.predictions",
   "intelligence.radar_evidence",
   "intelligence.score_results",
   "market.odds_observations",
   "operations.source_observations",
+  "research.match_odds",
+  "research.matches",
 ] as const;
 
 function migrationSql(): string {
@@ -114,7 +128,7 @@ function appendOnlyTargets(sql: string): string[] {
 }
 
 describe("reviewed Phase 1 migration contract", () => {
-  it("creates exactly the approved 35-table allowlist", () => {
+  it("creates exactly the approved 45-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 
@@ -319,7 +333,7 @@ describe("reviewed Phase 1 migration contract", () => {
     );
   });
 
-  it("protects exactly the eight approved append-only histories", () => {
+  it("protects exactly the 12 approved append-only histories", () => {
     expect(appendOnlyTargets(migrationSql())).toEqual(APPEND_ONLY_TABLES);
   });
 
