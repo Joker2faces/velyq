@@ -1,8 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   competitionIdentities,
   competitionProviderCoverage,
-  competitions,
   providers,
   type PrivilegedVelyqDatabase,
 } from "@velyq/database";
@@ -48,7 +47,13 @@ export type CoverageSyncResult = Readonly<{
   identityRows: number;
   /** Competitions whose canonical code this run was able to fill in. */
   competitionsResolved: number;
-  /** Leagues that mapped to a canonical code, with their coverage flags. */
+  /**
+   * Leagues whose canonical code is known but which could not be attached to
+   * a stored competition without guessing — no country on either side, or no
+   * stored row matching both the slug and the country.
+   */
+  ambiguous: number;
+  /** Always zero here — resolution is id-keyed and happens in ingestion. */
   resolved: readonly Readonly<{
     canonicalCode: string;
     providerLeagueId: string;
@@ -96,6 +101,33 @@ export function resolveLeague(coverage: LeagueCoverage): string | null {
     )
     .find((entry) => entry.ok);
   return resolution?.ok ? resolution.canonicalCode : null;
+}
+
+/**
+ * The competition code the ingester writes, and the only thing that may be
+ * treated as a competition's identity within one sport.
+ *
+ * The country is part of the code, not metadata beside it. A league name is
+ * not an identity — "Serie A" is Italy's and Brazil's alike, "Premier League"
+ * belongs to a dozen countries — and a name-keyed competition row silently
+ * merges them into one. That is not a display bug: the merged row carried a
+ * canonical code, which made a Brazilian fixture eligible for pricing as
+ * Italian Serie A.
+ *
+ * A league whose country is genuinely unknown keeps the bare slug. It stays
+ * unresolvable rather than colliding with a country-scoped row, which is the
+ * outcome we want — unresolved is recoverable, mismapped is not.
+ */
+export function competitionSlug(
+  leagueName: string,
+  countryCode?: string | null,
+): string {
+  const base = leagueName
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const country = countryCode?.trim().slice(0, 2).toLowerCase();
+  return country ? `${base}-${country}` : base;
 }
 
 export async function syncApiSportsCoverage(
@@ -194,34 +226,23 @@ export async function syncApiSportsCoverage(
   }
 
   /*
-   * Backfill the canonical code onto competitions already in the catalog.
+   * No name-based backfill happens here, deliberately.
    *
-   * Existing rows were keyed by a slug of the league name before the league
-   * id was carried, so they cannot be matched by id. Matching by the same
-   * slug the ingester generates is exact for those rows — and is applied only
-   * where `canonical_code` is still null, so it can never overwrite an
-   * identity a later id-keyed ingestion established.
+   * This function used to attach canonical codes to stored competitions by
+   * matching a slug of the league name, and `slug("Serie A")` is "serie-a"
+   * for Italy and Brazil alike. A Brazilian Série A fixture was relabelled
+   * ITA_SERIE_A and became eligible for pricing as an Italian match — a
+   * claim about the wrong continent that nothing downstream could catch,
+   * because every later stage treats the canonical code as established fact.
+   *
+   * What this run does instead is write the reviewed identity rows above,
+   * keyed by the provider's league id. Ingestion then resolves each
+   * competition against those rows by id, with no name comparison anywhere.
+   * A league nobody has mapped stays null and stays in the raw provider
+   * universe. Unresolved is recoverable; mismapped is not.
    */
-  let competitionsResolved = 0;
-  for (const entry of resolved) {
-    const slug = entry.leagueName
-      .toLowerCase()
-      .replaceAll(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    const updated = await options.database
-      .update(competitions)
-      .set({
-        canonicalCode: entry.canonicalCode,
-        ...(entry.countryCode
-          ? { countryCode: entry.countryCode.slice(0, 2) }
-          : {}),
-      })
-      .where(
-        and(eq(competitions.code, slug), isNull(competitions.canonicalCode)),
-      )
-      .returning({ id: competitions.id });
-    competitionsResolved += updated.length;
-  }
+  const competitionsResolved = 0;
+  const ambiguous = resolved.length;
 
   return {
     provider: "API_SPORTS",
@@ -230,6 +251,7 @@ export async function syncApiSportsCoverage(
     coverageRows,
     identityRows,
     competitionsResolved,
+    ambiguous,
     resolved,
     quotaState: fetched.quota.state,
     requestsRemaining: fetched.quota.requestsRemaining,

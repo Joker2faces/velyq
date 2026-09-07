@@ -15,6 +15,13 @@ const id = (key: string) => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 };
 const sql = (value: string) => `'${value.replaceAll("'", "''")}'`;
+/* The base form of the shared competition code rule; the country suffix is
+   applied at the call site so an unknown country keeps the bare slug. */
+const competitionSlug = (name: string) =>
+  name
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 const uuid = (key: string) => sql(id(key));
 
 /**
@@ -304,7 +311,29 @@ export async function runApiSportsIngestion(
   ];
   for (const event of events) {
     const eventId = id(`event:${sport}:${event.providerEventId}`);
-    const competitionId = id(`competition:${sport}:${event.competition}`);
+    /*
+     * The provider's league id is the competition's identity. A name is not
+     * one: keyed by name alone, Brazil's Serie A and Italy's Serie A became a
+     * single row — and that row carried a canonical code, so a Brazilian
+     * fixture became eligible for pricing as Italian Serie A.
+     *
+     * The code keeps the human-readable slug with the discriminator appended,
+     * so an operator reading the table can still tell what a row is. When the
+     * provider supplies no league id there is nothing safe to key on, and the
+     * bare slug is used: such a row stays unresolvable rather than colliding
+     * with a properly identified one.
+     */
+    const leagueKey =
+      event.competitionProviderId ??
+      (event.competitionCountry === null
+        ? null
+        : competitionSlug(event.competitionCountry));
+    const competitionCode = leagueKey
+      ? `${competitionSlug(event.competition)}-${competitionSlug(leagueKey)}`
+      : competitionSlug(event.competition);
+    const competitionId = id(
+      `competition:${sport}:${leagueKey ?? "unidentified"}:${event.competition}`,
+    );
     const homeName = event.participants[0] ?? "UNKNOWN_HOME";
     const awayName = event.participants[1] ?? "UNKNOWN_AWAY";
     const homeId = id(`participant:${sport}:${homeName}`);
@@ -314,8 +343,24 @@ export async function runApiSportsIngestion(
         ? "20000000-0000-4000-8000-000000000001"
         : "20000000-0000-4000-8000-000000000002";
     lines.push(
-      `insert into catalog.competitions (id,sport_id,code,name_key) values (${uuid(competitionId)},${sql(sportId)},${sql(event.competition.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))},${sql(event.competition)}) on conflict (sport_id,code) do update set name_key=excluded.name_key;`,
+      /*
+       * The country travels with the competition. Without it a league name is
+       * not an identity — "Serie A" slugs identically for Italy and Brazil —
+       * and the canonical-code resolver has nothing to disambiguate on.
+       */
+      `insert into catalog.competitions (id,sport_id,code,name_key,country_code) values (${uuid(competitionId)},${sql(sportId)},${sql(competitionCode)},${sql(event.competition)},${event.competitionCountryCode ? sql(event.competitionCountryCode.slice(0, 2)) : "null"}) on conflict (sport_id,code) do update set name_key=excluded.name_key,country_code=coalesce(excluded.country_code,catalog.competitions.country_code);`,
     );
+    /*
+     * The canonical code is resolved from the reviewed identity table by the
+     * provider's league id — never inferred here. A league nobody has mapped
+     * stays null, which keeps it in the raw provider universe and out of
+     * customer intelligence, and a mapped one resolves without any name
+     * comparison at all.
+     */
+    if (event.competitionProviderId)
+      lines.push(
+        `update catalog.competitions c set canonical_code = ci.canonical_code from catalog.competition_identities ci where c.id = ${uuid(competitionId)} and ci.source_code = 'API_SPORTS' and ci.source_key = ${sql(event.competitionProviderId)} and c.canonical_code is distinct from ci.canonical_code;`,
+      );
     for (const [participantId, name] of [
       [homeId, homeName],
       [awayId, awayName],

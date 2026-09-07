@@ -75,7 +75,13 @@ describe("prediction worker", () => {
     expect(result.duplicate).toBe(false);
     expect(result.prediction.decisionStatus).toBe("STRONG_EDGE");
     expect(result.prediction.modelProbability).toBe("0.6");
-    expect(result.prediction.fairOdds).toBe("1.666666666666666666666666666667");
+    /*
+     * Rounded to the odds storage scale, not the full quotient. 1/0.6 has no
+     * finite decimal expansion, and the unrounded value overflows
+     * numeric(18,8) — which is why every real price used to fail value
+     * computation outright and leave `edge` null.
+     */
+    expect(result.prediction.fairOdds).toBe("1.66666667");
     expect(result.prediction.marketImpliedProbability).toBe("0.5");
     expect(result.prediction.edge).toBe("0.1");
     expect(result.prediction.expectedValue).toBe("0.2");
