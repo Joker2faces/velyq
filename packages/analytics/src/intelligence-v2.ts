@@ -496,3 +496,403 @@ export type AiAnalystProvider = Readonly<{
   explainMovement: never;
 }>;
 export const AI_ANALYST_ENABLED = false as const;
+
+export type RankingInput = Readonly<{
+  quality: DecimalString;
+  expectedValue: DecimalString;
+  probabilityEdge: DecimalString;
+  freshness: DecimalString;
+  coverage: DecimalString;
+  lineup: DecisionInput["lineup"];
+  marketStability: DecimalString;
+  mappingConfidence: DecimalString;
+}>;
+export type RankedOpportunity = RankingInput &
+  Readonly<{ rank: DecimalString; policyVersion: "rank.v1" }>;
+export function rankOpportunity(
+  input: RankingInput,
+): DecimalResult<RankedOpportunity> {
+  const values = [
+    input.quality,
+    input.expectedValue,
+    input.probabilityEdge,
+    input.freshness,
+    input.coverage,
+    input.marketStability,
+    input.mappingConfidence,
+  ];
+  let total = "0" as DecimalString;
+  for (const value of values) {
+    const parsed = bounded(value);
+    if (!parsed.ok) return parsed;
+    const next = addDecimalStrings(total, parsed.value);
+    if (!next.ok) return next;
+    total = next.value;
+  }
+  const rank = divideDecimalStrings(
+    total,
+    String(values.length) as DecimalString,
+  );
+  if (!rank.ok) return rank;
+  return {
+    ok: true,
+    value: { ...input, rank: rank.value, policyVersion: "rank.v1" },
+  };
+}
+
+export type PrioritizedItem = Readonly<{
+  id: string;
+  decision: DecisionState;
+  quality: DecimalString;
+  freshness: DecimalString;
+  rank: DecimalString;
+}>;
+const priorityOrder: Record<DecisionState, number> = {
+  EDGE: 0,
+  STRONG_EDGE: 0,
+  WAIT_FOR_LINEUP: 1,
+  WATCH: 2,
+  NO_BET: 3,
+  WAIT: 3,
+  EDGE_DISAPPEARED: 3,
+  INSUFFICIENT_DATA: 4,
+};
+export function prioritizeToday(
+  items: readonly PrioritizedItem[],
+): readonly PrioritizedItem[] {
+  return [...items].sort(
+    (a, b) =>
+      priorityOrder[a.decision] - priorityOrder[b.decision] ||
+      Number(b.quality) - Number(a.quality) ||
+      Number(b.freshness) - Number(a.freshness) ||
+      Number(b.rank) - Number(a.rank),
+  );
+}
+
+export type CalibrationBucket = Readonly<{
+  lower: DecimalString;
+  upper: DecimalString;
+  sampleCount: number;
+  meanPredicted: DecimalString;
+  observedFrequency: DecimalString;
+}>;
+export function calibrationBuckets(
+  samples: readonly EvaluationSample[],
+  boundaries: readonly DecimalString[],
+): DecimalResult<readonly CalibrationBucket[]> {
+  const result: CalibrationBucket[] = [];
+  for (let i = 0; i < boundaries.length - 1; i += 1) {
+    const lower = boundaries[i]!;
+    const upper = boundaries[i + 1]!;
+    const selected = samples.filter(
+      (sample) =>
+        Number(sample.probability) >= Number(lower) &&
+        Number(sample.probability) < Number(upper),
+    );
+    if (selected.length === 0) {
+      result.push({
+        lower,
+        upper,
+        sampleCount: 0,
+        meanPredicted: "0" as DecimalString,
+        observedFrequency: "0" as DecimalString,
+      });
+      continue;
+    }
+    let predicted = "0" as DecimalString;
+    let observed = 0;
+    for (const sample of selected) {
+      const sum = addDecimalStrings(predicted, sample.probability);
+      if (!sum.ok) return sum;
+      predicted = sum.value;
+      if (sample.result) observed += 1;
+    }
+    const mean = divideDecimalStrings(
+      predicted,
+      String(selected.length) as DecimalString,
+    );
+    if (!mean.ok) return mean;
+    result.push({
+      lower,
+      upper,
+      sampleCount: selected.length,
+      meanPredicted: mean.value,
+      observedFrequency: String(observed / selected.length) as DecimalString,
+    });
+  }
+  return { ok: true, value: result };
+}
+
+export type BacktestObservation = Readonly<{
+  eventId: string;
+  predictionGeneratedAt: string;
+  featureCutoff: string;
+  marketObservationCutoff: string;
+  modelVersion: string;
+  probability: DecimalString;
+  price: DecimalString | null;
+  result: boolean | null;
+  quality: DecimalString;
+  policyVersions: Readonly<Record<string, string>>;
+}>;
+export function validateBacktestObservation(
+  observation: BacktestObservation,
+): boolean {
+  return (
+    isTemporallyValid({
+      observedAt: observation.predictionGeneratedAt,
+      featureCutoff: observation.featureCutoff,
+      marketObservationCutoff: observation.marketObservationCutoff,
+    }) &&
+    (!observation.price || !observation.price.startsWith("-"))
+  );
+}
+
+export type OutlierObservation = MarketObservation &
+  Readonly<{
+    deviationFromConsensus: DecimalString;
+    outlierCandidate: boolean;
+  }>;
+export function markOutliers(
+  observations: readonly MarketObservation[],
+  threshold: DecimalString = "0.15" as DecimalString,
+): DecimalResult<readonly OutlierObservation[]> {
+  const summary = summarizeMarket(observations);
+  if (!summary.ok) return summary;
+  return {
+    ok: true,
+    value: observations.map((observation) => {
+      const deviation = subtractDecimalStrings(
+        observation.odds,
+        summary.value.medianOdds,
+      );
+      if (!deviation.ok)
+        return {
+          ...observation,
+          deviationFromConsensus: "0" as DecimalString,
+          outlierCandidate: false,
+        };
+      const absolute = deviation.value.startsWith("-")
+        ? (deviation.value.slice(1) as DecimalString)
+        : deviation.value;
+      const difference = subtractDecimalStrings(absolute, threshold);
+      return {
+        ...observation,
+        deviationFromConsensus: deviation.value,
+        outlierCandidate: difference.ok && !difference.value.startsWith("-"),
+      };
+    }),
+  };
+}
+
+export type WatchEvent = Readonly<{
+  target: Readonly<{ fixtureId: string; market: string; selection: string }>;
+  type:
+    | "EDGE_APPEARED"
+    | "EDGE_DISAPPEARED"
+    | "PRICE_THRESHOLD_CROSSED"
+    | "OFFICIAL_LINEUP"
+    | "SIGNIFICANT_MOVEMENT"
+    | "QUALITY_DOWNGRADED";
+  observedAt: string;
+  policyVersion: string;
+}>;
+export function watchEvent(
+  target: WatchEvent["target"],
+  type: WatchEvent["type"],
+  observedAt: string,
+  policyVersion = "watch.v1",
+): WatchEvent {
+  return { target, type, observedAt, policyVersion };
+}
+
+export type EvidenceTimelineEvent = Readonly<{
+  type:
+    | "MODEL_GENERATED"
+    | "PRICE_OBSERVED"
+    | "PRICE_MOVED"
+    | "LINEUP_EXPECTED"
+    | "LINEUP_OFFICIAL"
+    | "MODEL_RECALCULATED"
+    | "EDGE_FOUND"
+    | "EDGE_CONFIRMED"
+    | "EDGE_DISAPPEARED";
+  source: string;
+  observedAt: string;
+  receivedAt: string;
+  effectiveAt: string;
+  status: "VALID" | "STALE" | "QUARANTINED";
+  reference: string;
+}>;
+export function orderEvidenceTimeline(
+  events: readonly EvidenceTimelineEvent[],
+): readonly EvidenceTimelineEvent[] {
+  return [...events].sort(
+    (a, b) =>
+      Date.parse(a.observedAt) - Date.parse(b.observedAt) ||
+      Date.parse(a.receivedAt) - Date.parse(b.receivedAt),
+  );
+}
+
+export type DecisionHistory = Readonly<{
+  snapshots: readonly DecisionSnapshot[];
+}>;
+export function appendDecisionSnapshot(
+  history: DecisionHistory,
+  snapshot: DecisionSnapshot,
+): DecisionHistory {
+  return {
+    snapshots: [...history.snapshots, snapshot].sort(
+      (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+    ),
+  };
+}
+
+export type RadarMarket = Readonly<{
+  openingOdds: DecimalString;
+  previousOdds: DecimalString;
+  currentOdds: DecimalString;
+  observationCount: number;
+  windowSeconds: number;
+  freshness: "FRESH" | "STALE";
+}>;
+export function radarMarket(input: RadarMarket): DecimalResult<
+  RadarMarket &
+    Readonly<{
+      absoluteMovement: DecimalString;
+      relativeMovement: DecimalString;
+      direction: "UP" | "DOWN" | "STABLE";
+    }>
+> {
+  const absolute = subtractDecimalStrings(input.currentOdds, input.openingOdds);
+  if (!absolute.ok) return absolute;
+  const relative = divideDecimalStrings(absolute.value, input.openingOdds);
+  if (!relative.ok) return relative;
+  const direction =
+    absolute.value === "0"
+      ? "STABLE"
+      : absolute.value.startsWith("-")
+        ? "DOWN"
+        : "UP";
+  return {
+    ok: true,
+    value: {
+      ...input,
+      absoluteMovement: absolute.value,
+      relativeMovement: relative.value,
+      direction,
+    },
+  };
+}
+
+export type MarketConsensus = Readonly<{
+  rawImplied: readonly DecimalString[];
+  normalized: readonly DecimalString[];
+  overround: DecimalString;
+  bestPrice: DecimalString;
+  medianPrice: DecimalString;
+  dispersion: DecimalString;
+  bookmakerCount: number;
+}>;
+export function marketConsensus(
+  prices: readonly DecimalString[],
+  bookmakerCount = prices.length,
+): DecimalResult<MarketConsensus> {
+  if (prices.length === 0)
+    return {
+      ok: false,
+      error: { code: "INVALID_DECIMAL", message: "Prices are required." },
+    };
+  const raw: DecimalString[] = [];
+  let sum = "0" as DecimalString;
+  for (const price of prices) {
+    const implied = divideDecimalStrings("1" as DecimalString, price);
+    if (!implied.ok) return implied;
+    raw.push(implied.value);
+    const next = addDecimalStrings(sum, implied.value);
+    if (!next.ok) return next;
+    sum = next.value;
+  }
+  const overround = subtractDecimalStrings(sum, "1" as DecimalString);
+  if (!overround.ok) return overround;
+  const normalized: DecimalString[] = [];
+  for (const item of raw) {
+    const value = divideDecimalStrings(item, sum);
+    if (!value.ok) return value;
+    normalized.push(value.value);
+  }
+  const ordered = [...prices].sort((a, b) => Number(a) - Number(b));
+  const dispersion = subtractDecimalStrings(
+    ordered[ordered.length - 1]!,
+    ordered[0]!,
+  );
+  if (!dispersion.ok) return dispersion;
+  return {
+    ok: true,
+    value: {
+      rawImplied: raw,
+      normalized,
+      overround: overround.value,
+      bestPrice: ordered[ordered.length - 1]!,
+      medianPrice: ordered[Math.floor((ordered.length - 1) / 2)]!,
+      dispersion: dispersion.value,
+      bookmakerCount,
+    },
+  };
+}
+
+export type MatchIntelligenceV2 = Readonly<{
+  verdict: DecisionResult;
+  modelVsMarket: Readonly<{
+    impliedProbability: DecimalString;
+    fairOdds: DecimalString;
+    probabilityEdge: DecimalString;
+    expectedValue: DecimalString;
+  }> | null;
+  price: PriceValidity | null;
+  marketMovement: RadarMarket | null;
+  quality: DecimalString;
+  risks: readonly RiskFlag[];
+  lineup: DecisionInput["lineup"];
+  evidence: readonly EvidenceTimelineEvent[];
+  invalidationConditions: readonly string[];
+  decisionHistory: DecisionHistory;
+  whatChanged: readonly DecisionChange[];
+  trace: Readonly<Record<string, string>>;
+}>;
+export function buildMatchIntelligence(
+  input: Readonly<{
+    verdict: DecisionResult;
+    modelVsMarket?: Readonly<{
+      impliedProbability: DecimalString;
+      fairOdds: DecimalString;
+      probabilityEdge: DecimalString;
+      expectedValue: DecimalString;
+    }>;
+    marketMovement?: RadarMarket;
+    lineup: DecisionInput["lineup"];
+    evidence: readonly EvidenceTimelineEvent[];
+    history: DecisionHistory;
+    previous?: DecisionSnapshot;
+    current?: DecisionSnapshot;
+    trace: Readonly<Record<string, string>>;
+  }>,
+): MatchIntelligenceV2 {
+  return {
+    verdict: input.verdict,
+    modelVsMarket: input.modelVsMarket ?? null,
+    price: input.verdict.price,
+    marketMovement: input.marketMovement ?? null,
+    quality: input.verdict.quality,
+    risks: input.verdict.riskFlags,
+    lineup: input.lineup,
+    evidence: orderEvidenceTimeline(input.evidence),
+    invalidationConditions: input.verdict.invalidationConditions,
+    decisionHistory: input.history,
+    whatChanged:
+      input.previous && input.current
+        ? diffDecisions(input.previous, input.current)
+        : [],
+    trace: input.trace,
+  };
+}

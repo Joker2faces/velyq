@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   AI_ANALYST_ENABLED,
   brierScore,
+  calibrationBuckets,
   decide,
   diffDecisions,
   isTemporallyValid,
+  marketConsensus,
+  markOutliers,
+  prioritizeToday,
+  radarMarket,
+  rankOpportunity,
+  watchEvent,
   postMatchAutopsy,
   priceSensitivity,
   priceValidity,
@@ -114,5 +121,77 @@ describe("intelligence completion v2", () => {
     expect(autopsy.ok && autopsy.value.decisionQuality).toBe("POSITIVE_EV");
     expect(autopsy.ok && autopsy.value.matchResult).toBe("LOSS");
     expect(AI_ANALYST_ENABLED).toBe(false);
+  });
+
+  it("provides deterministic ranking, calibration, consensus, radar, and alerts", () => {
+    const ranked = rankOpportunity({
+      quality: "0.9",
+      expectedValue: "0.1",
+      probabilityEdge: "0.05",
+      freshness: "1",
+      coverage: "1",
+      lineup: "OFFICIAL",
+      marketStability: "0.8",
+      mappingConfidence: "1",
+    });
+    expect(ranked.ok).toBe(true);
+    expect(
+      prioritizeToday([
+        {
+          id: "watch",
+          decision: "WATCH",
+          quality: "1",
+          freshness: "1",
+          rank: "1",
+        },
+        {
+          id: "edge",
+          decision: "EDGE",
+          quality: "0.5",
+          freshness: "0.5",
+          rank: "0.1",
+        },
+      ])[0]?.id,
+    ).toBe("edge");
+    expect(
+      calibrationBuckets([{ probability: "0.6", result: true }], ["0.5", "0.7"])
+        .ok,
+    ).toBe(true);
+    expect(marketConsensus(["2", "2.2"]).ok).toBe(true);
+    expect(
+      radarMarket({
+        openingOdds: "2.1",
+        previousOdds: "2",
+        currentOdds: "1.85",
+        observationCount: 3,
+        windowSeconds: 600,
+        freshness: "FRESH",
+      }).value,
+    ).toMatchObject({ direction: "DOWN" });
+    expect(
+      markOutliers([
+        {
+          bookmaker: "a",
+          odds: "1.8",
+          observedAt: "2026-09-01",
+          ingestedAt: "2026-09-01",
+          providerReference: "a",
+        },
+        {
+          bookmaker: "b",
+          odds: "2.5",
+          observedAt: "2026-09-01",
+          ingestedAt: "2026-09-01",
+          providerReference: "b",
+        },
+      ]).ok,
+    ).toBe(true);
+    expect(
+      watchEvent(
+        { fixtureId: "fixture-1", market: "FT_1X2", selection: "HOME" },
+        "EDGE_APPEARED",
+        "2026-09-01",
+      ).policyVersion,
+    ).toBe("watch.v1");
   });
 });
