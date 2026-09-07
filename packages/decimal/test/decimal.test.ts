@@ -12,6 +12,8 @@ import {
   jsonToDecimalString,
   marketLine,
   money,
+  canonicalizeNumeric,
+  numericColumnToDecimalString,
   numericToDecimalString,
   parseDecimalString,
   probability,
@@ -226,4 +228,41 @@ describe("decimal boundary codecs", () => {
       expect(jsonToDecimalString(input).ok).toBe(false);
     },
   );
+});
+
+describe("fixed-scale PostgreSQL column reads", () => {
+  it("strips the insignificant zeros a fixed-scale column pads with", () => {
+    // numeric(18, 8) returns 2.1 as "2.10000000"; the strict codec rejects
+    // that, so without this step no real column read can be parsed at all.
+    expect(canonicalizeNumeric("2.10000000")).toBe("2.1");
+    expect(canonicalizeNumeric("1.000")).toBe("1");
+    expect(canonicalizeNumeric("0.500")).toBe("0.5");
+    expect(canonicalizeNumeric("-0.250")).toBe("-0.25");
+  });
+
+  it("leaves anything already canonical untouched", () => {
+    for (const value of ["10", "2.1", "-3", "0", "0.125"])
+      expect(canonicalizeNumeric(value)).toBe(value);
+  });
+
+  it("does not try to rescue a value that is not a plain numeral", () => {
+    // Left exactly as supplied so the strict parser is the one that refuses
+    // it, with its own error, rather than this quietly mangling it first.
+    for (const value of ["1e2", "NaN", "Infinity", "", "abc"])
+      expect(canonicalizeNumeric(value)).toBe(value);
+  });
+
+  it("parses a padded column value and rejects a malformed one", () => {
+    const parsed = numericColumnToDecimalString("2.10000000");
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value).toBe("2.1");
+    expect(numericColumnToDecimalString("1e2").ok).toBe(false);
+  });
+
+  it("keeps the strict external codec strict", () => {
+    // Deliberate: an externally supplied "1.0" is still refused, because at
+    // that boundary a non-canonical representation is a sign the value did
+    // not come from where it claims to have.
+    expect(numericToDecimalString("1.0").ok).toBe(false);
+  });
 });

@@ -159,10 +159,53 @@ describe("exact value engine", () => {
       ok: true,
       value: {
         impliedProbability: "0.5",
-        fairOdds: "1.666666666666666666666666666667",
+        /*
+         * Eight places, the scale of `predictions.fair_odds`. This used to
+         * assert the raw thirty-place quotient, which no column could hold
+         * and which PostgreSQL rounded to exactly this on insert anyway — so
+         * the assertion pinned a value the system never actually stored.
+         */
+        fairOdds: "1.66666667",
         probabilityEdge: "0.1",
         expectedValue: "0.2",
       },
     });
+  });
+
+  it("computes a value for a real bookmaker price, not just a tidy one", () => {
+    /*
+     * The regression that made real EDGE unreachable. 1 / 3.90 is
+     * 0.256410256410256410256410256410 at the generic thirty-digit bound,
+     * while `market_implied_probability` is numeric(18, 12) and its validator
+     * enforces that scale — so this returned OUT_OF_RANGE for any price whose
+     * reciprocal does not terminate within twelve places. It succeeded only
+     * for prices like 2.00 and 2.50, which is exactly what the synthetic
+     * fixtures held, so nothing noticed until real odds arrived. Every real
+     * prediction was written with a null edge and expected value, and no EDGE
+     * job was ever enqueued.
+     */
+    const result = calculateValue("0.335728635865", "3.9");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.impliedProbability).toBe("0.25641025641");
+    expect(Number(result.value.probabilityEdge)).toBeCloseTo(0.0793, 4);
+    expect(Number(result.value.expectedValue)).toBeCloseTo(0.3093, 4);
+  });
+
+  it("keeps every metric inside its storage scale", () => {
+    for (const [probability, odds] of [
+      ["0.333333333333", "3.7"],
+      ["0.142857142857", "7.25"],
+      ["0.9", "1.11"],
+    ] as const) {
+      const result = calculateValue(probability, odds);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      const scaleOf = (value: string) => value.split(".")[1]?.length ?? 0;
+      expect(scaleOf(result.value.impliedProbability)).toBeLessThanOrEqual(12);
+      expect(scaleOf(result.value.probabilityEdge)).toBeLessThanOrEqual(12);
+      expect(scaleOf(result.value.expectedValue)).toBeLessThanOrEqual(12);
+      expect(scaleOf(result.value.fairOdds)).toBeLessThanOrEqual(8);
+    }
   });
 });

@@ -1,3 +1,4 @@
+export * from "./football-data-fixtures.js";
 import {
   InMemoryIngestionSink,
   InMemoryJobRepository,

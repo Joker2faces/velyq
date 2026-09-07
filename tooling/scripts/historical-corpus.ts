@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import {
+  decodeSourceBytes,
   FOOTBALL_DATA_DIVISIONS,
   IMPORT_VERSION,
   normalizeTeamKey,
@@ -31,18 +32,12 @@ import {
  *   than a set of matches attributed to the wrong league.
  */
 
-const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
-
-export function decodeSourceFile(bytes: Buffer): string {
-  if (bytes.subarray(0, 3).equals(UTF8_BOM))
-    return new TextDecoder("utf-8").decode(bytes.subarray(3));
-  /*
-   * windows-1252 rather than latin1: they differ exactly in 0x80-0x9F, which
-   * is where the publisher's curly apostrophe lives — and "Nott'm Forest" is
-   * a real team name in this corpus.
-   */
-  return new TextDecoder("windows-1252").decode(bytes);
-}
+/**
+ * Re-exported so the corpus loader and its tests keep one name for this, while
+ * the decoding rule itself lives beside the parser that depends on it.
+ */
+export const decodeSourceFile = (bytes: Buffer): string =>
+  decodeSourceBytes(bytes);
 
 export type CorpusFile = Readonly<{
   fileName: string;

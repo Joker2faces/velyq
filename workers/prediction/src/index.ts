@@ -1,3 +1,5 @@
+export * from "./registration.js";
+export * from "./pre-event-cycle.js";
 import {
   assessDataQuality,
   calculateValue,
@@ -10,6 +12,7 @@ import {
 } from "@velyq/analytics";
 import {
   addDecimalStrings,
+  canonicalizeNumeric,
   divideDecimalStrings,
   subtractDecimalStrings,
   type DecimalString,
@@ -220,9 +223,17 @@ export class DatabasePredictionJobHandler {
       quality,
       payload.quality.policyVersion,
     );
+    /*
+     * The durable price wins over whatever the payload carried, so the
+     * decision is always made against the observation actually stored - and it
+     * has to be canonicalised, because `decimal_odds` is numeric(18, 8) and
+     * the driver returns 3.9 as "3.90000000". Without this every real price
+     * failed `calculateValue`, the prediction was written with a null edge and
+     * expected value, and no downstream EDGE job was ever enqueued.
+     */
     const durablePayload = {
       ...payload,
-      currentOdds: latestOdds as DecimalString,
+      currentOdds: canonicalizeNumeric(latestOdds) as DecimalString,
     };
     const computed = generatePrediction(
       {
@@ -664,7 +675,16 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
       !row.prediction.expectedValue
     )
       return null;
-    const qualityScore = row.quality.numericScore as DecimalString;
+    /*
+     * Every decimal below arrives from a fixed-scale numeric column, so the
+     * driver returns 0.5 as "0.5000" and the decimal codec — strict by
+     * design — refuses it. Without canonicalising, `divideDecimalStrings`
+     * fails, `getInput` returns null, and the caller reports the inputs as
+     * missing when they are present and correct.
+     */
+    const qualityScore = canonicalizeNumeric(
+      row.quality.numericScore,
+    ) as DecimalString;
     const normalizedQuality =
       qualityScore === "0" || qualityScore.startsWith("0.")
         ? ({ ok: true, value: qualityScore } as const)
@@ -674,8 +694,12 @@ export class DatabaseEdgeInputReader implements EdgeInputReader {
       ? heuristicFormulaFromDefinition(definition.definition)
       : {};
     return {
-      probabilityEdge: row.prediction.edge as DecimalString,
-      expectedValue: row.prediction.expectedValue as DecimalString,
+      probabilityEdge: canonicalizeNumeric(
+        row.prediction.edge,
+      ) as DecimalString,
+      expectedValue: canonicalizeNumeric(
+        row.prediction.expectedValue,
+      ) as DecimalString,
       qualityScore: normalizedQuality.value,
       formula,
     };
@@ -731,8 +755,8 @@ export class DatabaseRadarInputReader implements RadarInputReader {
       const last = ordered.at(-1);
       if (!first || !last) return false;
       const movement = subtractDecimalStrings(
-        last.decimalOdds as DecimalString,
-        first.decimalOdds as DecimalString,
+        canonicalizeNumeric(last.decimalOdds) as DecimalString,
+        canonicalizeNumeric(first.decimalOdds) as DecimalString,
       );
       return movement.ok && movement.value !== "0";
     }).length;
@@ -745,9 +769,10 @@ export class DatabaseRadarInputReader implements RadarInputReader {
               (a, b) =>
                 a.providerObservedAt.getTime() - b.providerObservedAt.getTime(),
             )
-            .at(-1)?.decimalOdds as DecimalString | undefined,
+            .at(-1)?.decimalOdds,
       )
-      .filter((value): value is DecimalString => value !== undefined);
+      .filter((value): value is string => value !== undefined)
+      .map((value) => canonicalizeNumeric(value) as DecimalString);
     let minimum = latestPrices[0];
     let maximum = latestPrices[0];
     for (const price of latestPrices.slice(1)) {
@@ -768,8 +793,8 @@ export class DatabaseRadarInputReader implements RadarInputReader {
     );
     if (!consensusResult.ok) return null;
     return {
-      openingOdds: opening.decimalOdds as DecimalString,
-      currentOdds: current.decimalOdds as DecimalString,
+      openingOdds: canonicalizeNumeric(opening.decimalOdds) as DecimalString,
+      currentOdds: canonicalizeNumeric(current.decimalOdds) as DecimalString,
       bookmakerCoverage: bookmakerCount,
       bookmakersMoving: movingBookmakers,
       consensus: consensusResult.value,

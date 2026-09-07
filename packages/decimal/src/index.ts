@@ -394,3 +394,88 @@ export function decimalStringToJson(
 
   return decimal.ok ? success(decimal.value) : decimal;
 }
+
+/**
+ * Strips the insignificant trailing zeros a fixed-scale PostgreSQL column adds.
+ *
+ * `numericToDecimalString` is strict on purpose and rejects anything
+ * non-canonical, including `1.0` — that strictness is what keeps a
+ * hand-written or externally-supplied value from smuggling in a different
+ * representation of the same number. But a `numeric(18, 8)` column always
+ * returns its value scale-padded, so `2.1` comes back from the driver as
+ * `2.10000000` and every such read fails that check. The two facts together
+ * mean a real column read needs a canonicalisation step, not a looser codec.
+ *
+ * This is that step: purely representational, never lossy. Trailing zeros
+ * after the decimal point carry no value, so removing them cannot change the
+ * number, and anything that is not a plain base-10 numeral is left untouched
+ * for the strict parser to reject.
+ *
+ *   "2.10000000" -> "2.1"      "1.000" -> "1"      "0.500" -> "0.5"
+ *   "-0.250"     -> "-0.25"    "10"    -> "10"     "1e2"   -> "1e2"
+ */
+export function canonicalizeNumeric(input: string): string {
+  if (!/^-?\d+\.\d+$/.test(input)) return input;
+  const trimmed = input.replace(/0+$/, "").replace(/\.$/, "");
+  return trimmed === "" || trimmed === "-" ? input : trimmed;
+}
+
+/**
+ * Reads a fixed-scale PostgreSQL NUMERIC into a validated decimal.
+ *
+ * The pairing to use on a column read: canonicalise the driver's scale-padded
+ * representation, then validate it exactly as strictly as any other decimal.
+ */
+export function numericColumnToDecimalString(
+  input: string,
+): DecimalResult<DecimalString> {
+  return parseDecimalString(canonicalizeNumeric(input));
+}
+
+/**
+ * Rounds a decimal to the scale its storage column actually has.
+ *
+ * Division and multiplication produce far more fractional digits than any of
+ * VELYQ's numeric columns hold: `1 / 3.9` is 0.256410256410256410256410256410
+ * at the generic 30-scale bound, and `market_implied_probability` is
+ * numeric(18, 12). The validators enforce the column's scale, so a derived
+ * quantity has to be rounded to that scale before it can be validated — and
+ * every real bookmaker price produces exactly this situation, which is why an
+ * unrounded pipeline can compute a value for 2.00 and fail on 3.90.
+ *
+ * Rounding to the storage scale is not a loss: the value could not be
+ * persisted at higher precision anyway, and PostgreSQL would round it on
+ * insert regardless. Doing it here means the rounded value is the one that
+ * gets validated, compared and stored, rather than three slightly different
+ * numbers. Half-even, matching the runtime's own default, so repeated
+ * rounding does not drift upward.
+ */
+export function roundToScale(
+  input: string,
+  scale: number,
+): DecimalResult<DecimalString> {
+  const decimal = decimalFromCanonical(input);
+  if (!decimal.ok) return decimal;
+  if (!Number.isSafeInteger(scale) || scale < 0 || scale > MAX_SCALE)
+    return failure("OUT_OF_RANGE", "Scale must be between 0 and 30.");
+  const rounded = decimal.value.toDecimalPlaces(
+    scale,
+    DecimalRuntime.ROUND_HALF_EVEN,
+  );
+  /*
+   * `toFixed` then canonicalise, rather than `toString`: decimal.js may
+   * render an exact integer without a fractional part in one form and with
+   * one in another, and the canonical form is the only one the validators
+   * accept.
+   */
+  return parseDecimalString(canonicalizeNumeric(rounded.toFixed(scale)));
+}
+
+/** The scale of each derived quantity's storage column. */
+export const STORAGE_SCALES = Object.freeze({
+  probability: 12,
+  impliedProbability: 12,
+  odds: 8,
+  edge: 12,
+  expectedValue: 12,
+});

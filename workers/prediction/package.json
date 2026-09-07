@@ -17,6 +17,8 @@
     "@velyq/contracts": "workspace:*",
     "@velyq/database": "workspace:*",
     "@velyq/decimal": "workspace:*",
+    "@velyq/market-semantics": "workspace:*",
+    "@velyq/research": "workspace:*",
     "drizzle-orm": "0.45.2"
   }
 }

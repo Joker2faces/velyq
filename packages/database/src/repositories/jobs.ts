@@ -18,6 +18,48 @@ export type EnqueueJobInput = Readonly<{
   availableAt: Date;
 }>;
 
+/**
+ * Maps a queue row onto the `Job` contract.
+ *
+ * The five casts this replaces were unchecked, and they were hiding a real
+ * defect rather than saving a few lines. Drizzle returns `timestamptz`
+ * columns as `Date` objects; the contract's timestamps are ISO strings, and
+ * `validateJob` checks them with `typeof value === "string"`. So every job
+ * leased from the durable queue failed validation, and every handler that
+ * begins by validating its job threw `INVALID_<TYPE>_JOB` before doing any
+ * work. The whole durable pipeline was unrunnable, and no test caught it
+ * because the worker tests construct their jobs by hand instead of leasing
+ * them.
+ *
+ * The repository is the boundary between the row shape and the contract
+ * shape, so the conversion belongs here — and doing it explicitly means the
+ * next column added to either side is a type error rather than a silent
+ * mismatch.
+ */
+function toJob(row: typeof jobs.$inferSelect): Job {
+  return Object.freeze({
+    id: row.id,
+    type: row.type as Job["type"],
+    contractVersion: row.contractVersion as Job["contractVersion"],
+    idempotencyKey: row.idempotencyKey,
+    payload: row.payload as JobPayload,
+    status: row.status as JobStatus,
+    attemptCount: row.attemptCount,
+    maxAttempts: row.maxAttempts,
+    availableAt: row.availableAt.toISOString(),
+    leaseExpiresAt: row.leaseExpiresAt?.toISOString() ?? null,
+    correlationId: row.correlationId,
+    causationId: row.causationId,
+    lastError:
+      row.lastError === null
+        ? null
+        : (row.lastError as Readonly<{ code: string; message: string }>),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  }) as Job;
+}
+
 export class DatabaseJobRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
@@ -44,12 +86,12 @@ export class DatabaseJobRepository {
       })
       .onConflictDoNothing({ target: jobs.idempotencyKey })
       .returning();
-    if (inserted[0]) return inserted[0] as unknown as Job;
+    if (inserted[0]) return toJob(inserted[0]);
     const existing = await database.query.jobs.findFirst({
       where: eq(jobs.idempotencyKey, input.idempotencyKey),
     });
     if (!existing) throw new Error("JOB_IDEMPOTENCY_LOOKUP_FAILED");
-    return existing as unknown as Job;
+    return toJob(existing);
   }
 
   async leaseNext(
@@ -87,8 +129,10 @@ export class DatabaseJobRepository {
           and(eq(jobs.id, candidate.id), eq(jobs.status, candidate.status)),
         )
         .returning();
-      const job = updated[0] as unknown as Job | undefined;
-      return job ? { job, leaseExpiresAt: leaseUntil.toISOString() } : null;
+      const row = updated[0];
+      return row
+        ? { job: toJob(row), leaseExpiresAt: leaseUntil.toISOString() }
+        : null;
     });
   }
 
@@ -116,7 +160,7 @@ export class DatabaseJobRepository {
       )
       .returning();
     if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
-    return updated[0] as unknown as Job;
+    return toJob(updated[0]);
   }
 
   async fail(
@@ -155,6 +199,6 @@ export class DatabaseJobRepository {
       )
       .returning();
     if (!updated[0]) throw new Error("JOB_LEASE_NOT_OWNED");
-    return updated[0] as unknown as Job;
+    return toJob(updated[0]);
   }
 }

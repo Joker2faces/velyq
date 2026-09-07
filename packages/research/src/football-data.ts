@@ -112,7 +112,105 @@ const BOOKMAKER_1X2: readonly Readonly<{
     columns: ["VCH", "VCD", "VCA"],
     closingColumns: ["VCCH", "VCCD", "VCCA"],
   },
+  /*
+   * These five appear in the upcoming-fixtures feed rather than the season
+   * archives, so they contribute to a live consensus and to the dispersion
+   * measure but never to a historical backtest. `betfair-exchange` is an
+   * exchange rather than a book; its price is included because more
+   * independent prices is strictly better evidence and the de-vig normalises
+   * whatever overround each venue carries, but it is worth knowing that one
+   * member of the panel has a different microstructure from the rest.
+   */
+  {
+    code: "betfred",
+    columns: ["BFDH", "BFDD", "BFDA"],
+    closingColumns: ["BFDCH", "BFDCD", "BFDCA"],
+  },
+  {
+    code: "betvictor",
+    columns: ["BVH", "BVD", "BVA"],
+    closingColumns: ["BVCH", "BVCD", "BVCA"],
+  },
+  {
+    code: "paddy-power",
+    columns: ["PPH", "PPD", "PPA"],
+    closingColumns: ["PPCH", "PPCD", "PPCA"],
+  },
+  {
+    code: "skybet",
+    columns: ["SKBH", "SKBD", "SKBA"],
+    closingColumns: ["SKBCH", "SKBCD", "SKBCA"],
+  },
+  {
+    code: "betfair-exchange",
+    columns: ["BFEH", "BFED", "BFEA"],
+    closingColumns: ["BFECH", "BFECD", "BFECA"],
+  },
 ]);
+
+/**
+ * The bookmakers that publish their own over/under 2.5 columns.
+ *
+ * A much shorter list than 1X2, and that asymmetry is real rather than an
+ * omission: the publisher carries seven individual books for the match result
+ * and two or three for totals. It matters because bookmaker coverage is an
+ * eligibility gate, so the totals market legitimately clears a lower bar of
+ * evidence than 1X2 on the same fixture.
+ */
+const BOOKMAKER_TOTAL_2_5: readonly Readonly<{
+  code: string;
+  columns: Pair;
+  closingColumns: Pair;
+}>[] = Object.freeze([
+  {
+    code: "bet365",
+    columns: ["B365>2.5", "B365<2.5"],
+    closingColumns: ["B365C>2.5", "B365C<2.5"],
+  },
+  {
+    code: "pinnacle",
+    columns: ["P>2.5", "P<2.5"],
+    closingColumns: ["PC>2.5", "PC<2.5"],
+  },
+  {
+    code: "betfair-exchange",
+    columns: ["BFE>2.5", "BFE<2.5"],
+    closingColumns: ["BFEC>2.5", "BFEC<2.5"],
+  },
+]);
+
+/** Bookmaker codes this parser can read, for provisioning and for tests. */
+export const FOOTBALL_DATA_BOOKMAKER_CODES: readonly string[] = Object.freeze([
+  ...new Set([
+    ...BOOKMAKER_1X2.map((bookmaker) => bookmaker.code),
+    ...BOOKMAKER_TOTAL_2_5.map((bookmaker) => bookmaker.code),
+  ]),
+]);
+
+/**
+ * Reads one CSV line into a name-keyed row.
+ *
+ * Shared with the upcoming-fixtures feed, which uses the same column names for
+ * prices and simply has no result columns.
+ */
+export function csvRows(
+  csv: string,
+): Readonly<{
+  header: readonly string[];
+  rows: readonly ReadonlyMap<string, string>[];
+}> {
+  const lines = csv.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const header = splitCsvLine(lines[0] ?? "").map((name) => name.trim());
+  const rows: ReadonlyMap<string, string>[] = [];
+  for (const line of lines.slice(1)) {
+    if (line.trim() === "") continue;
+    const fields = splitCsvLine(line);
+    const row = new Map<string, string>();
+    header.forEach((name, column) => row.set(name, fields[column] ?? ""));
+    rows.push(row);
+  }
+  return { header, rows };
+}
 
 /** RFC-4180-ish: quoted fields with doubled quotes, nothing more exotic. */
 export function splitCsvLine(line: string): readonly string[] {
@@ -224,7 +322,7 @@ function firstCompleteGroup(
   return null;
 }
 
-function quotesFor(
+export function quotesFor(
   row: ReadonlyMap<string, string>,
 ): readonly HistoricalQuote[] {
   const quotes: HistoricalQuote[] = [];
@@ -305,6 +403,21 @@ function quotesFor(
         "FOOTBALL_FULL_TIME_1X2",
         ["HOME", "DRAW", "AWAY"],
         null,
+        phase,
+        "BOOKMAKER",
+        bookmaker.code,
+        values,
+      );
+    }
+    for (const bookmaker of BOOKMAKER_TOTAL_2_5) {
+      const columns =
+        phase === "CLOSING" ? bookmaker.closingColumns : bookmaker.columns;
+      const values = firstCompleteGroup(row, [columns]);
+      if (!values) continue;
+      push(
+        "FOOTBALL_FULL_TIME_TOTAL",
+        ["OVER", "UNDER"],
+        "2.5",
         phase,
         "BOOKMAKER",
         bookmaker.code,

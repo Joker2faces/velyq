@@ -8,6 +8,8 @@ import {
   multiplyDecimalStrings,
   parseDecimalString,
   probability,
+  roundToScale,
+  STORAGE_SCALES,
   subtractDecimalStrings,
   type DecimalResult,
   type DecimalString,
@@ -20,6 +22,27 @@ export type ValueMetrics = Readonly<{
   expectedValue: DecimalString;
 }>;
 
+/**
+ * Implied probability, fair odds, probability edge and expected value from a
+ * model probability and a price.
+ *
+ * Every quantity here is rounded to the scale of the column that stores it
+ * before it is validated. That is not tidiness — without it this function
+ * cannot process a real bookmaker price at all. `1 / 3.90` is
+ * 0.256410256410256410256410256410 at the generic 30-digit bound, while
+ * `market_implied_probability` is numeric(18, 12) and the validator enforces
+ * that scale, so the whole computation failed with OUT_OF_RANGE for any odds
+ * whose reciprocal does not terminate within twelve places. It succeeded only
+ * for tidy prices like 2.00 and 2.50 — which is exactly what the synthetic
+ * fixtures contained, so nothing noticed. On real data `edge` and
+ * `expectedValue` came back null every time, which made EDGE, STRONG_EDGE and
+ * FORTRESS unreachable no matter how the thresholds were set.
+ *
+ * Rounding to the storage scale loses nothing: the value cannot be persisted
+ * more precisely, and PostgreSQL would round it on insert anyway. Doing it
+ * here means the number that is validated is the number that is compared and
+ * stored, rather than three slightly different ones.
+ */
 export function calculateValue(
   modelProbability: DecimalString,
   currentOdds: DecimalString,
@@ -30,18 +53,35 @@ export function calculateValue(
   if (!odds.ok) return odds;
   if (!model.ok) return model;
   if (!impliedRaw.ok) return impliedRaw;
-  const implied = impliedProbability(impliedRaw.value);
+  const impliedRounded = roundToScale(
+    impliedRaw.value,
+    STORAGE_SCALES.impliedProbability,
+  );
+  if (!impliedRounded.ok) return impliedRounded;
+  const implied = impliedProbability(impliedRounded.value);
   if (!implied.ok) return implied;
-  const fair = divideDecimalStrings("1" as DecimalString, modelProbability);
+  const fairRaw = divideDecimalStrings("1" as DecimalString, modelProbability);
+  if (!fairRaw.ok) return fairRaw;
+  const fair = roundToScale(fairRaw.value, STORAGE_SCALES.odds);
   if (!fair.ok) return fair;
-  const probabilityEdge = subtractDecimalStrings(
+  const probabilityEdgeRaw = subtractDecimalStrings(
     modelProbability,
     implied.value.value,
+  );
+  if (!probabilityEdgeRaw.ok) return probabilityEdgeRaw;
+  const probabilityEdge = roundToScale(
+    probabilityEdgeRaw.value,
+    STORAGE_SCALES.edge,
   );
   if (!probabilityEdge.ok) return probabilityEdge;
   const product = multiplyDecimalStrings(modelProbability, currentOdds);
   if (!product.ok) return product;
-  const evRaw = subtractDecimalStrings(product.value, "1" as DecimalString);
+  const evSubtracted = subtractDecimalStrings(
+    product.value,
+    "1" as DecimalString,
+  );
+  if (!evSubtracted.ok) return evSubtracted;
+  const evRaw = roundToScale(evSubtracted.value, STORAGE_SCALES.expectedValue);
   if (!evRaw.ok) return evRaw;
   const checkedEdge = edge(probabilityEdge.value);
   const ev = expectedValue(evRaw.value);

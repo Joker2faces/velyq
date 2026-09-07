@@ -28,7 +28,9 @@
     "data:apisports:ingest": "tsx tooling/scripts/apisports-ingest.ts",
     "data:historical:download": "tsx tooling/scripts/historical-download.ts",
     "data:historical:report": "tsx tooling/scripts/historical-corpus.ts",
-    "model:train": "tsx tooling/scripts/train-football-model.ts"
+    "model:train": "tsx tooling/scripts/train-football-model.ts",
+    "intelligence:cycle": "tsx tooling/scripts/prediction-cycle.ts",
+    "data:footballdata:ingest": "tsx tooling/scripts/prediction-cycle.ts --skip-register"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

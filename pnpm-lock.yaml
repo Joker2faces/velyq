@@ -275,6 +275,12 @@ importers:
       '@velyq/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@velyq/research':
+        specifier: workspace:*
+        version: link:../../packages/research
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
     devDependencies:
       '@types/node':
         specifier: 26.4.1
@@ -294,6 +300,12 @@ importers:
       '@velyq/decimal':
         specifier: workspace:*
         version: link:../../packages/decimal
+      '@velyq/market-semantics':
+        specifier: workspace:*
+        version: link:../../packages/market-semantics
+      '@velyq/research':
+        specifier: workspace:*
+        version: link:../../packages/research
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)

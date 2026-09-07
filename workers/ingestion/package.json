@@ -14,7 +14,9 @@
   "dependencies": {
     "@velyq/application": "workspace:*",
     "@velyq/database": "workspace:*",
-    "@velyq/providers": "workspace:*"
+    "@velyq/providers": "workspace:*",
+    "@velyq/research": "workspace:*",
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@types/node": "26.4.1"
