@@ -603,6 +603,16 @@ export const messages = {
   accountSignedInAs: "Signed in as",
   accountPlan: "Plan",
   accountPlanNote: "Access is resolved on our servers on every request.",
+  /*
+   * Shown only to the internal-access principal, beside the (honest, never
+   * inflated) plan and subscription state above it. This is the customer
+   * copy for `resolveEffectiveCustomerAccess`'s `internalAccess`: it explains
+   * why full access is unlocked without claiming a subscription that does
+   * not exist.
+   */
+  accountInternalAccess: "Internal access",
+  accountInternalAccessBody:
+    "Administrator — full product access for administration and QA.",
   accountSubscription: "Subscription",
   accountStatus: "Status",
   accountStatusNone: "No paid subscription",
@@ -1306,6 +1316,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   accountSignedInAs: "Συνδεδεμένος ως",
   accountPlan: "Πακέτο",
   accountPlanNote: "Η πρόσβαση ελέγχεται από την πλευρά μας σε κάθε αίτημα.",
+  accountInternalAccess: "Εσωτερική πρόσβαση",
+  accountInternalAccessBody:
+    "Διαχειριστής — πλήρης πρόσβαση στο προϊόν για διαχείριση και έλεγχο ποιότητας.",
   accountSubscription: "Συνδρομή",
   accountStatus: "Κατάσταση",
   accountStatusNone: "Χωρίς συνδρομή",

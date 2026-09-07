@@ -4,7 +4,6 @@ import { paidBillingConfigured, planCatalog } from "../plan-config";
 import { PublicShell } from "../components/site-chrome";
 import { Badge, Card } from "../components/ui";
 import { IconCheck } from "../components/icons";
-import { localePath } from "../locale-path";
 import { PricingFreeAction } from "../components/public-session-actions";
 
 /**

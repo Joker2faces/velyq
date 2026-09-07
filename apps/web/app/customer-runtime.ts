@@ -17,8 +17,7 @@ import { desc, eq } from "drizzle-orm";
 import { subscriptions } from "@velyq/database/schema/private";
 import { DatabasePermissionResolver } from "@velyq/database";
 import {
-  hasPermission,
-  resolveCustomerEntitlements,
+  resolveEffectiveCustomerAccess,
   type CustomerEntitlement,
   type CustomerPlan,
   type SubscriptionStatus,
@@ -232,13 +231,29 @@ export async function resolveCustomerContext(cookieHeader: string) {
       ].includes(current.status)
         ? (current.status as SubscriptionStatus)
         : null;
-    const resolved = resolveCustomerEntitlements({ plan, status });
+    /*
+     * The effective resolver, not the plan-only one: this is the same
+     * DTO the Account page reads `entitlements` from, and the same one
+     * `/api/v1/today` reads to decide whether this caller gets the full
+     * table or the preview slice. Resolving from `{ plan, status }` alone
+     * — discarding `principal`, which was already fetched above — is
+     * exactly how an ADMIN with no subscription used to see FREE's three
+     * rows and the ELITE paywall on Match Intelligence.
+     */
+    const resolved = resolveEffectiveCustomerAccess(
+      { plan, status },
+      principal,
+    );
     return {
       email: user.email ?? "",
       plan: resolved.plan,
       status: resolved.subscriptionStatus,
       entitlements: resolved.entitlements,
-      isAdmin: hasPermission(principal, "admin.access"),
+      /* Same condition that widened `entitlements` above: an ADMIN role
+         holding `admin.access`. One boolean, reused for both the admin
+         console link and the "why do I have full access" account copy,
+         so the two can never silently disagree about who is internal. */
+      isAdmin: resolved.internalAccess,
     };
   } finally {
     await session.close();

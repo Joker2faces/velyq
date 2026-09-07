@@ -13,3 +13,6 @@ test-results/
 supabase/.temp/
 dist/
 apps/*/.next/
+
+.vercel
+.env*

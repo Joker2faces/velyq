@@ -64,6 +64,18 @@ export function AccountView({
                 </p>
               ) : null}
               <p className="card__hint">{t("accountPlanNote")}</p>
+              {/*
+               * Internal access is stated next to the plan, never folded
+               * into it: an administrator's plan stays whatever is really on
+               * file (often FREE), and this line is the honest reason the
+               * product is fully open anyway. It must never read as ELITE.
+               */}
+              {context?.isAdmin ? (
+                <p className="card__hint">
+                  <strong>{t("accountInternalAccess")}:</strong>{" "}
+                  {t("accountInternalAccessBody")}
+                </p>
+              ) : null}
             </div>
             <div className="actions">
               <a className="button button--primary" href="/pricing">

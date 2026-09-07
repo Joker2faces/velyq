@@ -143,4 +143,40 @@ describe("today API entitlements", () => {
     await get(`${BASE}?surface=edge`);
     expect(state.requestedEntitlement).toBe("edge.preview");
   });
+
+  /*
+   * An admin's widened entitlement set — produced by
+   * `resolveEffectiveCustomerAccess`, not by anything special in this
+   * route — must reach the full EDGE and RADAR tables exactly like a paid
+   * customer's would. This route has no `isAdmin` branch of its own and
+   * must not need one: it derives `full` purely from `entitlements`.
+   */
+  it("gives the full list on both surfaces once entitlements include edge.full and radar.full", () => {
+    state.entitlements = [
+      "today.view",
+      "edge.preview",
+      "edge.full",
+      "radar.preview",
+      "radar.full",
+      "match.detail",
+    ];
+    return Promise.all([
+      get(`${BASE}?surface=edge`).then(async (response) => {
+        const body = (await response.json()) as {
+          matches: unknown[];
+          full: boolean;
+        };
+        expect(body.full).toBe(true);
+        expect(body.matches).toHaveLength(7);
+      }),
+      get(`${BASE}?surface=radar`).then(async (response) => {
+        const body = (await response.json()) as {
+          matches: unknown[];
+          full: boolean;
+        };
+        expect(body.full).toBe(true);
+        expect(body.matches).toHaveLength(7);
+      }),
+    ]);
+  });
 });

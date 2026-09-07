@@ -221,6 +221,36 @@ describe("runtime customer authorization", () => {
       expectEverySessionClosed();
     },
   );
+
+  /*
+   * The regression this guards: an ADMIN principal with no subscription row
+   * at all used to be resolved to FREE and gated exactly like an ordinary
+   * unpaid visitor, because entitlements were derived from `{ plan, status }`
+   * alone and the principal already fetched for the `customer.read` check was
+   * discarded. `today.view` through `match.detail` must all pass.
+   */
+  it.each<CustomerEntitlement>([
+    "today.view",
+    "edge.preview",
+    "edge.full",
+    "radar.preview",
+    "radar.full",
+    "match.detail",
+  ])(
+    "grants %s to an admin with no subscription record at all",
+    async (entitlement) => {
+      runtimeState.permissionRows = [
+        { roleCode: "ADMIN", permissionCode: "admin.access" },
+        { roleCode: "ADMIN", permissionCode: "customer.read" },
+      ];
+      runtimeState.subscriptionRows = [];
+
+      await expect(
+        requireCustomerSession(authenticatedRequest(), entitlement),
+      ).resolves.toBeNull();
+      expectEverySessionClosed();
+    },
+  );
 });
 
 describe("request-scoped customer data", () => {
@@ -273,6 +303,53 @@ describe("request-scoped customer data", () => {
       isAdmin: false,
     });
     expect(runtimeState.sessions).toHaveLength(2);
+    expectEverySessionClosed();
+  });
+
+  /*
+   * The Account surface is what the owner actually looks at, so this is the
+   * end-to-end proof for the whole bug report: an admin with no subscription
+   * row sees every entitlement, `isAdmin: true`, and — the other half of the
+   * fix, equally important — a `plan` that is still honestly "FREE" and a
+   * `status` that is still `null`. Nothing here may invent a subscription to
+   * explain the access.
+   */
+  it("gives an admin with no subscription full entitlements and an honest plan", async () => {
+    runtimeState.permissionRows = [
+      { roleCode: "ADMIN", permissionCode: "admin.access" },
+      { roleCode: "ADMIN", permissionCode: "customer.read" },
+    ];
+    runtimeState.subscriptionRows = [];
+
+    await expect(loadCustomerContext()).resolves.toMatchObject({
+      email: "one@velyq.test",
+      plan: "FREE",
+      status: null,
+      isAdmin: true,
+      entitlements: expect.arrayContaining([
+        "today.view",
+        "edge.preview",
+        "edge.full",
+        "radar.preview",
+        "radar.full",
+        "match.detail",
+      ]),
+    });
+    expectEverySessionClosed();
+  });
+
+  it("never reports isAdmin for a paid ELITE customer without admin.access", async () => {
+    /* ELITE is a billing tier, not an authorization role: the highest-paying
+       customer must not be mistaken for an administrator. */
+    runtimeState.permissionRows = [
+      { roleCode: "CUSTOMER", permissionCode: "customer.read" },
+    ];
+    runtimeState.subscriptionRows = [{ plan: "ELITE", status: "active" }];
+
+    await expect(loadCustomerContext()).resolves.toMatchObject({
+      plan: "ELITE",
+      isAdmin: false,
+    });
     expectEverySessionClosed();
   });
 });
