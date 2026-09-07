@@ -5,7 +5,7 @@ import type {
   CustomerScenarioDto,
   CustomerTodayDto,
 } from "@velyq/contracts";
-import { SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
+import { LIVE_DATA_LABEL, SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
 import {
   divideDecimalStrings,
   subtractDecimalStrings,
@@ -50,6 +50,9 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     )?.participant.displayName ?? "Away";
   const outcome = selectOutcome(raw);
   const odds = outcome?.odds ?? [];
+  const dataLabel = odds.some((observation) => observation.isSynthetic)
+    ? SYNTHETIC_DATA_LABEL
+    : LIVE_DATA_LABEL;
   const opening = odds[0]?.decimalOdds ?? null;
   const current = odds.at(-1)?.decimalOdds ?? null;
   const prediction = outcome?.prediction;
@@ -82,7 +85,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     awayTeam: away,
     competition: raw.competition.nameKey,
     startsAt: raw.event.startsAt.toISOString(),
-    syntheticLabel: SYNTHETIC_DATA_LABEL,
+    syntheticLabel: dataLabel,
     scenario: scenarioFor(raw.event.id, recommendation, lineup),
     freshness: stale ? "STALE" : "FRESH",
     selection: outcome?.outcomeDefinition.labelKey ?? "—",
@@ -181,7 +184,13 @@ export function deriveLineupState(
 export const customerDatabaseMapper = {
   mapToday(raw: CustomerRawToday): CustomerTodayDto {
     return {
-      syntheticLabel: SYNTHETIC_DATA_LABEL,
+      syntheticLabel: raw.matches.some((match) =>
+        match.outcomes.some((outcome) =>
+          outcome.odds.some((observation) => observation.isSynthetic),
+        ),
+      )
+        ? SYNTHETIC_DATA_LABEL
+        : LIVE_DATA_LABEL,
       asOf: raw.asOf.toISOString(),
       matches: raw.matches.map(mapMatch),
     };

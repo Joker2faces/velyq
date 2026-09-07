@@ -15,6 +15,9 @@ import type {
 } from "@velyq/decimal";
 
 export const SYNTHETIC_DATA_LABEL = "Synthetic data" as const;
+export const LIVE_DATA_LABEL = "Live market data" as const;
+export type CustomerDataLabel =
+  typeof SYNTHETIC_DATA_LABEL | typeof LIVE_DATA_LABEL;
 
 export type SyntheticMetadata = Readonly<{
   readonly isSynthetic: true;
@@ -625,7 +628,7 @@ export type CustomerMatchDto = Readonly<{
   awayTeam: string;
   competition: string;
   startsAt: string;
-  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  syntheticLabel: CustomerDataLabel;
   scenario: CustomerScenarioDto;
   freshness: "FRESH" | "STALE";
   selection: string;
@@ -668,7 +671,7 @@ export type CustomerScenarioDto = Readonly<{
   label: string;
 }>;
 export type CustomerTodayDto = Readonly<{
-  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  syntheticLabel: CustomerDataLabel;
   asOf: string;
   matches: readonly CustomerMatchDto[];
 }>;
@@ -757,7 +760,10 @@ function validateCustomerMatchInput(input: unknown): string[] {
     if (!isNonEmptyString(input[field])) errors.push(`${field} is required`);
   }
   if (!isTimestamp(input["startsAt"])) errors.push("startsAt is invalid");
-  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+  if (
+    input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
+    input["syntheticLabel"] !== LIVE_DATA_LABEL
+  )
     errors.push("syntheticLabel is invalid");
   if (!isObject(input["scenario"])) {
     errors.push("scenario is required");
@@ -917,7 +923,10 @@ export function validateCustomerTodayDto(
   if (!isObject(input))
     return { ok: false, errors: ["today must be an object"] };
   const errors: string[] = [];
-  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+  if (
+    input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
+    input["syntheticLabel"] !== LIVE_DATA_LABEL
+  )
     errors.push("syntheticLabel is invalid");
   if (!isTimestamp(input["asOf"])) errors.push("asOf is invalid");
   if (!Array.isArray(input["matches"])) {

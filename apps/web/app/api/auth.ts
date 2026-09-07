@@ -28,10 +28,7 @@ export function requestId(request: Request) {
 }
 
 export function customerFixtureMode() {
-  return (
-    process.env["NODE_ENV"] !== "production" ||
-    process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true"
-  );
+  return process.env["NODE_ENV"] !== "production";
 }
 
 export function customerRedirectUrl(request: Request, pathname: string) {

@@ -116,7 +116,10 @@ function mappedDatabaseService(
 }
 
 export async function customerService(): Promise<CustomerService | null> {
-  if (process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO") {
+  if (
+    process.env["NODE_ENV"] !== "production" &&
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO"
+  ) {
     return fixtureService;
   }
   const runtime = await openDatabaseCustomerQueries();

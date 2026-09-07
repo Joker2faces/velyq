@@ -157,7 +157,7 @@ describe("runtime customer authorization", () => {
     expectEverySessionClosed();
   });
 
-  it("fails closed without a database unless preview is explicitly enabled", async () => {
+  it("fails closed without a database, including when preview is requested", async () => {
     runtimeState.available = false;
 
     const unavailable = await requireCustomerSession(authenticatedRequest());
@@ -169,14 +169,14 @@ describe("runtime customer authorization", () => {
     process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
     await expect(
       requireCustomerSession(authenticatedRequest(), "today.view"),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({ status: 503 });
     const paid = await requireCustomerSession(
       authenticatedRequest(),
       "match.detail",
     );
-    expect(paid?.status).toBe(403);
+    expect(paid?.status).toBe(503);
     await expect(paid?.json()).resolves.toMatchObject({
-      code: "ENTITLEMENT_REQUIRED",
+      code: "AUTHORIZATION_UNAVAILABLE",
     });
     expect(runtimeState.sessions).toHaveLength(0);
   });
