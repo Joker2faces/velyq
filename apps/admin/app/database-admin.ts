@@ -234,6 +234,7 @@ export class DatabaseAdminQueries implements AdminQueries {
         modelMaturity: model?.maturityStatus ?? null,
         counts: json(run.counts),
         noBetReasons: json(run.noBetReasons),
+        candidates: json(run.candidates),
         triggerSource: run.triggerSource,
         createdAt: run.createdAt.toISOString(),
       })),

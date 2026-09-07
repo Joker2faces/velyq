@@ -68,6 +68,15 @@ export type AdminDecisionFunnelDto = Readonly<{
   modelMaturity: string | null;
   counts: AdminJsonValue;
   noBetReasons: AdminJsonValue;
+  /*
+   * Every market the cycle evaluated, with what the model and the market
+   * said about it. The counts alone tell an administrator that six markets
+   * stopped at the lineup gate; they do not say which six. Reaching that
+   * detail previously required knowing a prediction's UUID in advance, and
+   * most of these markets have no prediction at all — a WATCH candidate a
+   * day before kickoff is deliberately not a decision.
+   */
+  candidates: AdminJsonValue;
   triggerSource: string;
   createdAt: string;
 }>;

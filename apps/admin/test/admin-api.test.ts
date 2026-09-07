@@ -46,6 +46,14 @@ const queries: AdminQueries = {
         modelMaturity: "EXPERIMENTAL",
         counts: { eventsDiscovered: 6, predictionsCreated: 6, edge: 0 },
         noBetReasons: { QUALITY_MISSING_LINEUP: 6 },
+        candidates: [
+          {
+            eventId: "00000000-0000-4000-8000-00000000000b",
+            marketCode: "1X2",
+            lifecycleState: "WAIT_FOR_LINEUP",
+            lineupAvailability: "LINEUP_NOT_PUBLISHED_YET",
+          },
+        ],
         triggerSource: "SCHEDULED",
         createdAt: "2026-09-07T16:00:01Z",
       },
