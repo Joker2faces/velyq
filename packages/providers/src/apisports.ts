@@ -161,6 +161,21 @@ export type NormalizedEvent = Readonly<{
   sport: "FOOTBALL" | "BASKETBALL";
   providerEventId: string;
   competition: string;
+  /**
+   * The provider's own league id.
+   *
+   * Carried because the league *name* is not an identity: "Premier League"
+   * exists in a dozen countries, and the catalog was keying competitions on a
+   * slug of it. That left `canonical_code` unresolvable for essentially every
+   * competition, so the eligibility policy could not match anything and every
+   * real event failed closed as COMPETITION_NOT_MAPPED.
+   */
+  competitionProviderId: string | null;
+  /** The provider's country name, and its ISO code where one is supplied. */
+  competitionCountry: string | null;
+  competitionCountryCode: string | null;
+  /** The provider's season year, where supplied. */
+  season: number | null;
   participants: readonly string[];
   scheduledAt: string;
   status: string;
@@ -186,6 +201,18 @@ function valueRecord(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
+/**
+ * A provider identifier, or null.
+ *
+ * Never "UNKNOWN". An identifier placeholder makes two different unidentified
+ * things compare equal, which for a competition id means two leagues
+ * resolving to the same canonical code.
+ */
+function optionalIdentifier(value: unknown): string | null {
+  if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
 export function normalizeFootballFixture(
   raw: unknown,
   sourceReference = "api-sports:football:fixtures",
@@ -202,6 +229,10 @@ export function normalizeFootballFixture(
     sport: "FOOTBALL",
     providerEventId: String(fixture["id"]),
     competition: String(league["name"] ?? "UNKNOWN"),
+    competitionProviderId: optionalIdentifier(league["id"]),
+    competitionCountry: optionalIdentifier(league["country"]),
+    competitionCountryCode: optionalIdentifier(league["code"]),
+    season: typeof league["season"] === "number" ? league["season"] : null,
     participants: [
       String(home["name"] ?? "UNKNOWN"),
       String(away["name"] ?? "UNKNOWN"),
@@ -227,6 +258,20 @@ export function normalizeBasketballGame(
     sport: "BASKETBALL",
     providerEventId: String(game["id"]),
     competition: String(valueRecord(item["league"])["name"] ?? "UNKNOWN"),
+    competitionProviderId: optionalIdentifier(
+      valueRecord(item["league"])["id"],
+    ),
+    competitionCountry: optionalIdentifier(
+      valueRecord(valueRecord(item["country"]))["name"] ??
+        valueRecord(item["league"])["country"],
+    ),
+    competitionCountryCode: optionalIdentifier(
+      valueRecord(valueRecord(item["country"]))["code"],
+    ),
+    season:
+      typeof valueRecord(item["league"])["season"] === "number"
+        ? (valueRecord(item["league"])["season"] as number)
+        : null,
     participants: [
       String(home["name"] ?? "UNKNOWN"),
       String(away["name"] ?? "UNKNOWN"),

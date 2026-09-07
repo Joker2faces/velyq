@@ -1,3 +1,4 @@
+export * from "./apisports-coverage.js";
 export * from "./football-data-fixtures.js";
 import {
   InMemoryIngestionSink,
