@@ -47,8 +47,14 @@ database/application integration layer and are not fabricated here.
 ## Database and real data
 
 No database migration was added. No production or staging database was
-modified. No real provider was connected. Synthetic/demo data remains clearly
-separate from real-data claims.
+modified. The provider-neutral API-Sports HTTP boundary is implemented in
+`packages/providers/src/apisports.ts`, including server-only key handling,
+bounded retries, quota states, fixture/game normalization, bookmaker odds
+normalization, canonical-market mapping, unknown-market quarantine, and
+sanitized errors. Run `pnpm data:apisports:probe -- --sport football
+--date YYYY-MM-DD` (or `basketball`) only in an environment that supplies
+`APISPORTS_KEY`; no key is stored in the repository. Synthetic/demo data
+remains clearly separate from real-data claims.
 
 ## Verification
 
