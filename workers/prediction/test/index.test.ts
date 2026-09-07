@@ -14,6 +14,7 @@ import {
   type PredictionJob,
 } from "../src/index.js";
 import type { DecimalString } from "@velyq/decimal";
+import { resolveTeam } from "@velyq/research";
 
 const asDecimal = (value: string) => value as DecimalString;
 
@@ -383,5 +384,66 @@ describe("prediction worker", () => {
     expect(radar.radarEvidence?.bookmakersObserved).toBe(2);
     expect(radar.radarEvidence?.bookmakersMoving).toBe(2);
     expect(writes).toHaveLength(3);
+  });
+});
+
+/*
+ * The prediction cycle resolved teams with a bare `normalizeTeamKey` lookup
+ * and never consulted the alias table, so every club the corpus and the
+ * provider spell differently was quarantined as TEAM_NOT_IN_MODEL — a code
+ * that reads exactly like a newly promoted side with no ratings, and is a
+ * completely different problem. These pin the behaviour the cycle now uses.
+ */
+describe("team identity across two publishers", () => {
+  const eredivisie = new Set(["nijmegen", "utrecht", "go-ahead-eagles"]);
+
+  it("resolves a provider spelling through the alias table", () => {
+    const resolution = resolveTeam({
+      canonicalCompetitionCode: "NLD_EREDIVISIE",
+      sourceName: "NEC Nijmegen",
+      knownTeamKeys: eredivisie,
+    });
+
+    expect(resolution.status).toBe("RESOLVED");
+    if (resolution.status !== "RESOLVED") return;
+    expect(resolution.teamKey).toBe("nijmegen");
+    expect(resolution.via).toBe("ALIAS");
+  });
+
+  it("still resolves a name both publishers agree on, without an alias", () => {
+    const resolution = resolveTeam({
+      canonicalCompetitionCode: "NLD_EREDIVISIE",
+      sourceName: "GO Ahead Eagles",
+      knownTeamKeys: eredivisie,
+    });
+
+    expect(resolution.status).toBe("RESOLVED");
+    if (resolution.status !== "RESOLVED") return;
+    expect(resolution.via).toBe("EXACT");
+  });
+
+  it("quarantines a club the model has never rated", () => {
+    /*
+     * The promoted-side case, which must keep failing closed. There is no
+     * attack rating to price with, and a division average would produce a
+     * confident-looking edge resting on an assumption nobody made.
+     */
+    const resolution = resolveTeam({
+      canonicalCompetitionCode: "NLD_EREDIVISIE",
+      sourceName: "Some Promoted Club",
+      knownTeamKeys: eredivisie,
+    });
+
+    expect(resolution.status).toBe("QUARANTINED");
+  });
+
+  it("does not let one competition's alias resolve another's club", () => {
+    const resolution = resolveTeam({
+      canonicalCompetitionCode: "ITA_SERIE_A",
+      sourceName: "NEC Nijmegen",
+      knownTeamKeys: eredivisie,
+    });
+
+    expect(resolution.status).toBe("QUARANTINED");
   });
 });

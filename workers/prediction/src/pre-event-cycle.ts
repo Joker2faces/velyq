@@ -40,7 +40,7 @@ import { marketConsensus, type BookmakerQuote } from "@velyq/market-semantics";
 import {
   applyTemperature,
   bandFor,
-  normalizeTeamKey,
+  resolveTeam,
   toCoherentDecimals,
   type Calibrator,
   type FittedModel,
@@ -726,18 +726,40 @@ export async function runPreEventPredictionCycle(
     }
     counts.modelEligibleEvents += 1;
 
-    const homeTeamKey = normalizeTeamKey(candidate.homeName);
-    const awayTeamKey = normalizeTeamKey(candidate.awayName);
+    /*
+     * Through `resolveTeam`, not a bare `normalizeTeamKey` lookup.
+     *
+     * The alias table exists precisely because the training corpus and the
+     * live provider are different publishers that spell clubs differently —
+     * the corpus calls NEC "Nijmegen", API-Sports calls it "NEC Nijmegen" —
+     * and this path used to normalise the provider's name and check
+     * membership directly, so the table was never consulted at all. Every
+     * such club was quarantined as TEAM_NOT_IN_MODEL, which reads exactly
+     * like a newly promoted side with no ratings and is a completely
+     * different problem.
+     *
+     * Quarantine remains the answer for a genuinely unknown club. There is no
+     * attack rating to price with, and substituting a division average would
+     * produce a confident-looking edge resting on an assumption nobody made
+     * deliberately.
+     */
     const known = knownTeamKeys.get(competitionCode) ?? new Set<string>();
-    if (!known.has(homeTeamKey) || !known.has(awayTeamKey)) {
-      /*
-       * A newly promoted club has no ratings, and substituting the division
-       * average would produce a confident-looking edge resting on an
-       * assumption nobody made deliberately.
-       */
+    const home = resolveTeam({
+      canonicalCompetitionCode: competitionCode,
+      sourceName: candidate.homeName,
+      knownTeamKeys: known,
+    });
+    const away = resolveTeam({
+      canonicalCompetitionCode: competitionCode,
+      sourceName: candidate.awayName,
+      knownTeamKeys: known,
+    });
+    if (home.status !== "RESOLVED" || away.status !== "RESOLVED") {
       note("TEAM_NOT_IN_MODEL");
       continue;
     }
+    const homeTeamKey = home.teamKey;
+    const awayTeamKey = away.teamKey;
 
     const { outcomes, observations } = await loadEventMarkets(
       options.database,

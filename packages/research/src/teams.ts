@@ -103,6 +103,14 @@ export const TEAM_ALIASES: readonly Readonly<{
     alias: "Sheffield United",
     corpusName: "Sheffield United",
   },
+  // Netherlands — the corpus drops the club's initials, the provider keeps
+  // them. Verified against the trained artifact, whose Eredivisie parameters
+  // carry "nijmegen" and no "nec-nijmegen".
+  {
+    canonicalCompetitionCode: "NLD_EREDIVISIE",
+    alias: "NEC Nijmegen",
+    corpusName: "Nijmegen",
+  },
   // Spain
   {
     canonicalCompetitionCode: "ESP_LA_LIGA",
