@@ -1330,7 +1330,20 @@ svg {
   color: var(--pitch);
 }
 
-@media (min-width: 26rem) {
+/*
+ * The tagline appears only where it genuinely fits beside the wordmark.
+ *
+ * This was 26rem, which was enough for "Football intelligence". The tagline
+ * is now "Sports market intelligence" — half again as long, and tracked
+ * uppercase — so at 26rem it broke onto a second line inside the mobile top
+ * bar and pushed the language switcher and sign-out against the edge.
+ *
+ * Raised rather than shrunk or truncated: below this width the wordmark alone
+ * is the brand, which is what a lockup is for. The sidebar has room for both
+ * but not on one line, and stacks them deliberately (see section 13 of the
+ * customer app).
+ */
+@media (min-width: 46rem) {
   .brand__tag {
     display: inline;
   }
