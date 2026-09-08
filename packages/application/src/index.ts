@@ -12,6 +12,7 @@ import type {
   QuarantinedProviderObservation,
   SyntheticScenarioRecord,
 } from "@velyq/contracts";
+export * from "./result-settlement.js";
 import {
   assessDataQuality,
   type DataQualityAssessment,
