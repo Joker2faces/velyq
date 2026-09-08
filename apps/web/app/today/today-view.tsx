@@ -78,6 +78,16 @@ export function TodayView({
       match.recommendation === "WAIT" ||
       match.recommendation === "WAIT_FOR_LINEUP",
   );
+  /* A forecast is useful even when its present price is not actionable. */
+  const forecastable = matches.filter(
+    (match) => match.modelProbability !== null,
+  );
+  const watch = forecastable.filter(
+    (match) =>
+      match.recommendation === "WAIT" ||
+      match.recommendation === "WAIT_FOR_LINEUP" ||
+      match.recommendation === "EDGE_DISAPPEARED",
+  );
   const blocked = matches.filter(
     (match) =>
       match.quality.grade === "F" ||
@@ -198,7 +208,58 @@ export function TodayView({
               tone={blocked.length > 0 ? "negative" : undefined}
             />
           </Card>
+          <Card className="stat--boxed">
+            <Stat label="Forecasts" value={formatCount(forecastable.length)} />
+          </Card>
+          <Card className="stat--boxed">
+            <Stat label="Watch" value={formatCount(watch.length)} />
+          </Card>
         </div>
+
+        {watch.length > 0 ? (
+          <Card>
+            <CardHead
+              title="Watch"
+              hint="Forecasts worth monitoring, not actionable recommendations."
+            />
+            {watch.slice(0, 3).map((match) => {
+              const target =
+                match.fairOdds === null ? null : Number(match.fairOdds) * 1.03;
+              const gap =
+                target === null || match.currentOdds === null
+                  ? null
+                  : target - Number(match.currentOdds);
+              return (
+                <div className="match-row" key={`watch-${match.eventId}`}>
+                  <div>
+                    <strong>
+                      {match.homeTeam} — {match.awayTeam}
+                    </strong>
+                    <p className="match-row__meta">
+                      Model {formatProbability(match.modelProbability, locale)}{" "}
+                      · {match.selection}
+                    </p>
+                  </div>
+                  <div className="match-row__metrics">
+                    <span>Current {formatOdds(match.currentOdds, locale)}</span>
+                    {target !== null ? (
+                      <span>Interesting from {target.toFixed(2)}+</span>
+                    ) : null}
+                    {gap !== null && gap > 0 ? (
+                      <span>{gap.toFixed(2)} away from validity</span>
+                    ) : null}
+                    <span>
+                      Why not:{" "}
+                      {match.quality.reasonCodes
+                        .join(", ")
+                        .replaceAll("_", " ")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        ) : null}
 
         <div className="split">
           <Card>

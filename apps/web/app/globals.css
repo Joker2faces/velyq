@@ -1677,6 +1677,50 @@ a.row:hover {
 
 /* ------------------------------------------------- 16. forced colors mode */
 
+.results-list {
+  display: grid;
+  gap: 0;
+}
+.results-row {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--line);
+}
+.results-row:last-child {
+  border-bottom: 0;
+}
+.results-row h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.results-row p {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-muted);
+}
+.results-row__facts {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
+.results-outcome {
+  width: fit-content;
+  color: var(--ink);
+}
+.results-outcome--win {
+  color: var(--positive);
+}
+.results-outcome--loss {
+  color: var(--negative);
+}
+@media (min-width: 45rem) {
+  .results-row {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
+    align-items: center;
+  }
+}
+
 @media (forced-colors: active) {
   .card,
   .badge,
