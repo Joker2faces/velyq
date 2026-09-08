@@ -134,13 +134,17 @@ export default async function Match({
               tone={
                 match.syntheticLabel === "Synthetic data"
                   ? "synthetic"
-                  : "positive"
+                  : match.syntheticLabel === "Market data unavailable"
+                    ? "neutral"
+                    : "positive"
               }
               dot
             >
               {match.syntheticLabel === "Synthetic data"
                 ? t("syntheticData")
-                : t("liveData")}
+                : match.syntheticLabel === "Market data unavailable"
+                  ? t("marketDataUnavailable")
+                  : t("liveData")}
             </Badge>
             <Badge tone={qualityTone(match.quality.grade)}>
               {t("matchGrade")} {match.quality.grade}

@@ -16,6 +16,7 @@ import type {
 
 export const SYNTHETIC_DATA_LABEL = "Synthetic data" as const;
 export const LIVE_DATA_LABEL = "Live market data" as const;
+export const MARKET_DATA_UNAVAILABLE_LABEL = "Market data unavailable" as const;
 
 /**
  * Which kind of football a customer surface is actually showing.
@@ -31,7 +32,9 @@ export const LIVE_DATA_LABEL = "Live market data" as const;
  * demo tells a customer to disregard the one number that was true.
  */
 export type CustomerDataLabel =
-  typeof SYNTHETIC_DATA_LABEL | typeof LIVE_DATA_LABEL;
+  | typeof SYNTHETIC_DATA_LABEL
+  | typeof LIVE_DATA_LABEL
+  | typeof MARKET_DATA_UNAVAILABLE_LABEL;
 
 export type SyntheticMetadata = Readonly<{
   readonly isSynthetic: true;
@@ -776,7 +779,8 @@ function validateCustomerMatchInput(input: unknown): string[] {
   if (!isTimestamp(input["startsAt"])) errors.push("startsAt is invalid");
   if (
     input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
-    input["syntheticLabel"] !== LIVE_DATA_LABEL
+    input["syntheticLabel"] !== LIVE_DATA_LABEL &&
+    input["syntheticLabel"] !== MARKET_DATA_UNAVAILABLE_LABEL
   )
     errors.push("syntheticLabel is invalid");
   if (!isObject(input["scenario"])) {
@@ -939,7 +943,8 @@ export function validateCustomerTodayDto(
   const errors: string[] = [];
   if (
     input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
-    input["syntheticLabel"] !== LIVE_DATA_LABEL
+    input["syntheticLabel"] !== LIVE_DATA_LABEL &&
+    input["syntheticLabel"] !== MARKET_DATA_UNAVAILABLE_LABEL
   )
     errors.push("syntheticLabel is invalid");
   if (!isTimestamp(input["asOf"])) errors.push("asOf is invalid");

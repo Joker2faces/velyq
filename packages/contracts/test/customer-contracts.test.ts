@@ -84,6 +84,15 @@ describe("customer API contracts", () => {
     if (result.ok) expect(result.value.modelProbability).toBe("0.6");
   });
 
+  it("accepts an explicit unavailable-market label instead of relabelling live fixtures as demo data", () => {
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        syntheticLabel: "Market data unavailable",
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
   it.each([
     ["id", ""],
     ["state", "UNKNOWN"],

@@ -66,13 +66,17 @@ export function RadarView({
             tone={
               data.syntheticLabel === "Synthetic data"
                 ? "synthetic"
-                : "positive"
+                : data.syntheticLabel === "Market data unavailable"
+                  ? "neutral"
+                  : "positive"
             }
             dot
           >
             {data.syntheticLabel === "Synthetic data"
               ? t("syntheticData")
-              : t("liveData")}
+              : data.syntheticLabel === "Market data unavailable"
+                ? t("marketDataUnavailable")
+                : t("liveData")}
           </Badge>
           <Badge tone="heuristic">{t("observableOnly")}</Badge>
         </div>

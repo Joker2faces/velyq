@@ -153,13 +153,17 @@ export function TodayView({
             tone={
               today.syntheticLabel === "Synthetic data"
                 ? "synthetic"
-                : "positive"
+                : today.syntheticLabel === "Market data unavailable"
+                  ? "neutral"
+                  : "positive"
             }
             dot
           >
             {today.syntheticLabel === "Synthetic data"
               ? t("syntheticData")
-              : t("liveData")}
+              : today.syntheticLabel === "Market data unavailable"
+                ? t("marketDataUnavailable")
+                : t("liveData")}
           </Badge>
           <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
         </div>

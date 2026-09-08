@@ -43,6 +43,7 @@ export const messages = {
   // --------------------------------------------------------------- shared
   syntheticData: "Synthetic data",
   liveData: "Live data",
+  marketDataUnavailable: "Market data unavailable",
   developmentHeuristic: "Development heuristic",
   experimental: "Experimental",
   observableOnly: "Observable evidence only",
@@ -703,6 +704,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
 
   syntheticData: "Συνθετικά δεδομένα",
   liveData: "Ζωντανά δεδομένα",
+  marketDataUnavailable: "Τα δεδομένα αγοράς δεν είναι διαθέσιμα",
   developmentHeuristic: "Δείκτης υπό ανάπτυξη",
   experimental: "Πειραματικό",
   observableOnly: "Μόνο ό,τι καταγράφεται",

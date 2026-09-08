@@ -7,6 +7,7 @@ import type {
 } from "@velyq/contracts";
 import {
   LIVE_DATA_LABEL,
+  MARKET_DATA_UNAVAILABLE_LABEL,
   SYNTHETIC_DATA_LABEL,
   type CustomerDataLabel,
 } from "@velyq/contracts";
@@ -51,13 +52,12 @@ function scenarioFor(
  * customer would actually stake against, so it is the thing whose provenance
  * decides the label.
  *
- * A match with no observations at all is reported as synthetic. That is the
- * pessimistic direction on purpose: nothing about an empty market justifies
- * telling somebody they are looking at live prices.
+ * A match with no observations is explicitly unavailable. It must not be
+ * relabelled as a demo scenario or as a live price that does not exist.
  */
 function dataLabelFor(raw: CustomerRawMatch): CustomerDataLabel {
   const observations = raw.outcomes.flatMap((outcome) => outcome.odds);
-  if (observations.length === 0) return SYNTHETIC_DATA_LABEL;
+  if (observations.length === 0) return MARKET_DATA_UNAVAILABLE_LABEL;
   return observations.some((observation) => observation.isSynthetic)
     ? SYNTHETIC_DATA_LABEL
     : LIVE_DATA_LABEL;
@@ -214,7 +214,11 @@ export const customerDatabaseMapper = {
         (match) => dataLabelFor(match) === SYNTHETIC_DATA_LABEL,
       )
         ? SYNTHETIC_DATA_LABEL
-        : LIVE_DATA_LABEL,
+        : raw.matches.every(
+              (match) => dataLabelFor(match) === MARKET_DATA_UNAVAILABLE_LABEL,
+            )
+          ? MARKET_DATA_UNAVAILABLE_LABEL
+          : LIVE_DATA_LABEL,
       asOf: raw.asOf.toISOString(),
       matches: raw.matches.map(mapMatch),
     };
