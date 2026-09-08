@@ -4,9 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./price-validity": "./src/price-validity.ts",
-    "./decision-engine": "./src/decision-engine.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./price-validity": {
+      "types": "./src/price-validity.ts",
+      "default": "./dist/price-validity.js"
+    },
+    "./decision-engine": {
+      "types": "./src/decision-engine.ts",
+      "default": "./dist/decision-engine.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

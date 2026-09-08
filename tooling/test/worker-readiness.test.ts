@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { runWorkerReadiness } from "../scripts/worker-readiness.mjs";
@@ -26,6 +28,17 @@ function readinessOptions() {
 }
 
 describe("built worker readiness", () => {
+  it("routes the analytics runtime export to compiled JavaScript", () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve("packages/analytics/package.json"), "utf8"),
+    ) as { exports?: Record<string, unknown> };
+
+    expect(manifest.exports?.["."]).toMatchObject({
+      types: "./src/index.ts",
+      default: "./dist/index.js",
+    });
+  });
+
   it("passes after resolving both consumers and replaying without live secrets", () => {
     const options = readinessOptions();
     const result = runWorkerReadiness(options);
