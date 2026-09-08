@@ -17,6 +17,8 @@
     "test:db-integration": "vitest run --config tooling/vitest/vitest.db-integration.config.mts",
     "test:db:local": "node tooling/scripts/local-postgres.mjs",
     "test:db:upgrade": "node tooling/scripts/local-postgres-upgrade.mjs",
+    "data:historical:download": "tsx tooling/scripts/historical-download.ts",
+    "data:historical:report": "tsx tooling/scripts/historical-corpus.ts",
     "test:e2e": "playwright test",
     "build": "turbo build",
     "bootstrap": "corepack pnpm install --frozen-lockfile && corepack pnpm verify",

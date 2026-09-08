@@ -13,3 +13,9 @@ test-results/
 supabase/.temp/
 dist/
 apps/*/.next/
+
+# Football-Data.co.uk publishes no explicit redistribution licence -- only
+# provenance, checksums and the model parameters derived from these files are
+# versioned (see packages/research/src/provenance.ts). Never commit the raw
+# corpus.
+/data/historical/
