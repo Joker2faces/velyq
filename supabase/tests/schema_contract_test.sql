@@ -8,8 +8,8 @@ SELECT is(
     WHERE table_type = 'BASE TABLE'
       AND table_schema IN ('audit', 'catalog', 'intelligence', 'market', 'operations', 'private', 'public')
   ),
-  35::bigint,
-  'the Phase 1 schemas contain exactly 35 base tables'
+  39::bigint,
+  'the schemas contain exactly 39 base tables including the product-intelligence history'
 );
 
 SELECT set_eq(
@@ -29,9 +29,13 @@ SELECT set_eq(
     'intelligence.calibration_versions',
     'intelligence.data_quality_assessments',
     'intelligence.data_quality_policy_versions',
+    'intelligence.decisions',
+    'intelligence.event_results',
+    'intelligence.forecasts',
     'intelligence.lineup_observations',
     'intelligence.model_definitions',
     'intelligence.model_versions',
+    'intelligence.market_settlements',
     'intelligence.prediction_inputs',
     'intelligence.prediction_runs',
     'intelligence.predictions',
@@ -70,8 +74,6 @@ SELECT is(
       'lineup_entries',
       'injuries',
       'raw_payloads',
-      'event_results',
-      'market_settlements',
       'backtest_runs',
       'subscriptions',
       'saved_matches',

@@ -16,6 +16,8 @@ import {
   STORAGE_SCALES,
 } from "@velyq/decimal";
 
+export * from "./performance.js";
+
 export type ValueMetrics = Readonly<{
   impliedProbability: DecimalString;
   fairOdds: DecimalString;

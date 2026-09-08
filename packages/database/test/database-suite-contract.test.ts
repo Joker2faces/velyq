@@ -132,7 +132,7 @@ describe("real pgTAP database suite", () => {
     const security = sqlTest("security_boundaries_test.sql");
     const providerLineup = sqlTest("provider_lineup_mapping_test.sql");
 
-    expect(schema).toContain("35");
+    expect(schema).toContain("39");
     expect(schema).toContain("pg_indexes");
     expect(schema).toContain("future phase tables are absent");
     expect(constraints).toContain("'nan'::numeric");

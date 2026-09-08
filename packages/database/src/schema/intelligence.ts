@@ -343,6 +343,169 @@ export const predictions = intelligenceSchema.table(
   ],
 );
 
+/**
+ * A forecast is the model's estimate. It is deliberately separate from a
+ * decision, which is the user-facing recommendation made at a particular
+ * price and point in time.  Both are append-only by policy: historic model
+ * outputs and decisions must remain replayable after the model changes.
+ */
+export const forecasts = intelligenceSchema.table(
+  "forecasts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    predictionId: uuid("prediction_id")
+      .notNull()
+      .references(() => predictions.id, { onDelete: "restrict" }),
+    eventMarketOutcomeId: uuid("event_market_outcome_id")
+      .notNull()
+      .references(() => eventMarketOutcomes.id, { onDelete: "restrict" }),
+    probability: numeric("probability", {
+      precision: 18,
+      scale: 12,
+      mode: "string",
+    }).notNull(),
+    confidence: numeric("confidence", {
+      precision: 18,
+      scale: 12,
+      mode: "string",
+    }),
+    modelVersion: text("model_version").notNull(),
+    featureCutoff: timestamp("feature_cutoff", {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("forecasts_prediction_id_unique").on(table.predictionId),
+    index("forecasts_outcome_created_at_idx").on(
+      table.eventMarketOutcomeId,
+      table.createdAt.desc(),
+    ),
+    check(
+      "forecasts_probability_check",
+      sql`${table.probability}::text not in ('NaN', 'Infinity', '-Infinity') and ${table.probability} >= 0 and ${table.probability} <= 1`,
+    ),
+  ],
+);
+
+/** Immutable, price-aware recommendation snapshot derived from a forecast. */
+export const decisions = intelligenceSchema.table(
+  "decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    forecastId: uuid("forecast_id")
+      .notNull()
+      .references(() => forecasts.id, { onDelete: "restrict" }),
+    eventMarketOutcomeId: uuid("event_market_outcome_id")
+      .notNull()
+      .references(() => eventMarketOutcomes.id, { onDelete: "restrict" }),
+    marketPriceObservationId: uuid("market_price_observation_id").references(
+      () => oddsObservations.id,
+      { onDelete: "restrict" },
+    ),
+    status: text("status").notNull(),
+    selection: text("selection").notNull(),
+    offeredOdds: numeric("offered_odds", {
+      precision: 18,
+      scale: 8,
+      mode: "string",
+    }),
+    fairOdds: numeric("fair_odds", { precision: 18, scale: 8, mode: "string" }),
+    expectedValue: numeric("expected_value", {
+      precision: 18,
+      scale: 12,
+      mode: "string",
+    }),
+    whyNotCodes: text("why_not_codes").array().notNull(),
+    decisionSnapshot: jsonb("decision_snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("decisions_outcome_created_at_idx").on(
+      table.eventMarketOutcomeId,
+      table.createdAt.desc(),
+    ),
+    index("decisions_forecast_id_idx").on(table.forecastId),
+    check(
+      "decisions_status_check",
+      sql`${table.status} in ('STRONG_EDGE', 'NO_BET', 'WAIT', 'WAIT_FOR_LINEUP', 'INSUFFICIENT_DATA', 'EDGE_DISAPPEARED')`,
+    ),
+  ],
+);
+
+export const eventResults = intelligenceSchema.table(
+  "event_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "restrict" }),
+    sourceObservationId: uuid("source_observation_id")
+      .notNull()
+      .references(() => sourceObservations.id, { onDelete: "restrict" }),
+    status: text("status").notNull(),
+    homeScore: integer("home_score"),
+    awayScore: integer("away_score"),
+    providerObservedAt: timestamp("provider_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("event_results_source_event_unique").on(
+      table.sourceObservationId,
+      table.eventId,
+    ),
+    index("event_results_event_observed_at_idx").on(
+      table.eventId,
+      table.providerObservedAt.desc(),
+    ),
+    check(
+      "event_results_status_check",
+      sql`${table.status} in ('FINAL', 'IN_PROGRESS', 'SCHEDULED', 'POSTPONED', 'CANCELLED', 'ABANDONED')`,
+    ),
+  ],
+);
+
+export const marketSettlements = intelligenceSchema.table(
+  "market_settlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "restrict" }),
+    eventResultId: uuid("event_result_id")
+      .notNull()
+      .references(() => eventResults.id, { onDelete: "restrict" }),
+    outcome: text("outcome").notNull(),
+    settlementRuleVersion: text("settlement_rule_version").notNull(),
+    closingOdds: numeric("closing_odds", {
+      precision: 18,
+      scale: 8,
+      mode: "string",
+    }),
+    clv: numeric("clv", { precision: 18, scale: 12, mode: "string" }),
+    settledAt: timestamp("settled_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("market_settlements_decision_id_unique").on(table.decisionId),
+    index("market_settlements_event_result_id_idx").on(table.eventResultId),
+    check(
+      "market_settlements_outcome_check",
+      sql`${table.outcome} in ('WIN', 'LOSS', 'VOID', 'UNSETTLED')`,
+    ),
+  ],
+);
+
 export const predictionInputs = intelligenceSchema.table(
   "prediction_inputs",
   {

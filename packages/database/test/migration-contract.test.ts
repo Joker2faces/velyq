@@ -17,7 +17,11 @@ const EXPECTED_TABLES = [
   "intelligence.calibration_versions",
   "intelligence.data_quality_assessments",
   "intelligence.data_quality_policy_versions",
+  "intelligence.decisions",
+  "intelligence.event_results",
+  "intelligence.forecasts",
   "intelligence.lineup_observations",
+  "intelligence.market_settlements",
   "intelligence.model_definitions",
   "intelligence.model_versions",
   "intelligence.prediction_inputs",
@@ -115,8 +119,8 @@ function appendOnlyTargets(sql: string): string[] {
     .sort();
 }
 
-describe("reviewed Phase 1 migration contract", () => {
-  it("creates exactly the approved 37-table allowlist", () => {
+describe("reviewed database migration contract", () => {
+  it("creates exactly the approved 41-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 
