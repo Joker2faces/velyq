@@ -70,4 +70,33 @@ describe("Phase 1 database schema allowlist", () => {
     expect(tableNames).toEqual(EXPECTED_PHASE_ONE_TABLES);
     expect(new Set(tableNames).size).toBe(37);
   });
+
+  /*
+   * Guards a real gap found while building the odds write path:
+   * `databaseSchema` (schema/database.ts) is a second, separately maintained
+   * table list that powers `db.query.*` -- adding a table to `phaseOneTables`
+   * does not add it here. A table missing from `databaseSchema` still
+   * migrates and typechecks fine; `db.query.<table>.findFirst(...)` on it
+   * throws only at runtime, which is exactly how this was discovered.
+   *
+   * `databaseSchema` is a superset of `phaseOneTables`, not an exact match:
+   * the billing tables are deliberately queryable (`databaseSchema`) while
+   * staying outside the reviewed Phase 1 allowlist above -- billing remains
+   * a deferred, separately-governed concern.
+   */
+  it("registers every phase-one table in the databaseSchema relational query map", async () => {
+    const { phaseOneTables } = await import("../src/schema/index.js");
+    const { databaseSchema } = await import("../src/schema/database.js");
+
+    const phaseOneTableNames = new Set(
+      phaseOneTables.map((table) => getTableConfig(table).name),
+    );
+    const databaseSchemaTableNames = new Set(
+      Object.values(databaseSchema).map((table) => getTableConfig(table).name),
+    );
+
+    for (const name of phaseOneTableNames) {
+      expect(databaseSchemaTableNames.has(name)).toBe(true);
+    }
+  });
 });

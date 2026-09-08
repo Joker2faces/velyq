@@ -195,6 +195,9 @@ importers:
       '@velyq/domain':
         specifier: workspace:*
         version: link:../domain
+      '@velyq/market-semantics':
+        specifier: workspace:*
+        version: link:../market-semantics
       '@velyq/providers':
         specifier: workspace:*
         version: link:../providers

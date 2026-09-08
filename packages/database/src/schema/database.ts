@@ -23,7 +23,9 @@ import {
   scoreResults,
 } from "./intelligence.js";
 import {
+  competitionIdentities,
   competitions,
+  eventIdentities,
   eventParticipants,
   events,
   participants,
@@ -54,9 +56,11 @@ export const databaseSchema = {
   billingEvents,
   bookmakers,
   calibrationVersions,
+  competitionIdentities,
   competitions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
+  eventIdentities,
   eventMarketOutcomes,
   eventMarkets,
   eventParticipants,
