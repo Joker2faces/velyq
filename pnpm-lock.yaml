@@ -196,6 +196,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@velyq/analytics':
+        specifier: workspace:*
+        version: link:../analytics
       '@velyq/application':
         specifier: workspace:*
         version: link:../application
@@ -214,6 +217,9 @@ importers:
       '@velyq/providers':
         specifier: workspace:*
         version: link:../providers
+      '@velyq/research':
+        specifier: workspace:*
+        version: link:../research
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)

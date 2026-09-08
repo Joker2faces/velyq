@@ -51,12 +51,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@velyq/analytics": "workspace:*",
     "@velyq/auth": "workspace:*",
     "@velyq/application": "workspace:*",
     "@velyq/contracts": "workspace:*",
     "@velyq/domain": "workspace:*",
     "@velyq/market-semantics": "workspace:*",
     "@velyq/providers": "workspace:*",
+    "@velyq/research": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0"
   },

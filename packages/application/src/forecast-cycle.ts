@@ -4,7 +4,7 @@ import {
   evaluateDecision,
   type DecisionPolicy,
 } from "@velyq/analytics/decision-engine";
-import type { CompetitionResolution, TeamResolution } from "@velyq/domain";
+import type { TeamResolution } from "@velyq/domain";
 import {
   modelProbabilitiesFor,
   resolveExpectedGoals,
@@ -46,11 +46,24 @@ export type ForecastCycleDeps = Readonly<{
   loadEligibleFixtures: (
     window: Readonly<{ from: Date; to: Date }>,
   ) => Promise<readonly ForecastCycleFixture[]>;
-  /** Provider identity -> internal competition -> model competition code. */
-  resolveCompetition: (
-    fixture: ForecastCycleFixture,
-  ) => Promise<
-    CompetitionResolution & Readonly<{ modelCompetitionCode?: string }>
+  /**
+   * Provider identity -> internal competition -> model competition code.
+   * Deliberately narrower than @velyq/domain's `CompetitionResolution`: the
+   * orchestration below only ever branches on `ok` and reads
+   * `modelCompetitionCode`, so this port does not force every adapter to
+   * fabricate a `matchedBy`/`mismatch` pair that a resolution performed
+   * once already, upstream, at ingestion time, has no further use for here.
+   */
+  resolveCompetition: (fixture: ForecastCycleFixture) => Promise<
+    | Readonly<{ ok: true; modelCompetitionCode: string }>
+    | Readonly<{
+        ok: false;
+        reason:
+          | "UNRESOLVED_COMPETITION"
+          | "AMBIGUOUS_PROVIDER_IDENTITY"
+          | "MAPPING_PENDING_REVIEW"
+          | "MAPPING_REJECTED";
+      }>
   >;
   resolveHomeTeam: (fixture: ForecastCycleFixture) => Promise<TeamResolution>;
   resolveAwayTeam: (fixture: ForecastCycleFixture) => Promise<TeamResolution>;
@@ -238,8 +251,7 @@ export async function runForecastCycle(
         increment(skippedByReason, competition.reason);
         continue;
       }
-      const modelCompetitionCode =
-        competition.modelCompetitionCode ?? fixture.providerCompetitionCode;
+      const modelCompetitionCode = competition.modelCompetitionCode;
 
       const [home, away] = await Promise.all([
         deps.resolveHomeTeam(fixture),
