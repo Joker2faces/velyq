@@ -13,6 +13,7 @@ test-results/
 supabase/.temp/
 dist/
 apps/*/.next/
+.vercel/
 
 # Football-Data.co.uk publishes no explicit redistribution licence -- only
 # provenance, checksums and the model parameters derived from these files are

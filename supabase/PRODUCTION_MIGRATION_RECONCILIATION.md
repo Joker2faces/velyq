@@ -31,7 +31,7 @@ exist).
 Supabase's migration runner tracks applied migrations by **version**
 (and, in current CLI versions, a checksum of the file), not by diffing
 live schema against file content. A local migration file whose version is
-already recorded against a *different* file will not be silently
+already recorded against a _different_ file will not be silently
 re-applied with different content -- most CLI versions will refuse to
 proceed at all (`migration history does not match`) until the mismatch is
 explicitly resolved with `supabase migration repair`. This is the correct,
@@ -54,8 +54,8 @@ environment does not have. An operator with that access must:
    and the production-equivalent DDL reproduced for test purposes in
    `tooling/scripts/local-postgres-production-upgrade.mjs`).
 3. Only if equivalent: mark this branch's `20260908090000_provider_
-   identity_and_live_data.sql` as applied via `supabase migration repair
-   --status applied 20260908090000` (or the then-current equivalent
+identity_and_live_data.sql` as applied via `supabase migration repair
+--status applied 20260908090000` (or the then-current equivalent
    command) so the CLI stops trying to reconcile it, without ever
    executing its DDL against production.
 4. If NOT equivalent, or a genuine gap is found (for example, no
@@ -64,6 +64,7 @@ environment does not have. An operator with that access must:
    file or forcing the original one through.
 
 ## Update: actual production DDL, verified read-only (supersedes the
+
 ## "equivalent schema" assumption below and in the original commit)
 
 The owner has since supplied actual, read-only-verified DDL for
@@ -75,12 +76,12 @@ that production built an equivalent of `competition_id`/`provider_id`/
 The real, verified shape is:
 
 - `catalog.competition_identities`: `id, canonical_code, source_code,
-  source_key, source_name, country_code, created_at`;
+source_key, source_name, country_code, created_at`;
   `UNIQUE(source_code, source_key)`; `INDEX(canonical_code)`. None of this
   branch's `competition_id`/`provider_id`/`provider_competition_id`/
   `display_name`/`mapping_status`/`mapping_confidence`/`verified_at`.
 - `catalog.event_identities`: `id, event_id, source_code, source_key,
-  created_at`; `UNIQUE(source_code, source_key)`;
+created_at`; `UNIQUE(source_code, source_key)`;
   `UNIQUE(event_id, source_code)`; FK `event_id -> catalog.events`. None of
   `provider_id`/`provider_fixture_id`.
 - **No event-provenance trigger of any kind currently exists in
@@ -98,7 +99,7 @@ The real, verified shape is:
   `ESP_LA_LIGA -> la-liga`) independently confirm the same deterministic
   transform (strip the 3-letter country prefix, lowercase, underscore ->
   dash), which is what the new compatibility migration uses to link
-  `competition_id` to an *existing* `catalog.competitions` row -- it never
+  `competition_id` to an _existing_ `catalog.competitions` row -- it never
   fabricates one, and never guesses past a transform that finds no match.
 
 **A real, separate bug this surfaced and fixed**: the forecast-cycle
@@ -170,8 +171,8 @@ only when no identity row supplies a canonical code at all.
 ## Known gap, stated plainly
 
 This session did not construct a second scenario proving the provenance
-trigger is correctly *skipped* when an orphan LIVE event exists (only that
-it is correctly *enabled* when none do) -- the guard's logic is a plain,
+trigger is correctly _skipped_ when an orphan LIVE event exists (only that
+it is correctly _enabled_ when none do) -- the guard's logic is a plain,
 easily-audited `IF orphan_count > 0 THEN ... RETURN` in
 `20260925110000`'s own SQL, but the automated test coverage only exercises
 the zero-orphan branch. Before actually applying this migration to

@@ -141,12 +141,8 @@
           "tableFrom": "admin_audit_events",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "actor_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -247,12 +243,8 @@
           "tableFrom": "competition_identities",
           "tableTo": "competitions",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -261,12 +253,8 @@
           "tableFrom": "competition_identities",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -276,10 +264,7 @@
         "competition_identities_provider_identity_unique": {
           "name": "competition_identities_provider_identity_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider_id",
-            "provider_competition_id"
-          ]
+          "columns": ["provider_id", "provider_competition_id"]
         }
       },
       "policies": {},
@@ -345,12 +330,8 @@
           "tableFrom": "competitions",
           "tableTo": "sports",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "sport_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -360,10 +341,7 @@
         "competitions_sport_id_code_unique": {
           "name": "competitions_sport_id_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "sport_id",
-            "code"
-          ]
+          "columns": ["sport_id", "code"]
         }
       },
       "policies": {},
@@ -430,12 +408,8 @@
           "tableFrom": "event_identities",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -444,12 +418,8 @@
           "tableFrom": "event_identities",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -459,18 +429,12 @@
         "event_identities_provider_identity_unique": {
           "name": "event_identities_provider_identity_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider_id",
-            "provider_fixture_id"
-          ]
+          "columns": ["provider_id", "provider_fixture_id"]
         },
         "event_identities_event_provider_unique": {
           "name": "event_identities_event_provider_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "event_id",
-            "provider_id"
-          ]
+          "columns": ["event_id", "provider_id"]
         }
       },
       "policies": {},
@@ -530,12 +494,8 @@
           "tableFrom": "event_participants",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -544,12 +504,8 @@
           "tableFrom": "event_participants",
           "tableTo": "participants",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -557,20 +513,14 @@
       "compositePrimaryKeys": {
         "event_participants_pkey": {
           "name": "event_participants_pkey",
-          "columns": [
-            "event_id",
-            "role"
-          ]
+          "columns": ["event_id", "role"]
         }
       },
       "uniqueConstraints": {
         "event_participants_event_id_participant_id_unique": {
           "name": "event_participants_event_id_participant_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "event_id",
-            "participant_id"
-          ]
+          "columns": ["event_id", "participant_id"]
         }
       },
       "policies": {},
@@ -702,12 +652,8 @@
           "tableFrom": "events",
           "tableTo": "sports",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "sport_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -716,12 +662,8 @@
           "tableFrom": "events",
           "tableTo": "competitions",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -787,12 +729,8 @@
           "tableFrom": "participants",
           "tableTo": "sports",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "sport_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -802,11 +740,7 @@
         "participants_sport_id_type_code_unique": {
           "name": "participants_sport_id_type_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "sport_id",
-            "type",
-            "code"
-          ]
+          "columns": ["sport_id", "type", "code"]
         }
       },
       "policies": {},
@@ -856,16 +790,12 @@
         "sports_code_unique": {
           "name": "sports_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         },
         "sports_name_key_unique": {
           "name": "sports_name_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name_key"
-          ]
+          "columns": ["name_key"]
         }
       },
       "policies": {},
@@ -928,12 +858,8 @@
           "tableFrom": "calibration_versions",
           "tableTo": "model_versions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "model_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["model_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -943,10 +869,7 @@
         "calibration_versions_model_version_id_version_unique": {
           "name": "calibration_versions_model_version_id_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "model_version_id",
-            "version"
-          ]
+          "columns": ["model_version_id", "version"]
         }
       },
       "policies": {},
@@ -1085,12 +1008,8 @@
           "tableFrom": "data_quality_assessments",
           "tableTo": "data_quality_policy_versions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "policy_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["policy_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1099,12 +1018,8 @@
           "tableFrom": "data_quality_assessments",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1113,12 +1028,8 @@
           "tableFrom": "data_quality_assessments",
           "tableTo": "event_market_outcomes",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_outcome_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["market_outcome_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1190,10 +1101,7 @@
         "data_quality_policy_versions_code_version_unique": {
           "name": "data_quality_policy_versions_code_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code",
-            "version"
-          ]
+          "columns": ["code", "version"]
         }
       },
       "policies": {},
@@ -1323,12 +1231,8 @@
           "tableFrom": "lineup_observations",
           "tableTo": "source_observations",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "source_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1337,12 +1241,8 @@
           "tableFrom": "lineup_observations",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1351,12 +1251,8 @@
           "tableFrom": "lineup_observations",
           "tableTo": "participants",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "team_participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1434,9 +1330,7 @@
         "model_definitions_code_unique": {
           "name": "model_definitions_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -1511,12 +1405,8 @@
           "tableFrom": "model_versions",
           "tableTo": "model_definitions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "model_definition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["model_definition_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1526,10 +1416,7 @@
         "model_versions_definition_id_version_unique": {
           "name": "model_versions_definition_id_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "model_definition_id",
-            "version"
-          ]
+          "columns": ["model_definition_id", "version"]
         }
       },
       "policies": {},
@@ -1594,12 +1481,8 @@
           "tableFrom": "prediction_inputs",
           "tableTo": "predictions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "prediction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["prediction_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1608,12 +1491,8 @@
           "tableFrom": "prediction_inputs",
           "tableTo": "source_observations",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "source_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1621,11 +1500,7 @@
       "compositePrimaryKeys": {
         "prediction_inputs_pkey": {
           "name": "prediction_inputs_pkey",
-          "columns": [
-            "prediction_id",
-            "source_observation_id",
-            "input_role"
-          ]
+          "columns": ["prediction_id", "source_observation_id", "input_role"]
         }
       },
       "uniqueConstraints": {},
@@ -1767,12 +1642,8 @@
           "tableFrom": "prediction_runs",
           "tableTo": "model_versions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "model_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["model_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1781,12 +1652,8 @@
           "tableFrom": "prediction_runs",
           "tableTo": "calibration_versions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "calibration_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["calibration_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1795,12 +1662,8 @@
           "tableFrom": "prediction_runs",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1809,12 +1672,8 @@
           "tableFrom": "prediction_runs",
           "tableTo": "jobs",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "trigger_job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trigger_job_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1824,9 +1683,7 @@
         "prediction_runs_trigger_job_id_unique": {
           "name": "prediction_runs_trigger_job_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "trigger_job_id"
-          ]
+          "columns": ["trigger_job_id"]
         }
       },
       "policies": {},
@@ -2010,12 +1867,8 @@
           "tableFrom": "predictions",
           "tableTo": "prediction_runs",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "prediction_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["prediction_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2024,12 +1877,8 @@
           "tableFrom": "predictions",
           "tableTo": "event_market_outcomes",
           "schemaTo": "market",
-          "columnsFrom": [
-            "event_market_outcome_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2038,12 +1887,8 @@
           "tableFrom": "predictions",
           "tableTo": "data_quality_assessments",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "data_quality_assessment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["data_quality_assessment_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2052,12 +1897,8 @@
           "tableFrom": "predictions",
           "tableTo": "odds_observations",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_price_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["market_price_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2067,10 +1908,7 @@
         "predictions_run_id_outcome_id_unique": {
           "name": "predictions_run_id_outcome_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "prediction_run_id",
-            "event_market_outcome_id"
-          ]
+          "columns": ["prediction_run_id", "event_market_outcome_id"]
         }
       },
       "policies": {},
@@ -2207,12 +2045,8 @@
           "tableFrom": "radar_evidence",
           "tableTo": "score_results",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "score_result_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["score_result_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2221,12 +2055,8 @@
           "tableFrom": "radar_evidence",
           "tableTo": "odds_observations",
           "schemaTo": "market",
-          "columnsFrom": [
-            "opening_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opening_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2235,12 +2065,8 @@
           "tableFrom": "radar_evidence",
           "tableTo": "odds_observations",
           "schemaTo": "market",
-          "columnsFrom": [
-            "current_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2250,9 +2076,7 @@
         "radar_evidence_score_result_id_unique": {
           "name": "radar_evidence_score_result_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "score_result_id"
-          ]
+          "columns": ["score_result_id"]
         }
       },
       "policies": {},
@@ -2321,11 +2145,7 @@
         "score_definition_versions_identity_unique": {
           "name": "score_definition_versions_identity_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "score_type",
-            "code",
-            "version"
-          ]
+          "columns": ["score_type", "code", "version"]
         }
       },
       "policies": {},
@@ -2506,12 +2326,8 @@
           "tableFrom": "score_results",
           "tableTo": "score_definition_versions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "score_definition_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["score_definition_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2520,12 +2336,8 @@
           "tableFrom": "score_results",
           "tableTo": "predictions",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "prediction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["prediction_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2534,12 +2346,8 @@
           "tableFrom": "score_results",
           "tableTo": "event_market_outcomes",
           "schemaTo": "market",
-          "columnsFrom": [
-            "event_market_outcome_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2548,12 +2356,8 @@
           "tableFrom": "score_results",
           "tableTo": "data_quality_assessments",
           "schemaTo": "intelligence",
-          "columnsFrom": [
-            "data_quality_assessment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["data_quality_assessment_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2563,9 +2367,7 @@
         "score_results_idempotency_key_unique": {
           "name": "score_results_idempotency_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "idempotency_key"
-          ]
+          "columns": ["idempotency_key"]
         }
       },
       "policies": {},
@@ -2628,9 +2430,7 @@
         "bookmakers_code_unique": {
           "name": "bookmakers_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -2724,14 +2524,8 @@
           "tableFrom": "event_market_outcomes",
           "tableTo": "event_markets",
           "schemaTo": "market",
-          "columnsFrom": [
-            "event_market_id",
-            "market_definition_id"
-          ],
-          "columnsTo": [
-            "id",
-            "market_definition_id"
-          ],
+          "columnsFrom": ["event_market_id", "market_definition_id"],
+          "columnsTo": ["id", "market_definition_id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2740,14 +2534,8 @@
           "tableFrom": "event_market_outcomes",
           "tableTo": "outcome_definitions",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_definition_id",
-            "outcome_definition_id"
-          ],
-          "columnsTo": [
-            "market_definition_id",
-            "id"
-          ],
+          "columnsFrom": ["market_definition_id", "outcome_definition_id"],
+          "columnsTo": ["market_definition_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2757,17 +2545,12 @@
         "event_market_outcomes_canonical_key_unique": {
           "name": "event_market_outcomes_canonical_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "canonical_key"
-          ]
+          "columns": ["canonical_key"]
         },
         "event_market_outcomes_market_outcome_unique": {
           "name": "event_market_outcomes_market_outcome_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "event_market_id",
-            "outcome_definition_id"
-          ]
+          "columns": ["event_market_id", "outcome_definition_id"]
         }
       },
       "policies": {},
@@ -2882,12 +2665,8 @@
           "tableFrom": "event_markets",
           "tableTo": "events",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2896,12 +2675,8 @@
           "tableFrom": "event_markets",
           "tableTo": "market_definitions",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_definition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["market_definition_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2910,12 +2685,8 @@
           "tableFrom": "event_markets",
           "tableTo": "participants",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "subject_participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["subject_participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2925,17 +2696,12 @@
         "event_markets_canonical_key_unique": {
           "name": "event_markets_canonical_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "canonical_key"
-          ]
+          "columns": ["canonical_key"]
         },
         "event_markets_id_market_definition_id_unique": {
           "name": "event_markets_id_market_definition_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "market_definition_id"
-          ]
+          "columns": ["id", "market_definition_id"]
         },
         "event_markets_natural_identity_unique": {
           "name": "event_markets_natural_identity_unique",
@@ -3043,12 +2809,8 @@
           "tableFrom": "market_definitions",
           "tableTo": "sports",
           "schemaTo": "catalog",
-          "columnsFrom": [
-            "sport_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sport_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3058,10 +2820,7 @@
         "market_definitions_sport_id_code_unique": {
           "name": "market_definitions_sport_id_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "sport_id",
-            "code"
-          ]
+          "columns": ["sport_id", "code"]
         }
       },
       "policies": {},
@@ -3221,12 +2980,8 @@
           "tableFrom": "odds_observations",
           "tableTo": "source_observations",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "source_observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -3235,12 +2990,8 @@
           "tableFrom": "odds_observations",
           "tableTo": "event_market_outcomes",
           "schemaTo": "market",
-          "columnsFrom": [
-            "event_market_outcome_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_market_outcome_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -3249,12 +3000,8 @@
           "tableFrom": "odds_observations",
           "tableTo": "bookmakers",
           "schemaTo": "market",
-          "columnsFrom": [
-            "bookmaker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bookmaker_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3334,12 +3081,8 @@
           "tableFrom": "outcome_definitions",
           "tableTo": "market_definitions",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_definition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["market_definition_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3349,18 +3092,12 @@
         "outcome_definitions_market_id_code_unique": {
           "name": "outcome_definitions_market_id_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "market_definition_id",
-            "code"
-          ]
+          "columns": ["market_definition_id", "code"]
         },
         "outcome_definitions_market_id_id_unique": {
           "name": "outcome_definitions_market_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "market_definition_id",
-            "id"
-          ]
+          "columns": ["market_definition_id", "id"]
         }
       },
       "policies": {},
@@ -3472,12 +3209,8 @@
           "tableFrom": "provider_market_mappings",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -3486,14 +3219,8 @@
           "tableFrom": "provider_market_mappings",
           "tableTo": "outcome_definitions",
           "schemaTo": "market",
-          "columnsFrom": [
-            "market_definition_id",
-            "outcome_definition_id"
-          ],
-          "columnsTo": [
-            "market_definition_id",
-            "id"
-          ],
+          "columnsFrom": ["market_definition_id", "outcome_definition_id"],
+          "columnsTo": ["market_definition_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3684,9 +3411,7 @@
         "jobs_idempotency_key_unique": {
           "name": "jobs_idempotency_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "idempotency_key"
-          ]
+          "columns": ["idempotency_key"]
         }
       },
       "policies": {},
@@ -3792,12 +3517,8 @@
           "tableFrom": "provider_policy_versions",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3807,10 +3528,7 @@
         "provider_policy_versions_provider_id_version_unique": {
           "name": "provider_policy_versions_provider_id_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider_id",
-            "version"
-          ]
+          "columns": ["provider_id", "version"]
         }
       },
       "policies": {},
@@ -3999,12 +3717,8 @@
           "tableFrom": "provider_sync_runs",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -4013,12 +3727,8 @@
           "tableFrom": "provider_sync_runs",
           "tableTo": "provider_policy_versions",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "policy_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["policy_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4028,11 +3738,7 @@
         "provider_sync_runs_replay_identity_unique": {
           "name": "provider_sync_runs_replay_identity_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider_id",
-            "replay_sequence",
-            "started_at"
-          ]
+          "columns": ["provider_id", "replay_sequence", "started_at"]
         }
       },
       "policies": {},
@@ -4083,9 +3789,7 @@
         "providers_code_unique": {
           "name": "providers_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -4208,12 +3912,8 @@
           "tableFrom": "source_observations",
           "tableTo": "providers",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["provider_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -4222,12 +3922,8 @@
           "tableFrom": "source_observations",
           "tableTo": "provider_sync_runs",
           "schemaTo": "operations",
-          "columnsFrom": [
-            "sync_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sync_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4237,11 +3933,7 @@
         "source_observations_provider_type_hash_unique": {
           "name": "source_observations_provider_type_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider_id",
-            "observation_type",
-            "content_hash"
-          ]
+          "columns": ["provider_id", "observation_type", "content_hash"]
         }
       },
       "policies": {},
@@ -4286,12 +3978,8 @@
           "tableFrom": "billing_customers",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4301,9 +3989,7 @@
         "billing_customers_stripe_customer_id_unique": {
           "name": "billing_customers_stripe_customer_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_customer_id"
-          ]
+          "columns": ["stripe_customer_id"]
         }
       },
       "policies": {},
@@ -4380,9 +4066,7 @@
         "permissions_code_unique": {
           "name": "permissions_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -4487,12 +4171,8 @@
           "tableFrom": "role_permissions",
           "tableTo": "roles",
           "schemaTo": "private",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -4501,12 +4181,8 @@
           "tableFrom": "role_permissions",
           "tableTo": "permissions",
           "schemaTo": "private",
-          "columnsFrom": [
-            "permission_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["permission_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4514,10 +4190,7 @@
       "compositePrimaryKeys": {
         "role_permissions_pkey": {
           "name": "role_permissions_pkey",
-          "columns": [
-            "role_id",
-            "permission_id"
-          ]
+          "columns": ["role_id", "permission_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4563,9 +4236,7 @@
         "roles_code_unique": {
           "name": "roles_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -4676,12 +4347,8 @@
           "tableFrom": "subscriptions",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4690,12 +4357,8 @@
           "tableFrom": "subscriptions",
           "tableTo": "plan_definitions",
           "schemaTo": "private",
-          "columnsFrom": [
-            "plan_code"
-          ],
-          "columnsTo": [
-            "code"
-          ],
+          "columnsFrom": ["plan_code"],
+          "columnsTo": ["code"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4705,9 +4368,7 @@
         "subscriptions_stripe_subscription_id_unique": {
           "name": "subscriptions_stripe_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_subscription_id"
-          ]
+          "columns": ["stripe_subscription_id"]
         }
       },
       "policies": {},
@@ -4788,12 +4449,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -4802,12 +4459,8 @@
           "tableFrom": "user_roles",
           "tableTo": "roles",
           "schemaTo": "private",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -4816,12 +4469,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "granted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["granted_by"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4829,10 +4478,7 @@
       "compositePrimaryKeys": {
         "user_roles_pkey": {
           "name": "user_roles_pkey",
-          "columns": [
-            "user_id",
-            "role_id"
-          ]
+          "columns": ["user_id", "role_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4892,12 +4538,8 @@
           "tableFrom": "profiles",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
