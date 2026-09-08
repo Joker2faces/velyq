@@ -15,6 +15,11 @@
   },
   "dependencies": {
     "@velyq/analytics": "workspace:*",
-    "@velyq/contracts": "workspace:*"
+    "@velyq/contracts": "workspace:*",
+    "@velyq/domain": "workspace:*",
+    "@velyq/research": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1"
   }
 }

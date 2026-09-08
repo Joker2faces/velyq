@@ -169,6 +169,16 @@ importers:
       '@velyq/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@velyq/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@velyq/research':
+        specifier: workspace:*
+        version: link:../research
+    devDependencies:
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
 
   packages/auth: {}
 
