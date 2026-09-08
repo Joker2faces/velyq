@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./price-validity": "./src/price-validity.ts"
+    "./price-validity": "./src/price-validity.ts",
+    "./decision-engine": "./src/decision-engine.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
