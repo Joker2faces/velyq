@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
+  currentHostname,
   currentPathname,
   redirectTo,
   writePreferenceCookie,
@@ -51,7 +52,7 @@ export function LanguageSwitcher({ locale }: { locale: Locale }) {
      * routes the client router knows about.
      */
     const path = currentPathname();
-    const counterpart = localeCounterpart(path, next);
+    const counterpart = localeCounterpart(path, next, currentHostname());
     if (counterpart !== path) {
       redirectTo(counterpart);
       return;

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { LOCALE_COOKIE, parseLocale, type Locale } from "@velyq/ui";
 import {
+  currentHostname,
   currentPathname,
   readPreferenceCookie,
   redirectTo,
@@ -31,7 +32,7 @@ export function LocalePreference({ locale }: { locale: Locale }) {
     if (preferred === "en") return;
 
     const path = currentPathname();
-    const counterpart = localeCounterpart(path, preferred);
+    const counterpart = localeCounterpart(path, preferred, currentHostname());
     if (counterpart === path) return;
     redirectTo(`${counterpart}${locationQueryAndHash()}`);
   }, [locale]);

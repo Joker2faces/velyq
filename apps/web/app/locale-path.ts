@@ -61,11 +61,18 @@ export function localePath(href: string, locale: Locale): string {
 }
 
 /** The same page in the other language, for the language switcher. */
-export function localeCounterpart(pathname: string, next: Locale): string {
+export function localeCounterpart(
+  pathname: string,
+  next: Locale,
+  hostname = "",
+): string {
   const bare = pathname.startsWith("/el/")
     ? pathname.slice(3)
     : pathname === "/el"
       ? "/"
       : pathname;
+  if (hostname === "vercel.app" || hostname.endsWith(".vercel.app")) {
+    return bare === "" ? "/" : bare;
+  }
   return localePath(bare === "" ? "/" : bare, next);
 }

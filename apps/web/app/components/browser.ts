@@ -12,6 +12,7 @@
 type CookieHost = { cookie: string };
 type LocationHost = {
   hash: string;
+  hostname?: string;
   pathname?: string;
   search?: string;
   assign?: (url: string) => void;
@@ -27,6 +28,11 @@ function browser() {
 /** The current path, or "/" when there is no browser (SSR, tests). */
 export function currentPathname(): string {
   return browser().location?.pathname ?? "/";
+}
+
+/** The current hostname, or an empty string outside the browser. */
+export function currentHostname(): string {
+  return browser().location?.hostname ?? "";
 }
 
 /**

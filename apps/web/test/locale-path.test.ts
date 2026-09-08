@@ -60,6 +60,12 @@ describe("locale path", () => {
     expect(localeCounterpart("/", "el")).toBe("/el/");
   });
 
+  it("keeps Vercel public pages on routes that the Next app actually serves", () => {
+    expect(
+      localeCounterpart("/pricing", "el", "project-cf8ty.vercel.app"),
+    ).toBe("/pricing");
+  });
+
   it("leaves an authenticated page where it is when switching language", () => {
     // /el/today does not exist; the cookie still drives those renders.
     expect(localeCounterpart("/today", "el")).toBe("/today");
