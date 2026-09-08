@@ -149,8 +149,17 @@ export function TodayView({
           <p>{t("todaySnapshot", { time: formatTime(today.asOf, locale) })}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
+          <Badge
+            tone={
+              today.syntheticLabel === "Synthetic data"
+                ? "synthetic"
+                : "positive"
+            }
+            dot
+          >
+            {today.syntheticLabel === "Synthetic data"
+              ? t("syntheticData")
+              : t("liveData")}
           </Badge>
           <Badge tone="heuristic">{t("developmentHeuristic")}</Badge>
         </div>

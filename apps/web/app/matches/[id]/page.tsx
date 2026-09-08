@@ -130,8 +130,17 @@ export default async function Match({
             </p>
           </div>
           <div className="page__badges">
-            <Badge tone="synthetic" dot>
-              {t("syntheticData")}
+            <Badge
+              tone={
+                match.syntheticLabel === "Synthetic data"
+                  ? "synthetic"
+                  : "positive"
+              }
+              dot
+            >
+              {match.syntheticLabel === "Synthetic data"
+                ? t("syntheticData")
+                : t("liveData")}
             </Badge>
             <Badge tone={qualityTone(match.quality.grade)}>
               {t("matchGrade")} {match.quality.grade}

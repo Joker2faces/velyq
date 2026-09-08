@@ -42,6 +42,7 @@ export const messages = {
 
   // --------------------------------------------------------------- shared
   syntheticData: "Synthetic data",
+  liveData: "Live data",
   developmentHeuristic: "Development heuristic",
   experimental: "Experimental",
   observableOnly: "Observable evidence only",
@@ -701,6 +702,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   languageSelectorHint: "Διάλεξε γλώσσα",
 
   syntheticData: "Συνθετικά δεδομένα",
+  liveData: "Ζωντανά δεδομένα",
   developmentHeuristic: "Δείκτης υπό ανάπτυξη",
   experimental: "Πειραματικό",
   observableOnly: "Μόνο ό,τι καταγράφεται",

@@ -79,11 +79,7 @@ export async function CustomerShell({
               admin.access is authorization state. Still never inferred from
               the customer's plan. */}
           <AdminConsoleLink locale={locale} />
-          <p className="app__note">
-            {t("syntheticEnvironment")}
-            <br />
-            {t("researchUse")}
-          </p>
+          <p className="app__note">{t("researchUse")}</p>
           <form action="/api/v1/auth/sign-out" method="post">
             <button
               className="button button--secondary button--block"

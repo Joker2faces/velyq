@@ -70,6 +70,7 @@ function testFilesUnder(directory: string): readonly string[] {
  */
 const VITEST_CONFIG_FILES = [
   "tooling/vitest/vitest.config.mts",
+  "tooling/vitest/vitest.integration.config.mts",
   "tooling/vitest/vitest.db-integration.config.mts",
 ];
 

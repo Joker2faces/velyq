@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireCustomerSession } from "../../../../auth";
+import { customerFixtureMode, requireCustomerSession } from "../../../../auth";
 import {
   customerOddsHistory,
   customerService,
@@ -46,6 +46,13 @@ export async function GET(
     if (!result.ok && result.code === "NOT_FOUND") return notFound();
     if (!result.ok) return problem(unavailable());
     const match = result.value;
+    if (!customerFixtureMode()) {
+      return NextResponse.json({
+        eventId,
+        syntheticLabel: "Live data",
+        observations: [],
+      });
+    }
     // Synthetic fallback observations: opening two hours before the
     // snapshot, current at the snapshot itself — relative to the same
     // rolling clock the match's own feature cutoff is built from, so this

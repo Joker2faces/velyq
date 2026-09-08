@@ -62,8 +62,17 @@ export function RadarView({
           <p>{t("radarBody")}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
+          <Badge
+            tone={
+              data.syntheticLabel === "Synthetic data"
+                ? "synthetic"
+                : "positive"
+            }
+            dot
+          >
+            {data.syntheticLabel === "Synthetic data"
+              ? t("syntheticData")
+              : t("liveData")}
           </Badge>
           <Badge tone="heuristic">{t("observableOnly")}</Badge>
         </div>

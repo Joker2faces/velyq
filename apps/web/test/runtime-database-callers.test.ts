@@ -106,6 +106,7 @@ vi.mock("stripe", () => ({
 }));
 
 vi.mock("../app/api/auth", () => ({
+  customerFixtureMode: () => false,
   customerRedirectUrl: () => null,
   getCookie: () => "access-token",
   requestId: () => "request-1",
@@ -333,7 +334,7 @@ describe("runtime billing routes", () => {
 });
 
 describe("runtime odds history", () => {
-  it("does not branch on a legacy direct database URL", async () => {
+  it("returns an honest empty live evidence set when stored odds are unavailable", async () => {
     process.env["VELYQ_DATABASE_URL"] = "postgres://legacy/direct";
     const response = await oddsHistory(
       new Request(
@@ -348,10 +349,8 @@ describe("runtime odds history", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      observations: [
-        { observedAt: "2026-09-04T08:00:00.000Z", odds: "2.10" },
-        { observedAt: "2026-09-04T10:00:00.000Z", odds: "2.20" },
-      ],
+      syntheticLabel: "Live data",
+      observations: [],
     });
     expect(customerState.close).toHaveBeenCalledTimes(1);
   });

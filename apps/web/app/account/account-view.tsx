@@ -40,11 +40,6 @@ export function AccountView({
           <h1>{t("accountTitle")}</h1>
           <p>{t("accountBody")}</p>
         </div>
-        <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t("syntheticData")}
-          </Badge>
-        </div>
       </div>
 
       <div className="stack">

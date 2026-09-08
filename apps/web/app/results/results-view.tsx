@@ -14,6 +14,7 @@ const copy = (locale: Locale) =>
         outcome: "Αποτέλεσμα",
         price: "Ποιότητα τιμής",
         demo: "Συνθετικό δείγμα QA",
+        live: "Ζωντανά δεδομένα",
         all: "Όλες οι επιλέξιμες αποφάσεις",
         model: "Μοντέλο",
         fair: "Δίκαιη τιμή",
@@ -28,6 +29,7 @@ const copy = (locale: Locale) =>
         outcome: "Outcome",
         price: "Price quality",
         demo: "Synthetic QA sample",
+        live: "Live data",
         all: "All qualifying decisions",
         model: "Model",
         fair: "Fair",
@@ -76,8 +78,15 @@ export function ResultsView({
           <p>{t.sub}</p>
         </div>
         <div className="page__badges">
-          <Badge tone="synthetic" dot>
-            {t.demo}
+          <Badge
+            tone={
+              data.syntheticLabel === "Synthetic data"
+                ? "synthetic"
+                : "positive"
+            }
+            dot
+          >
+            {data.syntheticLabel === "Synthetic data" ? t.demo : t.live}
           </Badge>
         </div>
       </div>
