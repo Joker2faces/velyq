@@ -226,6 +226,10 @@ importers:
       '@velyq/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
 
   packages/observability: {}
 

@@ -24,3 +24,20 @@ export {
   type SyntheticCatalogDocument,
   type SyntheticSequenceDocument,
 } from "./schemas.js";
+export {
+  createApiSportsClient,
+  deduplicateObservations,
+  normalizeBasketballGame,
+  normalizeFootballFixture,
+  normalizeOdds,
+  orderObservations,
+  sanitizeProviderError,
+  type ApiSport,
+  type ApiSportsClient,
+  type ApiSportsResponse,
+  type IngestionRunSummary,
+  type NormalizedEvent,
+  type NormalizedOdds,
+  type OddsObservationV3,
+  type ProviderQuota,
+} from "./apisports.js";

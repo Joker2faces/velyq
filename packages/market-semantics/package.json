@@ -16,5 +16,8 @@
   "dependencies": {
     "@velyq/decimal": "workspace:*",
     "@velyq/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1"
   }
 }

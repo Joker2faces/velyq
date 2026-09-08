@@ -1,0 +1,234 @@
+import { describe, expect, it, vi } from "vitest";
+import type { DecimalString } from "@velyq/decimal";
+
+import {
+  createApiSportsClient,
+  deduplicateObservations,
+  normalizeBasketballGame,
+  normalizeFootballFixture,
+  normalizeOdds,
+  sanitizeProviderError,
+} from "../src/index.js";
+
+const footballFixture = {
+  fixture: {
+    id: 101,
+    date: "2026-09-07T18:00:00+00:00",
+    status: { short: "NS" },
+  },
+  league: { name: "Test League" },
+  teams: { home: { name: "Home" }, away: { name: "Away" } },
+};
+const basketballGame = {
+  id: 202,
+  date: "2026-09-07T18:00:00Z",
+  status: { short: "NS" },
+  teams: { home: { name: "Home Hoops" }, away: { name: "Away Hoops" } },
+  league: { name: "Test Basketball" },
+};
+
+describe("API-Sports provider boundary", () => {
+  it("normalizes football and basketball event shapes without sharing assumptions", () => {
+    expect(normalizeFootballFixture(footballFixture).sport).toBe("FOOTBALL");
+    expect(normalizeBasketballGame(basketballGame).sport).toBe("BASKETBALL");
+  });
+
+  it("carries the provider's own competition id, never a name-derived slug", () => {
+    /*
+     * The value @velyq/domain's resolveCompetitionIdentity matches on --
+     * losing this would silently reintroduce the exact bug that function
+     * exists to prevent.
+     */
+    const withLeagueId = normalizeFootballFixture({
+      ...footballFixture,
+      league: { name: "Serie A", id: 71, country: "Brazil", code: "BR" },
+    });
+    expect(withLeagueId.competitionProviderId).toBe("71");
+    expect(withLeagueId.competitionCountryCode).toBe("BR");
+  });
+
+  it("carries null, never a placeholder string, for an absent competition id", () => {
+    const result = normalizeFootballFixture(footballFixture);
+    expect(result.competitionProviderId).toBeNull();
+  });
+
+  it("maps known markets and quarantines unknown markets", () => {
+    const rows = normalizeOdds(
+      {
+        fixture: 101,
+        update: "2026-09-07T18:00:00Z",
+        bookmakers: [
+          {
+            name: "Book",
+            bets: [
+              { id: 1, values: [{ value: "Home", odd: "1.85" }] },
+              { id: 999, values: [{ value: "Mystery", odd: "2.1" }] },
+            ],
+          },
+        ],
+      },
+      "FOOTBALL",
+      "2026-09-07T18:01:00Z",
+    );
+    expect(rows.map((row) => row.canonicalMarket)).toEqual([
+      "MATCH_WINNER_1X2",
+      "UNMAPPED",
+    ]);
+  });
+
+  it("rejects an odds value at or below 1.00 rather than treating it as a real price", () => {
+    const rows = normalizeOdds(
+      {
+        fixture: 101,
+        update: "2026-09-07T18:00:00Z",
+        bookmakers: [
+          {
+            name: "Book",
+            bets: [
+              {
+                id: 1,
+                values: [
+                  { value: "Home", odd: "1.00" },
+                  { value: "Draw", odd: "not-a-number" },
+                  { value: "Away", odd: "2.5" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      "FOOTBALL",
+      "2026-09-07T18:01:00Z",
+    );
+    expect(rows.map((row) => row.selection)).toEqual(["Away"]);
+  });
+
+  it("deduplicates identical observations while preserving chronological order", () => {
+    const row = {
+      sport: "FOOTBALL" as const,
+      eventId: "1",
+      competitionId: "c",
+      bookmakerId: "b",
+      market: "MATCH_WINNER_1X2" as const,
+      providerMarket: "1",
+      selection: "Home",
+      decimalOdds: "1.85" as DecimalString,
+      providerObservedAt: "2026-09-07T18:00:00Z",
+      ingestedAt: "2026-09-07T18:01:00Z",
+      provider: "API_SPORTS" as const,
+      sourceReference: "r",
+    };
+    expect(deduplicateObservations([row, row])).toHaveLength(1);
+  });
+
+  it("uses the key only server-side, handles provider failures, and captures quota", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        expect(new Headers(init?.headers).get("x-apisports-key")).toBe(
+          "secret",
+        );
+        return new Response(JSON.stringify({ results: 0, response: [] }), {
+          status: 200,
+          // Two independent rate-limit headers on every API-Sports response:
+          // the per-minute burst limit (small, resets every ~60s) and the
+          // daily budget the quota policy actually protects. Both are set
+          // here, deliberately to different values, so a regression that
+          // reads the wrong one is caught below rather than passing by
+          // coincidence.
+          headers: {
+            "x-ratelimit-remaining": "6",
+            "x-ratelimit-requests-remaining": "42",
+          },
+        });
+      },
+    );
+    const response = await createApiSportsClient("football", {
+      apiKey: "secret",
+      fetch: fetcher,
+    }).get("/fixtures", { date: "2026-09-07" });
+    expect(response.body.results).toBe(0);
+    expect(response.quota.state).toBe("HEALTHY");
+    expect(
+      sanitizeProviderError(new Error("x-apisports-key=secret")).toLowerCase(),
+    ).not.toContain("secret");
+  });
+
+  it("reads the daily quota header, not the per-minute burst header", async () => {
+    /*
+     * The bug this guards: `requestsRemaining` was derived from
+     * `x-ratelimit-remaining` (per-minute, capped at 10 on this plan), so it
+     * could never exceed 10 no matter how much of the actual daily budget
+     * remained -- the 25% daily reserve policy built on top of this value
+     * was silently protecting the wrong number.
+     */
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ results: 0, response: [] }), {
+          status: 200,
+          headers: {
+            "x-ratelimit-remaining": "3",
+            "x-ratelimit-requests-remaining": "58",
+          },
+        }),
+    );
+    const response = await createApiSportsClient("football", {
+      apiKey: "secret",
+      fetch: fetcher,
+    }).get("/fixtures", { date: "2026-09-07" });
+    expect(response.quota.requestsRemaining).toBe(58);
+  });
+
+  it("retries rate limits and server failures, then exposes the final response", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ errors: [] }), { status: 429 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ response: [] }), { status: 200 }),
+      );
+    const result = await createApiSportsClient("football", {
+      fetch: fetcher,
+      apiKey: "x",
+      retries: 1,
+    }).get("/fixtures");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe(200);
+  });
+
+  it("fails closed on invalid provider payloads and timeouts", async () => {
+    await expect(
+      createApiSportsClient("football", {
+        apiKey: "x",
+        fetch: vi.fn(async () => new Response("not-json", { status: 200 })),
+      }).get("/fixtures"),
+    ).rejects.toThrow("PROVIDER_INVALID_JSON");
+    await expect(
+      createApiSportsClient("football", {
+        apiKey: "x",
+        timeoutMs: 1,
+        retries: 0,
+        fetch: vi.fn(
+          (_input, init) =>
+            new Promise((_resolve, reject) => {
+              init?.signal?.addEventListener("abort", () =>
+                reject(new Error("aborted")),
+              );
+            }),
+        ),
+      }).get("/fixtures"),
+    ).rejects.toThrow("aborted");
+  });
+
+  it("requires APISPORTS_KEY when no apiKey is supplied", async () => {
+    const originalKey = process.env["APISPORTS_KEY"];
+    delete process.env["APISPORTS_KEY"];
+    try {
+      await expect(
+        createApiSportsClient("football", { fetch: vi.fn() }).get("/fixtures"),
+      ).rejects.toThrow("APISPORTS_KEY_UNAVAILABLE");
+    } finally {
+      if (originalKey !== undefined) process.env["APISPORTS_KEY"] = originalKey;
+    }
+  });
+});
