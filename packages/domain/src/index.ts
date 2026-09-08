@@ -263,3 +263,39 @@ export function deterministicEventId(
   }
   return checked.value;
 }
+
+/**
+ * VELYQ's explicit data-origin model.
+ *
+ * `catalog.events.synthetic` and `market.bookmakers.synthetic` /
+ * `market.odds_observations.is_synthetic` remain plain booleans in storage
+ * for compatibility with the existing Phase 1 schema, but nothing in
+ * application code should reason about that boolean directly -- it should
+ * reason about `DataOrigin`, so a call site can never accidentally treat "not
+ * demo" as meaning "verified live" without going through
+ * `requiresProviderProvenance` below. `LIVE` never falls back to `false` by
+ * default: a row's origin must be stated, not assumed.
+ */
+export type DataOrigin = "SYNTHETIC_DEMO" | "LIVE";
+
+export function dataOriginToSyntheticColumn(origin: DataOrigin): boolean {
+  return origin === "SYNTHETIC_DEMO";
+}
+
+export function syntheticColumnToDataOrigin(synthetic: boolean): DataOrigin {
+  return synthetic ? "SYNTHETIC_DEMO" : "LIVE";
+}
+
+/**
+ * True when a row of this origin must carry real provider provenance --
+ * i.e. a `catalog.event_identities` (or equivalent) row -- to be valid.
+ *
+ * A `LIVE` row with no such row is exactly the defect this invariant exists
+ * to prevent: real-looking data with nothing tying it back to a provider.
+ * `catalog.events` also enforces this at the database level with a deferred
+ * constraint trigger, so this function documents and lets application code
+ * check the same rule *before* a transaction reaches commit, not just after.
+ */
+export function requiresProviderProvenance(origin: DataOrigin): boolean {
+  return origin === "LIVE";
+}

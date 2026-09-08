@@ -1,6 +1,6 @@
 {
-  "id": "ff0d7ed2-ff96-48bd-bf8b-57b6c044b203",
-  "prevId": "3bbf63aa-4589-4c80-9610-90665ec58de9",
+  "id": "c0f158eb-cf11-4d7f-8086-b8c605017c9c",
+  "prevId": "ff0d7ed2-ff96-48bd-bf8b-57b6c044b203",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -729,12 +729,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "events_phase_one_synthetic_check": {
-          "name": "events_phase_one_synthetic_check",
-          "value": "\"catalog\".\"events\".\"synthetic\" = true"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "catalog.participants": {

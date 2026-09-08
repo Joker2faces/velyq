@@ -151,6 +151,22 @@ export const events = catalogSchema.table(
     seasonLabel: text("season_label"),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     status: text("status").notNull(),
+    /*
+     * The storage form of `DataOrigin` (`@velyq/domain`): `true` means
+     * SYNTHETIC_DEMO, `false` means LIVE. This column used to carry a
+     * `CHECK (synthetic = true)` constraint from when the schema was
+     * synthetic-data-only; that constraint is gone (VELYQ now ingests real
+     * provider fixtures), but the invariant it protected has not
+     * disappeared, it has moved: a LIVE row (`synthetic = false`) is
+     * required, via `events_provenance_required` (a deferred constraint
+     * trigger -- not expressible as a column CHECK because it must
+     * reference `catalog.event_identities` -- see
+     * supabase/migrations/20260908090000_provider_identity_and_live_data.sql),
+     * to have a corresponding `event_identities` row before the transaction
+     * that created it commits. A row never becomes LIVE merely because this
+     * column is false and nothing enforces otherwise -- see
+     * `requiresProviderProvenance` in `@velyq/domain`.
+     */
     synthetic: boolean("synthetic").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -163,7 +179,6 @@ export const events = catalogSchema.table(
       table.startsAt,
     ),
     index("events_sport_id_idx").on(table.sportId),
-    check("events_phase_one_synthetic_check", sql`${table.synthetic} = true`),
   ],
 );
 

@@ -7,7 +7,9 @@ const ROOT = resolve(import.meta.dirname, "../../..");
 
 const EXPECTED_TABLES = [
   "audit.admin_audit_events",
+  "catalog.competition_identities",
   "catalog.competitions",
+  "catalog.event_identities",
   "catalog.event_participants",
   "catalog.events",
   "catalog.participants",
@@ -114,7 +116,7 @@ function appendOnlyTargets(sql: string): string[] {
 }
 
 describe("reviewed Phase 1 migration contract", () => {
-  it("creates exactly the approved 35-table allowlist", () => {
+  it("creates exactly the approved 37-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 
