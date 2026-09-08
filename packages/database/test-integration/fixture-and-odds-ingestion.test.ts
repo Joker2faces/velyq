@@ -20,7 +20,11 @@ import {
   events,
   participants,
 } from "../src/schema/catalog.js";
-import { oddsObservations } from "../src/schema/market.js";
+import {
+  eventMarketOutcomes,
+  eventMarkets,
+  oddsObservations,
+} from "../src/schema/market.js";
 
 /*
  * A real-Postgres integration suite -- see
@@ -62,6 +66,7 @@ describe("fixture and odds ingestion, against a real database", () => {
   let referenceData: Awaited<ReturnType<typeof ensureFootballReferenceData>>;
   let italianSerieAId: string;
   let brazilianSerieAId: string;
+  let dutchEredivisieId: string;
 
   beforeAll(async () => {
     referenceData = await ensureFootballReferenceData(database, PROVIDER_CODE);
@@ -88,6 +93,17 @@ describe("fixture and odds ingestion, against a real database", () => {
       .returning({ id: competitions.id });
     brazilianSerieAId = brazil!.id;
 
+    const [netherlands] = await database
+      .insert(competitions)
+      .values({
+        sportId: referenceData.sportId,
+        code: "NLD_EREDIVISIE",
+        nameKey: "competition.nld_eredivisie",
+        countryCode: "NL",
+      })
+      .returning({ id: competitions.id });
+    dutchEredivisieId = netherlands!.id;
+
     await database.insert(competitionIdentities).values([
       {
         competitionId: italianSerieAId,
@@ -103,6 +119,14 @@ describe("fixture and odds ingestion, against a real database", () => {
         providerCompetitionId: "71",
         displayName: "Serie A",
         countryCode: "BR",
+        mappingStatus: "CONFIRMED",
+      },
+      {
+        competitionId: dutchEredivisieId,
+        providerId: referenceData.providerId,
+        providerCompetitionId: "88",
+        displayName: "Eredivisie",
+        countryCode: "NL",
         mappingStatus: "CONFIRMED",
       },
     ]);
@@ -127,6 +151,18 @@ describe("fixture and odds ingestion, against a real database", () => {
     });
   }
 
+  function eredivisieFixture(
+    overrides: Partial<NormalizedEvent> = {},
+  ): NormalizedEvent {
+    return fixture({
+      competition: "Eredivisie",
+      competitionProviderId: "88",
+      competitionCountry: "Netherlands",
+      competitionCountryCode: "NL",
+      ...overrides,
+    });
+  }
+
   it("[1] an existing SYNTHETIC_DEMO fixture remains valid -- the provenance trigger never blocks synthetic rows", async () => {
     const [synthetic] = await database
       .insert(events)
@@ -148,8 +184,8 @@ describe("fixture and odds ingestion, against a real database", () => {
     // going through ingestFootballFixture, and this proves the database
     // itself refuses the unsafe state, not just that the application code
     // happens to avoid it.
-    await expect(
-      database.transaction(async (transaction) => {
+    try {
+      await database.transaction(async (transaction) => {
         await transaction.insert(events).values({
           sportId: referenceData.sportId,
           competitionId: italianSerieAId,
@@ -157,8 +193,14 @@ describe("fixture and odds ingestion, against a real database", () => {
           status: "NS",
           synthetic: false,
         });
-      }),
-    ).rejects.toThrow(/event_identities/);
+      });
+      throw new Error("Expected the deferred provenance trigger to reject");
+    } catch (error) {
+      const cause = error instanceof Error ? error.cause : undefined;
+      expect(cause).toMatchObject({
+        message: expect.stringMatching(/event_identities/),
+      });
+    }
   });
 
   it("[3b] a fixture missing the provider's own competition id is rejected before any write is attempted", async () => {
@@ -259,7 +301,7 @@ describe("fixture and odds ingestion, against a real database", () => {
 
   it("[8a] UNRESOLVED_TEAM auto-catalogs a genuinely new team name and proceeds", async () => {
     const result = await ingest(
-      fixture({
+      eredivisieFixture({
         providerEventId: "900003",
         participants: ["Some Never Before Seen Club", "Inter"],
       }),
@@ -277,7 +319,7 @@ describe("fixture and odds ingestion, against a real database", () => {
      * and must not be treated as if it were.
      */
     const result = await ingest(
-      fixture({
+      eredivisieFixture({
         providerEventId: "900004",
         participants: ["NEC Nijmegen", "Inter"],
       }),
@@ -303,7 +345,7 @@ describe("fixture and odds ingestion, against a real database", () => {
       .returning({ id: participants.id });
 
     const result = await ingest(
-      fixture({
+      eredivisieFixture({
         providerEventId: "900005",
         participants: ["NEC Nijmegen", "Inter"],
       }),
@@ -393,6 +435,17 @@ describe("fixture and odds ingestion, against a real database", () => {
         providerObservedAt: oddsObservations.providerObservedAt,
       })
       .from(oddsObservations)
+      .innerJoin(
+        eventMarketOutcomes,
+        eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomes.id),
+      )
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .where(
+        eq(eventMarkets.eventId, deterministicEventId(PROVIDER_CODE, "900006")),
+      )
       .orderBy(oddsObservations.providerObservedAt);
 
     const chronologyForThisOutcome = rows.filter((row) =>

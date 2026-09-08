@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import type { NormalizedOdds } from "@velyq/providers";
@@ -265,11 +265,13 @@ export async function ingestFootballOdds(
           lineValue: null,
           canonicalKey: eventMarketCanonicalKey,
         },
-        ["eventId", "marketDefinitionId"],
+        ["eventId", "marketDefinitionId", "subjectParticipantId", "lineValue"],
         (table: typeof eventMarkets, values: { eventId: string }) =>
           and(
             eq(table.eventId, values.eventId),
             eq(table.marketDefinitionId, reference.marketDefinitionId),
+            isNull(table.subjectParticipantId),
+            isNull(table.lineValue),
           ),
       );
 

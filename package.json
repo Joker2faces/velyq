@@ -15,6 +15,7 @@
     "test": "vitest run --config tooling/vitest/vitest.config.mts",
     "test:integration": "node tooling/scripts/database-stage.mjs test",
     "test:db-integration": "vitest run --config tooling/vitest/vitest.db-integration.config.mts",
+    "test:db:local": "node tooling/scripts/local-postgres.mjs",
     "test:e2e": "playwright test",
     "build": "turbo build",
     "bootstrap": "corepack pnpm install --frozen-lockfile && corepack pnpm verify",

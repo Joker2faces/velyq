@@ -9,7 +9,13 @@ INSERT INTO public.profiles (user_id, display_name, locale, timezone, created_at
 VALUES
   ('00000000-0000-4000-8000-000000000001', 'Synthetic Owner', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z'),
   ('00000000-0000-4000-8000-000000000002', 'Synthetic Other User', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z'),
-  ('00000000-0000-4000-8000-000000000003', 'Synthetic Administrator', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z');
+  ('00000000-0000-4000-8000-000000000003', 'Synthetic Administrator', 'en', 'UTC', '2026-09-03T08:00:00Z', '2026-09-03T08:00:00Z')
+ON CONFLICT (user_id) DO UPDATE
+SET
+  display_name = EXCLUDED.display_name,
+  locale = EXCLUDED.locale,
+  timezone = EXCLUDED.timezone,
+  updated_at = EXCLUDED.updated_at;
 
 INSERT INTO private.roles (id, code, description, created_at)
 VALUES
