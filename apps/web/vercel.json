@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/internal/forecast-cycle",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
