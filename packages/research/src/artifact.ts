@@ -119,6 +119,68 @@ export function artifactFingerprint(artifact: ModelArtifact): string {
   return `sha256:${createHash("sha256").update(canonical(artifact)).digest("hex")}`;
 }
 
+export type ModelArtifactLoadResult =
+  | Readonly<{ ok: true; value: ModelArtifact }>
+  | Readonly<{
+      ok: false;
+      reason:
+        "INVALID_JSON_SHAPE" | "FINGERPRINT_MISMATCH" | "UNKNOWN_MODEL_CODE";
+    }>;
+
+/**
+ * Parses and validates a serialized model artifact -- production inference's
+ * only entry point onto disk-shaped data.
+ *
+ * A model that refits on demand cannot reproduce yesterday's prediction, and
+ * an artifact loaded without validation is the same defect one step removed:
+ * a corrupted, truncated, or hand-edited file would otherwise load silently
+ * and produce forecasts from parameters nobody fit. `expectedFingerprint` is
+ * required rather than optional so a caller cannot accidentally skip the one
+ * check that catches tampering or corruption after the fact -- it comes from
+ * the training run's own recorded `artifactFingerprint(...)` output, kept
+ * alongside the artifact file, never recomputed from the file being checked.
+ */
+export function loadModelArtifact(
+  raw: unknown,
+  expectedFingerprint: string,
+): ModelArtifactLoadResult {
+  if (!isPlainObject(raw)) return { ok: false, reason: "INVALID_JSON_SHAPE" };
+  if (raw["modelCode"] !== "FOOTBALL_DIXON_COLES")
+    return { ok: false, reason: "UNKNOWN_MODEL_CODE" };
+  if (
+    typeof raw["version"] !== "string" ||
+    typeof raw["maturity"] !== "string" ||
+    typeof raw["featureContractVersion"] !== "string" ||
+    typeof raw["trainingCutoff"] !== "string" ||
+    typeof raw["trainingDatasetFingerprint"] !== "string" ||
+    !isPlainObject(raw["parameters"]) ||
+    !Array.isArray(raw["calibrators"]) ||
+    !Array.isArray(raw["uncertaintyProfiles"]) ||
+    !isPlainObject(raw["validationReport"])
+  ) {
+    return { ok: false, reason: "INVALID_JSON_SHAPE" };
+  }
+  const parameters = raw["parameters"];
+  if (
+    !Array.isArray(parameters["teams"]) ||
+    !Array.isArray(parameters["competitions"]) ||
+    typeof parameters["rho"] !== "number" ||
+    typeof parameters["converged"] !== "boolean"
+  ) {
+    return { ok: false, reason: "INVALID_JSON_SHAPE" };
+  }
+
+  const artifact = raw as unknown as ModelArtifact;
+  if (artifactFingerprint(artifact) !== expectedFingerprint) {
+    return { ok: false, reason: "FINGERPRINT_MISMATCH" };
+  }
+  return { ok: true, value: artifact };
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export type PromotionDecision = Readonly<{
   maturity: ModelMaturity;
   reasonCodes: readonly string[];

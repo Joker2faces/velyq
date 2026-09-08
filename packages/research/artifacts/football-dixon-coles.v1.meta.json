@@ -1,0 +1,12 @@
+{
+  "artifactReference": "sha256:c20707d0f4cc4888f4bddec7a8647f74e2ca678948c50c7610f664cb25f649f7",
+  "version": "football-dixon-coles.v1",
+  "maturity": "EXPERIMENTAL",
+  "trainingCutoff": "2024-12-15",
+  "trainingDatasetFingerprint": "sha256:45fa91ccda7f52619d5742bbdecaf19e6b2b2140dd73be98591aeacbf3635031",
+  "corpusFiles": 132,
+  "corpusMatches": 42256,
+  "teams": 355,
+  "competitions": 11,
+  "generatedAt": "2026-09-08T09:50:31.844Z"
+}
