@@ -17,6 +17,21 @@ afterEach(() => {
   delete process.env["VELYQ_DEMO_CLOCK"];
 });
 
+/*
+ * This file's tests were observed to fail intermittently (Test timed out
+ * in 5000ms) only under a full parallel `vitest run` of the whole
+ * monorepo, never in isolation and never from a logic defect: reproduced
+ * across repeated full-suite runs, the actual work inside each failing
+ * test (a plain object map over half a dozen literal records) takes
+ * microseconds -- the timeout is consumed by `await import("../app/
+ * customer-data")` occasionally queueing behind esbuild transform-worker
+ * contention from the other ~90 test files transforming concurrently.
+ * Every test in this file pays that same dynamic-import cost, so the fix
+ * is a per-file default, not a fix to one test's assertions -- there is
+ * nothing in the assertions themselves to fix.
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
 describe("rolling demo clock", () => {
   it("resolves the injected clock rather than the real current time", async () => {
     const { resolveDemoClock } = await import("../app/demo-clock");

@@ -9,7 +9,7 @@ import { artifactFingerprint, type ModelArtifact } from "@velyq/research";
 import type {
   ForecastCycleDeps,
   ForecastCycleFixture,
-} from "@velyq/application";
+} from "@velyq/application/forecast-cycle";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {

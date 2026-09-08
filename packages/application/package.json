@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./forecast-cycle": {
+      "types": "./src/forecast-cycle.ts",
+      "default": "./dist/forecast-cycle.js"
     }
   },
   "scripts": {

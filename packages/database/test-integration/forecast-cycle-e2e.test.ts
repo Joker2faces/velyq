@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { runForecastCycle } from "@velyq/application";
+import { runForecastCycle } from "@velyq/application/forecast-cycle";
 import { DEFAULT_HYPERPARAMETERS } from "@velyq/research";
 import type { ModelArtifact } from "@velyq/research";
 import { teamAliasLookupFor } from "@velyq/providers";
