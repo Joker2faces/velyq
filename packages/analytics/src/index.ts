@@ -11,6 +11,9 @@ import {
   subtractDecimalStrings,
   type DecimalResult,
   type DecimalString,
+  numericColumnToDecimalString,
+  roundToScale,
+  STORAGE_SCALES,
 } from "@velyq/decimal";
 
 export type ValueMetrics = Readonly<{
@@ -20,31 +23,80 @@ export type ValueMetrics = Readonly<{
   expectedValue: DecimalString;
 }>;
 
+/**
+ * Every derived quantity here is rounded to the scale of the column that
+ * stores it, and every input is canonicalised before use.
+ *
+ * Without both, this function failed on essentially every real market. The
+ * inputs arrive scale-padded — a numeric(18, 8) price of 2.10 reads back as
+ * "2.10000000", which the strict validator rejects — and the outputs are
+ * unbounded quotients: 1 / 3.9 runs to thirty digits while implied
+ * probability is numeric(18, 12), so the validator refused it as out of
+ * range. The combination meant `edge` and `expectedValue` were null for all
+ * but a handful of tidy prices such as 2.00 at an even 50%, and the product
+ * could not compute value on anything a bookmaker actually quotes.
+ *
+ * Rounding is not a loss of information: these values cannot be persisted at
+ * higher precision, and PostgreSQL would round them on insert anyway. Doing
+ * it here means the number that is validated, compared, shown and stored is
+ * one number rather than four near-misses.
+ */
 export function calculateValue(
   modelProbability: DecimalString,
   currentOdds: DecimalString,
 ): DecimalResult<ValueMetrics> {
-  const odds = decimalOdds(currentOdds);
-  const model = probability(modelProbability);
-  const impliedRaw = divideDecimalStrings("1" as DecimalString, currentOdds);
+  const oddsInput = numericColumnToDecimalString(currentOdds);
+  const modelInput = numericColumnToDecimalString(modelProbability);
+  if (!oddsInput.ok) return oddsInput;
+  if (!modelInput.ok) return modelInput;
+  const odds = decimalOdds(oddsInput.value);
+  const model = probability(modelInput.value);
   if (!odds.ok) return odds;
   if (!model.ok) return model;
+
+  const impliedRaw = divideDecimalStrings(
+    "1" as DecimalString,
+    oddsInput.value,
+  );
   if (!impliedRaw.ok) return impliedRaw;
-  const implied = impliedProbability(impliedRaw.value);
+  const impliedRounded = roundToScale(
+    impliedRaw.value,
+    STORAGE_SCALES.impliedProbability,
+  );
+  if (!impliedRounded.ok) return impliedRounded;
+  const implied = impliedProbability(impliedRounded.value);
   if (!implied.ok) return implied;
-  const fair = divideDecimalStrings("1" as DecimalString, modelProbability);
+
+  const fairRaw = divideDecimalStrings("1" as DecimalString, modelInput.value);
+  if (!fairRaw.ok) return fairRaw;
+  const fair = roundToScale(fairRaw.value, STORAGE_SCALES.odds);
   if (!fair.ok) return fair;
-  const probabilityEdge = subtractDecimalStrings(
-    modelProbability,
+
+  /*
+   * The edge is taken against the *rounded* implied probability, so the
+   * relationship a reader can check by hand — model minus implied — holds
+   * for the numbers actually displayed.
+   */
+  const probabilityEdgeRaw = subtractDecimalStrings(
+    modelInput.value,
     implied.value.value,
   );
+  if (!probabilityEdgeRaw.ok) return probabilityEdgeRaw;
+  const probabilityEdge = roundToScale(
+    probabilityEdgeRaw.value,
+    STORAGE_SCALES.edge,
+  );
   if (!probabilityEdge.ok) return probabilityEdge;
-  const product = multiplyDecimalStrings(modelProbability, currentOdds);
+
+  const product = multiplyDecimalStrings(modelInput.value, oddsInput.value);
   if (!product.ok) return product;
   const evRaw = subtractDecimalStrings(product.value, "1" as DecimalString);
   if (!evRaw.ok) return evRaw;
+  const evRounded = roundToScale(evRaw.value, STORAGE_SCALES.expectedValue);
+  if (!evRounded.ok) return evRounded;
+
   const checkedEdge = edge(probabilityEdge.value);
-  const ev = expectedValue(evRaw.value);
+  const ev = expectedValue(evRounded.value);
   if (!checkedEdge.ok) return checkedEdge;
   if (!ev.ok) return ev;
   return {

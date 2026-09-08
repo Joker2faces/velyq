@@ -159,7 +159,14 @@ describe("exact value engine", () => {
       ok: true,
       value: {
         impliedProbability: "0.5",
-        fairOdds: "1.666666666666666666666666666667",
+        /*
+         * Rounded to the odds storage scale, not the exact quotient. 1 / 0.6
+         * has no finite decimal expansion and the unrounded value overflows
+         * numeric(18, 8) — asserting it here was asserting a number the
+         * database cannot hold, which is why every real price used to fail
+         * value computation outright.
+         */
+        fairOdds: "1.66666667",
         probabilityEdge: "0.1",
         expectedValue: "0.2",
       },
