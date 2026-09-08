@@ -10,21 +10,41 @@
 -- match/today response back through the real DatabaseCustomerQueryAdapter
 -- in the same test run.
 --
--- A generated default (rather than requiring every existing/seeded row to
--- supply one) is what lets this migration land at two different points in
--- supabase/seed.sql's own lifecycle without editing seed.sql itself:
--- test:db:local applies every migration (this one included) before
--- seed.sql runs, so seed's plain INSERT already gets a default value for
--- free; test:db:upgrade applies seed.sql at an older schema snapshot,
--- before this migration exists at all, then applies this migration
--- afterward against the now-non-empty table, where the same default
--- backfills the seeded rows. Nothing in the application currently writes
--- to score_results (the scoring feature itself is not yet built), so no
--- real caller's idempotency semantics are weakened by the default; a
--- future writer of this table should still supply its own meaningful
--- idempotency key explicitly rather than rely on it.
-ALTER TABLE "intelligence"."score_results"
-	ADD COLUMN "idempotency_key" text NOT NULL DEFAULT gen_random_uuid()::text;
+-- Made defensive/idempotent (checked, not assumed) after discovering the
+-- actual production database already carries this exact column and unique
+-- index -- built independently, outside this branch's migration lineage,
+-- before this migration was written. A bare `ADD COLUMN`/`ADD CONSTRAINT`
+-- would fail outright against that database. Guarding on
+-- information_schema/pg_constraint makes this migration a correct no-op
+-- there, while still doing real work against a fresh database or any
+-- other environment that genuinely lacks the column, including the
+-- generated-default backfill behavior test:db:upgrade depends on (see
+-- below) for the seeded rows in supabase/seed.sql.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'intelligence'
+      AND table_name = 'score_results'
+      AND column_name = 'idempotency_key'
+  ) THEN
+    ALTER TABLE "intelligence"."score_results"
+      ADD COLUMN "idempotency_key" text NOT NULL DEFAULT gen_random_uuid()::text;
+  END IF;
+END;
+$$;
 --> statement-breakpoint
-ALTER TABLE "intelligence"."score_results"
-	ADD CONSTRAINT "score_results_idempotency_key_unique" UNIQUE ("idempotency_key");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'score_results_idempotency_key_unique'
+      AND connamespace = 'intelligence'::regnamespace
+  ) THEN
+    ALTER TABLE "intelligence"."score_results"
+      ADD CONSTRAINT "score_results_idempotency_key_unique" UNIQUE ("idempotency_key");
+  END IF;
+END;
+$$;

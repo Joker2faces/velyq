@@ -1,6 +1,15 @@
 -- Generated Drizzle schema delta (catalog.competition_identities, catalog.event_identities),
 -- hand-appended provenance enforcement (VELYQ_INGEST engineering decision, 2026-09-08:
 -- lift the Phase 1 synthetic-only boundary so real provider fixtures can be stored).
+--
+-- KNOWN VERSION COLLISION WITH PRODUCTION -- read
+-- supabase/PRODUCTION_MIGRATION_RECONCILIATION.md before pushing this
+-- migration to the linked production project. Production's own recorded
+-- migration history uses this exact version (20260908090000) for a
+-- DIFFERENT migration ("research_corpus_and_intelligence_policy"), and
+-- appears to have built equivalent competition_identities/event_identities/
+-- provenance-trigger objects under its own, later migration lineage. Do
+-- not assume this file can simply be applied as-is against production.
 
 CREATE TABLE "catalog"."competition_identities" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
