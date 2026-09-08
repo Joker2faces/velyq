@@ -62,18 +62,44 @@ const wslLog = windowsPathToWsl(failureLog);
 
 const bootstrap = `
 set -euo pipefail
-runtime=$HOME/.cache/velyq-pg-runtime
-debs=$HOME/.cache/velyq-pg-debs
-data=$HOME/.cache/velyq-pg-data
-socket=$HOME/.cache/velyq-pg-socket
-bindir=$runtime/usr/lib/postgresql/16/bin
+runtime=$HOME/.cache/velyq-pg-runtime-17
+debs=$HOME/.cache/velyq-pg-debs-17
+data=$HOME/.cache/velyq-pg-data-17
+socket=$HOME/.cache/velyq-pg-socket-17
+bindir=$runtime/usr/lib/postgresql/17/bin
 mkdir -p "$runtime" "$debs" "$socket"
 if [ ! -x "$bindir/postgres" ]; then
   cd "$debs"
-  apt download postgresql-16 postgresql-client-16 libpq5 >/dev/null
-  dpkg-deb -x postgresql-16_*.deb "$runtime"
-  dpkg-deb -x postgresql-client-16_*.deb "$runtime"
-  dpkg-deb -x libpq5_*.deb "$runtime"
+  # Ubuntu 24.04's own apt repo only carries PostgreSQL 16, and production
+  # Supabase runs PostgreSQL 17 -- pull the real PGDG (postgresql.org) build
+  # for Ubuntu 24.04 (noble) instead, without adding an apt source or
+  # touching anything system-wide (no sudo, no apt-key, no permanent
+  # install): download the three .deb files this needs directly from the
+  # PGDG pool and extract them into this disposable, user-owned cache.
+  # libpq5 for PG17 is published from the postgresql-18 source package
+  # (PGDG bumps libpq's source alongside the newest major), so it is
+  # resolved from the same package index rather than assumed.
+  if [ ! -f Packages.gz ]; then
+    curl -sf --max-time 60 -o Packages.gz \\
+      https://apt.postgresql.org/pub/repos/apt/dists/noble-pgdg/main/binary-amd64/Packages.gz
+  fi
+  # Decompressed to a real file rather than piped into awk: an awk 'exit'
+  # fed by a pipe leaves gunzip still writing to a now-closed pipe, which
+  # kills it with SIGPIPE -- fatal here because of 'set -o pipefail' above.
+  if [ ! -f Packages ]; then gunzip -k -c Packages.gz > Packages; fi
+  filename() {
+    awk -v pkg="$1" '$0 == "Package: " pkg {p=1; next} p && /^Filename:/ {print $2; exit} /^Package: /{p=0}' Packages
+  }
+  server_path=$(filename postgresql-17)
+  client_path=$(filename postgresql-client-17)
+  libpq_path=$(filename libpq5)
+  [ -n "$server_path" ] && [ -n "$client_path" ] && [ -n "$libpq_path" ]
+  curl -sf --max-time 120 -o server.deb "https://apt.postgresql.org/pub/repos/apt/$server_path"
+  curl -sf --max-time 120 -o client.deb "https://apt.postgresql.org/pub/repos/apt/$client_path"
+  curl -sf --max-time 120 -o libpq5.deb "https://apt.postgresql.org/pub/repos/apt/$libpq_path"
+  dpkg-deb -x server.deb "$runtime"
+  dpkg-deb -x client.deb "$runtime"
+  dpkg-deb -x libpq5.deb "$runtime"
 fi
 export LD_LIBRARY_PATH=$runtime/usr/lib/x86_64-linux-gnu
 if [ -f "$data/postmaster.pid" ]; then "$bindir/pg_ctl" -D "$data" -m fast stop || true; fi
@@ -100,10 +126,10 @@ done
 `;
 
 const stop = `
-runtime=$HOME/.cache/velyq-pg-runtime
-data=$HOME/.cache/velyq-pg-data
+runtime=$HOME/.cache/velyq-pg-runtime-17
+data=$HOME/.cache/velyq-pg-data-17
 export LD_LIBRARY_PATH=$runtime/usr/lib/x86_64-linux-gnu
-"$runtime/usr/lib/postgresql/16/bin/pg_ctl" -D "$data" -m fast stop >/dev/null 2>&1 || true
+"$runtime/usr/lib/postgresql/17/bin/pg_ctl" -D "$data" -m fast stop >/dev/null 2>&1 || true
 `;
 
 let success = false;
