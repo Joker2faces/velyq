@@ -70,7 +70,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { requireCustomerSession } from "../app/api/auth";
+import { customerFixtureMode, requireCustomerSession } from "../app/api/auth";
 import { openDatabaseCustomerQueries } from "../app/customer-database";
 import {
   customerOddsHistory,
@@ -124,6 +124,12 @@ afterEach(() => {
 });
 
 describe("runtime customer queries", () => {
+  it("never treats a Vercel production deployment as fixture mode", () => {
+    process.env["VERCEL_ENV"] = "production";
+    process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
+    expect(customerFixtureMode()).toBe(false);
+  });
+
   it("returns null when no runtime database session is available", async () => {
     runtimeState.available = false;
 

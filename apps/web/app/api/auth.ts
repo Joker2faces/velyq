@@ -28,6 +28,7 @@ export function requestId(request: Request) {
 }
 
 export function customerFixtureMode() {
+  if (process.env["VERCEL_ENV"] === "production") return false;
   return (
     process.env["NODE_ENV"] !== "production" ||
     process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true"
