@@ -151,6 +151,15 @@ describe("runtime customer queries", () => {
 });
 
 describe("runtime customer authorization", () => {
+  it("marks every unauthenticated customer response private and non-cacheable", async () => {
+    const denied = await requireCustomerSession(
+      new Request("https://velyq.test/api/v1/today"),
+    );
+
+    expect(denied?.status).toBe(401);
+    expect(denied?.headers.get("cache-control")).toBe("private, no-store");
+  });
+
   it("requires customer.read and closes the permission session", async () => {
     runtimeState.permissionRows = [
       { roleCode: "CUSTOMER", permissionCode: "admin.access" },
@@ -159,6 +168,7 @@ describe("runtime customer authorization", () => {
     const denied = await requireCustomerSession(authenticatedRequest());
 
     expect(denied?.status).toBe(403);
+    expect(denied?.headers.get("cache-control")).toBe("private, no-store");
     await expect(denied?.json()).resolves.toMatchObject({ code: "FORBIDDEN" });
     expectEverySessionClosed();
   });
@@ -168,6 +178,7 @@ describe("runtime customer authorization", () => {
 
     const unavailable = await requireCustomerSession(authenticatedRequest());
     expect(unavailable?.status).toBe(503);
+    expect(unavailable?.headers.get("cache-control")).toBe("private, no-store");
     await expect(unavailable?.json()).resolves.toMatchObject({
       code: "AUTHORIZATION_UNAVAILABLE",
     });
@@ -181,6 +192,7 @@ describe("runtime customer authorization", () => {
       "match.detail",
     );
     expect(paid?.status).toBe(403);
+    expect(paid?.headers.get("cache-control")).toBe("private, no-store");
     await expect(paid?.json()).resolves.toMatchObject({
       code: "ENTITLEMENT_REQUIRED",
     });

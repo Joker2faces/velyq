@@ -12,6 +12,8 @@ import { subscriptions } from "@velyq/database/schema/private";
 import { desc, eq } from "drizzle-orm";
 import { openRuntimeDatabaseSession } from "../runtime-database/runtime-database";
 
+const PRIVATE_PROBLEM_HEADERS = { "cache-control": "private, no-store" };
+
 export function getCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "")
     .split(";")
@@ -165,7 +167,7 @@ function unauthorized(request: Request) {
       code: "UNAUTHORIZED",
       requestId: requestId(request),
     },
-    { status: 401 },
+    { status: 401, headers: PRIVATE_PROBLEM_HEADERS },
   );
 }
 
@@ -178,7 +180,7 @@ function forbidden(request: Request) {
       code: "FORBIDDEN",
       requestId: requestId(request),
     },
-    { status: 403 },
+    { status: 403, headers: PRIVATE_PROBLEM_HEADERS },
   );
 }
 
@@ -191,7 +193,7 @@ function entitlementRequired(request: Request) {
       code: "ENTITLEMENT_REQUIRED",
       requestId: requestId(request),
     },
-    { status: 403 },
+    { status: 403, headers: PRIVATE_PROBLEM_HEADERS },
   );
 }
 
@@ -204,7 +206,7 @@ function authorizationUnavailable(request: Request) {
       code: "AUTHORIZATION_UNAVAILABLE",
       requestId: requestId(request),
     },
-    { status: 503 },
+    { status: 503, headers: PRIVATE_PROBLEM_HEADERS },
   );
 }
 
