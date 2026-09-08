@@ -109,6 +109,22 @@ export function TodayView({
     .filter((match) => match.movementPercent !== null)
     .sort(compareByMovementDescending)
     .slice(0, 4);
+  const forecastLabels =
+    locale === "el"
+      ? {
+          title: "Προβλέψεις",
+          source: "ΜΟΝΤΕΛΟ VELYQ",
+          decision: "Απόφαση",
+          unavailable: "Δεν υπάρχει πρόβλεψη",
+          reason: "Αιτία",
+        }
+      : {
+          title: "Forecasts",
+          source: "VELYQ MODEL",
+          decision: "Decision",
+          unavailable: "No forecast",
+          reason: "Reason",
+        };
 
   return (
     <div className="page">
@@ -260,6 +276,107 @@ export function TodayView({
             })}
           </Card>
         ) : null}
+
+        <Card>
+          <CardHead
+            title={forecastLabels.title}
+            hint="Forecasts remain useful even when no price is actionable."
+          />
+          <div className="forecast-list">
+            {matches.map((match) => {
+              const probability =
+                match.modelProbability === null
+                  ? null
+                  : Number(match.modelProbability);
+              const other =
+                probability === null
+                  ? null
+                  : ((1 - probability) / 2).toFixed(3);
+              return (
+                <article
+                  className="forecast-card"
+                  key={`forecast-${match.eventId}`}
+                >
+                  <div className="forecast-card__head">
+                    <div>
+                      <p className="eyebrow">
+                        {match.competition} ·{" "}
+                        {formatTime(match.startsAt, locale)}
+                      </p>
+                      <h3>
+                        {match.homeTeam} — {match.awayTeam}
+                      </h3>
+                    </div>
+                    <Badge
+                      tone={probability === null ? "neutral" : "heuristic"}
+                    >
+                      {probability === null
+                        ? forecastLabels.unavailable
+                        : forecastLabels.source}
+                    </Badge>
+                  </div>
+                  {probability === null ? (
+                    <p>
+                      {forecastLabels.reason}:{" "}
+                      {match.quality.reasonCodes
+                        .join(", ")
+                        .replaceAll("_", " ")}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="forecast-card__probabilities">
+                        <span>
+                          Home{" "}
+                          <b>
+                            {formatProbability(
+                              (match.selection === "Home"
+                                ? probability
+                                : Number(other)
+                              ).toString() as never,
+                              locale,
+                            )}
+                          </b>
+                        </span>
+                        <span>
+                          Draw{" "}
+                          <b>
+                            {formatProbability(
+                              (match.selection === "Draw"
+                                ? probability
+                                : Number(other)
+                              ).toString() as never,
+                              locale,
+                            )}
+                          </b>
+                        </span>
+                        <span>
+                          Away{" "}
+                          <b>
+                            {formatProbability(
+                              (match.selection === "Away"
+                                ? probability
+                                : Number(other)
+                              ).toString() as never,
+                              locale,
+                            )}
+                          </b>
+                        </span>
+                      </div>
+                      <p>
+                        <b>{forecastLabels.decision}:</b>{" "}
+                        {match.recommendation.replaceAll("_", " ")} ·{" "}
+                        {forecastLabels.reason}:{" "}
+                        {match.quality.reasonCodes
+                          .join(", ")
+                          .replaceAll("_", " ")}
+                      </p>
+                    </>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </Card>
 
         <div className="split">
           <Card>

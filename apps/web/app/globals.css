@@ -1714,6 +1714,40 @@ a.row:hover {
 .results-outcome--loss {
   color: var(--negative);
 }
+.forecast-list {
+  display: grid;
+  gap: var(--space-3);
+}
+.forecast-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.forecast-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.forecast-card__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.forecast-card__head .eyebrow {
+  margin: 0 0 var(--space-1);
+}
+.forecast-card__probabilities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.forecast-card__probabilities span {
+  display: grid;
+  gap: 0.25rem;
+  padding: var(--space-2);
+  background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+}
 @media (min-width: 45rem) {
   .results-row {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
