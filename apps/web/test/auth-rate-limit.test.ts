@@ -51,6 +51,15 @@ function post(path: string, body: unknown) {
 }
 
 describe("auth endpoint rate limiting", () => {
+  /*
+   * This test's own work is trivial (7 in-process calls against a mocked
+   * fetch and an in-memory KV stand-in) but was seen to exceed vitest's
+   * default 5000ms timeout under a full parallel suite run, though never in
+   * isolation -- CPU contention from every other test file's worker
+   * threads, not a slow route handler or a real rate-limiter delay. A
+   * generous fixed timeout is the deterministic fix: it does not depend on
+   * however busy the machine happens to be, unlike "rerun until green."
+   */
   it("allows 6 sign-in attempts then blocks the 7th within the window", async () => {
     const { POST } = await import("../app/api/v1/auth/sign-in/route");
     let last: Response | undefined;
@@ -66,7 +75,7 @@ describe("auth endpoint rate limiting", () => {
     expect(last!.headers.get("Retry-After")).toBeTruthy();
     const body = (await last!.json()) as Record<string, unknown>;
     expect(body["code"]).toBe("RATE_LIMITED");
-  });
+  }, 20_000);
 
   it("isolates the limit per client IP", async () => {
     const { POST } = await import("../app/api/v1/auth/sign-in/route");
@@ -120,5 +129,5 @@ describe("auth endpoint rate limiting", () => {
       );
     }
     expect(last!.status).toBe(429);
-  });
+  }, 20_000);
 });
