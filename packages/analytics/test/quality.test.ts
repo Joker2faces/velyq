@@ -173,3 +173,92 @@ describe("exact value engine", () => {
     });
   });
 });
+
+/*
+ * `EDGE_DISAPPEARED` is a statement about VELYQ's own history — "we published
+ * an edge here and it is gone" — not about the current market. It used to be
+ * returned whenever no edge was present, so every match the model simply did
+ * not like claimed to be a withdrawn recommendation. That is a false claim
+ * about the product's own record, and the kind that erodes trust fastest
+ * because a customer cannot check it.
+ */
+describe("EDGE_DISAPPEARED requires an edge to have existed", () => {
+  const healthy = {
+    policyVersion: "quality.v1" as const,
+    asOf: "2026-09-08T12:00:00Z",
+    receivedAt: "2026-09-08T12:00:00Z",
+    priceCount: 3,
+    bookmakerCount: 3,
+    lineup: "OFFICIAL" as const,
+    mappingConfidence: "HIGH" as const,
+    edgeAvailable: true,
+    edgePresent: false,
+    sourceAuthority: "PRIMARY" as const,
+    consistency: "CONSISTENT" as const,
+  };
+
+  it("reports NO_BET when no edge was ever published", () => {
+    const quality = assessDataQuality(healthy);
+
+    expect(
+      decideRecommendation({
+        quality,
+        lineup: "OFFICIAL",
+        edgeAvailable: true,
+        edgePresent: false,
+      }),
+    ).toBe("NO_BET");
+  });
+
+  it("reports EDGE_DISAPPEARED only once a prior edge is known", () => {
+    const quality = assessDataQuality(healthy);
+
+    expect(
+      decideRecommendation({
+        quality,
+        lineup: "OFFICIAL",
+        edgeAvailable: true,
+        edgePresent: false,
+        hadPriorEdge: true,
+      }),
+    ).toBe("EDGE_DISAPPEARED");
+  });
+
+  it("does not claim a disappearance while an edge is still present", () => {
+    const quality = assessDataQuality({ ...healthy, edgePresent: true });
+
+    expect(
+      decideRecommendation({
+        quality,
+        lineup: "OFFICIAL",
+        edgeAvailable: true,
+        edgePresent: true,
+        hadPriorEdge: true,
+      }),
+    ).not.toBe("EDGE_DISAPPEARED");
+  });
+
+  it("lets a hard refusal outrank the lifecycle claim", () => {
+    /*
+     * Missing prices and stale evidence are reasons the question cannot be
+     * answered at all, so they must win over a history-based verdict —
+     * otherwise a stale feed would report an edge as having disappeared when
+     * nobody knows what the price is.
+     */
+    const missingPrice = assessDataQuality({
+      ...healthy,
+      priceCount: 0,
+      bookmakerCount: 0,
+    });
+
+    expect(
+      decideRecommendation({
+        quality: missingPrice,
+        lineup: "OFFICIAL",
+        edgeAvailable: false,
+        edgePresent: false,
+        hadPriorEdge: true,
+      }),
+    ).toBe("INSUFFICIENT_DATA");
+  });
+});

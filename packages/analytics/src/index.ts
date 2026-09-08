@@ -592,12 +592,34 @@ export function assessDataQuality(
   });
 }
 
+/**
+ * Turns quality, lineup state and the presence of an edge into a verdict.
+ *
+ * `EDGE_DISAPPEARED` is a claim about VELYQ's own history, not about the
+ * current market, and it requires evidence that an edge was actually
+ * published. This function used to return it whenever `edgePresent` was
+ * false, which meant every match the model simply did not like was reported
+ * as an opportunity that had vanished — implying VELYQ had recommended it and
+ * then withdrawn the recommendation. A market that never offered an edge is
+ * NO_BET.
+ *
+ * The caller therefore has to say whether a prior edge existed. Callers that
+ * genuinely have no history omit it and get NO_BET, which is the honest
+ * answer when nothing is known about the past.
+ */
 export function decideRecommendation(
   input: Readonly<{
     quality: DataQualityAssessment;
     lineup: QualityInput["lineup"];
     edgeAvailable: boolean;
     edgePresent: boolean;
+    /**
+     * Whether VELYQ previously published an edge on this selection.
+     *
+     * Defaults to false: without a recorded prior edge there is nothing that
+     * could have disappeared.
+     */
+    hadPriorEdge?: boolean;
   }>,
 ): RecommendationStatus {
   if (
@@ -608,7 +630,20 @@ export function decideRecommendation(
   if (input.quality.reasonCodes.includes("STALE_DATA")) return "WAIT";
   if (input.lineup === "MISSING" || input.lineup === "CHANGED")
     return "WAIT_FOR_LINEUP";
-  if (!input.edgePresent) return "EDGE_DISAPPEARED";
+  /*
+   * The lifecycle transition, and only when both halves are true: an edge was
+   * published, and the current price no longer supports one.
+   */
+  if (!input.edgePresent)
+    return input.hadPriorEdge === true ? "EDGE_DISAPPEARED" : "NO_BET";
+  /*
+   * Reaching here means an edge is present and the evidence is fresh enough
+   * to consider. The verdict is still NO_BET: this function decides refusals,
+   * and promoting a selection is a separate, stricter gate that also weighs
+   * model maturity and bookmaker coverage. Grade C and F are the explicit
+   * quality refusals, kept named rather than folded into the fallthrough so
+   * that the reason survives in a reader's mind.
+   */
   if (input.quality.grade === "F" || input.quality.grade === "C")
     return "NO_BET";
   return "NO_BET";
