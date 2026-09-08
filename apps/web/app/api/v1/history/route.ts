@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireCustomerSession } from "../../auth";
+import { customerFixtureMode, requireCustomerSession } from "../../auth";
 import { buildDemoHistory } from "../../../customer/history-data";
 import { DatabaseHistoryQueryAdapter } from "@velyq/database";
 import { openRuntimeDatabaseSession } from "../../../runtime-database/runtime-database";
@@ -8,7 +8,9 @@ import { openRuntimeDatabaseSession } from "../../../runtime-database/runtime-da
 export async function GET(request: Request) {
   const denied = await requireCustomerSession(request, "today.view");
   if (denied) return denied;
-  const liveMode = process.env["VELYQ_DATA_MODE"] === "live";
+  const liveMode =
+    !customerFixtureMode() &&
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] !== "SYNTHETIC_DEMO";
   if (liveMode) {
     const session = await openRuntimeDatabaseSession();
     if (!session)
