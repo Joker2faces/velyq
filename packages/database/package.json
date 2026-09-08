@@ -53,6 +53,8 @@
   "dependencies": {
     "@velyq/auth": "workspace:*",
     "@velyq/contracts": "workspace:*",
+    "@velyq/domain": "workspace:*",
+    "@velyq/providers": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0"
   },

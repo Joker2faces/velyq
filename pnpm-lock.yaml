@@ -192,6 +192,12 @@ importers:
       '@velyq/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@velyq/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@velyq/providers':
+        specifier: workspace:*
+        version: link:../providers
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)

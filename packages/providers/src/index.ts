@@ -41,3 +41,4 @@ export {
   type OddsObservationV3,
   type ProviderQuota,
 } from "./apisports.js";
+export { VERIFIED_TEAM_ALIASES, teamAliasLookupFor } from "./team-aliases.js";
