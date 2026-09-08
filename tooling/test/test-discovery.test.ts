@@ -55,23 +55,36 @@ function testFilesUnder(directory: string): readonly string[] {
 }
 
 /**
- * The `include` array as the config file actually declares it.
+ * Every `include` array declared across every real Vitest config, not just
+ * the default one.
  *
- * Parsed from the source rather than imported, because importing the config
- * would let a future default or a merged preset supply patterns that the file
- * itself does not state — and the point of this guard is to check the thing a
- * reviewer sees when they open it.
+ * `vitest.db-integration.config.mts` deliberately covers a disjoint set of
+ * files (real-database tests that must never run without a live Postgres,
+ * see that file's own docblock) -- a file matched there and nowhere else is
+ * still genuinely discovered, run in its own CI job, not silently dropped.
+ *
+ * Parsed from source rather than imported, because importing the config
+ * would let a future default or a merged preset supply patterns that the
+ * file itself does not state — and the point of this guard is to check the
+ * thing a reviewer sees when they open it.
  */
+const VITEST_CONFIG_FILES = [
+  "tooling/vitest/vitest.config.mts",
+  "tooling/vitest/vitest.db-integration.config.mts",
+];
+
 function declaredIncludePatterns(): readonly string[] {
-  const source = readFileSync(
-    path.join(workspaceRoot, "tooling/vitest/vitest.config.mts"),
-    "utf8",
-  );
-  const block = /include:\s*\[([\s\S]*?)\]/.exec(source);
-  expect(block, "vitest config must declare an include array").not.toBeNull();
-  return [...(block?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
-    (match) => match[1]!,
-  );
+  return VITEST_CONFIG_FILES.flatMap((relativePath) => {
+    const source = readFileSync(path.join(workspaceRoot, relativePath), "utf8");
+    const block = /include:\s*\[([\s\S]*?)\]/.exec(source);
+    expect(
+      block,
+      `${relativePath} must declare an include array`,
+    ).not.toBeNull();
+    return [...(block?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
+      (match) => match[1]!,
+    );
+  });
 }
 
 describe("every test file in the repository is actually discovered", () => {

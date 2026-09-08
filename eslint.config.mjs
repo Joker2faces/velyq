@@ -323,6 +323,7 @@ export default tseslint.config(
         projectService: {
           allowDefaultProject: [
             "packages/*/test/*.ts",
+            "packages/*/test-integration/*.ts",
             "packages/database/drizzle.config.ts",
           ],
           defaultProject: "tsconfig.json",
