@@ -394,3 +394,83 @@ export function decimalStringToJson(
 
   return decimal.ok ? success(decimal.value) : decimal;
 }
+
+/**
+ * Strips the trailing zeros a fixed-scale NUMERIC column pads onto a value.
+ *
+ * `parseDecimalString` requires a canonical decimal — no trailing zeros — and
+ * PostgreSQL does not return one. A `numeric(18, 8)` column holding 2.10 comes
+ * back as "2.10000000", and bookmakers quote 2.10, 1.50 and 2.00 in the first
+ * place, so this is not an edge case: without canonicalisation every decimal
+ * operation rejects a large fraction of real prices. The market move
+ * 2.10 -> 1.85 could not be computed at all.
+ *
+ * Only touches values that are already plain decimals with a fractional part.
+ * Anything else is returned untouched so a genuinely malformed input still
+ * fails validation rather than being silently reshaped into something valid.
+ */
+export function canonicalizeNumeric(input: string): string {
+  if (!/^-?\d+\.\d+$/.test(input)) return input;
+  const trimmed = input.replace(/0+$/, "").replace(/\.$/, "");
+  return trimmed === "" || trimmed === "-" ? input : trimmed;
+}
+
+/**
+ * Reads a fixed-scale PostgreSQL NUMERIC into a validated decimal.
+ *
+ * The pairing to use on every column read: canonicalise the driver's
+ * scale-padded representation, then validate it exactly as strictly as any
+ * other decimal.
+ */
+export function numericColumnToDecimalString(
+  input: string,
+): DecimalResult<DecimalString> {
+  return parseDecimalString(canonicalizeNumeric(input));
+}
+
+/**
+ * Rounds a decimal to the scale its storage column actually has.
+ *
+ * Division produces far more fractional digits than any of VELYQ's numeric
+ * columns hold: 1 / 0.6 is 1.666666666666666666666666666667 at the generic
+ * 30-digit bound, and fair odds are stored at numeric(18, 8). Rounding here
+ * means the rounded value is the one that gets validated, compared, displayed
+ * and stored, rather than three slightly different numbers — PostgreSQL would
+ * round it on insert regardless.
+ *
+ * Half-even, matching the runtime's own default, so repeated rounding does not
+ * drift upward.
+ */
+export function roundToScale(
+  input: string,
+  scale: number,
+): DecimalResult<DecimalString> {
+  const decimal = decimalFromCanonical(canonicalizeNumeric(input));
+  if (!decimal.ok) return decimal;
+  if (!Number.isSafeInteger(scale) || scale < 0 || scale > MAX_SCALE)
+    return failure("OUT_OF_RANGE", "Scale must be between 0 and 30.");
+  const rounded = decimal.value.toDecimalPlaces(
+    scale,
+    DecimalRuntime.ROUND_HALF_EVEN,
+  );
+  /*
+   * `toFixed` then canonicalise, rather than `toString`: decimal.js may render
+   * an exact integer with or without a fractional part depending on the value,
+   * and the canonical form is the only one the validators accept.
+   */
+  return parseDecimalString(canonicalizeNumeric(rounded.toFixed(scale)));
+}
+
+/**
+ * The scale of each derived quantity's storage column.
+ *
+ * Named rather than inlined so that a value rounded for display and the same
+ * value rounded for persistence cannot disagree.
+ */
+export const STORAGE_SCALES = Object.freeze({
+  probability: 12,
+  impliedProbability: 12,
+  odds: 8,
+  edge: 12,
+  expectedValue: 12,
+});
