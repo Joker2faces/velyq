@@ -6,7 +6,7 @@ import { buildDemoHistory } from "../../../customer/history-data";
 export async function GET(request: Request) {
   const denied = await requireCustomerSession(request, "today.view");
   if (denied) return denied;
-  const liveMode = process.env.VELYQ_DATA_MODE === "live";
+  const liveMode = process.env["VELYQ_DATA_MODE"] === "live";
   if (liveMode)
     return NextResponse.json(
       {
