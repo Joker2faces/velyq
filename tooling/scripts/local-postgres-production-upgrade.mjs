@@ -5,44 +5,43 @@ import { join } from "node:path";
 
 /**
  * Proves the release migration path against a schema shaped like the
- * ACTUAL production database, not just this branch's own migration
- * history -- a materially different scenario from
- * local-postgres-upgrade.mjs, which proves an ordinary upgrade along this
- * branch's own lineage. This one models a real, observed divergence:
+ * ACTUAL production database -- verified read-only DDL from the linked
+ * Supabase project (zvdqkmevjfwprexshpap), not an assumption. Materially
+ * different from local-postgres-upgrade.mjs, which proves an ordinary
+ * upgrade along this branch's own migration lineage.
  *
- *   - Production independently built the equivalent of
- *     catalog.competition_identities / catalog.event_identities / the
- *     deferred event-provenance trigger under a DIFFERENT migration
- *     lineage than this branch's 20260908090000_provider_identity_and_
- *     live_data.sql -- production's own migration history records a
- *     DIFFERENT migration at that same version number
- *     ("research_corpus_and_intelligence_policy"), and a later one named
- *     "event_identities". Because Supabase's migration runner tracks
- *     applied versions (and their checksums) rather than diffing DDL
- *     content, this branch's colliding 20260908090000 migration cannot
- *     simply be pushed as-is -- it requires an explicit, human-verified
- *     reconciliation this session cannot perform without production
- *     access (see the comment in that migration file). This fixture
- *     therefore does NOT replay that migration; it builds an
- *     independently-authored equivalent schema (same table/column/
- *     constraint shape our own code already depends on) to stand in for
- *     production's real, differently-sourced objects -- the closest
- *     available proxy without that migration's actual DDL.
- *   - Production ALREADY has intelligence.score_results.idempotency_key
- *     (NOT NULL) and its unique index, independent of this branch's
- *     20260922090000 migration -- added here directly to prove that
- *     migration's defensive IF-NOT-EXISTS guards correctly no-op against
- *     it rather than failing.
- *   - Production does NOT have intelligence.forecasts / decisions /
- *     event_results / market_settlements -- genuinely absent, which is
- *     what 20260925100000_forecasts_decisions_and_settlements.sql (only
- *     that one; nothing before it in this run) must additively supply.
+ * Production's real legacy shape modeled here:
+ *   - catalog.competition_identities: id, canonical_code, source_code,
+ *     source_key, source_name, country_code, created_at;
+ *     UNIQUE(source_code, source_key); INDEX(canonical_code). NONE of
+ *     this branch's provider-centric columns (competition_id, provider_id,
+ *     provider_competition_id, display_name, mapping_status,
+ *     mapping_confidence, verified_at).
+ *   - catalog.event_identities: id, event_id, source_code, source_key,
+ *     created_at; UNIQUE(source_code, source_key);
+ *     UNIQUE(event_id, source_code); FK event_id -> catalog.events. NONE
+ *     of provider_id / provider_fixture_id.
+ *   - NO event-provenance trigger of any kind.
+ *   - intelligence.score_results.idempotency_key + its unique index
+ *     ALREADY present (built independently, before this branch's own
+ *     20260922090000 migration existed).
+ *   - operations.providers already seeded with API_SPORTS /
+ *     FOOTBALL_DATA_UK / SYNTHETIC_FIXTURES.
+ *   - canonical_code values use @velyq/research's own competition code
+ *     space (e.g. "ITA_SERIE_A"), which is NOT catalog.competitions.code
+ *     (an unrelated internal slug, e.g. "serie-a") -- confirmed by two
+ *     independent real production examples (ITA_SERIE_A -> serie-a,
+ *     ESP_LA_LIGA -> la-liga), both matching the same deterministic
+ *     transform (strip the 3-letter country prefix, lowercase, underscore
+ *     -> dash) that 20260925110000_legacy_identity_compatibility.sql
+ *     relies on to link competition_id without guessing.
  *
- * Only 20260922090000 and 20260925100000 are applied on top of this
- * fixture -- not the full migration chain -- because those are the only
- * two migrations this reconciliation unit is about; replaying this
- * branch's full history here would just reproduce the version collision
- * this fixture exists to route around.
+ * Applies ONLY the three reconciliation migrations on top of this fixture
+ * -- 20260925110000 (legacy compatibility), 20260922090000 (idempotent
+ * score_results, verified to no-op), 20260925100000 (forecast history) --
+ * not the full chain, since replaying this branch's disputed
+ * 20260908090000 migration here would misrepresent what actually happens
+ * against production (see supabase/PRODUCTION_MIGRATION_RECONCILIATION.md).
  */
 
 const workspace = process.cwd();
@@ -146,66 +145,37 @@ for migration in $(find '${wslWorkspace}/supabase/migrations' -maxdepth 1 -type 
 done
 [ "$boundary_reached" = "1" ]
 
-echo '--- PRODUCTION-EQUIVALENT STATE: independently-authored identity tables + provenance trigger ---'
+echo '--- PRODUCTION LEGACY STATE: real verified DDL, not the provider-centric proxy this branch expects ---'
 psql <<'SQL'
+-- Production's own catalog.events check is CHECK synthetic IN (true, false)
+-- (i.e. it already accepts LIVE rows) -- not this branch's Phase-1-only
+-- CHECK synthetic = true, which only this branch's own 20260908090000
+-- migration drops, and this fixture deliberately does not apply.
+ALTER TABLE "catalog"."events" DROP CONSTRAINT IF EXISTS "events_phase_one_synthetic_check";
+ALTER TABLE "catalog"."events" ADD CONSTRAINT "events_phase_one_synthetic_check" CHECK (synthetic IN (true, false));
+
 CREATE TABLE "catalog"."competition_identities" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "competition_id" uuid,
-  "provider_id" uuid NOT NULL,
-  "provider_competition_id" text NOT NULL,
-  "display_name" text NOT NULL,
+  "canonical_code" text NOT NULL,
+  "source_code" text NOT NULL,
+  "source_key" text NOT NULL,
+  "source_name" text NOT NULL,
   "country_code" char(2),
-  "mapping_status" text NOT NULL,
-  "mapping_confidence" numeric(4, 3),
-  "verified_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-  CONSTRAINT "competition_identities_provider_identity_unique" UNIQUE("provider_id","provider_competition_id"),
-  CONSTRAINT "competition_identities_mapping_status_check" CHECK ("catalog"."competition_identities"."mapping_status" in ('CONFIRMED', 'PENDING_REVIEW', 'REJECTED')),
-  CONSTRAINT "competition_identities_confidence_range_check" CHECK ("catalog"."competition_identities"."mapping_confidence" is null or ("catalog"."competition_identities"."mapping_confidence" >= 0 and "catalog"."competition_identities"."mapping_confidence" <= 1))
+  CONSTRAINT "competition_identities_source_unique" UNIQUE("source_code","source_key")
 );
-ALTER TABLE "catalog"."competition_identities" ADD CONSTRAINT "competition_identities_competition_id_competitions_id_fk" FOREIGN KEY ("competition_id") REFERENCES "catalog"."competitions"("id") ON DELETE restrict ON UPDATE no action;
-ALTER TABLE "catalog"."competition_identities" ADD CONSTRAINT "competition_identities_provider_id_providers_id_fk" FOREIGN KEY ("provider_id") REFERENCES "operations"."providers"("id") ON DELETE restrict ON UPDATE no action;
-CREATE INDEX "competition_identities_competition_id_idx" ON "catalog"."competition_identities" USING btree ("competition_id");
-REVOKE ALL ON "catalog"."competition_identities" FROM anon, authenticated;
+CREATE INDEX "competition_identities_canonical_code_idx" ON "catalog"."competition_identities" ("canonical_code");
 
 CREATE TABLE "catalog"."event_identities" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "event_id" uuid NOT NULL,
-  "provider_id" uuid NOT NULL,
-  "provider_fixture_id" text NOT NULL,
+  "source_code" text NOT NULL,
+  "source_key" text NOT NULL,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-  CONSTRAINT "event_identities_provider_identity_unique" UNIQUE("provider_id","provider_fixture_id"),
-  CONSTRAINT "event_identities_event_provider_unique" UNIQUE("event_id","provider_id")
+  CONSTRAINT "event_identities_source_unique" UNIQUE("source_code","source_key"),
+  CONSTRAINT "event_identities_event_source_unique" UNIQUE("event_id","source_code")
 );
-ALTER TABLE "catalog"."event_identities" ADD CONSTRAINT "event_identities_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "catalog"."events"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "catalog"."event_identities" ADD CONSTRAINT "event_identities_provider_id_providers_id_fk" FOREIGN KEY ("provider_id") REFERENCES "operations"."providers"("id") ON DELETE restrict ON UPDATE no action;
-CREATE INDEX "event_identities_event_id_idx" ON "catalog"."event_identities" USING btree ("event_id");
-REVOKE ALL ON "catalog"."event_identities" FROM anon, authenticated;
-
-ALTER TABLE "catalog"."events" DROP CONSTRAINT IF EXISTS "events_phase_one_synthetic_check";
-
-CREATE FUNCTION catalog.enforce_event_provenance()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = pg_catalog
-AS $$
-BEGIN
-  IF NEW.synthetic = false AND NOT EXISTS (
-    SELECT 1 FROM catalog.event_identities WHERE event_id = NEW.id
-  ) THEN
-    RAISE EXCEPTION USING
-      ERRCODE = '23514',
-      MESSAGE = format('catalog.events %s has synthetic = false with no catalog.event_identities row', NEW.id);
-  END IF;
-  RETURN NEW;
-END;
-$$;
-REVOKE ALL ON FUNCTION catalog.enforce_event_provenance() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION catalog.enforce_event_provenance() TO postgres, service_role;
-CREATE CONSTRAINT TRIGGER events_provenance_required
-AFTER INSERT OR UPDATE OF synthetic ON catalog.events
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION catalog.enforce_event_provenance();
+ALTER TABLE "catalog"."event_identities" ADD CONSTRAINT "event_identities_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "catalog"."events"("id") ON DELETE cascade;
 
 -- Production already has score_results.idempotency_key + its unique
 -- index, independent of this branch's own migration for it.
@@ -215,8 +185,40 @@ ALTER TABLE "intelligence"."score_results"
   ADD CONSTRAINT "score_results_idempotency_key_unique" UNIQUE ("idempotency_key");
 SQL
 
-echo '--- seeding representative data against the production-equivalent schema ---'
+echo '--- seeding representative production-legacy identity data ---'
 psql -f '${wslWorkspace}/supabase/seed.sql'
+psql <<'SQL'
+-- seed.sql only inserts the SYNTHETIC_FIXTURES provider -- production
+-- additionally has API_SPORTS and FOOTBALL_DATA_UK (verified fact), which
+-- this fixture must seed itself since seed.sql predates real providers.
+INSERT INTO operations.providers (id, code, display_name, is_synthetic, created_at)
+VALUES
+  ('30000000-0000-4000-8000-000000000002', 'API_SPORTS', 'API-Sports', false, '2026-01-01T00:00:00Z'),
+  ('30000000-0000-4000-8000-000000000003', 'FOOTBALL_DATA_UK', 'Football-Data.co.uk', false, '2026-01-01T00:00:00Z')
+ON CONFLICT DO NOTHING;
+
+-- A real internal competitions row using this branch's own slug
+-- convention -- proving the migration's deterministic canonical_code ->
+-- competitions.code transform (verified against two real production
+-- examples) links to an EXISTING row rather than fabricating one.
+INSERT INTO catalog.competitions (id, sport_id, code, name_key, country_code)
+SELECT '99000000-0000-4000-8000-000000000001', id, 'serie-a', 'competition.serie_a', 'IT'
+FROM catalog.sports WHERE code = 'FOOTBALL'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO catalog.competition_identities (id, canonical_code, source_code, source_key, source_name, country_code)
+VALUES ('99000000-0000-4000-8000-000000000002', 'ITA_SERIE_A', 'API_SPORTS', 'PROD_LEGACY_TEST_LEAGUE', 'Serie A', 'IT');
+
+-- A real LIVE event, fully covered by a matching event_identities row --
+-- proving the deferred provenance trigger is safely enabled when the
+-- precondition genuinely holds (zero orphans).
+INSERT INTO catalog.events (id, sport_id, competition_id, starts_at, status, synthetic)
+SELECT '99000000-0000-4000-8000-000000000003', sp.id, '99000000-0000-4000-8000-000000000001', now() + interval '1 day', 'NS', false
+FROM catalog.sports sp WHERE sp.code = 'FOOTBALL';
+
+INSERT INTO catalog.event_identities (id, event_id, source_code, source_key)
+VALUES ('99000000-0000-4000-8000-000000000004', '99000000-0000-4000-8000-000000000003', 'API_SPORTS', 'PROD_LEGACY_TEST_FIXTURE');
+SQL
 
 echo '--- capturing pre-reconciliation state ---'
 psql -t -A -F',' -c "
@@ -225,12 +227,18 @@ psql -t -A -F',' -c "
   union all select 'competitions', count(*) from catalog.competitions
   union all select 'profiles', count(*) from public.profiles
   union all select 'competition_identities', count(*) from catalog.competition_identities
+  union all select 'event_identities', count(*) from catalog.event_identities
   order by 1
 " > /tmp/velyq-production-upgrade-before.csv
 psql -t -A -c "select id, sport_id, competition_id, starts_at, status, synthetic from catalog.events order by id" \\
   > /tmp/velyq-production-upgrade-events-before.txt
+psql -t -A -c "select id, canonical_code, source_code, source_key, source_name from catalog.competition_identities order by id" \\
+  > /tmp/velyq-production-upgrade-competition-identities-before.txt
+psql -t -A -c "select id, event_id, source_code, source_key from catalog.event_identities order by id" \\
+  > /tmp/velyq-production-upgrade-event-identities-before.txt
 
-echo '--- RECONCILIATION MIGRATIONS ONLY: 20260922090000 (idempotent) then 20260925100000 (additive) ---'
+echo '--- RECONCILIATION MIGRATIONS ONLY, in release order ---'
+psql -f '${wslWorkspace}/supabase/migrations/20260925110000_legacy_identity_compatibility.sql'
 psql -f '${wslWorkspace}/supabase/migrations/20260922090000_score_results_idempotency_key.sql'
 psql -f '${wslWorkspace}/supabase/migrations/20260925100000_forecasts_decisions_and_settlements.sql'
 
@@ -246,6 +254,39 @@ psql -t -A -c "
   where conname = 'score_results_idempotency_key_unique'
 " | grep -qx t
 
+echo '--- verifying legacy columns are still intact and readable ---'
+psql -t -A -c "select canonical_code, source_code, source_key, source_name from catalog.competition_identities where id = '99000000-0000-4000-8000-000000000002'" \\
+  | grep -qx 'ITA_SERIE_A|API_SPORTS|PROD_LEGACY_TEST_LEAGUE|Serie A'
+psql -t -A -c "select event_id, source_code, source_key from catalog.event_identities where id = '99000000-0000-4000-8000-000000000004'" \\
+  | grep -qx '99000000-0000-4000-8000-000000000003|API_SPORTS|PROD_LEGACY_TEST_FIXTURE'
+
+echo '--- verifying the NEW branch-required columns were backfilled correctly, without guessing ---'
+psql -t -A -c "
+  select provider_id is not null
+    and provider_competition_id = 'PROD_LEGACY_TEST_LEAGUE'
+    and display_name = 'Serie A'
+    and mapping_status = 'PENDING_REVIEW'
+    and competition_id = '99000000-0000-4000-8000-000000000001'
+  from catalog.competition_identities where id = '99000000-0000-4000-8000-000000000002'
+" | grep -qx t
+psql -t -A -c "
+  select provider_id is not null and provider_fixture_id = 'PROD_LEGACY_TEST_FIXTURE'
+  from catalog.event_identities where id = '99000000-0000-4000-8000-000000000004'
+" | grep -qx t
+psql -t -A -c "
+  select p.code from operations.providers p
+  join catalog.competition_identities ci on ci.provider_id = p.id
+  where ci.id = '99000000-0000-4000-8000-000000000002'
+" | grep -qx API_SPORTS
+
+echo '--- verifying the deferred provenance trigger WAS enabled (zero orphan LIVE events in this fixture) ---'
+psql -t -A -c "
+  select count(*) = 1 from pg_trigger where tgname = 'events_provenance_required'
+" | grep -qx t
+
+echo '--- verifying no NOT NULL/constraint violation and no rows silently marked CONFIRMED ---'
+psql -t -A -c "select count(*) = 0 from catalog.competition_identities where mapping_status = 'CONFIRMED'" | grep -qx t
+
 echo '--- verifying pre-reconciliation data survived unrewritten ---'
 psql -t -A -F',' -c "
   select 'events', count(*) from catalog.events
@@ -253,12 +294,19 @@ psql -t -A -F',' -c "
   union all select 'competitions', count(*) from catalog.competitions
   union all select 'profiles', count(*) from public.profiles
   union all select 'competition_identities', count(*) from catalog.competition_identities
+  union all select 'event_identities', count(*) from catalog.event_identities
   order by 1
 " > /tmp/velyq-production-upgrade-after.csv
 diff /tmp/velyq-production-upgrade-before.csv /tmp/velyq-production-upgrade-after.csv
 psql -t -A -c "select id, sport_id, competition_id, starts_at, status, synthetic from catalog.events order by id" \\
   > /tmp/velyq-production-upgrade-events-after.txt
 diff /tmp/velyq-production-upgrade-events-before.txt /tmp/velyq-production-upgrade-events-after.txt
+psql -t -A -c "select id, canonical_code, source_code, source_key, source_name from catalog.competition_identities order by id" \\
+  > /tmp/velyq-production-upgrade-competition-identities-after.txt
+diff /tmp/velyq-production-upgrade-competition-identities-before.txt /tmp/velyq-production-upgrade-competition-identities-after.txt
+psql -t -A -c "select id, event_id, source_code, source_key from catalog.event_identities order by id" \\
+  > /tmp/velyq-production-upgrade-event-identities-after.txt
+diff /tmp/velyq-production-upgrade-event-identities-before.txt /tmp/velyq-production-upgrade-event-identities-after.txt
 
 echo '--- verifying no duplicate provider identities were introduced ---'
 psql -t -A -c "
@@ -300,7 +348,7 @@ try {
   );
   success = true;
   console.log(
-    "PASS production-faithful reconciliation: release migrations applied cleanly on top of production-equivalent schema, existing data preserved, DB integration suite green against the reconciled schema",
+    "PASS production-faithful reconciliation: release migrations applied cleanly on top of the ACTUAL verified production legacy schema, existing data preserved, new columns backfilled deterministically without guessing, provenance trigger safely enabled, DB integration suite green against the reconciled schema",
   );
 } finally {
   wsl(stop, true);

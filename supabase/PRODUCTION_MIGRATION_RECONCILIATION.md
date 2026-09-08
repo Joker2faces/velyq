@@ -63,16 +63,85 @@ environment does not have. An operator with that access must:
    later-versioned, additive migration -- never by editing the colliding
    file or forcing the original one through.
 
-## What this branch DID resolve, safely, without production access
+## Update: actual production DDL, verified read-only (supersedes the
+## "equivalent schema" assumption below and in the original commit)
 
-- **`20260922090000_score_results_idempotency_key.sql`** is now
-  idempotent (`IF NOT EXISTS`-guarded via `information_schema`/
-  `pg_constraint` checks): production already has this exact column and
-  unique index, built independently before this migration was written,
-  and a bare `ADD COLUMN`/`ADD CONSTRAINT` would have failed against it.
-  It is still real work against a database that genuinely lacks the
-  column (fresh installs, and `test:db:upgrade`'s own older-schema
-  fixture).
+The owner has since supplied actual, read-only-verified DDL for
+production's legacy identity tables. They are **not** schema-equivalent to
+this branch's provider-centric design -- the earlier assumption in this
+document (and in `local-postgres-production-upgrade.mjs`'s first version)
+that production built an equivalent of `competition_id`/`provider_id`/
+`provider_competition_id`/etc. under different migration names was wrong.
+The real, verified shape is:
+
+- `catalog.competition_identities`: `id, canonical_code, source_code,
+  source_key, source_name, country_code, created_at`;
+  `UNIQUE(source_code, source_key)`; `INDEX(canonical_code)`. None of this
+  branch's `competition_id`/`provider_id`/`provider_competition_id`/
+  `display_name`/`mapping_status`/`mapping_confidence`/`verified_at`.
+- `catalog.event_identities`: `id, event_id, source_code, source_key,
+  created_at`; `UNIQUE(source_code, source_key)`;
+  `UNIQUE(event_id, source_code)`; FK `event_id -> catalog.events`. None of
+  `provider_id`/`provider_fixture_id`.
+- **No event-provenance trigger of any kind currently exists in
+  production** -- not this branch's, not an equivalent. `catalog.events`
+  only has `CHECK (synthetic IN (true, false))`.
+- `operations.providers` already has real rows for `API_SPORTS`,
+  `FOOTBALL_DATA_UK`, and `SYNTHETIC_FIXTURES` -- `source_code` is the
+  provider's own code, so `provider_id` backfills deterministically via
+  `operations.providers.code`, no guessing required.
+- `canonical_code` uses `@velyq/research`'s own model-competition-key
+  space (`packages/research/src/competitions.ts`'s
+  `CompetitionPolicyEntry.canonicalCode`, e.g. `"ITA_SERIE_A"`) -- **not**
+  `catalog.competitions.code` (an unrelated internal slug, e.g.
+  `"serie-a"`). Two real production examples (`ITA_SERIE_A -> serie-a`,
+  `ESP_LA_LIGA -> la-liga`) independently confirm the same deterministic
+  transform (strip the 3-letter country prefix, lowercase, underscore ->
+  dash), which is what the new compatibility migration uses to link
+  `competition_id` to an *existing* `catalog.competitions` row -- it never
+  fabricates one, and never guesses past a transform that finds no match.
+
+**A real, separate bug this surfaced and fixed**: the forecast-cycle
+adapter (`packages/database/src/repositories/forecast-cycle-adapter.ts`)
+was reading `catalog.competitions.code` as the model competition key --
+which happened to work for this session's own fresh-install test fixtures
+(which deliberately use matching codes on both sides) but is wrong for
+real production data, where the two code spaces are unrelated. Fixed to
+read `competition_identities.canonical_code` (added to this branch's own
+schema too, nullable, for parity), falling back to `competitions.code`
+only when no identity row supplies a canonical code at all.
+
+## What this branch resolved, safely, without production access
+
+- **`20260925110000_legacy_identity_compatibility.sql`** (new): adds this
+  branch's required columns to production's real legacy tables --
+  `competition_id`, `provider_id`, `provider_competition_id`,
+  `display_name`, `mapping_status`, `mapping_confidence`, `verified_at` on
+  `competition_identities`; `provider_id`, `provider_fixture_id` on
+  `event_identities`; `canonical_code` on `competition_identities` (for a
+  fresh install, which never had it). Backfills `provider_id` /
+  `provider_competition_id` / `provider_fixture_id` / `display_name`
+  deterministically from the legacy columns; backfills `competition_id`
+  only via the twice-confirmed `canonical_code` transform above; **never
+  marks a backfilled row `mapping_status = 'CONFIRMED'`** -- every row
+  becomes `PENDING_REVIEW`, since this migration has no way to
+  independently re-verify a mapping was resolved correctly, only that a
+  legacy row already existed. Also relaxes production's legacy
+  `NOT NULL` constraints on `source_code`/`source_key`/`source_name`/
+  `canonical_code` (a safe, non-destructive loosening: it cannot alter or
+  violate any existing row's real value) so a row written going forward
+  by this branch's own code -- which knows nothing about those columns --
+  can coexist with legacy rows in the same table. Adds the deferred
+  provenance trigger only after a live, at-apply-time check finds zero
+  LIVE events with no matching identity row; otherwise logs the orphan
+  count and skips it, leaving the rest of the migration intact.
+- **`20260922090000_score_results_idempotency_key.sql`** is idempotent
+  (`IF NOT EXISTS`-guarded via `information_schema`/`pg_constraint`
+  checks): production already has this exact column and unique index,
+  built independently before this migration was written, and a bare
+  `ADD COLUMN`/`ADD CONSTRAINT` would have failed against it. Still real
+  work against a database that genuinely lacks the column (fresh installs,
+  and `test:db:upgrade`'s own older-schema fixture).
 - **`intelligence.forecasts` / `decisions` / `event_results` /
   `market_settlements`** were genuinely missing from production. Their
   migration was renamed from `20260908120000` to
@@ -86,12 +155,26 @@ environment does not have. An operator with that access must:
   `20260908090000` objects -- so it is safe to apply regardless of how
   the `20260908090000` collision above is ultimately resolved.
 - **`pnpm test:db:production-upgrade`**
-  (`tooling/scripts/local-postgres-production-upgrade.mjs`) proves both of
-  the above against a schema built to match production's *reported*
-  current state (shared history through
-  `20260905192925_harden_private_authorization_tables.sql`, then an
-  independently-authored equivalent of the identity tables/trigger, then
-  `score_results.idempotency_key` added directly -- not by replaying this
-  branch's disputed migration), then applies only
-  `20260922090000` + `20260925100000` on top and verifies existing data
-  is preserved byte-for-byte and no duplicate identities are introduced.
+  (`tooling/scripts/local-postgres-production-upgrade.mjs`) now models the
+  ACTUAL verified legacy schema above (not the earlier, incorrect
+  provider-centric proxy), seeds representative legacy rows, applies only
+  `20260925110000` + `20260922090000` + `20260925100000` in release order,
+  and verifies: the release tables exist; legacy columns are untouched and
+  still readable; the new columns are backfilled correctly with no row
+  marked `CONFIRMED`; the provenance trigger is enabled (this fixture has
+  zero orphan LIVE events); every pre-existing row survives byte-for-byte;
+  no duplicate identities are introduced; and the full DB-integration
+  suite (fixture ingestion, odds ingestion, forecast cycle, settlement,
+  history) passes against the reconciled schema.
+
+## Known gap, stated plainly
+
+This session did not construct a second scenario proving the provenance
+trigger is correctly *skipped* when an orphan LIVE event exists (only that
+it is correctly *enabled* when none do) -- the guard's logic is a plain,
+easily-audited `IF orphan_count > 0 THEN ... RETURN` in
+`20260925110000`'s own SQL, but the automated test coverage only exercises
+the zero-orphan branch. Before actually applying this migration to
+production, an operator with access should run the orphan-count query
+from that migration by hand first and confirm it returns zero, rather than
+relying on the migration's own skip-logic as the only safety net.

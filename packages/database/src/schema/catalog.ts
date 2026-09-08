@@ -84,6 +84,15 @@ export const competitionIdentities = catalogSchema.table(
     providerCompetitionId: text("provider_competition_id").notNull(),
     displayName: text("display_name").notNull(),
     countryCode: char("country_code", { length: 2 }),
+    /* The provider-neutral, non-display-derived model competition key --
+       @velyq/research's `CompetitionPolicyEntry.canonicalCode`
+       (packages/research/src/competitions.ts), e.g. "ITA_SERIE_A". Never
+       derived from `catalog.competitions.code` (an internal slug like
+       "serie-a" that has no defined relationship to the model's own code
+       space) -- the forecast cycle reads this column directly as the
+       model competition key, falling back to `competitions.code` only
+       when this is null, for schemas seeded before this column existed. */
+    canonicalCode: text("canonical_code"),
     mappingStatus: text("mapping_status").notNull(),
     /* 0..1 confidence in an automated or provisional match; null once a row
        is human-verified, since a verified mapping needs no confidence

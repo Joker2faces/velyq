@@ -13,6 +13,7 @@ import type {
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
+  competitionIdentities,
   competitions,
   eventParticipants,
   events,
@@ -55,12 +56,15 @@ function deterministicId(seed: string): string {
  * once, correctly, at fixture ingestion time (`ingestFootballFixture` in
  * fixture-ingestion.ts refuses to write an event at all until both resolve)
  * -- so `resolveCompetition`/`resolveHomeTeam`/`resolveAwayTeam` here read
- * the already-established `competitions.code` / `participants.code` rather
- * than re-deriving identity from a display name. What genuinely remains
- * open at forecast-cycle time, and is NOT decided here, is *model*
- * eligibility (does the Dixon-Coles artifact have a rating for this
- * competition/team code) -- that stays inside `runForecastCycle` itself,
- * via `resolveExpectedGoals`.
+ * already-established catalog state rather than re-deriving identity from
+ * a display name. Team resolution reads `participants.code` directly;
+ * competition resolution reads `competition_identities.canonical_code`
+ * (see `modelCompetitionKeyFor` below) -- NOT `competitions.code`, which
+ * is an unrelated internal slug the model has never heard of. What
+ * genuinely remains open at forecast-cycle time, and is NOT decided here,
+ * is *model* eligibility (does the Dixon-Coles artifact have a rating for
+ * this competition/team code) -- that stays inside `runForecastCycle`
+ * itself, via `resolveExpectedGoals`.
  */
 export async function createForecastCycleDbAdapter(
   database: PrivilegedVelyqDatabase,
@@ -273,6 +277,40 @@ export async function createForecastCycleDbAdapter(
     return outcomeIds;
   }
 
+  /**
+   * The model competition key for an internal competition entity.
+   *
+   * `catalog.competitions.code` is an internal slug ("serie-a") with no
+   * defined relationship to @velyq/research's own competition code space
+   * ("ITA_SERIE_A") -- confirmed as a real, distinct concept, not an
+   * assumption, by reading the actual production
+   * `catalog.competition_identities` schema, which carries the model key
+   * under `canonical_code` precisely because `competitions.code` is not
+   * it. Prefers a CONFIRMED-mapped identity row's `canonical_code`; falls
+   * back to any mapped row if none is CONFIRMED yet, then to
+   * `competitions.code` only when no competition_identities row links to
+   * this competition at all (the schema seeded before this distinction
+   * existed, e.g. this package's own DB-integration tests, which
+   * deliberately use matching codes on both sides).
+   */
+  async function modelCompetitionKeyFor(
+    competition: typeof competitions.$inferSelect,
+  ): Promise<string> {
+    const identityRows = await database
+      .select({
+        canonicalCode: competitionIdentities.canonicalCode,
+        mappingStatus: competitionIdentities.mappingStatus,
+      })
+      .from(competitionIdentities)
+      .where(eq(competitionIdentities.competitionId, competition.id));
+
+    const confirmed = identityRows.find(
+      (row) => row.mappingStatus === "CONFIRMED" && row.canonicalCode !== null,
+    );
+    const anyMapped = identityRows.find((row) => row.canonicalCode !== null);
+    return (confirmed ?? anyMapped)?.canonicalCode ?? competition.code;
+  }
+
   async function computeLineupState(
     fixture: ForecastCycleFixture,
   ): Promise<"EXPECTED" | "OFFICIAL" | "MISSING"> {
@@ -359,7 +397,9 @@ export async function createForecastCycleDbAdapter(
         const outcomeIds = await ensureOneXTwoOutcomes(row.event.id);
         fixtures.push({
           eventId: row.event.id,
-          providerCompetitionCode: row.competition.code,
+          providerCompetitionCode: await modelCompetitionKeyFor(
+            row.competition,
+          ),
           homeTeam: { sourceName: home.displayName, normalizedName: home.code },
           awayTeam: { sourceName: away.displayName, normalizedName: away.code },
           eventMarketOutcomeIds: outcomeIds,
