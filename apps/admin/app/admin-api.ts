@@ -92,6 +92,36 @@ export type AdminPage<T> = Readonly<{
   items: readonly T[];
   nextCursor: string | null;
 }>;
+export type AdminIntelligenceOverviewDto = Readonly<{
+  fixturesDiscovered: number;
+  competitionMapped: number;
+  teamsResolved: number;
+  modelSupported: number;
+  forecastGenerated: number;
+  oddsAvailable: number;
+  decisionEvaluated: number;
+  edge: number;
+  watch: number;
+  noBet: number;
+  waitForLineup: number;
+  insufficientData: number;
+  blockers: Readonly<Record<string, number>>;
+  eventsAwaitingResult: number;
+  finalResultsReceived: number;
+  settlementsPending: number;
+  settlementsCompleted: number;
+  resultIngestionFailures: number;
+  unsettledActionableDecisions: number;
+  lastSuccessfulResultSync: string | null;
+  lastSettlementRun: string | null;
+  modelHealth: readonly Readonly<{
+    modelVersion: string;
+    sampleCount: number;
+    brierScore: number | null;
+    logLoss: number | null;
+    status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+  }>[];
+}>;
 
 export type AdminQueries = Readonly<{
   listProviderRuns(
@@ -104,6 +134,7 @@ export type AdminQueries = Readonly<{
   listAudit(
     input: Readonly<{ limit: number; cursor: string | null }>,
   ): Promise<AdminPage<AdminAuditEventDto>>;
+  getIntelligenceOverview(): Promise<AdminIntelligenceOverviewDto>;
 }>;
 
 type AuthenticationResult =
@@ -369,6 +400,9 @@ const unavailableQueries: AdminQueries = Object.freeze({
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
   async listAudit() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
+  async getIntelligenceOverview() {
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
 });

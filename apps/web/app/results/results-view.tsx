@@ -14,6 +14,9 @@ const copy = (locale: Locale) =>
         outcome: "Αποτέλεσμα",
         price: "Ποιότητα τιμής",
         demo: "Συνθετικό δείγμα QA",
+        all: "Όλες οι επιλέξιμες αποφάσεις",
+        model: "Μοντέλο",
+        fair: "Δίκαιη τιμή",
       }
     : {
         title: "Decision history",
@@ -25,6 +28,9 @@ const copy = (locale: Locale) =>
         outcome: "Outcome",
         price: "Price quality",
         demo: "Synthetic QA sample",
+        all: "All qualifying decisions",
+        model: "Model",
+        fair: "Fair",
       };
 
 export function ResultsView({
@@ -43,6 +49,24 @@ export function ResultsView({
   const clvPositive = settled.filter(
     (item) => item.priceQuality === "POSITIVE_CLV",
   ).length;
+  const settlementLabel = (value: string) =>
+    ({
+      en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
+      el: { WIN: "Νίκη", LOSS: "Ήττα", VOID: "Άκυρο", UNSETTLED: "Εκκρεμεί" },
+    })[locale][value as "WIN"] ?? value;
+  const priceLabel = (value: string) =>
+    ({
+      en: {
+        POSITIVE_CLV: "Good closing-line price",
+        NEGATIVE_CLV: "Below closing-line price",
+        UNAVAILABLE: "Unavailable",
+      },
+      el: {
+        POSITIVE_CLV: "Καλή τιμή έναντι κλεισίματος",
+        NEGATIVE_CLV: "Χαμηλότερη τιμή από το κλείσιμο",
+        UNAVAILABLE: "Μη διαθέσιμη",
+      },
+    })[locale][value as "POSITIVE_CLV"] ?? value;
   return (
     <div className="page">
       <div className="page__head">
@@ -73,7 +97,7 @@ export function ResultsView({
       </div>
       <Card>
         <CardHead
-          title="All qualifying decisions"
+          title={t.all}
           hint={`${data.modelVersion} · ${data.period}`}
         />{" "}
         <div className="results-list">
@@ -97,22 +121,22 @@ export function ResultsView({
                 <b
                   className={`results-outcome results-outcome--${item.settlement.toLowerCase()}`}
                 >
-                  {item.settlement}
+                  {settlementLabel(item.settlement)}
                 </b>
                 <span>
                   {t.outcome}: {item.finalScore}
                 </span>
                 <span>
-                  Model{" "}
+                  {t.model}{" "}
                   {formatPercent(item.modelProbability as never, 1, locale)} ·{" "}
                   {formatOdds(item.oddsAtDecision as never, locale)}
                 </span>
                 <span>
-                  Fair {formatOdds(item.fairOdds as never, locale)} · EV{" "}
+                  {t.fair} {formatOdds(item.fairOdds as never, locale)} · EV{" "}
                   {formatPercent(item.expectedValue as never, 1, locale)}
                 </span>
                 <span>
-                  {t.price}: {item.priceQuality.replace("_", " ")}
+                  {t.price}: {priceLabel(item.priceQuality)}
                   {item.clv
                     ? ` · CLV ${formatPercent(item.clv as never, 1, locale)}`
                     : ""}

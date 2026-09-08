@@ -81,6 +81,16 @@ function navigation(locale: Locale): readonly NavGroup[] {
       heading: t("adminNavGroupIntelligence"),
       items: [
         {
+          href: "/intelligence",
+          label: "Intelligence coverage",
+          icon: icon(
+            <>
+              <circle cx="8" cy="8" r="5.5" />
+              <path d="M4 10.5 6.5 8l2 1.5L12 5" />
+            </>,
+          ),
+        },
+        {
           href: "/predictions",
           label: t("adminNavPredictions"),
           icon: icon(

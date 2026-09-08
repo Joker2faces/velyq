@@ -44,9 +44,10 @@ CREATE TABLE intelligence.market_settlements (
   outcome text NOT NULL CHECK (outcome IN ('WIN','LOSS','VOID','UNSETTLED')),
   settlement_rule_version text NOT NULL, closing_odds numeric(18,8), clv numeric(18,12),
   settled_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT market_settlements_decision_id_unique UNIQUE(decision_id)
+  CONSTRAINT market_settlements_decision_result_unique UNIQUE(decision_id, event_result_id)
 );
 CREATE INDEX market_settlements_event_result_id_idx ON intelligence.market_settlements(event_result_id);
+CREATE INDEX market_settlements_decision_settled_at_idx ON intelligence.market_settlements(decision_id, settled_at DESC);
 
 -- History is private service data until customer-facing record views have a
 -- separately reviewed RLS policy. No anonymous or direct user access.

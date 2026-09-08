@@ -17,6 +17,7 @@ import {
 } from "@velyq/decimal";
 
 export * from "./performance.js";
+export * from "./intelligence-history.js";
 
 export type ValueMetrics = Readonly<{
   impliedProbability: DecimalString;

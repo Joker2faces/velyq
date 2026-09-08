@@ -6,11 +6,19 @@ export type DecisionHistoryItem = Readonly<{
   awayTeam: string;
   market: string;
   selection: string;
-  decisionState: "STRONG_EDGE" | "EDGE" | "WATCH" | "EDGE_DISAPPEARED";
+  decisionState:
+    | "STRONG_EDGE"
+    | "EDGE"
+    | "WATCH"
+    | "NO_BET"
+    | "WAIT"
+    | "WAIT_FOR_LINEUP"
+    | "INSUFFICIENT_DATA"
+    | "EDGE_DISAPPEARED";
   modelProbability: string;
-  oddsAtDecision: string;
-  fairOdds: string;
-  expectedValue: string;
+  oddsAtDecision: string | null;
+  fairOdds: string | null;
+  expectedValue: string | null;
   finalScore: string;
   settlement: "WIN" | "LOSS" | "VOID" | "UNSETTLED";
   closingOdds: string | null;

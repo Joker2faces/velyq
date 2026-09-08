@@ -33,6 +33,7 @@ import {
   Trend,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
+import { forecastReason } from "../customer/forecast-presentation";
 
 /**
  * The Today command centre, rendered in the browser from the protected API.
@@ -117,6 +118,11 @@ export function TodayView({
           decision: "Απόφαση",
           unavailable: "Δεν υπάρχει πρόβλεψη",
           reason: "Αιτία",
+          watch: "Παρακολούθηση",
+          watchHint: "Προβλέψεις για παρακολούθηση, όχι ενεργές προτάσεις.",
+          current: "Τρέχουσα",
+          interesting: "Ενδιαφέρον από",
+          distance: "Απόσταση από το όριο",
         }
       : {
           title: "Forecasts",
@@ -124,6 +130,12 @@ export function TodayView({
           decision: "Decision",
           unavailable: "No forecast",
           reason: "Reason",
+          watch: "Watch",
+          watchHint:
+            "Forecasts worth monitoring, not actionable recommendations.",
+          current: "Current",
+          interesting: "Interesting from",
+          distance: "Distance to validity",
         };
 
   return (
@@ -235,8 +247,8 @@ export function TodayView({
         {watch.length > 0 ? (
           <Card>
             <CardHead
-              title="Watch"
-              hint="Forecasts worth monitoring, not actionable recommendations."
+              title={forecastLabels.watch}
+              hint={forecastLabels.watchHint}
             />
             {watch.slice(0, 3).map((match) => {
               const target =
@@ -257,18 +269,25 @@ export function TodayView({
                     </p>
                   </div>
                   <div className="match-row__metrics">
-                    <span>Current {formatOdds(match.currentOdds, locale)}</span>
+                    <span>
+                      {forecastLabels.current}{" "}
+                      {formatOdds(match.currentOdds, locale)}
+                    </span>
                     {target !== null ? (
-                      <span>Interesting from {target.toFixed(2)}+</span>
+                      <span>
+                        {forecastLabels.interesting} {target.toFixed(2)}+
+                      </span>
                     ) : null}
                     {gap !== null && gap > 0 ? (
-                      <span>{gap.toFixed(2)} away from validity</span>
+                      <span>
+                        {forecastLabels.distance} {gap.toFixed(2)}
+                      </span>
                     ) : null}
                     <span>
-                      Why not:{" "}
+                      {forecastLabels.reason}:{" "}
                       {match.quality.reasonCodes
-                        .join(", ")
-                        .replaceAll("_", " ")}
+                        .map((code) => forecastReason(code, locale))
+                        .join(", ")}
                     </span>
                   </div>
                 </div>
@@ -319,8 +338,8 @@ export function TodayView({
                     <p>
                       {forecastLabels.reason}:{" "}
                       {match.quality.reasonCodes
-                        .join(", ")
-                        .replaceAll("_", " ")}
+                        .map((code) => forecastReason(code, locale))
+                        .join(", ")}
                     </p>
                   ) : (
                     <>
@@ -364,11 +383,11 @@ export function TodayView({
                       </div>
                       <p>
                         <b>{forecastLabels.decision}:</b>{" "}
-                        {match.recommendation.replaceAll("_", " ")} ·{" "}
+                        {recommendationLabel(match.recommendation, locale)} ·{" "}
                         {forecastLabels.reason}:{" "}
                         {match.quality.reasonCodes
-                          .join(", ")
-                          .replaceAll("_", " ")}
+                          .map((code) => forecastReason(code, locale))
+                          .join(", ")}
                       </p>
                     </>
                   )}

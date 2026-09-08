@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { DatabasePermissionResolver } from "@velyq/database/repositories/permissions";
 import type { PrivilegedVelyqDatabase } from "@velyq/database/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/server";
@@ -18,6 +18,7 @@ import type {
   AdminPredictionTraceDto,
   AdminQualityDto,
   AdminQueries,
+  AdminIntelligenceOverviewDto,
   AdminScoreDto,
 } from "./admin-api";
 import { createSupabaseAdminAuthenticator } from "./admin-auth";
@@ -74,6 +75,114 @@ export class DatabaseAdminQueries implements AdminQueries {
       ),
       nextCursor: nextCursor(offset, input.limit, rows.length),
     } satisfies AdminPage<ProviderRun>;
+  }
+
+  async getIntelligenceOverview(): Promise<AdminIntelligenceOverviewDto> {
+    const result = await this.database.execute(sql`
+      with today_events as (select id, competition_id from catalog.events where starts_at >= date_trunc('day', now() at time zone 'utc') and starts_at < date_trunc('day', now() at time zone 'utc') + interval '1 day'),
+      forecast_rows as (select f.*, em.event_id from intelligence.forecasts f join market.event_market_outcomes emo on emo.id=f.event_market_outcome_id join market.event_markets em on em.id=emo.event_market_id),
+      decision_rows as (select d.*, em.event_id from intelligence.decisions d join market.event_market_outcomes emo on emo.id=d.event_market_outcome_id join market.event_markets em on em.id=emo.event_market_id)
+      select
+        (select count(*) from today_events)::int fixtures_discovered,
+        (select count(distinct te.id) from today_events te join catalog.competition_identities ci on ci.competition_id=te.competition_id and ci.mapping_status='CONFIRMED')::int competition_mapped,
+        (select count(distinct te.id) from today_events te where (select count(*) from catalog.event_participants ep where ep.event_id=te.id)=2)::int teams_resolved,
+        (select count(distinct event_id) from forecast_rows where event_id in (select id from today_events))::int model_supported,
+        (select count(distinct event_id) from forecast_rows where event_id in (select id from today_events))::int forecast_generated,
+        (select count(distinct em.event_id) from market.odds_observations oo join market.event_market_outcomes emo on emo.id=oo.event_market_outcome_id join market.event_markets em on em.id=emo.event_market_id where em.event_id in (select id from today_events) and oo.status='ACTIVE')::int odds_available,
+        (select count(distinct event_id) from decision_rows where event_id in (select id from today_events))::int decision_evaluated,
+        (select count(*) from decision_rows where event_id in (select id from today_events) and status='STRONG_EDGE')::int edge,
+        (select count(*) from decision_rows where event_id in (select id from today_events) and status in ('WAIT','EDGE_DISAPPEARED'))::int watch,
+        (select count(*) from decision_rows where event_id in (select id from today_events) and status='NO_BET')::int no_bet,
+        (select count(*) from decision_rows where event_id in (select id from today_events) and status='WAIT_FOR_LINEUP')::int wait_for_lineup,
+        (select count(*) from decision_rows where event_id in (select id from today_events) and status='INSUFFICIENT_DATA')::int insufficient_data,
+        (select count(*) from catalog.events e where e.starts_at < now() and e.status not in ('FINAL','CANCELLED','ABANDONED') and not exists(select 1 from intelligence.event_results er where er.event_id=e.id and er.status='FINAL'))::int events_awaiting_result,
+        (select count(*) from intelligence.event_results where status='FINAL')::int final_results_received,
+        (select count(*) from intelligence.decisions d where d.status='STRONG_EDGE' and not exists(select 1 from intelligence.market_settlements ms where ms.decision_id=d.id))::int settlements_pending,
+        (select count(*) from intelligence.market_settlements where outcome<>'UNSETTLED')::int settlements_completed,
+        (select count(*) from operations.provider_sync_runs where status='FAILED' and replay_sequence ilike '%result%')::int result_ingestion_failures,
+        (select count(*) from intelligence.decisions d left join intelligence.market_settlements ms on ms.decision_id=d.id where d.status='STRONG_EDGE' and (ms.id is null or ms.outcome='UNSETTLED'))::int unsettled_actionable_decisions,
+        (select max(completed_at) from operations.provider_sync_runs where status='COMPLETED' and replay_sequence ilike '%result%') last_successful_result_sync,
+        (select max(settled_at) from intelligence.market_settlements) last_settlement_run
+    `);
+    const row = result.rows[0] as Record<string, unknown>;
+    const blockerResult = await this.database.execute(
+      sql`select code, count(*)::int count from intelligence.decisions d cross join lateral unnest(d.why_not_codes) code where d.created_at >= date_trunc('day', now() at time zone 'utc') group by code order by count desc, code`,
+    );
+    const blockers = Object.fromEntries(
+      blockerResult.rows.map((item) => [
+        String(item["code"]),
+        Number(item["count"]),
+      ]),
+    );
+    const healthResult = await this.database.execute(
+      sql`select f.model_version, f.probability, ms.outcome from intelligence.forecasts f join intelligence.decisions d on d.forecast_id=f.id join intelligence.market_settlements ms on ms.decision_id=d.id where ms.outcome in ('WIN','LOSS') order by f.model_version`,
+    );
+    const grouped = new Map<
+      string,
+      { probability: number; actual: number }[]
+    >();
+    for (const item of healthResult.rows) {
+      const version = String(item["model_version"]);
+      const values = grouped.get(version) ?? [];
+      values.push({
+        probability: Number(item["probability"]),
+        actual: item["outcome"] === "WIN" ? 1 : 0,
+      });
+      grouped.set(version, values);
+    }
+    const modelHealth = [...grouped].map(([modelVersion, values]) => {
+      const enough = values.length >= 30;
+      return {
+        modelVersion,
+        sampleCount: values.length,
+        brierScore: enough
+          ? values.reduce(
+              (sum, value) => sum + (value.probability - value.actual) ** 2,
+              0,
+            ) / values.length
+          : null,
+        logLoss: enough
+          ? -values.reduce(
+              (sum, value) =>
+                sum +
+                value.actual * Math.log(Math.max(value.probability, 1e-12)) +
+                (1 - value.actual) *
+                  Math.log(Math.max(1 - value.probability, 1e-12)),
+              0,
+            ) / values.length
+          : null,
+        status: enough
+          ? ("AVAILABLE" as const)
+          : ("INSUFFICIENT_SAMPLE" as const),
+      };
+    });
+    const count = (key: string) => Number(row[key] ?? 0);
+    const timestamp = (key: string) =>
+      row[key] ? new Date(String(row[key])).toISOString() : null;
+    return {
+      fixturesDiscovered: count("fixtures_discovered"),
+      competitionMapped: count("competition_mapped"),
+      teamsResolved: count("teams_resolved"),
+      modelSupported: count("model_supported"),
+      forecastGenerated: count("forecast_generated"),
+      oddsAvailable: count("odds_available"),
+      decisionEvaluated: count("decision_evaluated"),
+      edge: count("edge"),
+      watch: count("watch"),
+      noBet: count("no_bet"),
+      waitForLineup: count("wait_for_lineup"),
+      insufficientData: count("insufficient_data"),
+      blockers,
+      eventsAwaitingResult: count("events_awaiting_result"),
+      finalResultsReceived: count("final_results_received"),
+      settlementsPending: count("settlements_pending"),
+      settlementsCompleted: count("settlements_completed"),
+      resultIngestionFailures: count("result_ingestion_failures"),
+      unsettledActionableDecisions: count("unsettled_actionable_decisions"),
+      lastSuccessfulResultSync: timestamp("last_successful_result_sync"),
+      lastSettlementRun: timestamp("last_settlement_run"),
+      modelHealth,
+    };
   }
 
   async getProviderRun(runId: string) {

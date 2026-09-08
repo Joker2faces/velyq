@@ -497,7 +497,14 @@ export const marketSettlements = intelligenceSchema.table(
       .defaultNow(),
   },
   (table) => [
-    unique("market_settlements_decision_id_unique").on(table.decisionId),
+    unique("market_settlements_decision_result_unique").on(
+      table.decisionId,
+      table.eventResultId,
+    ),
+    index("market_settlements_decision_settled_at_idx").on(
+      table.decisionId,
+      table.settledAt.desc(),
+    ),
     index("market_settlements_event_result_id_idx").on(table.eventResultId),
     check(
       "market_settlements_outcome_check",

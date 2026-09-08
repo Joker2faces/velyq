@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@velyq/auth": "workspace:*",
+    "@velyq/application": "workspace:*",
     "@velyq/contracts": "workspace:*",
     "@velyq/domain": "workspace:*",
     "@velyq/market-semantics": "workspace:*",
