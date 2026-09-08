@@ -159,3 +159,68 @@ export function resolveCompetitionIdentity(
     mismatch,
   });
 }
+
+/**
+ * Resolves a provider's team name onto the identity a competition's model
+ * actually covers.
+ *
+ * A real production defect: a verified alias table existed (the corpus calls
+ * a club "Nijmegen", API-Sports calls it "NEC Nijmegen"), but the prediction
+ * cycle normalized the provider's name and checked model membership directly
+ * -- it never consulted the alias table at all. Every aliased club was
+ * quarantined as `TEAM_NOT_IN_MODEL`, which reads exactly like a newly
+ * promoted side with no ratings and is a completely different situation.
+ *
+ * `TEAM_NOT_IN_MODEL` now means precisely that: the name resolved -- directly
+ * or through a verified alias -- but the *resolved* identity has no model
+ * coverage in this competition. `UNRESOLVED_TEAM` means the name matched
+ * neither a known team nor a verified alias; nothing here guesses at that
+ * case. Fuzzy string similarity is deliberately absent: "Manchester United"
+ * and "Manchester City" are two edits apart, and a wrong merge does not
+ * throw, it silently trains one team's rating on another team's results.
+ */
+export type TeamAliasLookup = ReadonlyMap<string, string>;
+
+export type TeamResolution =
+  | Readonly<{
+      status: "PROVIDER_IDENTITY_MATCH" | "VERIFIED_ALIAS_MATCH";
+      teamKey: string;
+    }>
+  | Readonly<{
+      status: "TEAM_NOT_IN_MODEL";
+      teamKey: string;
+      /** Always `VERIFIED_ALIAS_MATCH`: a direct name match implies model
+          coverage by construction, so this status can only be reached
+          through the alias table. */
+      via: "VERIFIED_ALIAS_MATCH";
+    }>
+  | Readonly<{ status: "UNRESOLVED_TEAM" }>;
+
+export function resolveTeamIdentity(input: {
+  sourceName: string;
+  normalizedName: string;
+  /** Scoped to a single competition by the caller -- an unscoped alias index
+      is how a Spanish club's short name starts resolving a Portuguese one. */
+  aliasLookup: TeamAliasLookup;
+  knownTeamKeys: ReadonlySet<string>;
+}): TeamResolution {
+  if (input.knownTeamKeys.has(input.normalizedName)) {
+    return Object.freeze({
+      status: "PROVIDER_IDENTITY_MATCH",
+      teamKey: input.normalizedName,
+    });
+  }
+
+  const aliased = input.aliasLookup.get(input.sourceName);
+  if (aliased !== undefined) {
+    return input.knownTeamKeys.has(aliased)
+      ? Object.freeze({ status: "VERIFIED_ALIAS_MATCH", teamKey: aliased })
+      : Object.freeze({
+          status: "TEAM_NOT_IN_MODEL",
+          teamKey: aliased,
+          via: "VERIFIED_ALIAS_MATCH",
+        });
+  }
+
+  return Object.freeze({ status: "UNRESOLVED_TEAM" });
+}
