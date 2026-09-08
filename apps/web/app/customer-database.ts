@@ -5,7 +5,11 @@ import type {
   CustomerScenarioDto,
   CustomerTodayDto,
 } from "@velyq/contracts";
-import { SYNTHETIC_DATA_LABEL } from "@velyq/contracts";
+import {
+  LIVE_DATA_LABEL,
+  SYNTHETIC_DATA_LABEL,
+  type CustomerDataLabel,
+} from "@velyq/contracts";
 import {
   divideDecimalStrings,
   subtractDecimalStrings,
@@ -37,6 +41,26 @@ function scenarioFor(
       .replaceAll("_", " ")
       .replace(/^./, (letter) => letter.toUpperCase()),
   };
+}
+
+/**
+ * Whether this match's prices came from a real market or a demo scenario.
+ *
+ * Read from the observations themselves — `isSynthetic` on the stored odds —
+ * rather than from any flag on the event. The observation is the thing a
+ * customer would actually stake against, so it is the thing whose provenance
+ * decides the label.
+ *
+ * A match with no observations at all is reported as synthetic. That is the
+ * pessimistic direction on purpose: nothing about an empty market justifies
+ * telling somebody they are looking at live prices.
+ */
+function dataLabelFor(raw: CustomerRawMatch): CustomerDataLabel {
+  const observations = raw.outcomes.flatMap((outcome) => outcome.odds);
+  if (observations.length === 0) return SYNTHETIC_DATA_LABEL;
+  return observations.some((observation) => observation.isSynthetic)
+    ? SYNTHETIC_DATA_LABEL
+    : LIVE_DATA_LABEL;
 }
 
 function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
@@ -82,7 +106,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     awayTeam: away,
     competition: raw.competition.nameKey,
     startsAt: raw.event.startsAt.toISOString(),
-    syntheticLabel: SYNTHETIC_DATA_LABEL,
+    syntheticLabel: dataLabelFor(raw),
     scenario: scenarioFor(raw.event.id, recommendation, lineup),
     freshness: stale ? "STALE" : "FRESH",
     selection: outcome?.outcomeDefinition.labelKey ?? "—",
@@ -181,7 +205,16 @@ export function deriveLineupState(
 export const customerDatabaseMapper = {
   mapToday(raw: CustomerRawToday): CustomerTodayDto {
     return {
-      syntheticLabel: SYNTHETIC_DATA_LABEL,
+      /*
+       * Synthetic wins if any single match on the page is synthetic. A page
+       * labelled live that contains one invented price is the more dangerous
+       * of the two errors, so the label degrades pessimistically.
+       */
+      syntheticLabel: raw.matches.some(
+        (match) => dataLabelFor(match) === SYNTHETIC_DATA_LABEL,
+      )
+        ? SYNTHETIC_DATA_LABEL
+        : LIVE_DATA_LABEL,
       asOf: raw.asOf.toISOString(),
       matches: raw.matches.map(mapMatch),
     };

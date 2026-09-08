@@ -15,6 +15,23 @@ import type {
 } from "@velyq/decimal";
 
 export const SYNTHETIC_DATA_LABEL = "Synthetic data" as const;
+export const LIVE_DATA_LABEL = "Live market data" as const;
+
+/**
+ * Which kind of football a customer surface is actually showing.
+ *
+ * A union rather than a single constant, because the catalog now holds both.
+ * The Phase 1 schema constrained every event to `synthetic = true`, so a
+ * hardcoded label was accurate; that constraint is gone and production holds
+ * real fixtures with real prices alongside the demo scenarios.
+ *
+ * The label is therefore derived from observation provenance, never assumed.
+ * Getting it wrong is not cosmetic in either direction: demo data presented as
+ * live invites a real stake on an invented price, and live data presented as
+ * demo tells a customer to disregard the one number that was true.
+ */
+export type CustomerDataLabel =
+  typeof SYNTHETIC_DATA_LABEL | typeof LIVE_DATA_LABEL;
 
 export type SyntheticMetadata = Readonly<{
   readonly isSynthetic: true;
@@ -625,7 +642,7 @@ export type CustomerMatchDto = Readonly<{
   awayTeam: string;
   competition: string;
   startsAt: string;
-  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  syntheticLabel: CustomerDataLabel;
   scenario: CustomerScenarioDto;
   freshness: "FRESH" | "STALE";
   selection: string;
@@ -668,7 +685,7 @@ export type CustomerScenarioDto = Readonly<{
   label: string;
 }>;
 export type CustomerTodayDto = Readonly<{
-  syntheticLabel: typeof SYNTHETIC_DATA_LABEL;
+  syntheticLabel: CustomerDataLabel;
   asOf: string;
   matches: readonly CustomerMatchDto[];
 }>;
@@ -757,7 +774,10 @@ function validateCustomerMatchInput(input: unknown): string[] {
     if (!isNonEmptyString(input[field])) errors.push(`${field} is required`);
   }
   if (!isTimestamp(input["startsAt"])) errors.push("startsAt is invalid");
-  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+  if (
+    input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
+    input["syntheticLabel"] !== LIVE_DATA_LABEL
+  )
     errors.push("syntheticLabel is invalid");
   if (!isObject(input["scenario"])) {
     errors.push("scenario is required");
@@ -917,7 +937,10 @@ export function validateCustomerTodayDto(
   if (!isObject(input))
     return { ok: false, errors: ["today must be an object"] };
   const errors: string[] = [];
-  if (input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL)
+  if (
+    input["syntheticLabel"] !== SYNTHETIC_DATA_LABEL &&
+    input["syntheticLabel"] !== LIVE_DATA_LABEL
+  )
     errors.push("syntheticLabel is invalid");
   if (!isTimestamp(input["asOf"])) errors.push("asOf is invalid");
   if (!Array.isArray(input["matches"])) {
