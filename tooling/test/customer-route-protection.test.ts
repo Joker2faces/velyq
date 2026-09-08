@@ -25,6 +25,30 @@ describe("customer route protection and scenario reachability", () => {
     expect(response.headers.get("location")).toBe("https://velyq.test/sign-in");
   });
 
+  it("uses the current preview origin for anonymous match redirects", async () => {
+    const previousNode = process.env["NODE_ENV"];
+    const previousVercel = process.env["VERCEL_ENV"];
+    const previousOrigin = process.env["VELYQ_APPLICATION_ORIGIN"];
+    process.env["NODE_ENV"] = "production";
+    process.env["VERCEL_ENV"] = "preview";
+    delete process.env["VELYQ_APPLICATION_ORIGIN"];
+    try {
+      const response = await proxy(request());
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe(
+        "https://velyq.test/sign-in",
+      );
+    } finally {
+      if (previousNode === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = previousNode;
+      if (previousVercel === undefined) delete process.env["VERCEL_ENV"];
+      else process.env["VERCEL_ENV"] = previousVercel;
+      if (previousOrigin === undefined)
+        delete process.env["VELYQ_APPLICATION_ORIGIN"];
+      else process.env["VELYQ_APPLICATION_ORIGIN"] = previousOrigin;
+    }
+  });
+
   it("passes only a provider-validated session through the proxy", async () => {
     const previousUrl = process.env["NEXT_PUBLIC_SUPABASE_URL"];
     const previousKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];

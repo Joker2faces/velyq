@@ -20,7 +20,8 @@ function signInUrl(request: NextRequest) {
   const fixtureMode =
     process.env["NODE_ENV"] !== "production" ||
     process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true";
-  return fixtureMode ? new URL("/sign-in", request.url) : null;
+  const vercelPreview = process.env["VERCEL_ENV"] === "preview";
+  return fixtureMode || vercelPreview ? new URL("/sign-in", request.url) : null;
 }
 
 /*
