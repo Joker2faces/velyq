@@ -4,6 +4,7 @@ import {
   char,
   check,
   index,
+  numeric,
   primaryKey,
   text,
   timestamp,
@@ -11,6 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { providers } from "./operations.js";
 import { catalogSchema } from "./schemas.js";
 
 export const sports = catalogSchema.table(
@@ -45,6 +47,70 @@ export const competitions = catalogSchema.table(
   },
   (table) => [
     unique("competitions_sport_id_code_unique").on(table.sportId, table.code),
+  ],
+);
+
+/**
+ * The bridge from a provider's own competition reference to VELYQ's internal
+ * competition -- never columns on `competitions` itself.
+ *
+ * A real production defect mapped Brazil's Série A to Italy's because the
+ * resolver keyed on display name alone; `resolveCompetitionIdentity`
+ * (`@velyq/domain`) is the only thing allowed to consume this table, and it
+ * matches solely on `(provider_id, provider_competition_id)`. This is a
+ * separate table rather than provider-specific columns on `competitions` for
+ * the same reason `event_identities` is separate from `events`: one
+ * competition can be reported by several providers under several different
+ * source keys, which a single set of columns on the core catalog row cannot
+ * represent.
+ *
+ * `mapping_status` gives a bridge row a review lifecycle: a newly-discovered
+ * provider identity is `PENDING_REVIEW` until an administrator confirms it,
+ * and the resolver fails closed on anything but `CONFIRMED` -- an unverified
+ * guess must never silently start resolving real predictions.
+ */
+export const competitionIdentities = catalogSchema.table(
+  "competition_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /* Nullable: a REJECTED row, or a PENDING_REVIEW row nobody has matched
+       to a catalog competition yet, has no competition to point at. */
+    competitionId: uuid("competition_id").references(() => competitions.id, {
+      onDelete: "restrict",
+    }),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    providerCompetitionId: text("provider_competition_id").notNull(),
+    displayName: text("display_name").notNull(),
+    countryCode: char("country_code", { length: 2 }),
+    mappingStatus: text("mapping_status").notNull(),
+    /* 0..1 confidence in an automated or provisional match; null once a row
+       is human-verified, since a verified mapping needs no confidence
+       score -- it needs the verification timestamp below. */
+    mappingConfidence: numeric("mapping_confidence", {
+      precision: 4,
+      scale: 3,
+    }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("competition_identities_provider_identity_unique").on(
+      table.providerId,
+      table.providerCompetitionId,
+    ),
+    index("competition_identities_competition_id_idx").on(table.competitionId),
+    check(
+      "competition_identities_mapping_status_check",
+      sql`${table.mappingStatus} in ('CONFIRMED', 'PENDING_REVIEW', 'REJECTED')`,
+    ),
+    check(
+      "competition_identities_confidence_range_check",
+      sql`${table.mappingConfidence} is null or (${table.mappingConfidence} >= 0 and ${table.mappingConfidence} <= 1)`,
+    ),
   ],
 );
 

@@ -1,5 +1,6 @@
 import { adminAuditEvents } from "./audit.js";
 import {
+  competitionIdentities,
   competitions,
   eventParticipants,
   events,
@@ -50,6 +51,7 @@ export * from "./schemas.js";
 
 export const phaseOneTables = [
   adminAuditEvents,
+  competitionIdentities,
   competitions,
   eventParticipants,
   events,

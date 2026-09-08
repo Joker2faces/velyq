@@ -57,6 +57,13 @@
       "when": 1788844357848,
       "tag": "0007_early_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788846434555,
+      "tag": "0008_peaceful_tyrannus",
+      "breakpoints": true
     }
   ]
 }
