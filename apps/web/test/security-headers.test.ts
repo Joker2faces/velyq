@@ -22,6 +22,10 @@ function request(path: string) {
   return new NextRequest(`https://velyq.test${path}`);
 }
 
+function vercelRequest(path: string) {
+  return new NextRequest(`https://project-cf8ty.vercel.app${path}`);
+}
+
 describe("security headers", () => {
   it("keeps next.config.mjs's copy (the Node/Vercel path) in sync with the canonical list", () => {
     const configPath = path.resolve(
@@ -58,6 +62,14 @@ describe("security headers", () => {
     for (const [key, value] of SECURITY_HEADERS) {
       expect(response.headers.get(key)).toBe(value);
     }
+  });
+
+  it("serves Greek public links through their canonical Vercel route", async () => {
+    const response = await proxy(vercelRequest("/el/pricing"));
+    expect(response.headers.get("x-middleware-rewrite")).toBe(
+      "https://project-cf8ty.vercel.app/pricing",
+    );
+    expect(response.headers.get("set-cookie")).toContain("velyq-locale=el");
   });
 
   it("carries the headers on an unauthenticated redirect to sign-in", async () => {

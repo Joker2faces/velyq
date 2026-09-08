@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { LOCALE_COOKIE } from "@velyq/ui";
 import { applySecurityHeaders } from "./security-headers";
+import { isStaticPublicRoute } from "./app/locale-path";
 
 function signInUrl(request: NextRequest) {
   const configured = process.env["VELYQ_APPLICATION_ORIGIN"]?.trim();
@@ -56,7 +58,37 @@ export async function proxy(request: NextRequest) {
    * is where the guarantee has to live rather than in config the platform
    * that actually serves production ignores.
    */
-  if (!isProtectedPath(new URL(request.url).pathname))
+  const requestUrl = new URL(request.url);
+  const isVercelHost =
+    requestUrl.hostname === "vercel.app" ||
+    requestUrl.hostname.endsWith(".vercel.app");
+  const greekRoute =
+    requestUrl.pathname === "/el"
+      ? "/"
+      : requestUrl.pathname.startsWith("/el/")
+        ? requestUrl.pathname.slice(3)
+        : null;
+  if (isVercelHost && greekRoute && isStaticPublicRoute(greekRoute)) {
+    const destination = new URL(request.url);
+    destination.pathname = greekRoute;
+    const requestHeaders = new Headers(request.headers);
+    const cookies = requestHeaders.get("cookie");
+    requestHeaders.set(
+      "cookie",
+      `${cookies ? `${cookies}; ` : ""}${LOCALE_COOKIE}=el`,
+    );
+    const response = NextResponse.rewrite(destination, {
+      request: { headers: requestHeaders },
+    });
+    response.cookies.set(LOCALE_COOKIE, "el", {
+      path: "/",
+      sameSite: "lax",
+      secure: true,
+    });
+    return applySecurityHeaders(response);
+  }
+
+  if (!isProtectedPath(requestUrl.pathname))
     return applySecurityHeaders(NextResponse.next());
 
   const token = request.cookies.get("velyq_access_token")?.value;
