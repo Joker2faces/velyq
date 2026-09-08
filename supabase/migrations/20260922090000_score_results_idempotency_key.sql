@@ -15,7 +15,7 @@
 -- index -- built independently, outside this branch's migration lineage,
 -- before this migration was written. A bare `ADD COLUMN`/`ADD CONSTRAINT`
 -- would fail outright against that database. Guarding on
--- information_schema/pg_constraint makes this migration a correct no-op
+-- information_schema/pg_class makes this migration a correct no-op
 -- there, while still doing real work against a fresh database or any
 -- other environment that genuinely lacks the column, including the
 -- generated-default backfill behavior test:db:upgrade depends on (see
@@ -39,9 +39,10 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'score_results_idempotency_key_unique'
-      AND connamespace = 'intelligence'::regnamespace
+    FROM pg_class relation
+    JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+    WHERE relation.relname = 'score_results_idempotency_key_unique'
+      AND namespace.nspname = 'intelligence'
   ) THEN
     ALTER TABLE "intelligence"."score_results"
       ADD CONSTRAINT "score_results_idempotency_key_unique" UNIQUE ("idempotency_key");

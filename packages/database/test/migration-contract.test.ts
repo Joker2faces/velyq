@@ -120,6 +120,15 @@ function appendOnlyTargets(sql: string): string[] {
 }
 
 describe("reviewed database migration contract", () => {
+  it("treats a production-existing unique index as satisfying score-result idempotency", () => {
+    const sql = migrationSql();
+
+    expect(sql).toContain(
+      "relation.relname = 'score_results_idempotency_key_unique'",
+    );
+    expect(sql).toContain("namespace.nspname = 'intelligence'");
+  });
+
   it("creates exactly the approved 41-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });

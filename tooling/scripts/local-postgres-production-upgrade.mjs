@@ -181,8 +181,8 @@ ALTER TABLE "catalog"."event_identities" ADD CONSTRAINT "event_identities_event_
 -- index, independent of this branch's own migration for it.
 ALTER TABLE "intelligence"."score_results"
   ADD COLUMN "idempotency_key" text NOT NULL DEFAULT gen_random_uuid()::text;
-ALTER TABLE "intelligence"."score_results"
-  ADD CONSTRAINT "score_results_idempotency_key_unique" UNIQUE ("idempotency_key");
+CREATE UNIQUE INDEX "score_results_idempotency_key_unique"
+  ON "intelligence"."score_results" ("idempotency_key");
 SQL
 
 echo '--- seeding representative production-legacy identity data ---'
@@ -250,8 +250,11 @@ psql -t -A -c "select to_regclass('intelligence.market_settlements') is not null
 
 echo '--- verifying the idempotent score_results migration correctly no-op'"'"'d rather than erroring ---'
 psql -t -A -c "
-  select count(*) = 1 from pg_constraint
-  where conname = 'score_results_idempotency_key_unique'
+  select count(*) = 1
+  from pg_class relation
+  join pg_namespace namespace on namespace.oid = relation.relnamespace
+  where relation.relname = 'score_results_idempotency_key_unique'
+    and namespace.nspname = 'intelligence'
 " | grep -qx t
 
 echo '--- verifying legacy columns are still intact and readable ---'
