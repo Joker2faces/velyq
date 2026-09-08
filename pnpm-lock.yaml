@@ -267,6 +267,19 @@ importers:
         specifier: 26.4.1
         version: 26.4.1
 
+  packages/research:
+    dependencies:
+      '@velyq/decimal':
+        specifier: workspace:*
+        version: link:../decimal
+      '@velyq/market-semantics':
+        specifier: workspace:*
+        version: link:../market-semantics
+    devDependencies:
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
+
   packages/test-utils: {}
 
   packages/ui: {}
