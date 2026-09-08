@@ -118,6 +118,21 @@ function valueTupleArities(sql: string): readonly Readonly<{
             valueCount: splitSqlValues(sql.slice(tupleStart, index)).length,
           });
           tupleStart = -1;
+
+          /*
+           * A completed tuple is only followed by another VALUES tuple if
+           * the very next non-whitespace character is a comma. Anything
+           * else -- `ON CONFLICT (...) DO UPDATE ...`, `RETURNING (...)`,
+           * a bare `;` -- means the VALUES list has ended, and its own
+           * parenthesized groups (e.g. ON CONFLICT's column list) are not
+           * further value tuples. Treating them as one silently miscounted
+           * "expected 1 to be 6": ON CONFLICT (user_id)'s single-column
+           * list was read as a one-value tuple for a six-column INSERT.
+           */
+          let lookahead = index + 1;
+          while (lookahead < sql.length && /\s/.test(sql[lookahead]!))
+            lookahead += 1;
+          if (sql[lookahead] !== ",") break;
         }
       }
     }
@@ -220,5 +235,28 @@ describe("deterministic Phase 1 seed", () => {
     for (const { table, columnCount, valueCount } of arities) {
       expect(valueCount, table).toBe(columnCount);
     }
+  });
+
+  /*
+   * Regression: an `ON CONFLICT (col) DO UPDATE ...` clause after the VALUES
+   * tuples has its own parenthesized column list, e.g. `(user_id)`. Before
+   * this fix, the tuple scanner did not stop at the end of the VALUES list,
+   * so it read that as one more value tuple for the same INSERT -- a single
+   * bare column name misread as a 1-value tuple against a 6-column INSERT,
+   * exactly the "expected 1 to be 6" failure this guards against.
+   */
+  it("stops counting value tuples at the end of the VALUES list, not inside a trailing ON CONFLICT clause", () => {
+    const sql = `
+      insert into public.profiles (user_id, display_name, locale, timezone, created_at, updated_at)
+      values
+        ('11111111-1111-1111-1111-111111111111', 'Name', 'en', 'utc', '2026-01-01t00:00:00z', '2026-01-01t00:00:00z')
+      on conflict (user_id) do update
+      set display_name = excluded.display_name;
+    `.toLowerCase();
+
+    const arities = valueTupleArities(sql);
+
+    expect(arities).toHaveLength(1);
+    expect(arities[0]).toMatchObject({ columnCount: 6, valueCount: 6 });
   });
 });
