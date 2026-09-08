@@ -20,6 +20,7 @@
     "@velyq/contracts": "workspace:*",
     "@velyq/database": "workspace:*",
     "@velyq/decimal": "workspace:*",
+    "@velyq/research": "workspace:*",
     "@velyq/ui": "workspace:*",
     "@vinext/cloudflare": "1.0.0-beta.7",
     "drizzle-orm": "0.45.2",

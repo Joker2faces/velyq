@@ -7,7 +7,9 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./artifacts/football-dixon-coles.v1.json": "./artifacts/football-dixon-coles.v1.json",
+    "./artifacts/football-dixon-coles.v1.meta.json": "./artifacts/football-dixon-coles.v1.meta.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

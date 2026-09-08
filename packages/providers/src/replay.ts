@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { URL } from "node:url";
 
 import {
   SYNTHETIC_DATA_LABEL,

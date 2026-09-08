@@ -24,6 +24,11 @@
       "import": "./dist/repositories/permissions.js",
       "default": "./dist/repositories/permissions.js"
     },
+    "./repositories/forecast-cycle-adapter": {
+      "types": "./src/repositories/forecast-cycle-adapter.ts",
+      "import": "./dist/repositories/forecast-cycle-adapter.js",
+      "default": "./dist/repositories/forecast-cycle-adapter.js"
+    },
     "./schema/audit": {
       "types": "./src/schema/audit.ts",
       "import": "./dist/schema/audit.js",
