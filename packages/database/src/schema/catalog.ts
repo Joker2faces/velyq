@@ -167,6 +167,46 @@ export const events = catalogSchema.table(
   ],
 );
 
+/**
+ * The bridge from a provider's own fixture reference back to a VELYQ event.
+ *
+ * `events.id` for a provider-ingested event is `deterministicEventId`
+ * (`@velyq/domain`) applied to `(providerCode, providerFixtureId)`, so
+ * ingesting the same fixture twice is idempotent without a prior lookup --
+ * but that only lets you go *from* the provider's id *to* the event, never
+ * back. Anything that later needs to ask the provider about a fixture
+ * already stored -- a lineup, a result, a repriced market -- needs this row
+ * to make that reverse lookup possible, and a fixture reported by two
+ * providers gets one row per provider pointing at the same event.
+ */
+export const eventIdentities = catalogSchema.table(
+  "event_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    providerFixtureId: text("provider_fixture_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("event_identities_provider_identity_unique").on(
+      table.providerId,
+      table.providerFixtureId,
+    ),
+    unique("event_identities_event_provider_unique").on(
+      table.eventId,
+      table.providerId,
+    ),
+    index("event_identities_event_id_idx").on(table.eventId),
+  ],
+);
+
 export const eventParticipants = catalogSchema.table(
   "event_participants",
   {

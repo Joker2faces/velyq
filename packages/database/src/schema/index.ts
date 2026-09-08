@@ -2,6 +2,7 @@ import { adminAuditEvents } from "./audit.js";
 import {
   competitionIdentities,
   competitions,
+  eventIdentities,
   eventParticipants,
   events,
   participants,
@@ -53,6 +54,7 @@ export const phaseOneTables = [
   adminAuditEvents,
   competitionIdentities,
   competitions,
+  eventIdentities,
   eventParticipants,
   events,
   participants,

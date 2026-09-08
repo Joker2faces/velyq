@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 declare const eventIdBrand: unique symbol;
 declare const teamIdBrand: unique symbol;
 declare const playerIdBrand: unique symbol;
@@ -223,4 +225,41 @@ export function resolveTeamIdentity(input: {
   }
 
   return Object.freeze({ status: "UNRESOLVED_TEAM" });
+}
+
+/**
+ * Derives a stable internal event identity from a provider's own fixture
+ * reference -- never from team names and a kickoff time.
+ *
+ * Two fixtures for the same two teams are not rare -- a league and a cup can
+ * pair the same clubs in the same week -- so "teams + kickoff" is not a
+ * unique key even before accounting for a postponement changing the kickoff
+ * on file. A provider's own fixture id is the one thing the provider itself
+ * treats as that fixture's stable identity, so it is the only input this
+ * function accepts.
+ *
+ * The id is deterministic: the same `(providerCode, providerFixtureId)` pair
+ * always derives the same `EventId`, which is what makes ingesting the same
+ * fixture twice idempotent by construction -- an upsert against this id needs
+ * no prior lookup to detect the duplicate. `providerCode` is part of the seed
+ * so that two providers who happen to reuse the same numeric id space can
+ * never collide.
+ */
+export function deterministicEventId(
+  providerCode: string,
+  providerFixtureId: string,
+): EventId {
+  const digest = createHash("sha256")
+    .update(`event:${providerCode}:${providerFixtureId}`)
+    .digest("hex");
+  const uuid =
+    `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`.toLowerCase();
+  const checked = eventId(uuid);
+  if (!checked.ok) {
+    /* Unreachable: the construction above always yields canonical UUID
+       syntax. Guarded rather than asserted so a future change to either
+       function is caught by a type error, not a silently wrong id. */
+    throw new Error("deterministicEventId produced non-canonical UUID syntax");
+  }
+  return checked.value;
 }
