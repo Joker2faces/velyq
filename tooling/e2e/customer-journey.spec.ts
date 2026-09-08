@@ -78,11 +78,19 @@ test("authenticated customer routes keep stable labels and protected state", asy
 }) => {
   await signInAsCustomer(page);
 
-  const navigationLabels = ["Today", "EDGE", "RADAR", "Pricing", "Account"];
+  const navigationLabels = [
+    "Today",
+    "EDGE",
+    "RADAR",
+    "History",
+    "Pricing",
+    "Account",
+  ];
   const routes = [
     ["/today", "What needs your attention?"],
     ["/edge", "Value, with context."],
     ["/radar", "Movement, observed."],
+    ["/results", "Decision history"],
     [customerMatchPath, /Northbridge United.*Riverside Athletic/],
     ["/account", "Your workspace."],
   ] as const;

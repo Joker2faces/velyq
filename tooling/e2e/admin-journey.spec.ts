@@ -31,7 +31,7 @@ test("admin rejects invalid credentials without creating a session", async ({
         candidate.url().includes("/api/v1/auth/sign-in") &&
         candidate.request().method() === "POST",
     ),
-    page.getByRole("button", { name: "Continue to admin" }).click(),
+    page.getByRole("button", { name: "Continue to operations" }).click(),
   ]);
 
   expect(response.status()).toBe(401);
@@ -46,8 +46,10 @@ test("admin rejects invalid credentials without creating a session", async ({
 
 test("admin auth endpoint issues server-side session cookies for valid auth", async ({
   request,
+  baseURL,
 }) => {
   const response = await request.post("/api/v1/auth/sign-in", {
+    headers: { origin: new URL(baseURL!).origin },
     form: {
       email: "admin@example.test",
       password: "admin-password",
@@ -63,7 +65,7 @@ test("admin auth endpoint issues server-side session cookies for valid auth", as
   expect(cookies).toHaveLength(2);
   for (const { value } of cookies) {
     expect(value).toContain("HttpOnly");
-    expect(value).toContain("SameSite=Lax");
+    expect(value.toLowerCase()).toContain("samesite=lax");
   }
 });
 
@@ -75,7 +77,7 @@ test("authorized admin traces seeded operations from run to prediction, score, a
   await page.getByLabel("Password").fill("admin-password");
   await page.getByRole("button", { name: "Continue to operations" }).click();
 
-  await expect(page).toHaveURL("http://127.0.0.1:3200/");
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("heading", { name: "Traceability console." }),
   ).toBeVisible();

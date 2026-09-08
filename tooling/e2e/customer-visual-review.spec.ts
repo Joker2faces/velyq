@@ -10,6 +10,7 @@ test("captures desktop and mobile renders for every customer route", async ({
     ["today", "/today"],
     ["edge", "/edge"],
     ["radar", "/radar"],
+    ["results", "/results"],
     ["match", customerMatchPath],
     ["account", "/account"],
   ] as const;
