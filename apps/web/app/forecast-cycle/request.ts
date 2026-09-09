@@ -1,3 +1,5 @@
+import { utcDayWindow } from "@velyq/database";
+
 const DEFAULT_WINDOW_HOURS = 24;
 const MAX_WINDOW_HOURS = 48;
 const SUPPORTED_MODES = ["LIVE", "SYNTHETIC_DEMO"] as const;
@@ -37,8 +39,22 @@ export function validateForecastCycleRequest(
 ): ForecastCycleRequestValidation {
   const input = isPlainObject(body) ? body : {};
 
+  /*
+   * The default window starts at the beginning of the current UTC day, not at
+   * `now`.
+   *
+   * The customer's Today surface is a strict UTC calendar day
+   * (`utcDayWindow`), while a cron firing at 04:00 with a `now`-anchored
+   * window covered 04:00 today to 04:00 tomorrow -- so fixtures kicking off
+   * between midnight and the cron's own firing time were the one slice of
+   * Today that could never receive a forecast, purely as an artefact of when
+   * the schedule happened to run. Anchoring to the day the customer is shown
+   * removes that hole and makes the default independent of firing time.
+   */
   const from =
-    typeof input["from"] === "string" ? new Date(input["from"]) : new Date(now);
+    typeof input["from"] === "string"
+      ? new Date(input["from"])
+      : utcDayWindow(now).start;
   if (Number.isNaN(from.getTime()))
     return { ok: false, reason: "INVALID_FROM" };
 

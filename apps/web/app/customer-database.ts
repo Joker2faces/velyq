@@ -16,6 +16,7 @@ import {
   subtractDecimalStrings,
   type DecimalString,
 } from "@velyq/decimal";
+import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 
 const decimal = (value: string | null | undefined) =>
@@ -236,7 +237,15 @@ export async function openDatabaseCustomerQueries(): Promise<RuntimeCustomerQuer
   if (!session) return null;
 
   return {
-    queries: new DatabaseCustomerQueryAdapter(session.database),
+    /*
+     * The adapter needs to know which corpus this deployment is allowed to
+     * read, and `configuredDataMode()` is the single authority for that --
+     * the same one `customerService()` branches on, so the query and the
+     * service can never disagree about whether synthetic fixtures count.
+     */
+    queries: new DatabaseCustomerQueryAdapter(session.database, {
+      dataOrigin: configuredDataMode(),
+    }),
     close: () => session.close(),
   };
 }

@@ -73,6 +73,32 @@ export async function GET(request: Request) {
     );
   }
 
+  /*
+   * The deployed schema is not necessarily this repository's head schema --
+   * production was reconciled from an older legacy schema, so a table this
+   * funnel reads may simply not exist there yet. Probing the catalogue first
+   * means a missing table is reported as a missing table rather than as an
+   * opaque failed query, which is the difference between a useful diagnostic
+   * and another mystery.
+   */
+  let presentTables: readonly string[] = [];
+  try {
+    const tables = await session.database.execute(sql`
+      select table_schema || '.' || table_name as name
+      from information_schema.tables
+      where table_schema in ('catalog', 'market', 'intelligence', 'operations')
+      order by name
+    `);
+    const tableRows = Array.isArray(tables)
+      ? tables
+      : ((tables as { rows?: readonly unknown[] }).rows ?? []);
+    presentTables = tableRows.map((row) =>
+      String((row as { name?: unknown }).name ?? ""),
+    );
+  } catch {
+    /* Reported below as an empty table list rather than failing the probe. */
+  }
+
   try {
     const result = await session.database.execute(sql`
       with day_events as (
@@ -117,12 +143,12 @@ export async function GET(request: Request) {
         (select count(*) from catalog.competitions) as competitions_all_time,
         (select count(*) from operations.providers) as providers_registered,
         (select count(*) from operations.provider_sync_runs) as provider_sync_runs_all_time,
-        (select max(created_at) from operations.provider_sync_runs) as last_provider_sync_run_at,
+        (select max(started_at) from operations.provider_sync_runs) as last_provider_sync_run_at,
         (select count(*) from market.odds_observations) as odds_observations_all_time,
         (select max(provider_observed_at) from market.odds_observations) as latest_odds_observed_at,
         (select count(*) from intelligence.predictions) as predictions_all_time,
         (select count(*) from intelligence.prediction_runs) as prediction_runs_all_time,
-        (select max(created_at) from intelligence.prediction_runs) as last_prediction_run_at,
+        (select max(started_at) from intelligence.prediction_runs) as last_prediction_run_at,
         (select count(*) from intelligence.decisions) as decisions_all_time,
         (select count(*) from intelligence.market_settlements) as market_settlements_all_time,
         (select count(*) from intelligence.lineup_observations) as lineup_observations_all_time,
@@ -159,20 +185,30 @@ export async function GET(request: Request) {
         horizon: { hours: HORIZON_HOURS, end: horizonEnd.toISOString() },
         reportingFreshnessMinutes: REPORTING_FRESHNESS_MINUTES,
         databaseSource: session.source,
+        tables: presentTables,
         funnel: (rows[0] as Record<string, unknown> | undefined) ?? null,
       },
       { status: 200, headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
     /*
-     * A diagnostic must not become a second mystery, so the reason is
-     * reported -- the message only, never a stack and never a connection
-     * string.
+     * A diagnostic must not become a second mystery. The driver wraps the
+     * real fault ("relation does not exist", a type mismatch) in a generic
+     * "Failed query", so the cause is unwrapped and reported alongside the
+     * tables that do exist -- that pair is what actually identifies the
+     * problem. Messages only: never a stack, never a connection string.
      */
+    const cause = (error as { cause?: unknown }).cause;
     return NextResponse.json(
       {
         error: "Diagnostic failed",
-        reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+        reason:
+          cause instanceof Error
+            ? cause.message
+            : error instanceof Error
+              ? error.message.split("\n")[0]
+              : "UNKNOWN_ERROR",
+        tables: presentTables,
       },
       { status: 500, headers: { "cache-control": "no-store" } },
     );

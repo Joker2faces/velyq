@@ -283,7 +283,11 @@ describe("runForecastCycle, zero-EDGE acceptance day, against a real database", 
 
     // Today must still be useful: every one of these fixtures returns a
     // real forecast with a genuine probability, even with EDGE = 0.
-    const customerQueries = new DatabaseCustomerQueryAdapter(database);
+    const customerQueries = new DatabaseCustomerQueryAdapter(database, {
+      // Same corpus the cycle under test forecasts, so this proves the
+      // customer read path sees the LIVE fixtures rather than a wider set.
+      dataOrigin: "LIVE",
+    });
     const today = await customerQueries.getToday(
       new Date("2026-09-25T00:00:00.000Z"),
     );

@@ -277,7 +277,11 @@ describe("runForecastCycle, against a real database, end to end", () => {
     expect(snapshot["modelMaturity"]).toBe("EXPERIMENTAL");
 
     // Today's actual read model must return this fixture with real numbers.
-    const customerQueries = new DatabaseCustomerQueryAdapter(database);
+    const customerQueries = new DatabaseCustomerQueryAdapter(database, {
+      // Same corpus the cycle under test forecasts, so this proves the
+      // customer read path sees the LIVE fixtures rather than a wider set.
+      dataOrigin: "LIVE",
+    });
     const match = await customerQueries.getMatch(
       eventId,
       new Date("2026-09-22T00:00:00.000Z"),

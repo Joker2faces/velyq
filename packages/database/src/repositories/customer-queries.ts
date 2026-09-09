@@ -96,16 +96,48 @@ export function utcDayWindow(asOf: Date): Readonly<{
   return { start, end };
 }
 
+/**
+ * Which corpus a customer read is allowed to see.
+ *
+ * Required rather than defaulted: the storage form of `DataOrigin` lives in
+ * `events.synthetic`, and a LIVE read that forgot to filter it would serve
+ * fabricated football as real -- the exact failure the LIVE fail-closed work
+ * removed from the service layer. A default here would let a future call
+ * site reintroduce it silently, so every construction has to say which
+ * corpus it means.
+ */
+export type CustomerQueryDataOrigin = "LIVE" | "SYNTHETIC_DEMO";
+
+export type DatabaseCustomerQueryOptions = Readonly<{
+  dataOrigin: CustomerQueryDataOrigin;
+}>;
+
 /** Read-only customer query adapter over the phase-one catalog/market/intelligence tables. */
 export class DatabaseCustomerQueryAdapter {
-  constructor(private readonly database: ReadOnlyDatabase) {}
+  constructor(
+    private readonly database: ReadOnlyDatabase,
+    private readonly options: DatabaseCustomerQueryOptions,
+  ) {}
+
+  /**
+   * The corpus predicate, expressed exactly as the forecast cycle expresses
+   * it (`forecast-cycle-adapter.ts`): synthetic rows are visible only to a
+   * SYNTHETIC_DEMO read. Both paths therefore agree on what "live football"
+   * means, rather than the customer path being the one place a synthetic
+   * fixture can surface as real.
+   */
+  private get corpus() {
+    return eq(events.synthetic, this.options.dataOrigin === "SYNTHETIC_DEMO");
+  }
 
   async getToday(asOf: Date): Promise<CustomerRawToday> {
     const { start, end } = utcDayWindow(asOf);
     const rows = await this.database
       .select({ event: events })
       .from(events)
-      .where(and(gte(events.startsAt, start), lt(events.startsAt, end)))
+      .where(
+        and(this.corpus, gte(events.startsAt, start), lt(events.startsAt, end)),
+      )
       .orderBy(asc(events.startsAt), asc(events.id))
       .limit(MAX_TODAY_EVENTS);
 
@@ -126,7 +158,12 @@ export class DatabaseCustomerQueryAdapter {
       .from(events)
       .innerJoin(sports, eq(events.sportId, sports.id))
       .innerJoin(competitions, eq(events.competitionId, competitions.id))
-      .where(eq(events.id, eventId))
+      /*
+       * The same corpus predicate as `getToday`. Without it a synthetic
+       * fixture stays reachable in LIVE by its own id even once the list
+       * hides it, which is a disclosed URL away from being the same defect.
+       */
+      .where(and(this.corpus, eq(events.id, eventId)))
       .limit(1);
     if (!eventRow) return null;
 
