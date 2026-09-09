@@ -24,6 +24,7 @@
     "model:train": "tsx tooling/scripts/train-football-model.ts",
     "forecast:run": "tsx tooling/scripts/forecast-cycle-run.ts",
     "test:e2e": "playwright test",
+    "test:e2e:admin": "node tooling/scripts/local-postgres-e2e.mjs",
     "build": "turbo build",
     "bootstrap": "corepack pnpm install --frozen-lockfile && corepack pnpm verify",
     "verify": "corepack pnpm format && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",

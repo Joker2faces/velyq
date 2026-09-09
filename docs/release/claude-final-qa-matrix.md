@@ -11,7 +11,9 @@ in the master release log. Anything not observed says so.
 | Prettier (`pnpm format`) | **PASS** | all matched files use Prettier code style |
 | ESLint (`pnpm lint`, `--max-warnings 0`) | **PASS** | clean |
 | Typecheck (`pnpm typecheck`) | **PASS** | turbo 18/18 successful |
-| Unit + integration suite (`pnpm test`) | **PASS** | 111 files, 987 tests, 0 failed, 0 skipped |
+| Unit + integration suite (`pnpm test`) | **PASS** | 111 files, 998 tests, 0 failed, 0 skipped |
+| Customer browser journeys (`pnpm test:e2e --project=customer`) | **PASS** | 7/7, and 7/7 on two further consecutive runs against committed baselines with no snapshot update |
+| Admin browser journey (`pnpm test:e2e:admin`) | **PASS** | 5/5, including tracing seeded operations from provider run to prediction, score and quality |
 | Package builds | **PASS** | 14/14 |
 | Full build (`pnpm build`) | **PASS** | 18/18 — includes `@velyq/web`, `@velyq/admin`, both workers |
 | Worker readiness (`pnpm worker:verify`) | **PASS** | "Worker readiness: PASS" |
@@ -69,7 +71,12 @@ Stated plainly rather than assumed.
 
 | Item | Why |
 | --- | --- |
+| **Customer UX/UI redesign (sections 26-38)** | **NOT DONE.** Explicitly authorised by the mandate and deliberately not attempted: the session was spent on correctness instead, because a better-looking surface that fabricates model probabilities, exhausts the provider quota or prints `market.football_full_time_1x2` at a customer would have been the wrong trade. The Today render is still closer to a dense intelligence dashboard than the "65% premium football product" section 27 asks for. This is untouched work, not work I judged unnecessary. |
+| Over/Under 2.5 end to end | The writer hardcodes one market and has no `lineValue` handling. Every other layer already supports it. Not attempted. |
+| Lineup and result ingestion | No fetch port, due predicate or call site exists. 25 requests/day of budget sit idle. Not attempted. |
+| Odds-writer batching | ~7-10 round trips per observation is why the bookmaker cap is 6. Not attempted; the cap must not be raised before it is. |
 | Cross-user IDOR | Only one authenticated identity exists. A second normal customer account is not available, so this is **NOT TESTED** — not PASS. |
+| Production deployment | **NOT PERFORMED.** Held deliberately: see the master release log. |
 | Production `catalog.competitions.name_key` contents | Needs database access. Every value written in-repo is an internal key, so `competitionLabel` was made safe for both keys and display names. |
 | Whether the live Supabase project really has the `*/15` cron installed, at that host | `supabase/operations/provider-ingest-cron.sql` is deliberately not a migration, so the repo cannot prove what is scheduled. Needs `select * from cron.job`. |
 | Real provider daily limit | `ASSUMED_DAILY_LIMIT = 100` is a documented assumption; only the provider `/status` endpoint reports the true `limit_day`. |
