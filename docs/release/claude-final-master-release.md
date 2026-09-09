@@ -390,6 +390,175 @@ the DB integration suite uses a separate WSL instance on 55432 which is torn
 down afterwards. The admin journey is therefore **NOT RUN**, not passed, and
 is not counted as green.
 
+## Correction — the Vercel project IS Git-connected
+
+Earlier in this session I verified push-safety on two grounds and concluded
+that a `git push` "cannot trigger any Vercel deployment":
+
+1. `vercel project inspect velyq` shows no Git Repository section.
+2. Every deployment listed was attributed to CLI user `joker2faces`, never to
+   a commit.
+
+**That conclusion was wrong.** Pushing `codex/velyq-final-product-v1` produced
+deployment `dpl_9jAb8PVHNgmk9enHU7iBekohdALt`, which carries the alias
+`https://velyq-git-codex-velyq-final-product-v1-joker2faces-projects.vercel.app`
+— Vercel's `<project>-git-<branch>-<team>` branch-alias format, which only
+exists for a Git-connected project. The evidence above was consistent with my
+conclusion but did not establish it.
+
+Consequences, stated plainly:
+
+- The earlier `backup/home-master-unique-20260909` push very likely created a
+  harmless preview deployment too.
+- Nothing reached production from a push: Vercel auto-deploys production only
+  from the project's production branch, which this session never touched.
+- Anyone repeating that safety check should confirm git linkage from a
+  deployment's aliases (or the dashboard), not from `project inspect` output
+  and deployment attribution.
+
+## The accidental preview verified more than a planned one would have
+
+Because that push-triggered deployment built from the exact release SHA, it
+became the section 53 release candidate — and it verified two things that
+cannot be checked locally:
+
+1. **The build is sound on Vercel's Linux infrastructure**, Ready in ~1
+   minute. That also settles the one-off local `@velyq/web#build` failure as a
+   Windows/OneDrive artifact rather than a code defect.
+2. **LIVE genuinely fails closed on real infrastructure.** With no database
+   URL present in the Preview environment, `/api/health` reports:
+
+   ```json
+   {"configuredDataMode":"LIVE","customerDataSource":"UNAVAILABLE",
+    "syntheticFallbackAllowed":false,"databaseAvailable":false,
+    "syntheticOnly":false}
+   ```
+
+   No database, and it still refuses to serve the synthetic fixture. That is
+   the section 48 guarantee demonstrated rather than asserted.
+
+It also confirms the deployed artifact carries this branch's code: ten health
+fields against the four the live site still served at that moment.
+
+A preview deployment must **never** be promoted to production here, though:
+Vercel builds previews with the *Preview* environment, which lacks
+`VELYQ_DATABASE_URL`, `VELYQ_CUSTOMER_INTELLIGENCE_MODE` and
+`VELYQ_APPLICATION_ORIGIN`. Promoting one would put production into
+LIVE-with-no-database and answer 503 everywhere.
+
+## Production deployment — DONE
+
+| Item | Value |
+| --- | --- |
+| Deployed SHA | `9e28cf9c981a161800d59340f09a47a59d6839d2` |
+| Production deployment ID | `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` |
+| Deployment URL | <https://velyq-syg863cp1-joker2faces-projects.vercel.app> |
+| Customer URL | <https://project-cf8ty.vercel.app> |
+| Status | ● Ready, alias confirmed pointing at this deployment |
+| Rollback target | `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy` |
+| Rollback command | `npx vercel rollback dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy --scope team_vQN1raOYespGG8CZES6KEEtq` |
+
+### How it was deployed, and why not the obvious way
+
+Three `vercel deploy` attempts (with and without `--archive=tgz`) uploaded
+successfully, reported "Building…", and then sat at status `UNKNOWN` with no
+build logs indefinitely. Provenance shows why that was not a code or flag
+problem: every successful deployment in this project's recent history is
+**git-triggered** and completes in ~1 minute, while CLI-uploaded builds are
+currently not being picked up. (CLI `--prod` did work 22h earlier, so this
+looks like transient Vercel-side degradation of the CLI upload path.)
+
+The working route was:
+
+```
+npx vercel redeploy dpl_9jAb8PVHNgmk9enHU7iBekohdALt --target production --no-wait
+```
+
+`redeploy` **rebuilds** an existing deployment from its git source, and
+`--target production` rebuilds it with the **Production** environment. That
+distinction is the whole point: simply promoting the preview would have kept
+*Preview* environment variables, which lack `VELYQ_DATABASE_URL`,
+`VELYQ_CUSTOMER_INTELLIGENCE_MODE` and `VELYQ_APPLICATION_ORIGIN`, and would
+have put production into LIVE-with-no-database and answered 503 everywhere.
+
+Throughout every stalled attempt the live alias stayed on the previous
+deployment: Vercel re-points it only on a successful build, so no customer
+was affected by any of it.
+
+### Production verification (section 55)
+
+`/api/health` — the question that had been open all session is now settled:
+
+```json
+{"environment":"production","configuredDataMode":"LIVE",
+ "effectiveCustomerDataMode":"LIVE","customerDataSource":"DATABASE",
+ "syntheticFallbackAllowed":false,"databaseAvailable":true,
+ "syntheticOnly":false}
+```
+
+Ten fields where the old build served four, `customerDataSource: "DATABASE"`
+(a real connection, not the fixture), and `syntheticFallbackAllowed: false`.
+The previous `syntheticOnly: true` was stale code, exactly as diagnosed — not
+a synthetic misconfiguration.
+
+`/api/ready`: `authConfigured: true`, `databaseConfigured: true`,
+`databaseSource: "node"`.
+
+| Route | Result |
+| --- | --- |
+| `/`, `/today`, `/edge`, `/radar`, `/results`, `/account`, `/pricing`, `/sign-in` | all HTTP 200, 0.33–0.58s |
+| `/api/v1/today` unauthenticated | HTTP 401 — correctly refused |
+| Synthetic markers on authenticated shells | **none** |
+| Synthetic markers on `/` | 2 — the deliberate marketing preview with fictional clubs |
+
+Security headers on an authenticated route: CSP (`default-src 'self'`,
+`base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`,
+`object-src 'none'`), HSTS `max-age=31536000; includeSubDomains`,
+`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
+locking camera/microphone/geolocation, and
+`Cache-Control: private, no-cache, no-store`.
+
+EN and EL both verified. Greek public routes (`/el`, `/el/pricing`,
+`/el/sign-in`) serve Greek; the authenticated shells serve Greek from the
+`velyq-locale` cookie (270 Greek terms each — Σήμερα, Ιστορικό, Λογαριασμός,
+Αποσύνδεση, Πειραματικό). `/el/today` returning 404 is **correct by design**:
+`app/locale-path.ts` gives `/el` variants only to the ten prerendered public
+routes and deliberately does not invent `/el` URLs for server-rendered
+authenticated routes, which read the cookie instead.
+
+### What production verification could NOT cover
+
+**Authenticated customer and admin surfaces were not exercised against
+production.** Doing so needs the owner's credentials, which must not be
+requested or handled here. So:
+
+- Match Intelligence admin access is verified by six unit tests and by the
+  server-authoritative logic, and by the local browser journeys — **not** by a
+  real production session.
+- Real production data rendering on `/today`, `/edge`, `/radar`, History and
+  match detail is **unverified**; only the unauthenticated shells, headers,
+  health and readiness were checked.
+
+The one owner check worth doing first: sign in and open Match Intelligence on
+a real fixture. It must show the full analysis, not "available on ELITE".
+
+## `--archive=tgz` deployments hang for this project
+
+Both deployments that stalled indefinitely at status `UNKNOWN` with no build
+logs used `--archive=tgz`:
+
+| Deployment | Flag | Outcome |
+| --- | --- | --- |
+| `dpl_3A1jB1kfNMNNye7ijVYDzUNSa5hk` (preview) | `--archive=tgz` | UNKNOWN, ~48 min, no logs |
+| `dpl_EgyJvxmSdEygqSoA3fPniXu18J9X` (production) | `--archive=tgz` | UNKNOWN, no logs |
+| `dpl_9jAb8PVHNgmk9enHU7iBekohdALt` (preview, git-triggered) | none | **Ready in ~1 min** |
+
+Every completed deployment in this project's history — including all the
+older CLI ones — was made without that flag. **Do not use `--archive=tgz`
+here.** The upload completes and reports "Building…", then the build never
+starts or never reports.
+
 ## Vercel preview — stalled, inconclusive
 
 A preview of the candidate was deployed (`dpl_3A1jB1kfNMNNye7ijVYDzUNSa5hk`,

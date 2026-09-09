@@ -98,7 +98,7 @@ Stated plainly rather than assumed.
 | Lineup and result ingestion | No fetch port, due predicate or call site exists. 25 requests/day of budget sit idle. Not attempted. |
 | Odds-writer batching | ~7-10 round trips per observation is why the bookmaker cap is 6. Not attempted; the cap must not be raised before it is. |
 | Cross-user IDOR | Only one authenticated identity exists. A second normal customer account is not available, so this is **NOT TESTED** — not PASS. |
-| Production deployment | **NOT PERFORMED.** Held deliberately: see the master release log. |
+| Production authenticated surfaces | **NOT VERIFIED against production.** Needs owner credentials, which must not be requested here. The admin Match Intelligence fix is proven by unit tests, server-authoritative logic and local browser journeys — not by a real production session. |
 | Production `catalog.competitions.name_key` contents | Needs database access. Every value written in-repo is an internal key, so `competitionLabel` was made safe for both keys and display names. |
 | Whether the live Supabase project really has the `*/15` cron installed, at that host | `supabase/operations/provider-ingest-cron.sql` is deliberately not a migration, so the repo cannot prove what is scheduled. Needs `select * from cron.job`. |
 | Real provider daily limit | `ASSUMED_DAILY_LIMIT = 100` is a documented assumption; only the provider `/status` endpoint reports the true `limit_day`. |
