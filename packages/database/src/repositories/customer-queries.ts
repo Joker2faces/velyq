@@ -293,6 +293,18 @@ export class DatabaseCustomerQueryAdapter {
             )[0] ?? null)
           : null;
 
+        /*
+         * Newest first, then reversed back into chronological order.
+         *
+         * This was ascending with the same LIMIT, which keeps the *oldest*
+         * 500 rows -- and one provider response yields a row per bookmaker,
+         * so a widely-quoted outcome on the near-kickoff refresh cadence can
+         * pass 500. Beyond that point the "latest" observation was not the
+         * latest, so `currentOdds` presented an old price as current and the
+         * freshness assessment measured the wrong row. Movement is computed
+         * from distinct instants downstream and expects ascending order, so
+         * the window is reversed rather than the ordering being left to it.
+         */
         const odds = await this.database
           .select()
           .from(oddsObservations)
@@ -308,10 +320,11 @@ export class DatabaseCustomerQueryAdapter {
             ),
           )
           .orderBy(
-            asc(oddsObservations.providerObservedAt),
-            asc(oddsObservations.id),
+            desc(oddsObservations.providerObservedAt),
+            desc(oddsObservations.id),
           )
-          .limit(MAX_ODDS_HISTORY);
+          .limit(MAX_ODDS_HISTORY)
+          .then((rows) => rows.reverse());
 
         return {
           ...row,
