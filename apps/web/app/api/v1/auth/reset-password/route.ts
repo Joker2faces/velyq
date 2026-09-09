@@ -45,5 +45,8 @@ export async function POST(request: Request) {
       { code: "RESET_FAILED", requestId: id },
       { status: 400 },
     );
-  return NextResponse.redirect(new URL("/sign-in?reset=success", request.url));
+  return NextResponse.redirect(
+    new URL("/sign-in?reset=success", request.url),
+    303,
+  );
 }

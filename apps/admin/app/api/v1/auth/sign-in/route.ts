@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       { code: "APPLICATION_ORIGIN_NOT_CONFIGURED", requestId },
       { status: 503, headers: { "content-type": "application/problem+json" } },
     );
-  const next = NextResponse.redirect(redirect);
+  const next = NextResponse.redirect(redirect, 303);
   next.cookies.set("velyq_access_token", tokens.access_token, {
     httpOnly: true,
     secure: process.env["VELYQ_E2E_INSECURE_COOKIES"] !== "true",

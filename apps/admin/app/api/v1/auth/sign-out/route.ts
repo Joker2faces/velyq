@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   await revokeSupabaseSession(request);
   const redirect = adminRedirectUrl(request, "/");
   const next = redirect
-    ? NextResponse.redirect(redirect)
+    ? NextResponse.redirect(redirect, 303)
     : NextResponse.json(
         { code: "APPLICATION_ORIGIN_NOT_CONFIGURED" },
         { status: 503 },

@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   await revokeCustomerSupabaseSession(request);
   const redirect = customerRedirectUrl(request, "/sign-in");
   const response = redirect
-    ? NextResponse.redirect(redirect)
+    ? NextResponse.redirect(redirect, 303)
     : NextResponse.json(
         { code: "APPLICATION_ORIGIN_NOT_CONFIGURED" },
         { status: 503 },

@@ -51,7 +51,7 @@ export async function rateLimitedAuthResponse(
     AUTH_RATE_LIMIT_POLICY,
   );
   if (result.allowed) return null;
-  if (redirectOnLimit) return NextResponse.redirect(redirectOnLimit);
+  if (redirectOnLimit) return NextResponse.redirect(redirectOnLimit, 303);
   return NextResponse.json(
     {
       type: "https://velyq.dev/problems/rate-limited",

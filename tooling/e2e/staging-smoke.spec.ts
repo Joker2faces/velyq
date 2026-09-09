@@ -25,11 +25,28 @@ async function signIn(
   email: string,
   password: string,
   buttonName: string,
+  expectedPath: string,
 ) {
   await page.goto(baseUrl);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: buttonName }).click();
+  const targetUrl = new URL(baseUrl);
+  const [authResponse, redirectedNavigation] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/v1/auth/sign-in" &&
+        response.request().method() === "POST",
+    ),
+    page.waitForRequest(
+      (request) =>
+        request.isNavigationRequest() &&
+        new URL(request.url()).origin === targetUrl.origin &&
+        new URL(request.url()).pathname === expectedPath,
+    ),
+    page.getByRole("button", { name: buttonName }).click(),
+  ]);
+  expect(authResponse.status()).toBe(303);
+  expect(redirectedNavigation.method()).toBe("GET");
 }
 
 test("staging customer can authenticate and reach Today", async ({ page }) => {
@@ -44,7 +61,8 @@ test("staging customer can authenticate and reach Today", async ({ page }) => {
     new URL("/sign-in", customerUrl!).toString(),
     customerEmail!,
     customerPassword!,
-    "Continue with Supabase Auth",
+    "Sign in",
+    "/today",
   );
   await expect(page).toHaveURL(new URL("/today", customerUrl!).toString());
   await expect(
@@ -66,7 +84,8 @@ test("staging administrator can authenticate and reach the console", async ({
     new URL("/", adminUrl!).toString(),
     adminEmail!,
     adminPassword!,
-    "Continue to admin",
+    "Continue to operations",
+    "/",
   );
   await expect(page).toHaveURL(new URL("/", adminUrl!).toString());
   await expect(

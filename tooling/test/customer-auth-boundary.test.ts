@@ -32,7 +32,7 @@ describe("customer authentication boundary", () => {
     const response = await signOut(
       new Request("https://velyq.test/today", { method: "POST" }),
     );
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://velyq.test/sign-in");
     const cookies = response.headers.getSetCookie();
     expect(cookies).toHaveLength(2);

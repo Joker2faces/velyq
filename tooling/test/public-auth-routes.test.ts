@@ -27,7 +27,7 @@ describe("public authentication routes", () => {
           body: form,
         }),
       );
-      expect(response.status).toBe(307);
+      expect(response.status).toBe(303);
       expect(response.headers.get("location")).toBe(
         "https://velyq.test/sign-in?registered=1",
       );
@@ -89,7 +89,7 @@ describe("public authentication routes", () => {
           body: form,
         }),
       );
-      expect(response.status).toBe(307);
+      expect(response.status).toBe(303);
       expect(response.headers.get("location")).toBe(
         "https://velyq.test/sign-in?recovery=sent",
       );

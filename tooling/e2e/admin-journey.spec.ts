@@ -57,7 +57,7 @@ test("admin auth endpoint issues server-side session cookies for valid auth", as
     maxRedirects: 0,
   });
 
-  expect(response.status()).toBe(307);
+  expect(response.status()).toBe(303);
   expect(new URL(response.headers()["location"]).pathname).toBe("/");
   const cookies = response
     .headersArray()

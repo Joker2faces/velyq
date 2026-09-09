@@ -21,12 +21,16 @@ export async function POST(request: Request) {
   const id = requestId(request);
   const browserError = () =>
     browserForm
-      ? NextResponse.redirect(new URL("/sign-up?error=invalid", request.url))
+      ? NextResponse.redirect(
+          new URL("/sign-up?error=invalid", request.url),
+          303,
+        )
       : null;
   const browserUnavailable = () =>
     browserForm
       ? NextResponse.redirect(
           new URL("/sign-up?error=unavailable", request.url),
+          303,
         )
       : null;
   if (
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
     );
   const redirect = customerRedirectUrl(request, "/sign-in?registered=1");
   return redirect
-    ? NextResponse.redirect(redirect)
+    ? NextResponse.redirect(redirect, 303)
     : NextResponse.json(
         { code: "APPLICATION_ORIGIN_NOT_CONFIGURED", requestId: id },
         { status: 503 },

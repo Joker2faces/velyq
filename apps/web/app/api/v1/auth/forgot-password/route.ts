@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     browserForm
       ? NextResponse.redirect(
           new URL("/forgot-password?error=unavailable", request.url),
+          303,
         )
       : null;
   if (typeof email !== "string" || !email)
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
   });
   const redirect = customerRedirectUrl(request, "/sign-in?recovery=sent");
   return redirect
-    ? NextResponse.redirect(redirect)
+    ? NextResponse.redirect(redirect, 303)
     : NextResponse.json(
         { code: "APPLICATION_ORIGIN_NOT_CONFIGURED", requestId: id },
         { status: 503 },

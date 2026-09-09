@@ -21,12 +21,16 @@ export async function POST(request: Request) {
   const password = form.get("password");
   const browserError = () =>
     browserForm
-      ? NextResponse.redirect(new URL("/sign-in?error=invalid", request.url))
+      ? NextResponse.redirect(
+          new URL("/sign-in?error=invalid", request.url),
+          303,
+        )
       : null;
   const browserUnavailable = () =>
     browserForm
       ? NextResponse.redirect(
           new URL("/sign-in?error=unavailable", request.url),
+          303,
         )
       : null;
   if (
@@ -121,6 +125,7 @@ export async function POST(request: Request) {
             : "/sign-in?error=invalid",
           request.url,
         ),
+        303,
       );
     return (
       browserError() ??
@@ -173,7 +178,7 @@ export async function POST(request: Request) {
       },
       { status: 503 },
     );
-  const next = NextResponse.redirect(redirect);
+  const next = NextResponse.redirect(redirect, 303);
   next.cookies.set("velyq_access_token", tokens.access_token, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",

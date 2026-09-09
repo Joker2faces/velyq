@@ -127,7 +127,7 @@ describe("security auth hardening", () => {
           }),
         }),
       );
-      expect(response.status).toBe(307);
+      expect(response.status).toBe(303);
       const cookies = response.headers.getSetCookie();
       expect(cookies).toHaveLength(2);
       expect(cookies.every((cookie) => cookie.includes("Max-Age=0"))).toBe(

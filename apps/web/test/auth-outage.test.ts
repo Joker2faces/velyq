@@ -63,7 +63,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=unavailable",
     );
@@ -80,7 +80,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-up?error=unavailable",
     );
@@ -100,7 +100,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=invalid",
     );
@@ -122,7 +122,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=unavailable",
     );
@@ -144,7 +144,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-up?error=unavailable",
     );
@@ -162,7 +162,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=unavailable",
     );
@@ -180,7 +180,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-up?error=unavailable",
     );
@@ -202,7 +202,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=unavailable",
     );
@@ -222,7 +222,7 @@ describe("authentication outage UX", () => {
       }),
     );
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "https://velyq.test/sign-in?error=unavailable",
     );
@@ -249,7 +249,7 @@ describe("authentication outage UX", () => {
         }),
       );
 
-      expect(response.status).toBe(307);
+      expect(response.status).toBe(303);
       expect(response.headers.get("location")).toBe(
         `https://velyq.test/${kind}?error=unavailable`,
       );
