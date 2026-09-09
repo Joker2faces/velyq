@@ -320,7 +320,20 @@ export async function runProviderIngestion<TFixture, TOdds>(
   if (discoveryBudget.limitedBy)
     bump(skippedByReason, `DISCOVERY_${discoveryBudget.limitedBy}`);
 
+  /*
+   * Dates whose fixture list we actually obtained. Reported in the run
+   * record and read back by the adapter as its freshness marker, so only a
+   * success belongs here.
+   */
   const discoveryDatesRequested: string[] = [];
+  /*
+   * Provider calls the discovery phase made, successful or not. Kept
+   * separately because the run ceiling and the local spend accounting are
+   * about requests issued, while freshness is about lists obtained --
+   * conflating them either suppressed re-discovery after a failure or let a
+   * failed pass go on to price, spending a second call in one invocation.
+   */
+  let discoveryRequestsAttempted = 0;
   const discovered: DiscoveredFixture<TFixture>[] = [];
 
   const discoveryAllowedThisRun = Math.min(
@@ -334,7 +347,7 @@ export async function runProviderIngestion<TFixture, TOdds>(
   for (const date of discoveryDatesDue.slice(0, discoveryAllowedThisRun)) {
     const outcome = await deps.discoverFixtures(date);
     providerCallsUsed += 1;
-    discoveryDatesRequested.push(date);
+    discoveryRequestsAttempted += 1;
     await absorb(outcome.quota, "DISCOVERY");
 
     if (!outcome.ok) {
@@ -346,6 +359,22 @@ export async function runProviderIngestion<TFixture, TOdds>(
       if (outcome.reason === "RATE_LIMITED") break;
       continue;
     }
+    /*
+     * Recorded only once the fixture list is actually in hand.
+     *
+     * The adapter reads these dates back as a six-hour freshness marker, and
+     * this used to push before the outcome was checked -- so a single
+     * rejected or timed-out fixture-list request suppressed re-discovery of
+     * that date for six hours, and a transient provider blip could hide a
+     * day's fixtures from the customer surface for the rest of the morning.
+     *
+     * Marking attempts was previously the only thing bounding repeated
+     * discovery spend. It no longer has to be: a call that returns nothing
+     * usable is now charged durably through `recordRequestAttempt`, so the
+     * DISCOVERY purpose budget stops a failing provider after its daily
+     * allocation while each wake-up still retries promptly.
+     */
+    discoveryDatesRequested.push(date);
     discovered.push(...outcome.value);
   }
 
@@ -371,7 +400,7 @@ export async function runProviderIngestion<TFixture, TOdds>(
    * invocation to a single purpose is also what makes a killed run cheap --
    * there is only ever one kind of work in flight to lose.
    */
-  const discoveryRan = discoveryDatesRequested.length > 0;
+  const discoveryRan = discoveryRequestsAttempted > 0;
   if (discoveryRan) {
     bump(skippedByReason, "ODDS_DEFERRED_AFTER_DISCOVERY");
   }
@@ -481,7 +510,7 @@ export async function runProviderIngestion<TFixture, TOdds>(
     const probeBudget = purposeRequestBudget({
       purpose: "DISCOVERY",
       snapshot,
-      spentToday: spent.DISCOVERY + discoveryDatesRequested.length,
+      spentToday: spent.DISCOVERY + discoveryRequestsAttempted,
       candidates: 1,
       now: deps.clock(),
     });

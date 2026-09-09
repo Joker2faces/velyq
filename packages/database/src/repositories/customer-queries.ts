@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, lt, lte } from "drizzle-orm";
+import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
@@ -80,6 +81,31 @@ export interface CustomerReadModelMapper<TOutput> {
 }
 
 type ReadOnlyDatabase = Pick<PrivilegedVelyqDatabase, "select">;
+
+/**
+ * The `event_markets.code` values a customer surface may treat as the
+ * match-result market.
+ *
+ * Derived from the canonical definition rather than spelled out. The customer
+ * mapper used to look for `"MATCH_RESULT"` or `"1X2"`, and the live odds
+ * writer creates rows with `canonicalMarketDefinitions
+ * .FOOTBALL_FULL_TIME_1X2.code` -- that is `FOOTBALL_FULL_TIME_1X2`, while
+ * `MATCH_RESULT` is only its *family* code and `"1X2"` appears nowhere in
+ * production. So on live data neither branch ever matched and selection fell
+ * through to "any outcome carrying evidence", which happens to be right today
+ * only because one market is wired. Wiring a second (Over/Under 2.5 is
+ * already supported everywhere except the writer) would have made it
+ * non-deterministic.
+ *
+ * The family code and the bare `1X2` stay accepted: the seed and the database
+ * integration fixtures use them, and dropping them would silently reclassify
+ * existing rows.
+ */
+export const MATCH_RESULT_MARKET_CODES: readonly string[] = Object.freeze([
+  canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code,
+  canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.familyCode,
+  "1X2",
+]);
 
 const MAX_TODAY_EVENTS = 100;
 const MAX_MATCH_MARKETS = 100;

@@ -1,4 +1,7 @@
-import { DatabaseCustomerQueryAdapter } from "@velyq/database";
+import {
+  DatabaseCustomerQueryAdapter,
+  MATCH_RESULT_MARKET_CODES,
+} from "@velyq/database";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import type {
   CustomerMatchDto,
@@ -214,8 +217,7 @@ export function selectOutcome(raw: CustomerRawMatch) {
   return (
     raw.outcomes.find(
       ({ marketDefinition, prediction, score }) =>
-        (marketDefinition.code === "MATCH_RESULT" ||
-          marketDefinition.code === "1X2") &&
+        MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code) &&
         (prediction !== null || score !== null),
     ) ??
     raw.outcomes.find(

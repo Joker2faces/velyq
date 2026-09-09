@@ -5,6 +5,7 @@ import {
   recommendationLabel,
   selectionLabel,
 } from "@velyq/ui";
+import { MATCH_RESULT_MARKET_CODES } from "@velyq/database";
 
 /**
  * No customer surface may print a domain identifier.
@@ -86,5 +87,32 @@ describe("customer vocabulary", () => {
     expect(competitionLabel("competition.ita_serie_a")).not.toBe(
       competitionLabel("competition.bra_serie_a"),
     );
+  });
+});
+
+/*
+ * Market selection on the customer read path.
+ *
+ * The mapper looked for `"MATCH_RESULT"` or `"1X2"`, but the live writer
+ * creates `FOOTBALL_FULL_TIME_1X2` -- `MATCH_RESULT` is only its family code.
+ * So on live data neither matched and selection fell through to "any outcome
+ * with evidence", correct today only because a single market is wired.
+ */
+describe("match-result market codes", () => {
+  it("accepts the code the live odds writer actually creates", () => {
+    expect(MATCH_RESULT_MARKET_CODES).toContain("FOOTBALL_FULL_TIME_1X2");
+  });
+
+  it("keeps accepting the seed and integration-fixture spellings", () => {
+    expect(MATCH_RESULT_MARKET_CODES).toContain("MATCH_RESULT");
+    expect(MATCH_RESULT_MARKET_CODES).toContain("1X2");
+  });
+
+  /*
+   * A totals market must not be mistaken for the match result -- that is the
+   * ambiguity that appears the moment Over/Under is wired.
+   */
+  it("does not accept a different market", () => {
+    expect(MATCH_RESULT_MARKET_CODES).not.toContain("FOOTBALL_FULL_TIME_TOTAL");
   });
 });

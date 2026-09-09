@@ -593,3 +593,68 @@ describe("runProviderIngestion quota integrity", () => {
     expect(result.errorsByReason["ODDS_RATE_LIMITED"]).toBe(1);
   });
 });
+
+/*
+ * Discovery freshness after a failure.
+ *
+ * The adapter reads `discoveryDatesRequested` back as a six-hour freshness
+ * marker. The loop used to push the date before checking the outcome, so one
+ * rejected or timed-out fixture-list request suppressed re-discovery of that
+ * date for six hours -- a transient provider blip could hide a day's
+ * fixtures from the customer surface all morning.
+ */
+describe("runProviderIngestion discovery freshness", () => {
+  it("does not mark a date fresh when the fixture list never arrived", async () => {
+    const { deps, calls, attemptedPurposes } = harness(
+      {
+        discoverFixtures: async (date) => {
+          calls.push(`discover:${date}`);
+          return { ok: false, reason: "RETRYABLE", quota: null };
+        },
+      },
+      { dueDates: ["2026-09-09"] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["discover:2026-09-09"]);
+    /* Nothing obtained, so nothing may be reported as discovered. */
+    expect(result.discoveryDatesRequested).toEqual([]);
+    /* But the request is still charged, which is what bounds a retry loop. */
+    expect(attemptedPurposes).toEqual(["DISCOVERY"]);
+    expect(result.providerCallsUsed).toBe(1);
+  });
+
+  it("marks a date fresh once the list is actually in hand", async () => {
+    const { deps, calls } = harness({}, { dueDates: ["2026-09-09"] });
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["discover:2026-09-09"]);
+    expect(result.discoveryDatesRequested).toEqual(["2026-09-09"]);
+  });
+
+  /*
+   * The one-call-per-invocation ceiling must not depend on discovery having
+   * succeeded. Deferring odds on *attempts* rather than successes is what
+   * keeps a failed discovery from going on to spend a second call.
+   */
+  it("still defers pricing after a failed discovery, keeping one call per pass", async () => {
+    const { deps, calls } = harness(
+      {
+        discoverFixtures: async (date) => {
+          calls.push(`discover:${date}`);
+          return { ok: false, reason: "RETRYABLE", quota: null };
+        },
+      },
+      { dueDates: ["2026-09-09"], candidates: [candidate("a")] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["discover:2026-09-09"]);
+    expect(result.providerCallsUsed).toBe(1);
+    expect(result.oddsRequestsAttempted).toBe(0);
+    expect(result.skippedByReason["ODDS_DEFERRED_AFTER_DISCOVERY"]).toBe(1);
+  });
+});
