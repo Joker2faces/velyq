@@ -1,3 +1,4 @@
+import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, gte, lt, ne } from "drizzle-orm";
 import {
@@ -493,7 +494,30 @@ export async function createForecastCycleDbAdapter(
         eventMarketOutcomeId,
         asOf,
       );
-      return row ? { id: row.id, decimalOdds: row.decimalOdds } : null;
+      if (!row) return null;
+
+      /*
+       * "Valid" in the reader means only "not from the future" -- it applies
+       * no age bound at all. A production audit found the newest price in the
+       * database was 27 hours old and still being priced as the live market,
+       * which makes every derived number (implied probability, edge, EV,
+       * price validity) a statement about yesterday presented as one about
+       * now.
+       *
+       * A non-actionable price is withheld rather than downgraded, so the
+       * cycle takes its existing no-odds path and reports NO_ODDS_AT_CUTOFF /
+       * INSUFFICIENT_DATA. That is the honest outcome: the observation still
+       * exists as evidence and as movement history for RADAR, it simply
+       * cannot be the basis of an EDGE the customer could not actually bet
+       * into.
+       */
+      const freshness = assessOddsFreshness(
+        new Date(row.providerObservedAt),
+        asOf,
+      );
+      if (!freshness.actionable) return null;
+
+      return { id: row.id, decimalOdds: row.decimalOdds };
     },
 
     async persistPrediction(input) {

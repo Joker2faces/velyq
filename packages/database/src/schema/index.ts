@@ -33,7 +33,9 @@ import {
 } from "./market.js";
 import {
   jobs,
+  providerIngestionRuns,
   providerPolicyVersions,
+  providerQuotaState,
   providerSyncRuns,
   providers,
   sourceObservations,
@@ -79,7 +81,9 @@ export const phaseOneTables = [
   outcomeDefinitions,
   providerMarketMappings,
   jobs,
+  providerIngestionRuns,
   providerPolicyVersions,
+  providerQuotaState,
   providerSyncRuns,
   providers,
   sourceObservations,

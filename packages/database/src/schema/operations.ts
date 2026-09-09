@@ -2,10 +2,12 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
   text,
+  primaryKey,
   timestamp,
   unique,
   uuid,
@@ -184,6 +186,145 @@ export const jobs = operationsSchema.table(
         or (${table.status} = 'COMPLETED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is null)
         or (${table.status} = 'FAILED' and ${table.leaseExpiresAt} is null and ${table.leaseOwner} is null and ${table.startedAt} is not null and ${table.completedAt} is not null and ${table.lastError} is not null)
       )`,
+    ),
+  ],
+);
+
+/**
+ * Remembered provider quota, one row per (provider, UTC quota day).
+ *
+ * The remaining count arrives only in provider response headers, so without
+ * this table a stateless invocation cannot know its own budget without
+ * spending a request to ask -- and on a ~100-request day, asking on every
+ * scheduler wake-up would consume a meaningful fraction of the budget.
+ *
+ * `dailyLimit` and `remaining` are nullable because the provider does not
+ * always report them, and inventing a number would be worse than admitting
+ * it is unknown: the quota policy treats null as UNKNOWN, which is
+ * deliberately distinct from EXHAUSTED.
+ */
+export const providerQuotaState = operationsSchema.table(
+  "provider_quota_state",
+  {
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    /* Part of the key rather than a column something has to reset: quota
+       resets at UTC midnight, so a new day is simply a new row. */
+    quotaDay: date("quota_day").notNull(),
+    dailyLimit: integer("daily_limit"),
+    remaining: integer("remaining"),
+    requestsUsed: integer("requests_used").notNull().default(0),
+    lastObservedAt: timestamp("last_observed_at", { withTimezone: true }),
+    lastProviderCallAt: timestamp("last_provider_call_at", {
+      withTimezone: true,
+    }),
+    policyState: text("policy_state").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      name: "provider_quota_state_pkey",
+      columns: [table.providerId, table.quotaDay],
+    }),
+    check(
+      "provider_quota_state_policy_state_check",
+      sql`${table.policyState} in ('HEALTHY', 'CONSERVE', 'CRITICAL', 'EXHAUSTED', 'UNKNOWN')`,
+    ),
+    check(
+      "provider_quota_state_remaining_check",
+      sql`${table.remaining} is null or ${table.remaining} >= 0`,
+    ),
+    check(
+      "provider_quota_state_daily_limit_check",
+      sql`${table.dailyLimit} is null or ${table.dailyLimit} > 0`,
+    ),
+    check(
+      "provider_quota_state_requests_used_check",
+      sql`${table.requestsUsed} >= 0`,
+    ),
+  ],
+);
+
+/**
+ * One row per live provider ingestion pass.
+ *
+ * Separate from `providerSyncRuns`, which is shaped for deterministic replay
+ * (`replaySequence`, `contentHash`, a mandatory policy version, and a
+ * uniqueness rule over provider/sequence/start) -- none of which describes a
+ * live poll that may legitimately make zero provider requests. Overloading
+ * that table would blur replay provenance with live operations.
+ *
+ * `providerCallsUsed` of zero is the expected value for a wake-up with no
+ * work due, not a failure.
+ */
+export const providerIngestionRuns = operationsSchema.table(
+  "provider_ingestion_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    trigger: text("trigger").notNull(),
+    quotaDay: date("quota_day").notNull(),
+    quotaPolicyVersion: text("quota_policy_version").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    status: text("status").notNull(),
+    providerCallsUsed: integer("provider_calls_used").notNull().default(0),
+    quotaStateAtStart: text("quota_state_at_start"),
+    quotaStateAtEnd: text("quota_state_at_end"),
+    quotaRemainingAtEnd: integer("quota_remaining_at_end"),
+    discoveryDatesRequested: text("discovery_dates_requested")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    fixturesReceived: integer("fixtures_received").notNull().default(0),
+    fixturesWritten: integer("fixtures_written").notNull().default(0),
+    oddsCandidates: integer("odds_candidates").notNull().default(0),
+    oddsRequestsAttempted: integer("odds_requests_attempted")
+      .notNull()
+      .default(0),
+    oddsObservationsReceived: integer("odds_observations_received")
+      .notNull()
+      .default(0),
+    oddsObservationsWritten: integer("odds_observations_written")
+      .notNull()
+      .default(0),
+    oddsDuplicates: integer("odds_duplicates").notNull().default(0),
+    skippedByReason: jsonb("skipped_by_reason")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    errorsByReason: jsonb("errors_by_reason")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("provider_ingestion_runs_provider_started_idx").on(
+      table.providerId,
+      table.startedAt.desc(),
+    ),
+    index("provider_ingestion_runs_quota_day_idx").on(
+      table.quotaDay,
+      table.startedAt.desc(),
+    ),
+    check(
+      "provider_ingestion_runs_trigger_check",
+      sql`${table.trigger} in ('SCHEDULER', 'MANUAL')`,
+    ),
+    check(
+      "provider_ingestion_runs_status_check",
+      sql`${table.status} in ('RUNNING', 'COMPLETED', 'FAILED')`,
+    ),
+    check(
+      "provider_ingestion_runs_calls_check",
+      sql`${table.providerCallsUsed} >= 0`,
     ),
   ],
 );

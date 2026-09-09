@@ -11,6 +11,18 @@
     "./forecast-cycle": {
       "types": "./src/forecast-cycle.ts",
       "default": "./dist/forecast-cycle.js"
+    },
+    "./provider-ingestion": {
+      "types": "./src/provider-ingestion.ts",
+      "default": "./dist/provider-ingestion.js"
+    },
+    "./provider-quota": {
+      "types": "./src/provider-quota.ts",
+      "default": "./dist/provider-quota.js"
+    },
+    "./odds-freshness": {
+      "types": "./src/odds-freshness.ts",
+      "default": "./dist/odds-freshness.js"
     }
   },
   "scripts": {

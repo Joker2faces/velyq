@@ -52,6 +52,9 @@ importers:
 
   apps/admin:
     dependencies:
+      "@velyq/application":
+        specifier: workspace:*
+        version: link:../../packages/application
       "@velyq/auth":
         specifier: workspace:*
         version: link:../../packages/auth

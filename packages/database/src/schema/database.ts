@@ -37,7 +37,9 @@ import {
 } from "./catalog.js";
 import {
   jobs,
+  providerIngestionRuns,
   providerPolicyVersions,
+  providerQuotaState,
   providerSyncRuns,
   providers,
   sourceObservations,
@@ -88,7 +90,9 @@ export const databaseSchema = {
   predictions,
   profiles,
   providerMarketMappings,
+  providerIngestionRuns,
   providerPolicyVersions,
+  providerQuotaState,
   providerSyncRuns,
   providers,
   radarEvidence,

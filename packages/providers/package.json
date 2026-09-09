@@ -7,6 +7,16 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./apisports": {
+      "types": "./src/apisports.ts",
+      "import": "./dist/apisports.js",
+      "default": "./dist/apisports.js"
+    },
+    "./team-aliases": {
+      "types": "./src/team-aliases.ts",
+      "import": "./dist/team-aliases.js",
+      "default": "./dist/team-aliases.js"
     }
   },
   "scripts": {

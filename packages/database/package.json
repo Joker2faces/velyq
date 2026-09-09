@@ -48,6 +48,11 @@
       "types": "./src/schema/private.ts",
       "import": "./dist/schema/private.js",
       "default": "./dist/schema/private.js"
+    },
+    "./repositories/provider-ingestion-adapter": {
+      "types": "./src/repositories/provider-ingestion-adapter.ts",
+      "import": "./dist/repositories/provider-ingestion-adapter.js",
+      "default": "./dist/repositories/provider-ingestion-adapter.js"
     }
   },
   "scripts": {

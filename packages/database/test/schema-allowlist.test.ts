@@ -30,7 +30,9 @@ const EXPECTED_PHASE_ONE_TABLES = [
   "market.outcome_definitions",
   "market.provider_market_mappings",
   "operations.jobs",
+  "operations.provider_ingestion_runs",
   "operations.provider_policy_versions",
+  "operations.provider_quota_state",
   "operations.provider_sync_runs",
   "operations.providers",
   "operations.source_observations",
@@ -64,11 +66,11 @@ async function loadPhaseOneTableNames(): Promise<readonly string[]> {
 }
 
 describe("Phase 1 database schema allowlist", () => {
-  it("exports exactly the 37 approved qualified table names", async () => {
+  it("exports exactly the 39 approved qualified table names", async () => {
     const tableNames = await loadPhaseOneTableNames();
 
     expect(tableNames).toEqual(EXPECTED_PHASE_ONE_TABLES);
-    expect(new Set(tableNames).size).toBe(37);
+    expect(new Set(tableNames).size).toBe(39);
   });
 
   /*
