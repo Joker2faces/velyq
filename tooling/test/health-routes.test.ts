@@ -32,6 +32,7 @@ const names = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "VELYQ_DATABASE_URL",
+  "VELYQ_CUSTOMER_INTELLIGENCE_MODE",
 ] as const;
 const saved = new Map<string, string | undefined>();
 
@@ -59,14 +60,26 @@ function setRuntimeConfig(configured: boolean) {
 }
 
 describe("service health contracts", () => {
-  it("returns non-sensitive liveness for customer and admin", async () => {
-    expect((await customerHealth()).status).toBe(200);
-    expect((await adminHealth()).status).toBe(200);
-    expect(await (await customerHealth()).json()).toMatchObject({
-      status: "ok",
-      syntheticOnly: true,
-    });
-  });
+  it.each([
+    ["LIVE", false],
+    ["SYNTHETIC_DEMO", true],
+  ] as const)(
+    "returns non-sensitive %s liveness for customer and admin",
+    async (mode, syntheticOnly) => {
+      saved.set(
+        "VELYQ_CUSTOMER_INTELLIGENCE_MODE",
+        process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"],
+      );
+      process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = mode;
+      expect((await customerHealth()).status).toBe(200);
+      expect((await adminHealth()).status).toBe(200);
+      expect(await (await customerHealth()).json()).toMatchObject({
+        status: "ok",
+        intelligenceMode: mode,
+        syntheticOnly,
+      });
+    },
+  );
 
   it("fails readiness closed when runtime configuration is absent", async () => {
     setRuntimeConfig(false);
