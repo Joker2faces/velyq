@@ -15,6 +15,7 @@
     "clean:dist": "node ../../tooling/scripts/clean-dist.mjs"
   },
   "dependencies": {
+    "@velyq/analytics": "workspace:*",
     "@velyq/application": "workspace:*",
     "@velyq/auth": "workspace:*",
     "@velyq/contracts": "workspace:*",

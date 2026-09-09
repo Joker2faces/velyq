@@ -64,6 +64,7 @@ export {
   qualityTone,
   reasonLabel,
   reasonLabels,
+  movementLabel,
   selectionLabel,
   recommendationExplanation,
   recommendationLabel,
@@ -71,3 +72,10 @@ export {
   subscriptionStatusLabel,
   type Tone,
 } from "./domain-labels.js";
+export {
+  classifyCustomerMatch,
+  summariseCustomerMatches,
+  type CustomerMatchBucket,
+  type CustomerTodaySummary,
+  type SummarisableMatch,
+} from "./customer-summary.js";

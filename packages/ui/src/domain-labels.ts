@@ -1,5 +1,6 @@
 import type { Locale } from "./locale.js";
 import { translate, type MessageKey } from "./messages.js";
+import { directionOf } from "./format.js";
 
 /**
  * Presentation labels for domain enumerations.
@@ -98,11 +99,45 @@ export function isGatedRecommendation(code: string) {
 
 // ------------------------------------------------------------ selections
 
+/**
+ * Keyed on the canonical outcome code the read model emits.
+ *
+ * Previously keyed on "Home"/"Draw"/"Away" -- the display strings the
+ * synthetic demo corpus happened to use. Real data supplies the catalog's
+ * outcome code, so nothing matched, and the function's fallback returned the
+ * input unchanged: customers were shown `outcome.home`, an internal
+ * translation key, as the name of their selection.
+ *
+ * The `outcome.*` forms are mapped too. They are not expected on this
+ * boundary any more, but a fallback that silently prints an internal
+ * identifier is precisely how the leak reached production, so the map
+ * absorbs them rather than trusting no producer will ever send one.
+ */
 const SELECTION_LABELS: Readonly<Record<string, MessageKey>> = {
+  HOME: "selectionHome",
+  DRAW: "selectionDraw",
+  AWAY: "selectionAway",
+  "outcome.home": "selectionHome",
+  "outcome.draw": "selectionDraw",
+  "outcome.away": "selectionAway",
+  /* Retained so the demo corpus and any older payload still read correctly. */
   Home: "selectionHome",
   Draw: "selectionDraw",
   Away: "selectionAway",
 };
+
+/**
+ * Anything shaped like an internal identifier rather than a label.
+ *
+ * A dotted lower-case token ("outcome.home", "market.ft_1x2") or a
+ * SCREAMING_SNAKE enum is a domain identifier, never customer-facing copy.
+ */
+function looksInternal(value: string): boolean {
+  return (
+    /^[a-z][a-z0-9]*(\.[a-z0-9_]+)+$/.test(value) ||
+    /^[A-Z0-9_]{2,}$/.test(value)
+  );
+}
 
 /**
  * Human label for a market selection.
@@ -110,10 +145,43 @@ const SELECTION_LABELS: Readonly<Record<string, MessageKey>> = {
  * 1X2 outcomes are translated. Over/under lines are deliberately left as the
  * provider states them — "Over 2.5" is what Greek betting markets actually
  * print, and localising it would read as an invention.
+ *
+ * An unmapped value that looks like an internal identifier is replaced with a
+ * neutral dash rather than printed. Showing nothing is a small loss; showing
+ * `outcome.home` tells a customer they are looking at a developer's data
+ * model.
  */
 export function selectionLabel(selection: string, locale: Locale) {
   const key = SELECTION_LABELS[selection];
-  return key ? translate(key, locale) : selection;
+  if (key) return translate(key, locale);
+  return looksInternal(selection) ? "—" : selection;
+}
+
+// ------------------------------------------------------------- movement
+
+/**
+ * What a market's movement means, or that it cannot be established.
+ *
+ * Takes the movement *state* rather than inferring from the percentage,
+ * because a null percentage has two incompatible meanings. RADAR used to
+ * infer, so an unavailable figure became the assertion "Price unchanged" --
+ * shown, in production, on rows whose own opening and current prices
+ * disagreed. Freshness is deliberately not part of this: a stale price may
+ * still have moved, and a current one may not have.
+ */
+export function movementLabel(
+  state: "MOVED" | "UNCHANGED" | "INSUFFICIENT_HISTORY",
+  movementPercent: string | null | undefined,
+  locale: Locale,
+) {
+  if (state === "INSUFFICIENT_HISTORY")
+    return translate("radarMovementUnknown", locale);
+  if (state === "UNCHANGED") return translate("radarUnchanged", locale);
+  const direction = directionOf(movementPercent);
+  return translate(
+    direction === "up" ? "radarDrifted" : "radarShortened",
+    locale,
+  );
 }
 
 // -------------------------------------------------------------- lineups

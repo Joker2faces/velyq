@@ -656,6 +656,33 @@ export type CustomerMatchDto = Readonly<{
   currentOdds: DecimalOdds["value"] | null;
   openingOdds: DecimalOdds["value"] | null;
   movementPercent: DecimalString | null;
+  /**
+   * Whether a movement figure could be established at all.
+   *
+   * Separate from `movementPercent` being null, because null has two very
+   * different meanings and a surface that cannot tell them apart will
+   * present one as the other: RADAR rendered "Price unchanged" for a market
+   * whose movement had simply never been computed. `INSUFFICIENT_HISTORY`
+   * says we cannot know; `UNCHANGED` asserts the price held.
+   */
+  movementState: "MOVED" | "UNCHANGED" | "INSUFFICIENT_HISTORY";
+  /**
+   * Authoritative price-validity output, computed server-side.
+   *
+   * Carried on the DTO so no surface has to derive a watch threshold of its
+   * own. A view that multiplied `fairOdds` by its own margin in floating
+   * point produced a number the decision engine had never endorsed, on a
+   * policy the product had never agreed.
+   */
+  priceValidity: Readonly<{
+    status:
+      "ATTRACTIVE" | "MARGINAL" | "AT_FAIR" | "BELOW_FAIR" | "UNAVAILABLE";
+    policyVersion: string;
+    /** Price at which expected value is exactly zero (`1 / p`). */
+    breakEvenOdds: DecimalString | null;
+    /** Lowest price still clearing the policy threshold. */
+    minimumAcceptableOdds: DecimalString | null;
+  }>;
   probabilityEdge: DecimalString | null;
   expectedValue: DecimalString | null;
   lineup: "EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED";
@@ -845,6 +872,42 @@ function validateCustomerMatchInput(input: unknown): string[] {
     errors,
     (value) => parseDecimalString(value),
   );
+  if (
+    !["MOVED", "UNCHANGED", "INSUFFICIENT_HISTORY"].includes(
+      input["movementState"] as string,
+    )
+  )
+    errors.push("movementState is invalid");
+  const priceValidity = input["priceValidity"];
+  if (typeof priceValidity !== "object" || priceValidity === null) {
+    errors.push("priceValidity is invalid");
+  } else {
+    const validity = priceValidity as Record<string, unknown>;
+    if (
+      ![
+        "ATTRACTIVE",
+        "MARGINAL",
+        "AT_FAIR",
+        "BELOW_FAIR",
+        "UNAVAILABLE",
+      ].includes(validity["status"] as string)
+    )
+      errors.push("priceValidity.status is invalid");
+    if (typeof validity["policyVersion"] !== "string")
+      errors.push("priceValidity.policyVersion is invalid");
+    validateNullableCustomerDecimal(
+      validity["breakEvenOdds"],
+      "priceValidity.breakEvenOdds",
+      errors,
+      (value) => parseDecimalString(value),
+    );
+    validateNullableCustomerDecimal(
+      validity["minimumAcceptableOdds"],
+      "priceValidity.minimumAcceptableOdds",
+      errors,
+      (value) => parseDecimalString(value),
+    );
+  }
   validateNullableCustomerDecimal(
     input["probabilityEdge"],
     "probabilityEdge",

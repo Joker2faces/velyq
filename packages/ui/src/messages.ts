@@ -381,7 +381,12 @@ export const messages = {
   edgeBody:
     "Where is the market's price more generous than our model thinks it should be? A positive edge answers that — it is not a prediction that the outcome will happen.",
   edgeCurrentOpportunities: "Current opportunities",
-  edgeTracked: "{count} tracked",
+  /*
+   * "{n} tracked" beside a panel headed "current opportunities" reads as
+   * "{n} opportunities". It never meant that: it is how many fixtures this
+   * surface evaluated. Both numbers are now stated.
+   */
+  edgeTracked: "{count} evaluated · {actionable} actionable",
   edgeGated: "Waiting on evidence",
   edgeGatedNote:
     "These matches produced no estimate. The reason is shown on each row.",
@@ -415,6 +420,8 @@ export const messages = {
   radarDrifted: "Price drifted out",
   radarShortened: "Price shortened in",
   radarUnchanged: "Price unchanged",
+  radarMovementUnknown: "Insufficient history",
+  radarMovementLabel: "Movement",
   radarEmpty: "No market observations are available yet.",
 
   // ---------------------------------------------------- match intelligence
@@ -644,9 +651,9 @@ export const messages = {
   unitPercentagePoints: "pp",
 
   // ---------------------------------------------------------- selections
-  selectionHome: "Home",
+  selectionHome: "Home win",
   selectionDraw: "Draw",
-  selectionAway: "Away",
+  selectionAway: "Away win",
 
   // ------------------------------------------------------------- lineups
   lineupOfficial: "Official",
@@ -1016,7 +1023,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   edgeBody:
     "Πού πληρώνει η αγορά πιο γενναιόδωρα από όσο λέει το μοντέλο μας; Θετική διαφορά σημαίνει ακριβώς αυτό — όχι ότι το αποτέλεσμα θα έρθει.",
   edgeCurrentOpportunities: "Τρέχουσες ευκαιρίες",
-  edgeTracked: "{count} υπό παρακολούθηση",
+  edgeTracked: "{count} αξιολογήθηκαν · {actionable} αξιοποιήσιμα",
   edgeGated: "Περιμένουν στοιχεία",
   edgeGatedNote: "Εδώ δεν βγήκε εκτίμηση. Ο λόγος φαίνεται σε κάθε γραμμή.",
   edgeColumnSelection: "Αγώνας και επιλογή",
@@ -1047,6 +1054,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   radarDrifted: "Η απόδοση ανέβηκε",
   radarShortened: "Η απόδοση έπεσε",
   radarUnchanged: "Η απόδοση δεν άλλαξε",
+  radarMovementUnknown: "Ανεπαρκές ιστορικό",
+  radarMovementLabel: "Μεταβολή",
   radarEmpty: "Δεν υπάρχουν καταγραφές αγοράς ακόμα.",
 
   matchKicker: "Match Intelligence · ποδόσφαιρο",
@@ -1255,9 +1264,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
 
   unitPercentagePoints: "μον.",
 
-  selectionHome: "Γηπεδούχος",
+  selectionHome: "Νίκη γηπεδούχου",
   selectionDraw: "Ισοπαλία",
-  selectionAway: "Φιλοξενούμενος",
+  selectionAway: "Νίκη φιλοξενούμενου",
 
   lineupOfficial: "Επίσημη",
   lineupExpected: "Αναμενόμενη",

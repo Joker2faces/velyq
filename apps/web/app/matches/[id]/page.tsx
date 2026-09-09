@@ -1,5 +1,6 @@
 import {
   directionOf,
+  movementLabel,
   formatDateTime,
   formatOdds,
   formatPercent,
@@ -95,16 +96,22 @@ export default async function Match({
   }
 
   const match = result.value;
-  const direction = directionOf(match.movementPercent);
   const hasEstimate = match.probabilityEdge !== null;
+  /*
+   * Price history exists only once movement was actually establishable.
+   * Opening is null unless the outcome was observed at two distinct instants,
+   * so this no longer treats one instant's bookmaker spread as a history.
+   */
   const hasPriceHistory =
-    match.openingOdds !== null && match.currentOdds !== null;
-  const movementMeaning =
-    direction === "up"
-      ? t("radarDrifted")
-      : direction === "down"
-        ? t("radarShortened")
-        : t("radarUnchanged");
+    match.movementState !== "INSUFFICIENT_HISTORY" &&
+    match.openingOdds !== null &&
+    match.currentOdds !== null;
+  const direction = directionOf(match.movementPercent);
+  const movementMeaning = movementLabel(
+    match.movementState,
+    match.movementPercent,
+    locale,
+  );
 
   return (
     <CustomerShell>

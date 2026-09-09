@@ -28,6 +28,13 @@ const validMatch = {
   currentOdds: "2",
   openingOdds: "2.1",
   movementPercent: "-0.047619047619",
+  movementState: "MOVED",
+  priceValidity: {
+    status: "ATTRACTIVE",
+    policyVersion: "price-validity.v1",
+    breakEvenOdds: "1.6666666667",
+    minimumAcceptableOdds: "1.7",
+  },
   probabilityEdge: "0.1",
   expectedValue: "0.2",
   lineup: "OFFICIAL",

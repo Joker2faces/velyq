@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   directionOf,
+  movementLabel,
   formatOdds,
   formatPercent,
   formatTime,
@@ -141,18 +142,32 @@ function RadarRow({
   locale: Locale;
 }) {
   const t = translator(locale);
-  const direction = directionOf(match.movementPercent);
   /*
    * Say what the movement *means*, not just its size. Odds that shorten mean
    * the market moved toward the selection; odds that drift mean it moved away.
    * Nothing here claims to know why — that would be a money-flow claim.
+   *
+   * The state comes from the read model rather than being inferred from the
+   * percentage: inferring turned "we could not establish movement" into the
+   * assertion "Price unchanged", on rows that were simultaneously showing an
+   * opening and a current price that differed.
    */
-  const meaning =
-    direction === "up"
-      ? t("radarDrifted")
-      : direction === "down"
-        ? t("radarShortened")
-        : t("radarUnchanged");
+  const meaning = movementLabel(
+    match.movementState,
+    match.movementPercent,
+    locale,
+  );
+  /*
+   * Movement history exists only when the outcome was observed at two
+   * distinct instants. Without it there is a current price and nothing to
+   * compare it against, so the opening figure, the arrow and the sparkline
+   * are all withheld rather than filled with a second bookmaker's quote from
+   * the same moment.
+   */
+  const hasHistory =
+    match.movementState !== "INSUFFICIENT_HISTORY" &&
+    match.openingOdds !== null;
+  const direction = hasHistory ? directionOf(match.movementPercent) : "unknown";
 
   return (
     <Link className="row" href={`/matches/${match.eventId}`}>
@@ -174,47 +189,61 @@ function RadarRow({
       </div>
 
       <div className="row__stats">
-        <Stat
-          label={t("radarOpening")}
-          value={formatOdds(match.openingOdds, locale)}
-        />
+        {hasHistory ? (
+          <Stat
+            label={t("radarOpening")}
+            value={formatOdds(match.openingOdds, locale)}
+          />
+        ) : null}
         <Stat
           label={t("radarCurrent")}
           value={formatOdds(match.currentOdds, locale)}
         />
         <Stat
           label={t("radarMovement")}
-          value={formatPercent(match.movementPercent, 1, locale)}
+          value={
+            hasHistory
+              ? formatPercent(match.movementPercent, 1, locale)
+              : t("radarMovementUnknown")
+          }
           tone={direction === "down" ? "positive" : undefined}
         />
-        <div className="stat">
-          <span className="stat__label">{t("radarHistory")}</span>
-          <Sparkline
-            points={[Number(match.openingOdds), Number(match.currentOdds)]}
-            tone={direction === "up" ? "caution" : "pitch"}
-            label={`${t("radarOpening")} ${formatOdds(match.openingOdds, locale)} → ${t(
-              "radarCurrent",
-            )} ${formatOdds(match.currentOdds, locale)}`}
-          />
-        </div>
+        {hasHistory ? (
+          <div className="stat">
+            <span className="stat__label">{t("radarHistory")}</span>
+            <Sparkline
+              points={[Number(match.openingOdds), Number(match.currentOdds)]}
+              tone={direction === "up" ? "caution" : "pitch"}
+              label={`${t("radarOpening")} ${formatOdds(match.openingOdds, locale)} → ${t(
+                "radarCurrent",
+              )} ${formatOdds(match.currentOdds, locale)}`}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="row__foot">
         <div className="journey">
-          <span className="journey__price journey__price--from">
-            {formatOdds(match.openingOdds, locale)}
-          </span>
-          <span className="journey__arrow" aria-hidden="true">
-            →
-          </span>
+          {hasHistory ? (
+            <>
+              <span className="journey__price journey__price--from">
+                {formatOdds(match.openingOdds, locale)}
+              </span>
+              <span className="journey__arrow" aria-hidden="true">
+                →
+              </span>
+            </>
+          ) : null}
           <span className="journey__price">
             {formatOdds(match.currentOdds, locale)}
           </span>
-          <Trend
-            value={match.movementPercent}
-            display={formatPercent(match.movementPercent, 1, locale)}
-            caption={meaning}
-          />
+          {hasHistory ? (
+            <Trend
+              value={match.movementPercent}
+              display={formatPercent(match.movementPercent, 1, locale)}
+              caption={meaning}
+            />
+          ) : null}
           <span className="row__sub">{meaning}</span>
         </div>
         <span className="row__sub">{t("openMatchIntelligence")} →</span>

@@ -215,7 +215,15 @@ describe("bilingual catalog", () => {
     expect(t("todaySnapshot", { time: "10:00" })).toBe(
       "Snapshot as of 10:00 UTC",
     );
-    expect(t("edgeTracked", { count: 7 })).toBe("7 tracked");
+    /*
+     * EDGE's headline states both numbers. "{count} tracked" beside a panel
+     * headed "current opportunities" read as "7 opportunities"; it never
+     * meant that, so the count of fixtures evaluated and the count that are
+     * actionable are now stated separately.
+     */
+    expect(t("edgeTracked", { count: 7, actionable: 0 })).toBe(
+      "7 evaluated · 0 actionable",
+    );
     // An unknown placeholder is left intact rather than rendered as
     // "undefined" in front of a customer.
     expect(t("todaySnapshot")).toBe("Snapshot as of {time} UTC");

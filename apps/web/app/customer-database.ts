@@ -12,15 +12,31 @@ import {
   type CustomerDataLabel,
 } from "@velyq/contracts";
 import {
-  divideDecimalStrings,
-  subtractDecimalStrings,
+  numericColumnToDecimalString,
   type DecimalString,
 } from "@velyq/decimal";
+import { summariseOddsMovement } from "@velyq/application/odds-movement";
+import { assessOddsFreshness } from "@velyq/application/odds-freshness";
+import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 
-const decimal = (value: string | null | undefined) =>
-  value == null ? null : (value as DecimalString);
+/**
+ * Reads a PostgreSQL NUMERIC column into a validated decimal.
+ *
+ * The previous implementation cast the driver's string straight to
+ * `DecimalString`. That is not a no-op: NUMERIC(18,8) arrives scale-padded
+ * ("1.30000000"), which the decimal parser rejects as non-canonical, so every
+ * arithmetic operation on a real database price failed. The failures became
+ * nulls, and the nulls were rendered to customers as facts -- "Price
+ * unchanged" for a market that had moved. Canonicalising on read is what the
+ * decimal package documents as "the pairing to use on every column read".
+ */
+const decimal = (value: string | null | undefined): DecimalString | null => {
+  if (value == null) return null;
+  const parsed = numericColumnToDecimalString(value);
+  return parsed.ok ? parsed.value : null;
+};
 
 function scenarioFor(
   eventId: string,
@@ -75,28 +91,44 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     )?.participant.displayName ?? "Away";
   const outcome = selectOutcome(raw);
   const odds = outcome?.odds ?? [];
-  const opening = odds[0]?.decimalOdds ?? null;
-  const current = odds.at(-1)?.decimalOdds ?? null;
+  /*
+   * Opening, current and movement all come from one place that understands
+   * observation *times*. Taking `odds[0]` and `odds.at(-1)` compared the
+   * first and last row of a list that holds one row per bookmaker per
+   * instant, so a single provider response looked like a price that had
+   * moved between two bookmakers' quotes.
+   */
+  const movementSummary = summariseOddsMovement(odds);
+  const opening = movementSummary.openingOdds;
+  const current = movementSummary.currentOdds;
   const prediction = outcome?.prediction;
   const quality = outcome?.quality;
   const score = outcome?.score;
-  const latestObservation = odds.at(-1)?.providerObservedAt;
-  const stale = latestObservation
-    ? raw.asOf.getTime() - latestObservation.getTime() > 60 * 60 * 1000
-    : true;
+  /*
+   * Freshness is judged by the shared policy rather than a local hour-long
+   * rule, so the boundary a customer is shown is the same one the decision
+   * engine acts on. It is measured on the provider's own observation time --
+   * when the market was seen, not when we happened to store it.
+   */
+  const latestObservation =
+    odds.length === 0
+      ? null
+      : new Date(Math.max(...odds.map((o) => o.providerObservedAt.getTime())));
+  const stale = !assessOddsFreshness(latestObservation, raw.asOf).actionable;
   const lineup = deriveLineupState(raw);
-  const movementDelta =
-    opening !== null && current !== null
-      ? subtractDecimalStrings(
-          current as DecimalString,
-          opening as DecimalString,
-        )
-      : null;
-  const movement =
-    movementDelta?.ok && opening !== null
-      ? divideDecimalStrings(movementDelta.value, opening as DecimalString)
-      : null;
   const modelProbability = decimal(prediction?.prediction.modelProbability);
+  /*
+   * The authoritative price-validity assessment, evaluated here rather than
+   * in a view. A surface was computing its own watch threshold as
+   * `Number(fairOdds) * 1.03` -- a margin the product never agreed, in
+   * floating point, on a value the decision engine had not endorsed. This
+   * module owns the policy and its version, so every surface quotes the same
+   * number and can say which policy produced it.
+   */
+  const priceValidity = evaluatePriceValidity({
+    modelProbability,
+    currentOdds: current,
+  });
   const recommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
   const sourceObservationIds =
@@ -110,7 +142,14 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     syntheticLabel: dataLabelFor(raw),
     scenario: scenarioFor(raw.event.id, recommendation, lineup),
     freshness: stale ? "STALE" : "FRESH",
-    selection: outcome?.outcomeDefinition.labelKey ?? "—",
+    /*
+     * The canonical outcome code ("HOME"), not the stored `labelKey`
+     * ("outcome.home"). The label key is an internal identifier and had no
+     * entry in the presentation map, so it fell through and reached
+     * customers verbatim. Storage is unchanged; only what crosses the
+     * boundary is.
+     */
+    selection: outcome?.outcomeDefinition.code ?? "—",
     recommendation,
     modelProbability,
     impliedProbability: decimal(
@@ -119,9 +158,16 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     fairOdds: decimal(prediction?.prediction.fairOdds),
     currentOdds: decimal(current),
     openingOdds: decimal(opening),
-    movementPercent: movement?.ok ? movement.value : null,
+    movementPercent: movementSummary.movementPercent,
+    movementState: movementSummary.state,
     probabilityEdge: decimal(prediction?.prediction.edge),
     expectedValue: decimal(prediction?.prediction.expectedValue),
+    priceValidity: {
+      status: priceValidity.status,
+      policyVersion: priceValidity.policyVersion,
+      breakEvenOdds: priceValidity.breakEvenOdds,
+      minimumAcceptableOdds: priceValidity.minimumAcceptableOdds,
+    },
     lineup,
     quality: {
       grade: quality?.grade ?? "F",

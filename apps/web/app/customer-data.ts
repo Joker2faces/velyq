@@ -1,4 +1,5 @@
 import { CustomerQueryService } from "@velyq/application";
+import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { DecimalString } from "@velyq/decimal";
 import { offsetHours, resolveDemoClock } from "./demo-clock";
@@ -14,7 +15,10 @@ const d = (value: string) => value as DecimalString;
  * trace identity — is untouched by this and stays pinned exactly as before.
  */
 function matchTemplates(): ReadonlyArray<
-  Omit<CustomerMatchDto, "startsAt" | "trace"> & {
+  Omit<
+    CustomerMatchDto,
+    "startsAt" | "trace" | "movementState" | "priceValidity"
+  > & {
     startsAtOffsetHours: number;
     trace: Omit<CustomerMatchDto["trace"], "featureCutoff">;
   }
@@ -33,7 +37,7 @@ function matchTemplates(): ReadonlyArray<
         label: "Strong edge",
       },
       freshness: "FRESH",
-      selection: "Home",
+      selection: "HOME",
       recommendation: "STRONG_EDGE",
       modelProbability: d("0.6"),
       impliedProbability: d("0.540540540541"),
@@ -71,7 +75,7 @@ function matchTemplates(): ReadonlyArray<
         label: "Wait for lineup",
       },
       freshness: "FRESH",
-      selection: "Home",
+      selection: "HOME",
       recommendation: "WAIT_FOR_LINEUP",
       modelProbability: null,
       impliedProbability: d("0.476190476190"),
@@ -109,7 +113,7 @@ function matchTemplates(): ReadonlyArray<
         label: "No bet",
       },
       freshness: "STALE",
-      selection: "Draw",
+      selection: "DRAW",
       recommendation: "NO_BET",
       modelProbability: null,
       impliedProbability: null,
@@ -147,7 +151,7 @@ function matchTemplates(): ReadonlyArray<
         label: "Expected lineup",
       },
       freshness: "FRESH",
-      selection: "Away",
+      selection: "AWAY",
       recommendation: "WAIT",
       modelProbability: d("0.45"),
       impliedProbability: d("0.5"),
@@ -185,7 +189,7 @@ function matchTemplates(): ReadonlyArray<
         label: "Edge disappeared",
       },
       freshness: "FRESH",
-      selection: "Home",
+      selection: "HOME",
       recommendation: "EDGE_DISAPPEARED",
       modelProbability: d("0.5"),
       impliedProbability: d("0.5"),
@@ -264,7 +268,7 @@ function matchTemplates(): ReadonlyArray<
         label: "Changed lineup",
       },
       freshness: "FRESH",
-      selection: "Draw",
+      selection: "DRAW",
       recommendation: "NO_BET",
       modelProbability: d("0.31"),
       impliedProbability: d("0.3"),
@@ -298,6 +302,31 @@ function matchTemplates(): ReadonlyArray<
  * "today" always tracks whatever day it is actually viewed on; every other
  * field is identical no matter what `now` is.
  */
+/**
+ * The same authoritative assessment the live path uses.
+ *
+ * Imported rather than reimplemented so the demo corpus cannot drift into
+ * quoting a watch threshold the decision engine would not endorse -- which
+ * is exactly the defect this replaced on the customer surfaces.
+ */
+function priceValidityFor(
+  match: Readonly<{
+    modelProbability: string | null;
+    currentOdds: string | null;
+  }>,
+): CustomerMatchDto["priceValidity"] {
+  const assessment = evaluatePriceValidity({
+    modelProbability: match.modelProbability,
+    currentOdds: match.currentOdds,
+  });
+  return {
+    status: assessment.status,
+    policyVersion: assessment.policyVersion,
+    breakEvenOdds: assessment.breakEvenOdds,
+    minimumAcceptableOdds: assessment.minimumAcceptableOdds,
+  };
+}
+
 export function buildCustomerTodayData(now: Date): CustomerTodayDto {
   const asOf = now.toISOString();
   return {
@@ -307,6 +336,19 @@ export function buildCustomerTodayData(now: Date): CustomerTodayDto {
       ({ startsAtOffsetHours, trace, ...match }) => ({
         ...match,
         startsAt: offsetHours(now, startsAtOffsetHours),
+        /*
+         * Derived here rather than restated in every template, and derived
+         * the same way the live mapper derives them -- a demo corpus whose
+         * movement or price-validity semantics differed from production
+         * would be a fixture that cannot catch a production defect.
+         */
+        movementState:
+          match.movementPercent === null
+            ? ("INSUFFICIENT_HISTORY" as const)
+            : Number(match.movementPercent) === 0
+              ? ("UNCHANGED" as const)
+              : ("MOVED" as const),
+        priceValidity: priceValidityFor(match),
         trace: { ...trace, featureCutoff: asOf },
       }),
     ),

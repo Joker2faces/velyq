@@ -14,6 +14,7 @@ import {
   recommendationLabel,
   recommendationTone,
   selectionLabel,
+  summariseCustomerMatches,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -97,7 +98,12 @@ export function EdgeView({
             hint={t("edgeSortNote")}
             aside={
               <span className="card__hint">
-                {t("edgeTracked", { count: formatCount(matches.length) })}
+                {t("edgeTracked", {
+                  count: formatCount(matches.length),
+                  actionable: formatCount(
+                    summariseCustomerMatches(matches).actionable,
+                  ),
+                })}
               </span>
             }
           />

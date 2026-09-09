@@ -334,11 +334,12 @@ export default tseslint.config(
            * emit its tests into `dist`.
            *
            * The flag is a linting-performance guardrail, not a correctness
-           * one — its own name says so — and the suite has outgrown 32. Kept
-           * bounded rather than removed so that an accidental import of the
-           * whole repository into the default project still trips it.
+           * one — its own name says so — and the suite has outgrown 32, and
+           * now 64. Kept bounded rather than removed so that an accidental
+           * import of the whole repository into the default project still
+           * trips it.
            */
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 64,
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 96,
         },
         tsconfigRootDir: workspaceDirectory,
       },

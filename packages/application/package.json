@@ -23,6 +23,10 @@
     "./odds-freshness": {
       "types": "./src/odds-freshness.ts",
       "default": "./dist/odds-freshness.js"
+    },
+    "./odds-movement": {
+      "types": "./src/odds-movement.ts",
+      "default": "./dist/odds-movement.js"
     }
   },
   "scripts": {
@@ -32,6 +36,7 @@
   "dependencies": {
     "@velyq/analytics": "workspace:*",
     "@velyq/contracts": "workspace:*",
+    "@velyq/decimal": "workspace:*",
     "@velyq/domain": "workspace:*",
     "@velyq/research": "workspace:*"
   },

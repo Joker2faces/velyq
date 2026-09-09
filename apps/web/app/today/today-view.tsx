@@ -18,7 +18,9 @@ import {
   recommendationExplanation,
   recommendationLabel,
   recommendationTone,
+  classifyCustomerMatch,
   selectionLabel,
+  summariseCustomerMatches,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -90,10 +92,15 @@ export function TodayView({
       match.recommendation === "EDGE_DISAPPEARED",
   );
   const blocked = matches.filter(
-    (match) =>
-      match.quality.grade === "F" ||
-      match.recommendation === "INSUFFICIENT_DATA",
+    (match) => classifyCustomerMatch(match) === "BLOCKED",
   );
+  /*
+   * The headline figures come from one partition rather than from four
+   * independent filters, so "tracked" always equals the buckets that
+   * describe it. Previously a match could satisfy both "watch" and
+   * "blocked" and be counted twice.
+   */
+  const summary = summariseCustomerMatches(matches);
   const freshMoves = matches.filter(
     (match) =>
       match.freshness === "FRESH" &&
@@ -232,8 +239,8 @@ export function TodayView({
           <Card className="stat--boxed">
             <Stat
               label={t("todayActionable")}
-              value={formatCount(actionable.length)}
-              tone={actionable.length > 0 ? "positive" : undefined}
+              value={formatCount(summary.actionable)}
+              tone={summary.actionable > 0 ? "positive" : undefined}
             />
           </Card>
           <Card className="stat--boxed">
@@ -245,12 +252,12 @@ export function TodayView({
           <Card className="stat--boxed">
             <Stat
               label={t("todayQualityWarnings")}
-              value={formatCount(blocked.length)}
-              tone={blocked.length > 0 ? "negative" : undefined}
+              value={formatCount(summary.blocked)}
+              tone={summary.blocked > 0 ? "negative" : undefined}
             />
           </Card>
           <Card className="stat--boxed">
-            <Stat label="Forecasts" value={formatCount(forecastable.length)} />
+            <Stat label="Forecasts" value={formatCount(summary.forecastable)} />
           </Card>
           <Card className="stat--boxed">
             <Stat label="Watch" value={formatCount(watch.length)} />
@@ -264,8 +271,18 @@ export function TodayView({
               hint={forecastLabels.watchHint}
             />
             {watch.slice(0, 3).map((match) => {
+              /*
+               * The watch threshold is read from the authoritative
+               * price-validity assessment, not derived here. This view used
+               * to compute `Number(match.fairOdds) * 1.03` -- a 3% margin the
+               * product never agreed, in floating point, on a value the
+               * decision engine had not endorsed. The policy and its version
+               * now live in one module and travel on the DTO.
+               */
               const target =
-                match.fairOdds === null ? null : Number(match.fairOdds) * 1.03;
+                match.priceValidity.minimumAcceptableOdds === null
+                  ? null
+                  : Number(match.priceValidity.minimumAcceptableOdds);
               const gap =
                 target === null || match.currentOdds === null
                   ? null
@@ -278,7 +295,7 @@ export function TodayView({
                     </strong>
                     <p className="match-row__meta">
                       Model {formatProbability(match.modelProbability, locale)}{" "}
-                      · {match.selection}
+                      · {selectionLabel(match.selection, locale)}
                     </p>
                   </div>
                   <div className="match-row__metrics">
