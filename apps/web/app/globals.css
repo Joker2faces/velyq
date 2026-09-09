@@ -1898,3 +1898,269 @@ a.row:hover {
 .row__teams .fixture__divider {
   height: 1.1em;
 }
+
+/* ---------------------------------------------------------------- match cards
+
+   Football-first browsing. The fixture is the unit a customer scans, so the
+   card leads with competition and kick-off, gives the two clubs the most
+   visual weight, and carries exactly one verdict, one price and one reason.
+   Everything else belongs on Match Intelligence.                            */
+
+.match-card__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-lg);
+}
+
+.match-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  transition:
+    border-color var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
+}
+
+.match-card__link:hover .match-card {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.match-card__link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+/* A card must not animate for someone who asked it not to. */
+@media (prefers-reduced-motion: reduce) {
+  .match-card,
+  .match-card__link:hover .match-card {
+    transition: none;
+    transform: none;
+  }
+}
+
+.match-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.match-card__kickoff {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.match-card__teams {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.match-card__team {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.match-card__team-name {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--primary);
+  /* Long club names must wrap rather than push the price off a phone. */
+  overflow-wrap: anywhere;
+}
+
+/* The halfway line, echoed between the two clubs. */
+.match-card__versus {
+  height: 1px;
+  margin-left: calc(var(--space-3) + 1.75rem);
+  background: linear-gradient(90deg, var(--pitch-line-faint), transparent 70%);
+}
+
+.match-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.match-card__verdict,
+.match-card__price {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.match-card__selection {
+  font-size: 0.8125rem;
+  color: var(--secondary);
+}
+
+.match-card__price b {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  color: var(--primary);
+}
+
+.match-card__price--absent {
+  font-size: 0.8125rem;
+  color: var(--quiet);
+}
+
+.match-card__reason {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--secondary);
+}
+
+/* ------------------------------------------------------------------- crests
+
+   Generated, never scraped. Club badges are copyrighted and a missing image
+   looks like a bug, so a stable per-club hue plus initials is used instead --
+   always present, always the same for the same club.                        */
+
+.crest {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 25%,
+    hsl(var(--crest-hue) 45% 32%),
+    hsl(var(--crest-hue) 40% 18%)
+  );
+  border: 1px solid hsl(var(--crest-hue) 40% 42%);
+  color: hsl(var(--crest-hue) 25% 92%);
+  font-family: var(--font-label);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.crest--sm {
+  width: 1.375rem;
+  height: 1.375rem;
+  font-size: 0.5625rem;
+}
+
+.crest--md {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.6875rem;
+}
+
+.crest--lg {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.9375rem;
+}
+
+/* -------------------------------------------------------------- competition */
+
+.competition {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.competition__mark {
+  width: 3px;
+  height: 0.875rem;
+  border-radius: var(--radius-pill);
+  background: var(--signal);
+  flex: 0 0 auto;
+}
+
+.competition__name {
+  font-family: var(--font-label);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- card layouts
+
+   A responsive grid so a fixture list reads as cards on every width instead
+   of a desktop table squeezed onto a phone.                                 */
+
+.match-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 46rem) {
+  .match-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 76rem) {
+  .match-grid--wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------ today summary
+
+   Context, not the product. Six figures on one line, so the fixtures stay
+   above the fold instead of being pushed below a row of KPI tiles.         */
+
+.today-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.today-summary__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.today-summary__item dt {
+  font-family: var(--font-label);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.today-summary__item dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.today-summary__item--positive dd {
+  color: var(--signal-strong);
+}
+
+.today-summary__item--negative dd {
+  color: var(--clay-strong);
+}

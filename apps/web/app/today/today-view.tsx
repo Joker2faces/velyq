@@ -27,6 +27,7 @@ import {
   type Locale,
 } from "@velyq/ui";
 import type { CustomerMatchDto } from "@velyq/contracts";
+import { MatchCard } from "../components/match";
 import {
   ArrowLink,
   Badge,
@@ -230,40 +231,51 @@ export function TodayView({
           )}
         </div>
 
-        <div className="stat-row">
-          <Card className="stat--boxed">
-            <Stat
-              label={t("todayTracked")}
-              value={formatCount(matches.length)}
-            />
-          </Card>
-          <Card className="stat--boxed">
-            <Stat
-              label={t("todayActionable")}
-              value={formatCount(summary.actionable)}
-              tone={summary.actionable > 0 ? "positive" : undefined}
-            />
-          </Card>
-          <Card className="stat--boxed">
-            <Stat
-              label={t("todayFreshMoves")}
-              value={formatCount(freshMoves.length)}
-            />
-          </Card>
-          <Card className="stat--boxed">
-            <Stat
-              label={t("todayQualityWarnings")}
-              value={formatCount(summary.blocked)}
-              tone={summary.blocked > 0 ? "negative" : undefined}
-            />
-          </Card>
-          <Card className="stat--boxed">
-            <Stat label="Forecasts" value={formatCount(summary.forecastable)} />
-          </Card>
-          <Card className="stat--boxed">
-            <Stat label="Watch" value={formatCount(watch.length)} />
-          </Card>
-        </div>
+        {/*
+         * A compact summary strip rather than six boxed cards.
+         *
+         * These six figures used to be the first thing on Today, as six
+         * outlined rectangles the width of the page -- which made the
+         * primary visual of a football product a row of KPI tiles, and
+         * pushed the actual fixtures below the fold. They are context, not
+         * the product, so they now read as one line of counts. Two of them
+         * were also hardcoded English ("Forecasts", "Watch") on a page that
+         * has to work in Greek.
+         */}
+        <dl className="today-summary">
+          <div className="today-summary__item">
+            <dt>{t("todayTracked")}</dt>
+            <dd>{formatCount(matches.length)}</dd>
+          </div>
+          <div
+            className={`today-summary__item${
+              summary.actionable > 0 ? " today-summary__item--positive" : ""
+            }`}
+          >
+            <dt>{t("todayActionable")}</dt>
+            <dd>{formatCount(summary.actionable)}</dd>
+          </div>
+          <div className="today-summary__item">
+            <dt>{t("todayForecasts")}</dt>
+            <dd>{formatCount(summary.forecastable)}</dd>
+          </div>
+          <div className="today-summary__item">
+            <dt>{t("todayWatchCount")}</dt>
+            <dd>{formatCount(watch.length)}</dd>
+          </div>
+          <div className="today-summary__item">
+            <dt>{t("todayFreshMoves")}</dt>
+            <dd>{formatCount(freshMoves.length)}</dd>
+          </div>
+          <div
+            className={`today-summary__item${
+              summary.blocked > 0 ? " today-summary__item--negative" : ""
+            }`}
+          >
+            <dt>{t("todayQualityWarnings")}</dt>
+            <dd>{formatCount(summary.blocked)}</dd>
+          </div>
+        </dl>
 
         {watch.length > 0 ? (
           <Card>
@@ -491,25 +503,22 @@ export function TodayView({
               body={t("dataUnavailableBody")}
             />
           ) : (
-            <ol className="kickoffs">
+            /*
+             * Today's fixtures as match cards rather than a list of rows.
+             *
+             * This was a time, two team names and a badge on one line --
+             * legible, but it read as a schedule table and gave a customer
+             * no reason to open anything. The card carries the competition,
+             * the crests, the verdict, the current price with its freshness
+             * and the one reason a decision is being held, which is enough
+             * to decide whether to look closer without being the twenty
+             * metrics that belong on the match page.
+             */
+            <div className="match-grid match-grid--wide">
               {kickoffs.map((match) => (
-                <li key={match.eventId}>
-                  <Link className="kickoff" href={`/matches/${match.eventId}`}>
-                    <time className="kickoff__time">
-                      {formatTime(match.startsAt, locale)}
-                    </time>
-                    <span className="kickoff__teams">
-                      {match.homeTeam}
-                      <em className="row__vs">{t("matchVersus")}</em>
-                      {match.awayTeam}
-                    </span>
-                    <Badge tone={recommendationTone(match.recommendation)}>
-                      {recommendationLabel(match.recommendation, locale)}
-                    </Badge>
-                  </Link>
-                </li>
+                <MatchCard key={match.eventId} match={match} locale={locale} />
               ))}
-            </ol>
+            </div>
           )}
         </Card>
 
