@@ -28,7 +28,6 @@ const child = spawn(
     env: {
       ...process.env,
       NODE_ENV: "production",
-      VELYQ_SYNTHETIC_PREVIEW: "true",
       VELYQ_CUSTOMER_INTELLIGENCE_MODE: "SYNTHETIC_DEMO",
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ux-review-key",

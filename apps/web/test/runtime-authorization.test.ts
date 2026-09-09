@@ -76,6 +76,7 @@ import {
   customerOddsHistory,
   customerService,
   loadCustomerContext,
+  resolveCustomerContext,
 } from "../app/customer-runtime";
 
 const originalEnvironment = { ...process.env };
@@ -443,5 +444,58 @@ describe("administrative product access", () => {
 
     expect(context).toMatchObject({ plan: "FREE", isAdmin: true });
     expect(context?.entitlements).toContain("match.detail");
+  });
+});
+
+/*
+ * Account in a demo deployment.
+ *
+ * `requireCustomerSession` has always had a documented no-database
+ * affordance for SYNTHETIC_DEMO, and `resolveCustomerContext` did not -- so
+ * authorization admitted a demo visitor as FREE and the context resolver
+ * then returned null, which /api/v1/customer/context turns into a 503.
+ * Account was therefore unusable in the one mode whose purpose is running
+ * without a database, and the browser journeys caught it.
+ */
+describe("customer context without a database", () => {
+  it("resolves a FREE context in SYNTHETIC_DEMO so Account can render", async () => {
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = "SYNTHETIC_DEMO";
+    runtimeState.available = false;
+
+    const context = await resolveCustomerContext(
+      "velyq_access_token=access-token",
+    );
+
+    expect(context).toMatchObject({
+      email: "one@velyq.test",
+      plan: "FREE",
+      isAdmin: false,
+    });
+    expect(context?.entitlements).toContain("today.view");
+    /* A demo affordance must not hand out a paid surface. */
+    expect(context?.entitlements).not.toContain("match.detail");
+  });
+
+  it("still resolves nothing in LIVE, so the route answers 503 instead of inventing an identity", async () => {
+    delete process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"];
+    runtimeState.available = false;
+
+    await expect(
+      resolveCustomerContext("velyq_access_token=access-token"),
+    ).resolves.toBeNull();
+  });
+
+  /*
+   * The retired flag must not reopen the affordance -- that inference is
+   * what let a Cloudflare deployment serve synthetic football.
+   */
+  it("is not reopened by the retired preview flag", async () => {
+    delete process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"];
+    process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
+    runtimeState.available = false;
+
+    await expect(
+      resolveCustomerContext("velyq_access_token=access-token"),
+    ).resolves.toBeNull();
   });
 });

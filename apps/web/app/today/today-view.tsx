@@ -394,11 +394,24 @@ export function TodayView({
                       </div>
                       <p>
                         <b>{forecastLabels.decision}:</b>{" "}
-                        {recommendationLabel(match.recommendation, locale)} ·{" "}
-                        {forecastLabels.reason}:{" "}
-                        {match.quality.reasonCodes
-                          .map((code) => reasonLabel(code, locale))
-                          .join(", ")}
+                        {recommendationLabel(match.recommendation, locale)}
+                        {/*
+                         * A selection with nothing holding it back has no
+                         * reasons, and the label was printed anyway -- the
+                         * strong-edge card read "Decision: Strong edge ·
+                         * Reason:" and then stopped, which looks like
+                         * something failed to load rather than like good
+                         * news.
+                         */}
+                        {match.quality.reasonCodes.length > 0 ? (
+                          <>
+                            {" · "}
+                            {forecastLabels.reason}:{" "}
+                            {match.quality.reasonCodes
+                              .map((code) => reasonLabel(code, locale))
+                              .join(", ")}
+                          </>
+                        ) : null}
                       </p>
                     </>
                   )}

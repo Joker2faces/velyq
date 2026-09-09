@@ -303,6 +303,114 @@ It is, though, a copy weakness: the card carries real product vocabulary
 language — the only signal is a competition literally named "Premier Synthetic
 League". Recorded as a P2 for the customer-facing copy pass.
 
+## Browser QA — three stacked problems behind one symptom
+
+The Playwright customer journeys failed with Today stuck in its loading
+skeleton. Three separate causes were layered, which is why the first fix
+changed nothing.
+
+### 1. Contamination introduced by this session (removed)
+
+`vercel link` / `vercel deploy` wrote `apps/web/.env.production.local`, which
+carries a real `VELYQ_DATABASE_URL`. The e2e harness starts the app with
+`next start`, i.e. `NODE_ENV=production`, so **Next.js loads that file
+automatically** and the app tried to reach a database it could not. Combined
+with cause 3 below, every customer API hung and the shell never left its
+skeleton.
+
+An earlier conclusion in this session that the failures were "pre-existing at
+`90d90c0`" was **wrong**: the baseline run was executed while that file was
+already on disk, so it proved nothing. The files are deleted; they are
+gitignored build artifacts and are regenerated on demand by the Vercel CLI.
+Anyone reproducing this locally must delete them before running e2e.
+
+### 2. The e2e harness requested synthetic data with a retired flag
+
+`tooling/e2e/customer-web-server.mjs` set `VELYQ_SYNTHETIC_PREVIEW=true`.
+`app/data-mode.ts` retired that flag: synthetic data now requires an exact
+`VELYQ_CUSTOMER_INTELLIGENCE_MODE=SYNTHETIC_DEMO`, and `customerFixtureMode()`
+is precisely `syntheticDataAllowed()`. So the harness was starting a **LIVE**
+server with no database, which correctly fails closed with 503. Independently
+real, and a different symptom from the hang. The unit suite already asserted
+the retired flag cannot reopen synthetic mode; only the harness was stale.
+`tooling/scripts/ux-preview.mjs` carried the same redundant flag alongside the
+correct one, now removed.
+
+### 3. Account was unusable without a database (product defect)
+
+`requireCustomerSession` has a documented no-database affordance for
+SYNTHETIC_DEMO; `resolveCustomerContext` never got one and returned `null`,
+which `/api/v1/customer/context` turns into 503. So authorization admitted a
+demo visitor as FREE and then Account could not render — in the one mode whose
+entire purpose is running without a database.
+
+`resolveCustomerContext` now mirrors the affordance under the same explicit
+opt-in: the email is the identity the provider just verified, the plan is
+FREE, `isAdmin` is false (administrative access is a database fact and there
+is no database to assert it), and no paid entitlement is granted. **LIVE still
+returns null**, so the route answers an honest 503 rather than inventing an
+identity. Three tests pin it, including that the retired flag does not reopen
+it.
+
+### 4. No connection timeout on the customer read path (product defect)
+
+`pg` defaults `connectionTimeoutMillis` to `0` — wait forever. Every
+deliberate probe passed its own bound (health 3s, readiness 3s, funnel 5s,
+ingest 10s), but `requireCustomerSession`, `resolveCustomerContext` and
+`customerService` passed none. So an unreachable database did **not** fail
+closed to an honest unavailable state as section 48 requires: it held the
+request open until the platform killed it. This was reproduced locally against
+an unreachable URL. `openRuntimeDatabaseSession` now applies a 5s default when
+the caller does not choose one — above the liveness probe, well below any
+platform function limit, so the 503 is ours to report.
+
+### 5. The visual suite was flaky by construction
+
+`customer-visual-review.spec.ts` screenshotted `fullPage` immediately after
+navigation. Every customer route is a static shell that fetches its own data,
+so navigation resolving says nothing about content: the same route captured
+900px of skeleton on one attempt and 3575px of loaded content on the next, and
+a full-page baseline could match neither. It now waits for
+`[aria-busy="true"]` to clear — `CustomerBoundary` marks the skeleton busy —
+which makes the capture deterministic and route-agnostic.
+
+Baselines were then regenerated **and reviewed rather than accepted blindly**.
+The review confirmed the Today P0 fix (one honest outcome per match,
+consistent with the "Model 60.0%" shown above it) and surfaced one further
+defect that would otherwise have shipped: with no reasons to show, the
+strong-edge card rendered "Decision: Strong edge · Reason:" and stopped,
+reading as a failed load rather than as good news. The label is now omitted
+when there is nothing to list.
+
+### Admin journey — environment prerequisite, not a defect
+
+`tooling/e2e/admin-web-server.mjs` requires a seeded PostgreSQL at
+`127.0.0.1:54322` (local Supabase). That is not provisioned on this machine —
+the DB integration suite uses a separate WSL instance on 55432 which is torn
+down afterwards. The admin journey is therefore **NOT RUN**, not passed, and
+is not counted as green.
+
+## Vercel preview — stalled, inconclusive
+
+A preview of the candidate was deployed (`dpl_3A1jB1kfNMNNye7ijVYDzUNSa5hk`,
+`velyq-cmjydx8rf`). The 3.8MB upload completed and the build began, but the
+deployment sat at status `UNKNOWN` with its interstitial reporting `BUILDING`
+for ~48 minutes against a normal ~2 minutes for this project, producing no
+build logs. Treated as **stalled and inconclusive**; the local status poller
+was stopped, which does not cancel the remote deployment.
+
+It would have been a weak gate regardless: `VELYQ_DATABASE_URL` exists in
+Preview only for four specific git branches, and
+`VELYQ_CUSTOMER_INTELLIGENCE_MODE` / `VELYQ_APPLICATION_ORIGIN` are unset for
+Preview, so a preview defaults to LIVE with no database and correctly fails
+closed. It can verify a build, routing and headers — never real-data
+rendering. Making previews LIVE-representative would mean adding Preview
+environment variables, an account-settings change that was not made.
+
+Note for deployment safety: Vercel re-points the production alias only on a
+successful build, so a stalled or failed production build leaves the live site
+serving its current deployment.
+
 ## Known follow-ups (not closed)
 
 Honest list of what remains, with severity.

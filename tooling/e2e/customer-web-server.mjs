@@ -21,7 +21,22 @@ const environment = {
   NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${authPort}`,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
   NEXT_PUBLIC_VELYQ_ADMIN_URL: "https://admin.velyq.test",
-  VELYQ_SYNTHETIC_PREVIEW: "true",
+  /*
+   * The synthetic corpus is what these journeys assert against -- the
+   * "SYNTHETIC DATA" badge, the fixed demo clock, and every screenshot
+   * baseline. It has to be requested through the one variable that still
+   * grants it.
+   *
+   * This used to set the retired VELYQ_SYNTHETIC_PREVIEW flag.
+   * app/data-mode.ts now requires an exact
+   * VELYQ_CUSTOMER_INTELLIGENCE_MODE=SYNTHETIC_DEMO opt-in, and treats every
+   * other value -- including a stale flag nobody reads -- as LIVE. So this
+   * harness was starting a LIVE server with no database, which correctly
+   * failed closed, and Today never left its loading state. The unit suite
+   * already asserts that the retired flag cannot reopen synthetic mode; this
+   * file was simply never updated to match.
+   */
+  VELYQ_CUSTOMER_INTELLIGENCE_MODE: "SYNTHETIC_DEMO",
   VELYQ_APPLICATION_ORIGIN: `http://127.0.0.1:${customerPort}`,
   // Fixed so the synthetic Today snapshot — and every screenshot baseline
   // that captures it — is identical on every run, not just "today".

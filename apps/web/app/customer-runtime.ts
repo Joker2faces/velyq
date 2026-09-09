@@ -210,7 +210,35 @@ export async function resolveCustomerContext(cookieHeader: string) {
   const user = (await identity.json()) as { id?: string; email?: string };
   if (!user.id) return null;
   const session = await openRuntimeDatabaseSession();
-  if (!session) return null;
+  if (!session)
+    /*
+     * The same no-database affordance `requireCustomerSession` already has,
+     * and gated on the same explicit opt-in.
+     *
+     * Without it the two halves disagreed: authorization admitted a demo
+     * visitor as FREE, and then this returned null, so
+     * /api/v1/customer/context answered 503 and Account was unusable in
+     * SYNTHETIC_DEMO -- the one mode whose whole purpose is running without
+     * a database. LIVE still returns null here, which the route turns into
+     * an honest 503 rather than an invented identity.
+     *
+     * Nothing is fabricated beyond the tier: the email is the authenticated
+     * identity the provider just confirmed, the plan is FREE, and isAdmin is
+     * false because administrative access is a database fact and there is no
+     * database to assert it.
+     */
+    return syntheticDataAllowed()
+      ? {
+          email: user.email ?? "",
+          plan: "FREE" as const,
+          status: null,
+          entitlements: resolveEffectiveEntitlements(
+            { plan: "FREE", status: null },
+            null,
+          ).entitlements,
+          isAdmin: false,
+        }
+      : null;
   try {
     const principal = await new DatabasePermissionResolver(
       session.database,
