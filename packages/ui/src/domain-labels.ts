@@ -284,6 +284,16 @@ const REASON_LABELS: Readonly<Record<string, MessageKey>> = {
   LOW_SOURCE_AUTHORITY: "reasonLowSourceAuthority",
   INCONSISTENT_DATA: "reasonInconsistentData",
   INSUFFICIENT_DATA: "reasonInsufficientData",
+  /*
+   * The decision engine's own refusal vocabulary. These are persisted to
+   * intelligence.decisions.why_not_codes and shown in admin, and §"Why not"
+   * wants them legible rather than raw.
+   */
+  EDGE_TOO_SMALL: "reasonEdgeTooSmall",
+  PRICE_TOO_SHORT: "reasonPriceTooShort",
+  MARKET_DATA_UNAVAILABLE: "reasonMarketDataUnavailable",
+  QUALITY_TOO_LOW: "reasonQualityTooLow",
+  MODEL_MATURITY_INSUFFICIENT: "reasonModelMaturityInsufficient",
 };
 
 /**

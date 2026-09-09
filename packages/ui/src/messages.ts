@@ -683,6 +683,11 @@ export const messages = {
   reasonInconsistentData: "Sources disagree on this price",
   reasonInsufficientData: "Not enough history",
   reasonUnknown: "Not available",
+  reasonEdgeTooSmall: "Edge too small to act on",
+  reasonPriceTooShort: "Price is too short",
+  reasonMarketDataUnavailable: "No market price yet",
+  reasonQualityTooLow: "Evidence quality too low",
+  reasonModelMaturityInsufficient: "Model not validated for action yet",
 } as const;
 
 export type MessageKey = keyof typeof messages;
@@ -1301,6 +1306,12 @@ const greek: Readonly<Record<MessageKey, string>> = {
   reasonInconsistentData: "Οι πηγές διαφωνούν για την απόδοση",
   reasonInsufficientData: "Ανεπαρκές ιστορικό",
   reasonUnknown: "Μη διαθέσιμο",
+  reasonEdgeTooSmall: "Το πλεονέκτημα είναι πολύ μικρό",
+  reasonPriceTooShort: "Η απόδοση είναι πολύ χαμηλή",
+  reasonMarketDataUnavailable: "Δεν υπάρχει ακόμη τιμή αγοράς",
+  reasonQualityTooLow: "Πολύ χαμηλή ποιότητα δεδομένων",
+  reasonModelMaturityInsufficient:
+    "Το μοντέλο δεν έχει ακόμη επικυρωθεί για δράση",
 };
 
 export const translations: Readonly<

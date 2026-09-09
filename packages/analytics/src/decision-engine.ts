@@ -105,6 +105,26 @@ export function evaluateDecision(
     edge >= policy.minimumEdge &&
     expectedValue >= policy.minimumExpectedValue;
 
+  /*
+   * Quality has to bind promotion, not merely be mentioned by it.
+   *
+   * `decideRecommendation` names grade C and F as quality refusals, but
+   * returns "NO_BET" for them and for its own fallthrough -- and promotion
+   * fired on any "NO_BET" that cleared the edge/EV policy. So a grade F
+   * selection was promoted to STRONG_EDGE by a large enough edge, which is
+   * the opposite of what the comment there claims. It is reachable: a grade
+   * can be driven to F by NO_BOOKMAKER_COVERAGE, LOW_MAPPING_CONFIDENCE,
+   * LOW_SOURCE_AUTHORITY or INCONSISTENT_DATA, none of which the earlier
+   * MISSING_PRICE / STALE_DATA branches inspect.
+   *
+   * Only masked today, not harmless: the forecast cycle downgrades every
+   * STRONG_EDGE while the artifact is EXPERIMENTAL, so nothing reaches a
+   * customer -- and the day maturity advances this becomes a promoted bet
+   * on evidence the quality engine already rejected.
+   */
+  const qualityPermitsPromotion =
+    input.quality.grade !== "F" && input.quality.grade !== "C";
+
   const gate = decideRecommendation({
     quality: input.quality,
     lineup: input.lineup,
@@ -116,7 +136,10 @@ export function evaluateDecision(
   });
 
   return {
-    status: gate === "NO_BET" && meetsPolicy ? "STRONG_EDGE" : gate,
+    status:
+      gate === "NO_BET" && meetsPolicy && qualityPermitsPromotion
+        ? "STRONG_EDGE"
+        : gate,
     fairOdds,
     expectedValue:
       expectedValue === null ? null : (String(expectedValue) as DecimalString),
@@ -126,6 +149,10 @@ export function evaluateDecision(
         ? edge === null
           ? ["MARKET_DATA_UNAVAILABLE"]
           : [edge < policy.minimumEdge ? "EDGE_TOO_SMALL" : "PRICE_TOO_SHORT"]
-        : [],
+        : /* A refusal on quality alone has to say so, or the decision reads
+             as an unexplained NO_BET on a price that did clear the policy. */
+          gate === "NO_BET" && meetsPolicy && !qualityPermitsPromotion
+          ? ["QUALITY_TOO_LOW"]
+          : [],
   };
 }
