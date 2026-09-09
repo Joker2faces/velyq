@@ -350,7 +350,19 @@ export async function createForecastCycleDbAdapter(
     ...(options.decisionPolicy
       ? { decisionPolicy: options.decisionPolicy }
       : {}),
-    ...(options.triggerJobId ? { triggerJobId: options.triggerJobId } : {}),
+    /*
+     * `prediction_runs.trigger_job_id` is a uuid column, and the trigger
+     * hands us a human-readable label ("forecast-cycle-trigger:<iso>"), so
+     * passing it through unchanged made Postgres reject every insert with
+     * invalid uuid syntax -- which is why a live cycle scanned real fixtures,
+     * resolved every identity, and still persisted nothing. Hashing the
+     * label to a uuid keeps what the label was for (two runs of the same
+     * trigger collapse to one row, so a retried cycle stays idempotent)
+     * while satisfying the column's type.
+     */
+    ...(options.triggerJobId
+      ? { triggerJobId: deterministicId(options.triggerJobId) }
+      : {}),
     modelArtifact: options.modelArtifact,
     modelVersionId,
     calibrationVersionId,
