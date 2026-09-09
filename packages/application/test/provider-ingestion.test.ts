@@ -60,6 +60,8 @@ type Harness = {
   calls: string[];
   recordedQuota: ObservedQuota[];
   recordedPurposes: string[];
+  /** Purposes charged for calls whose response never arrived. */
+  attemptedPurposes: string[];
 };
 
 function harness(
@@ -68,11 +70,15 @@ function harness(
     snapshot?: ProviderQuotaSnapshot;
     dueDates?: readonly string[];
     candidates?: readonly OddsCandidate[];
+    spent?: Readonly<
+      Record<"DISCOVERY" | "ODDS" | "LINEUP" | "RESULT", number>
+    >;
   }> = {},
 ): Harness {
   const calls: string[] = [];
   const recordedQuota: ObservedQuota[] = [];
   const recordedPurposes: string[] = [];
+  const attemptedPurposes: string[] = [];
 
   const deps: ProviderIngestionDeps<Fixture, Odds> = {
     clock: () => NOW,
@@ -81,12 +87,16 @@ function harness(
       recordedQuota.push(observed);
       recordedPurposes.push(purpose);
     },
-    spentToday: async () => ({
-      DISCOVERY: 0,
-      ODDS: 0,
-      LINEUP: 0,
-      RESULT: 0,
-    }),
+    recordRequestAttempt: async (purpose) => {
+      attemptedPurposes.push(purpose);
+    },
+    spentToday: async () =>
+      options.spent ?? {
+        DISCOVERY: 0,
+        ODDS: 0,
+        LINEUP: 0,
+        RESULT: 0,
+      },
     discoveryDueDates: async () => options.dueDates ?? [],
     oddsCandidates: async () => options.candidates ?? [],
     discoverFixtures: async (date) => {
@@ -118,7 +128,7 @@ function harness(
     }),
     ...overrides,
   };
-  return { deps, calls, recordedQuota, recordedPurposes };
+  return { deps, calls, recordedQuota, recordedPurposes, attemptedPurposes };
 }
 
 describe("runProviderIngestion", () => {
@@ -465,5 +475,121 @@ describe("one purpose per invocation", () => {
     expect(
       result.skippedByReason["ODDS_DEFERRED_AFTER_DISCOVERY"],
     ).toBeUndefined();
+  });
+});
+
+/*
+ * Quota integrity.
+ *
+ * The pass has a hard ceiling of one provider call per invocation, so on a
+ * 15-minute cadence the arithmetic worst case is 96 calls against a ~100-call
+ * plan. Everything that keeps the real figure far below that depends on the
+ * daily budgets actually depleting -- which is what these cover.
+ */
+describe("runProviderIngestion quota integrity", () => {
+  /** Never observed today, so `providerQuotaState` reports UNKNOWN. */
+  function unknownSnapshot(): ProviderQuotaSnapshot {
+    return {
+      dailyLimit: null,
+      remaining: null,
+      quotaDay: TODAY,
+      observedAt: null,
+    };
+  }
+
+  it("charges a call whose response never arrived, so the budget still depletes", async () => {
+    /*
+     * A timeout is not evidence the provider declined to serve the request,
+     * only evidence we did not read the answer. Dropping it left every
+     * budget untouched, so a persistently slow provider made the daily
+     * ceilings inoperative and the cadence became the only real bound.
+     */
+    const { deps, calls, recordedPurposes, attemptedPurposes } = harness(
+      {
+        fetchOdds: async (id) => {
+          calls.push(`odds:${id}`);
+          return { ok: false, reason: "RETRYABLE", quota: null };
+        },
+      },
+      { candidates: [candidate("a")] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["odds:a"]);
+    expect(result.providerCallsUsed).toBe(1);
+    /* No observation to record -- but the request is still charged. */
+    expect(recordedPurposes).toEqual([]);
+    expect(attemptedPurposes).toEqual(["ODDS"]);
+  });
+
+  it("probes the status endpoint when the quota is unknown and affordable", async () => {
+    const { deps, calls } = harness({}, { snapshot: unknownSnapshot() });
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["status"]);
+    expect(result.providerCallsUsed).toBe(1);
+  });
+
+  /*
+   * The probe was the one provider call that never consulted a budget. It is
+   * reached exactly when the quota is UNKNOWN, and a probe that fails leaves
+   * it UNKNOWN -- so every later wake-up probed again, unbounded.
+   */
+  it("stops probing once the discovery budget that funds it is spent", async () => {
+    const { deps, calls } = harness(
+      {},
+      {
+        snapshot: unknownSnapshot(),
+        spent: { DISCOVERY: 8, ODDS: 0, LINEUP: 0, RESULT: 0 },
+      },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual([]);
+    expect(result.providerCallsUsed).toBe(0);
+    expect(
+      Object.keys(result.skippedByReason).some((reason) =>
+        reason.startsWith("STATUS_PROBE_"),
+      ),
+    ).toBe(true);
+  });
+
+  it("charges a failed probe, so a failing probe cannot loop forever", async () => {
+    const { deps, calls, attemptedPurposes } = harness(
+      {
+        probeQuotaStatus: async () => {
+          calls.push("status");
+          return { ok: false, reason: "RETRYABLE", quota: null };
+        },
+      },
+      { snapshot: unknownSnapshot() },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["status"]);
+    expect(result.providerCallsUsed).toBe(1);
+    /* Charged to discovery, which is the budget that bounds the probe. */
+    expect(attemptedPurposes).toEqual(["DISCOVERY"]);
+  });
+
+  it("stops the pass on a rate limit rather than asking again", async () => {
+    const { deps, calls } = harness(
+      {
+        fetchOdds: async (id) => {
+          calls.push(`odds:${id}`);
+          return { ok: false, reason: "RATE_LIMITED", quota: quota(0) };
+        },
+      },
+      { candidates: [candidate("a"), candidate("b")] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["odds:a"]);
+    expect(result.errorsByReason["ODDS_RATE_LIMITED"]).toBe(1);
   });
 });

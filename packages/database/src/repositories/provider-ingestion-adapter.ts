@@ -130,6 +130,34 @@ function classifyProviderError(error: unknown): "RATE_LIMITED" | "RETRYABLE" {
   return message.includes("429") ? "RATE_LIMITED" : "RETRYABLE";
 }
 
+/**
+ * Classifies a response the provider actually returned.
+ *
+ * `classifyProviderError` can only inspect a *thrown* error, and the
+ * ingestion client is deliberately built with `retries: 0` -- so a 429
+ * returns normally and never throws. That made the RATE_LIMITED branch that
+ * stops the pass unreachable in production: discovery reported a rate limit
+ * as `REJECTED`, and odds reported it as a successful pass with no prices at
+ * all. A 429 has to change quota policy immediately, so it is classified
+ * from the status code rather than from an error string.
+ *
+ * Returns null when the response is genuinely usable.
+ */
+function classifyProviderResponse(
+  status: number,
+  errors: unknown,
+): "RATE_LIMITED" | "RETRYABLE" | "REJECTED" | null {
+  if (status === 429) return "RATE_LIMITED";
+  if (status >= 500) return "RETRYABLE";
+  if (
+    errors !== null &&
+    typeof errors === "object" &&
+    Object.keys(errors as Record<string, unknown>).length > 0
+  )
+    return "REJECTED";
+  return status >= 400 ? "REJECTED" : null;
+}
+
 function observedQuotaFrom(
   quota: Readonly<{ requestsRemaining: number | null }>,
   dailyLimit: number | null,
@@ -271,6 +299,66 @@ export async function createProviderIngestionAdapter(
             lastObservedAt: sql`excluded.last_observed_at`,
             lastProviderCallAt: sql`excluded.last_provider_call_at`,
             policyState: sql`excluded.policy_state`,
+            policyVersion: sql`excluded.policy_version`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+    },
+
+    /*
+     * Charges a request whose response never arrived.
+     *
+     * Deliberately not `recordQuotaObservation` with a null observation:
+     * that statement overwrites `remaining` unconditionally, so reusing it
+     * here would erase a known-good figure and drop the day back to
+     * UNKNOWN -- the very state that makes the pipeline probe again. So the
+     * counters advance, `daily_limit` is preserved, and `remaining` decays
+     * by the request we must assume was spent, floored at zero. It is left
+     * null when it was already null, because guessing a remaining figure we
+     * have never observed would be worse than admitting we do not know.
+     */
+    async recordRequestAttempt(
+      purpose: IngestionPurpose,
+      at: Date,
+    ): Promise<void> {
+      const quotaDay = utcQuotaDay(at);
+      await database
+        .insert(quotaStateTable)
+        .values({
+          providerId,
+          quotaDay,
+          dailyLimit: null,
+          remaining: null,
+          requestsUsed: 1,
+          discoveryRequests: purpose === "DISCOVERY" ? 1 : 0,
+          oddsRequests: purpose === "ODDS" ? 1 : 0,
+          lineupRequests: purpose === "LINEUP" ? 1 : 0,
+          resultRequests: purpose === "RESULT" ? 1 : 0,
+          /* No observation was made, so `last_observed_at` must not move --
+             only the fact that we called the provider. */
+          lastProviderCallAt: at,
+          /* Never observed, which is exactly what UNKNOWN means. On conflict
+             it is left alone: an unobserved attempt is no basis for
+             reclassifying a day. `policyState` is observability only --
+             `providerQuotaState` recomputes the authoritative state from
+             `remaining` at read time. */
+          policyState: providerQuotaState(
+            { dailyLimit: null, remaining: null, quotaDay, observedAt: null },
+            at,
+          ),
+          policyVersion: PROVIDER_QUOTA_POLICY_VERSION,
+          updatedAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [quotaStateTable.providerId, quotaStateTable.quotaDay],
+          set: {
+            requestsUsed: sql`${quotaStateTable.requestsUsed} + 1`,
+            discoveryRequests: sql`${quotaStateTable.discoveryRequests} + excluded.discovery_requests`,
+            oddsRequests: sql`${quotaStateTable.oddsRequests} + excluded.odds_requests`,
+            lineupRequests: sql`${quotaStateTable.lineupRequests} + excluded.lineup_requests`,
+            resultRequests: sql`${quotaStateTable.resultRequests} + excluded.result_requests`,
+            remaining: sql`case when ${quotaStateTable.remaining} is null then null else greatest(${quotaStateTable.remaining} - 1, 0) end`,
+            lastProviderCallAt: sql`excluded.last_provider_call_at`,
             policyVersion: sql`excluded.policy_version`,
             updatedAt: sql`excluded.updated_at`,
           },
@@ -444,18 +532,15 @@ export async function createProviderIngestionAdapter(
       try {
         const response = await client.get("/fixtures", { date });
         const quota = observedQuotaFrom(response.quota, null, clock());
-        const errors = response.body.errors;
-        if (
-          errors !== null &&
-          typeof errors === "object" &&
-          Object.keys(errors).length > 0
-        ) {
-          /*
-           * A rejected request still consumed quota, so the observation is
-           * reported even though the payload is unusable.
-           */
-          return { ok: false, reason: "REJECTED", quota };
-        }
+        /*
+         * A rejected request still consumed quota, so the observation is
+         * reported even though the payload is unusable.
+         */
+        const rejection = classifyProviderResponse(
+          response.status,
+          response.body.errors,
+        );
+        if (rejection) return { ok: false, reason: rejection, quota };
         const value = (response.body.response ?? []).map((record) => {
           const event = normalizeFootballFixture(record);
           return {
@@ -508,6 +593,18 @@ export async function createProviderIngestionAdapter(
         await markRequested();
         const observedAt = clock();
         const quota = observedQuotaFrom(response.quota, null, observedAt);
+        /*
+         * Discovery guarded on this and odds did not, so a refused odds
+         * request -- rate limit, plan limit, bad parameter -- was recorded
+         * as a successful pass that simply found no prices. The funnel then
+         * told an operator "we priced it, the provider had nothing", which
+         * is the opposite of what happened.
+         */
+        const rejection = classifyProviderResponse(
+          response.status,
+          response.body.errors,
+        );
+        if (rejection) return { ok: false, reason: rejection, quota };
         const value = (response.body.response ?? []).flatMap((record) =>
           normalizeOdds(record, "FOOTBALL", observedAt.toISOString()),
         );
@@ -530,11 +627,13 @@ export async function createProviderIngestionAdapter(
           response?: { requests?: { limit_day?: number } };
         };
         const dailyLimit = body.response?.requests?.limit_day ?? null;
-        return {
-          ok: true,
-          value: null,
-          quota: observedQuotaFrom(response.quota, dailyLimit, clock()),
-        };
+        const quota = observedQuotaFrom(response.quota, dailyLimit, clock());
+        const rejection = classifyProviderResponse(
+          response.status,
+          response.body.errors,
+        );
+        if (rejection) return { ok: false, reason: rejection, quota };
+        return { ok: true, value: null, quota };
       } catch (error) {
         return { ok: false, reason: classifyProviderError(error), quota: null };
       }

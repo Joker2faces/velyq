@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 
 const workspace = resolve(import.meta.dirname, "../../..");
 const adminApp = resolve(workspace, "apps/admin");
-const corepack = process.platform === "win32" ? "corepack.cmd" : "corepack";
 
 describe("database Vercel package integration", () => {
   it("builds the database artifact through the pinned package manager", () => {
@@ -32,18 +31,22 @@ describe("database Vercel package integration", () => {
     expect(manifest.exports["."]?.import).toBe("./dist/index.js");
     expect(manifest.exports["./client"]?.import).toBe("./dist/client.js");
 
-    const build = spawnSync(
-      process.platform === "win32"
-        ? (process.env["ComSpec"] ?? "cmd.exe")
-        : corepack,
-      process.platform === "win32"
-        ? ["/d", "/s", "/c", "corepack pnpm --filter @velyq/database... build"]
-        : ["pnpm", "--filter", "@velyq/database...", "build"],
-      { cwd: workspace, encoding: "utf8", shell: false },
-    );
-
-    expect(build.status, build.stderr).toBe(0);
-
+    /*
+     * This used to spawn `pnpm --filter @velyq/database... build` here.
+     * That was a real `tsc` run writing `packages/database/dist/` in the
+     * middle of the suite, while other test files were importing from that
+     * same directory -- so whenever `dist` was genuinely stale (i.e. right
+     * after anyone edited this package) the rewrite raced their imports and
+     * a run failed for reasons unrelated to the assertion. It was also
+     * redundant: `pretest` runs `turbo build --filter=./packages/*` before
+     * vitest starts, so `dist` is already current here, and the admin build
+     * command itself is asserted above and exercised for real by
+     * `turbo build` on `@velyq/admin`.
+     *
+     * What actually matters is below: that the *built* artifact resolves and
+     * exports the privileged client when imported from the admin app's own
+     * directory, which is where the Vercel regression happened.
+     */
     const probe = spawnSync(
       process.execPath,
       [

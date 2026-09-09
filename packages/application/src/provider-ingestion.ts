@@ -91,6 +91,20 @@ export type ProviderIngestionDeps<TFixture, TOdds> = Readonly<{
     observed: ObservedQuota,
     purpose: IngestionPurpose,
   ) => Promise<void>;
+  /**
+   * Counts a provider request whose response never arrived.
+   *
+   * A timeout or a network fault is not evidence the provider declined to
+   * serve the request -- only evidence we did not read the answer. It was
+   * very likely charged to the plan, so it has to be charged to ours too.
+   * Without this, a failing provider left every budget untouched and the
+   * only remaining bound was the scheduler cadence.
+   *
+   * Distinct from `recordQuotaObservation` because there is no observation
+   * to record: the last known remaining figure must be preserved (decayed
+   * by the assumed spend), never overwritten with "unknown".
+   */
+  recordRequestAttempt: (purpose: IngestionPurpose, at: Date) => Promise<void>;
   /** Requests already spent per purpose during the current quota day. */
   spentToday: () => Promise<Readonly<Record<IngestionPurpose, number>>>;
 
@@ -274,7 +288,16 @@ export async function runProviderIngestion<TFixture, TOdds>(
     observed: ObservedQuota | null,
     purpose: IngestionPurpose,
   ): Promise<void> => {
-    if (!observed) return;
+    /*
+     * No observation means the call threw -- a timeout, a network fault, a
+     * body that would not parse. The request itself still happened, so it
+     * is charged here rather than dropped; dropping it was what let a
+     * persistently slow provider make the daily budgets inoperative.
+     */
+    if (!observed) {
+      await deps.recordRequestAttempt(purpose, deps.clock());
+      return;
+    }
     await deps.recordQuotaObservation(observed, purpose);
     snapshot = {
       remaining: observed.remaining,
@@ -446,13 +469,36 @@ export async function runProviderIngestion<TFixture, TOdds>(
    * request buys a known budget for every later pass that day.
    */
   if (shouldProbeQuotaStatus(snapshot, deps.clock(), providerCallsUsed)) {
-    const outcome = await deps.probeQuotaStatus();
-    providerCallsUsed += 1;
-    quotaProbed = true;
-    /* Charged to discovery: it is the purpose whose budget funds finding out
-       what the day's budget actually is. */
-    await absorb(outcome.quota, "DISCOVERY");
-    if (!outcome.ok) bump(errorsByReason, `STATUS_${outcome.reason}`);
+    /*
+     * Every other provider call passes `purposeRequestBudget`; this one did
+     * not, which made it the one unbounded call in the pass. That matters
+     * because a probe is reached exactly when the quota is UNKNOWN, and a
+     * probe that fails -- or a provider that stops sending the remaining
+     * header -- leaves it UNKNOWN, so the next wake-up probed again. On a
+     * 15-minute cadence that is 96 status calls a day against a ~100-call
+     * plan, spent entirely on inspecting the budget.
+     */
+    const probeBudget = purposeRequestBudget({
+      purpose: "DISCOVERY",
+      snapshot,
+      spentToday: spent.DISCOVERY + discoveryDatesRequested.length,
+      candidates: 1,
+      now: deps.clock(),
+    });
+    if (probeBudget.allowed > 0) {
+      const outcome = await deps.probeQuotaStatus();
+      providerCallsUsed += 1;
+      quotaProbed = true;
+      /* Charged to discovery: it is the purpose whose budget funds finding
+         out what the day's budget actually is. */
+      await absorb(outcome.quota, "DISCOVERY");
+      if (!outcome.ok) bump(errorsByReason, `STATUS_${outcome.reason}`);
+    } else {
+      bump(
+        skippedByReason,
+        `STATUS_PROBE_${probeBudget.limitedBy ?? "PURPOSE_BUDGET_SPENT"}`,
+      );
+    }
   }
 
   const finishedAt = deps.clock();
