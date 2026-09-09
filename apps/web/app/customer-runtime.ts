@@ -23,7 +23,7 @@ import { subscriptions } from "@velyq/database/schema/private";
 import { DatabasePermissionResolver } from "@velyq/database";
 import {
   hasPermission,
-  resolveCustomerEntitlements,
+  resolveEffectiveEntitlements,
   type CustomerEntitlement,
   type CustomerPlan,
   type SubscriptionStatus,
@@ -240,7 +240,7 @@ export async function resolveCustomerContext(cookieHeader: string) {
       ].includes(current.status)
         ? (current.status as SubscriptionStatus)
         : null;
-    const resolved = resolveCustomerEntitlements({ plan, status });
+    const resolved = resolveEffectiveEntitlements({ plan, status }, principal);
     return {
       email: user.email ?? "",
       plan: resolved.plan,

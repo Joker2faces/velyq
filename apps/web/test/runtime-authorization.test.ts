@@ -315,3 +315,133 @@ describe("request-scoped customer data", () => {
     expectEverySessionClosed();
   });
 });
+
+/*
+ * Administrative product access.
+ *
+ * Entitlements used to be resolved from the subscription row alone, so the
+ * operator account -- which has no subscription -- resolved to FREE and was
+ * shown the "Match Intelligence is available on ELITE" wall. Billing is
+ * deliberately deferred, so that made a commercial prerequisite out of
+ * testing the product. These cases pin the fix to the server-side role and
+ * keep the commercial gate intact for everyone else.
+ */
+describe("administrative product access", () => {
+  function adminRows() {
+    return [
+      { roleCode: "ADMIN", permissionCode: "customer.read" },
+      { roleCode: "ADMIN", permissionCode: "admin.access" },
+    ];
+  }
+
+  it("lets an ADMIN with admin.access read Match Intelligence on no subscription", async () => {
+    runtimeState.permissionRows = adminRows();
+    runtimeState.subscriptionRows = [];
+
+    await expect(
+      requireCustomerSession(authenticatedRequest(), "match.detail"),
+    ).resolves.toBeNull();
+    await expect(
+      requireCustomerSession(authenticatedRequest(), "edge.full"),
+    ).resolves.toBeNull();
+    await expect(
+      requireCustomerSession(authenticatedRequest(), "radar.full"),
+    ).resolves.toBeNull();
+    expectEverySessionClosed();
+  });
+
+  it("still denies Match Intelligence to an authorized FREE customer", async () => {
+    runtimeState.permissionRows = [
+      { roleCode: "CUSTOMER", permissionCode: "customer.read" },
+    ];
+    runtimeState.subscriptionRows = [];
+
+    const denied = await requireCustomerSession(
+      authenticatedRequest(),
+      "match.detail",
+    );
+
+    expect(denied?.status).toBe(403);
+    await expect(denied?.json()).resolves.toMatchObject({
+      code: "ENTITLEMENT_REQUIRED",
+    });
+  });
+
+  it("denies Match Intelligence to a logged-out request", async () => {
+    const denied = await requireCustomerSession(
+      new Request("https://velyq.test/api/v1/match"),
+      "match.detail",
+    );
+
+    expect(denied?.status).toBe(401);
+    expect(denied?.headers.get("cache-control")).toBe("private, no-store");
+    await expect(denied?.json()).resolves.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  /*
+   * The elevation is read from permission rows, never from anything the
+   * caller can write. A client that simply asserts it is an administrator
+   * must still be refused.
+   */
+  it("cannot be spoofed by client-supplied role claims", async () => {
+    runtimeState.permissionRows = [
+      { roleCode: "CUSTOMER", permissionCode: "customer.read" },
+    ];
+    runtimeState.subscriptionRows = [];
+
+    const forged = new Request("https://velyq.test/customer", {
+      headers: {
+        cookie:
+          "velyq_access_token=access-token; velyq_role=ADMIN; velyq_plan=ELITE; velyq_is_admin=true",
+        "x-velyq-role": "ADMIN",
+        "x-velyq-admin": "true",
+        "x-velyq-entitlements": "match.detail",
+      },
+    });
+
+    const denied = await requireCustomerSession(forged, "match.detail");
+
+    expect(denied?.status).toBe(403);
+    await expect(denied?.json()).resolves.toMatchObject({
+      code: "ENTITLEMENT_REQUIRED",
+    });
+  });
+
+  /*
+   * Defence in depth: the ADMIN role code alone is not the grant. Both the
+   * role and the admin.access permission have to be present, so revoking
+   * the permission revokes the elevation.
+   */
+  it("does not elevate an ADMIN role that lacks admin.access", async () => {
+    runtimeState.permissionRows = [
+      { roleCode: "ADMIN", permissionCode: "customer.read" },
+    ];
+    runtimeState.subscriptionRows = [];
+
+    const denied = await requireCustomerSession(
+      authenticatedRequest(),
+      "match.detail",
+    );
+
+    expect(denied?.status).toBe(403);
+    await expect(denied?.json()).resolves.toMatchObject({
+      code: "ENTITLEMENT_REQUIRED",
+    });
+  });
+
+  /*
+   * Account must not start advertising a plan the operator has not bought:
+   * the capability set widens, the reported tier stays truthful.
+   */
+  it("reports the real plan while granting administrative entitlements", async () => {
+    runtimeState.permissionRows = adminRows();
+    runtimeState.subscriptionRows = [];
+
+    const context = await loadCustomerContext();
+
+    expect(context).toMatchObject({ plan: "FREE", isAdmin: true });
+    expect(context?.entitlements).toContain("match.detail");
+  });
+});

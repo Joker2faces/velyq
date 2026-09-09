@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import {
   hasCustomerEntitlement,
   hasPermission,
-  resolveCustomerEntitlements,
+  resolveEffectiveEntitlements,
   type CustomerEntitlement,
   type CustomerPlan,
+  type Principal,
   type SubscriptionStatus,
 } from "@velyq/auth";
 import { DatabasePermissionResolver } from "@velyq/database";
@@ -112,7 +113,7 @@ export async function requireCustomerSession(
           session = await openRuntimeDatabaseSession();
           if (!session)
             return customerFixtureMode()
-              ? entitlementDecision(request, "FREE", null, entitlement)
+              ? entitlementDecision(request, "FREE", null, entitlement, null)
               : authorizationUnavailable(request);
           const principal = await new DatabasePermissionResolver(
             session.database,
@@ -137,7 +138,13 @@ export async function requireCustomerSession(
               ? current.plan
               : "FREE";
           const status = subscriptionStatus(current?.status);
-          return entitlementDecision(request, plan, status, entitlement);
+          return entitlementDecision(
+            request,
+            plan,
+            status,
+            entitlement,
+            principal,
+          );
         } catch {
           return authorizationUnavailable(request);
         } finally {
@@ -174,9 +181,10 @@ function entitlementDecision(
   plan: CustomerPlan,
   status: SubscriptionStatus | null,
   entitlement: CustomerEntitlement,
+  principal: Principal | null,
 ) {
   return hasCustomerEntitlement(
-    resolveCustomerEntitlements({ plan, status }),
+    resolveEffectiveEntitlements({ plan, status }, principal),
     entitlement,
   )
     ? null
