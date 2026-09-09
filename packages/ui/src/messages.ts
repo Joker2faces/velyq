@@ -678,6 +678,11 @@ export const messages = {
   reasonEdgeDisappeared: "Edge no longer present",
   reasonRepriced: "Market has repriced",
   reasonInsufficientCoverage: "Not enough market coverage",
+  reasonNoBookmakerCoverage: "No bookmaker is quoting this",
+  reasonLowSourceAuthority: "Source not authoritative enough",
+  reasonInconsistentData: "Sources disagree on this price",
+  reasonInsufficientData: "Not enough history",
+  reasonUnknown: "Not available",
 } as const;
 
 export type MessageKey = keyof typeof messages;
@@ -1291,6 +1296,11 @@ const greek: Readonly<Record<MessageKey, string>> = {
   reasonEdgeDisappeared: "Η ευκαιρία δεν ισχύει πλέον",
   reasonRepriced: "Η αγορά αναπροσάρμοσε",
   reasonInsufficientCoverage: "Ανεπαρκής κάλυψη αγοράς",
+  reasonNoBookmakerCoverage: "Καμία στοιχηματική δεν δίνει απόδοση",
+  reasonLowSourceAuthority: "Η πηγή δεν είναι αρκετά έγκυρη",
+  reasonInconsistentData: "Οι πηγές διαφωνούν για την απόδοση",
+  reasonInsufficientData: "Ανεπαρκές ιστορικό",
+  reasonUnknown: "Μη διαθέσιμο",
 };
 
 export const translations: Readonly<

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   competitionLabel,
+  reasonLabel,
   formatCount,
   formatLongDate,
   formatOdds,
@@ -36,7 +37,6 @@ import {
   Trend,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
-import { forecastReason } from "../customer/forecast-presentation";
 
 /**
  * The Today command centre, rendered in the browser from the protected API.
@@ -317,7 +317,7 @@ export function TodayView({
                     <span>
                       {forecastLabels.reason}:{" "}
                       {match.quality.reasonCodes
-                        .map((code) => forecastReason(code, locale))
+                        .map((code) => reasonLabel(code, locale))
                         .join(", ")}
                     </span>
                   </div>
@@ -379,7 +379,7 @@ export function TodayView({
                     <p>
                       {forecastLabels.reason}:{" "}
                       {match.quality.reasonCodes
-                        .map((code) => forecastReason(code, locale))
+                        .map((code) => reasonLabel(code, locale))
                         .join(", ")}
                     </p>
                   ) : (
@@ -397,7 +397,7 @@ export function TodayView({
                         {recommendationLabel(match.recommendation, locale)} ·{" "}
                         {forecastLabels.reason}:{" "}
                         {match.quality.reasonCodes
-                          .map((code) => forecastReason(code, locale))
+                          .map((code) => reasonLabel(code, locale))
                           .join(", ")}
                       </p>
                     </>

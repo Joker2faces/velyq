@@ -275,10 +275,28 @@ const REASON_LABELS: Readonly<Record<string, MessageKey>> = {
   EDGE_DISAPPEARED: "reasonEdgeDisappeared",
   REPRICED: "reasonRepriced",
   INSUFFICIENT_COVERAGE: "reasonInsufficientCoverage",
+  /*
+   * These four are emitted by `assessDataQuality` and were missing, so they
+   * fell through to `humanize` -- which produced an English sentence ("No
+   * bookmaker coverage") on a Greek page.
+   */
+  NO_BOOKMAKER_COVERAGE: "reasonNoBookmakerCoverage",
+  LOW_SOURCE_AUTHORITY: "reasonLowSourceAuthority",
+  INCONSISTENT_DATA: "reasonInconsistentData",
+  INSUFFICIENT_DATA: "reasonInsufficientData",
 };
 
+/**
+ * What is holding a decision back.
+ *
+ * Unlike the other label helpers this does not fall back to `humanize`: an
+ * unmapped reason code would then render as an English sentence regardless
+ * of locale. A reason we cannot name is reported as unavailable instead,
+ * which is at least true in both languages.
+ */
 export function reasonLabel(code: string, locale: Locale) {
-  return lookup(REASON_LABELS, code, locale);
+  const key = REASON_LABELS[code];
+  return translate(key ?? "reasonUnknown", locale);
 }
 
 export function reasonLabels(codes: readonly string[], locale: Locale) {
