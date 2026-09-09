@@ -139,6 +139,52 @@ function looksInternal(value: string): boolean {
   );
 }
 
+const MARKET_LABELS: Readonly<Record<string, MessageKey>> = {
+  "market.football_full_time_1x2": "marketFullTime1x2",
+  "market.football_full_time_total": "marketFullTimeTotal",
+};
+
+/**
+ * Human label for a betting market.
+ *
+ * The catalog stores `market.football_full_time_1x2` -- generated from the
+ * canonical code -- and History rendered that verbatim next to the raw
+ * selection code and the raw decision enum.
+ */
+export function marketLabel(code: string, locale: Locale) {
+  const key = MARKET_LABELS[code];
+  if (key) return translate(key, locale);
+  return looksInternal(code) ? "—" : code;
+}
+
+/**
+ * Human label for a competition.
+ *
+ * `catalog.competitions.name_key` is a key by design, and every value written
+ * anywhere in this repository is one (`competition.ita_serie_a`,
+ * `competition.synthetic_league`). Four customer surfaces rendered it
+ * directly, so a customer could read "competition.ita_serie_a" on Today, on
+ * the match page, on the landing page and in History.
+ *
+ * Competitions are operator-controlled, so an exhaustive translation map is
+ * not possible. An unmapped key therefore has its final segment rendered as
+ * words rather than being dropped: losing the competition from every card
+ * would be a worse answer than an imperfect name, and printing the dotted
+ * identifier is not an answer at all. A value that is already a display
+ * name -- which is what the synthetic corpus and any operator-entered name
+ * look like -- passes through untouched, so seeding real names is all it
+ * takes to improve this.
+ */
+export function competitionLabel(value: string) {
+  if (!looksInternal(value)) return value;
+  const segment = value.split(".").pop() ?? value;
+  return segment
+    .split("_")
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 /**
  * Human label for a market selection.
  *

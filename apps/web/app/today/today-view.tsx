@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  competitionLabel,
   formatCount,
   formatLongDate,
   formatOdds,
@@ -359,7 +360,7 @@ export function TodayView({
                   <div className="forecast-card__head">
                     <div>
                       <p className="eyebrow">
-                        {match.competition} ·{" "}
+                        {competitionLabel(match.competition)} ·{" "}
                         {formatTime(match.startsAt, locale)}
                       </p>
                       <h3>

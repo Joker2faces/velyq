@@ -650,6 +650,10 @@ export const messages = {
   // financial writing uses «μον.» (μονάδες) where English uses "pp".
   unitPercentagePoints: "pp",
 
+  // ------------------------------------------------------------- markets
+  marketFullTime1x2: "Full-time 1X2",
+  marketFullTimeTotal: "Full-time goals",
+
   // ---------------------------------------------------------- selections
   selectionHome: "Home win",
   selectionDraw: "Draw",
@@ -1263,6 +1267,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Η αξία που υπήρχε δεν φαίνεται πια στην τρέχουσα απόδοση — η αγορά αναπροσάρμοσε.",
 
   unitPercentagePoints: "μον.",
+
+  marketFullTime1x2: "Τελικό αποτέλεσμα 1Χ2",
+  marketFullTimeTotal: "Σύνολο γκολ κανονικής διάρκειας",
 
   selectionHome: "Νίκη γηπεδούχου",
   selectionDraw: "Ισοπαλία",

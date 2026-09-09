@@ -54,12 +54,14 @@ export {
 } from "./messages.js";
 
 export {
+  competitionLabel,
   entitlementLabel,
   freshnessLabel,
   freshnessTone,
   isGatedRecommendation,
   lineupLabel,
   lineupTone,
+  marketLabel,
   qualityMeter,
   qualityTone,
   reasonLabel,

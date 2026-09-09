@@ -1,4 +1,5 @@
 import {
+  competitionLabel,
   formatOdds,
   formatPercent,
   formatPointsDelta,
@@ -108,7 +109,7 @@ export default async function Home() {
                   <Fixture
                     homeTeam={featured.homeTeam}
                     awayTeam={featured.awayTeam}
-                    meta={`${featured.competition} · ${formatTime(
+                    meta={`${competitionLabel(featured.competition)} · ${formatTime(
                       featured.startsAt,
                       locale,
                     )} · ${selectionLabel(featured.selection, locale)}`}

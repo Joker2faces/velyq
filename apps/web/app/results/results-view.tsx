@@ -1,4 +1,12 @@
-import { formatOdds, formatPercent, type Locale } from "@velyq/ui";
+import {
+  competitionLabel,
+  formatOdds,
+  formatPercent,
+  marketLabel,
+  recommendationLabel,
+  selectionLabel,
+  type Locale,
+} from "@velyq/ui";
 import type { HistorySurfaceDto } from "../customer/history-surface";
 import { Badge, Card, CardHead, Stat } from "../components/ui";
 
@@ -117,13 +125,15 @@ export function ResultsView({
                   {new Date(item.decidedAt).toLocaleDateString(
                     locale === "el" ? "el-GR" : "en-GB",
                   )}{" "}
-                  · {item.competition}
+                  · {competitionLabel(item.competition)}
                 </p>
                 <h3>
                   {item.homeTeam} — {item.awayTeam}
                 </h3>
                 <p>
-                  {item.market} · {item.selection} · {item.decisionState}
+                  {marketLabel(item.market, locale)} ·{" "}
+                  {selectionLabel(item.selection, locale)} ·{" "}
+                  {recommendationLabel(item.decisionState, locale)}
                 </p>
               </div>
               <div className="results-row__facts">

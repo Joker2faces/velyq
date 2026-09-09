@@ -1,4 +1,5 @@
 import {
+  competitionLabel,
   directionOf,
   movementLabel,
   formatDateTime,
@@ -133,7 +134,8 @@ export default async function Match({
               </span>
             </h1>
             <p>
-              {match.competition} · {formatDateTime(match.startsAt, locale)} UTC
+              {competitionLabel(match.competition)} ·{" "}
+              {formatDateTime(match.startsAt, locale)} UTC
             </p>
           </div>
           <div className="page__badges">
