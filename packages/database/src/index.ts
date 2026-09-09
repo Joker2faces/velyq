@@ -24,4 +24,5 @@ export * from "./repositories/scores.js";
 export * from "./repositories/customer-queries.js";
 export * from "./repositories/history.js";
 export * from "./repositories/result-settlement.js";
+export * from "./maintenance/identity-remediation.js";
 export * from "./schema/index.js";

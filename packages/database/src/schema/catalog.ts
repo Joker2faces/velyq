@@ -120,6 +120,10 @@ export const competitionIdentities = catalogSchema.table(
       "competition_identities_confidence_range_check",
       sql`${table.mappingConfidence} is null or (${table.mappingConfidence} >= 0 and ${table.mappingConfidence} <= 1)`,
     ),
+    check(
+      "competition_identities_confirmed_requires_catalog",
+      sql`${table.mappingStatus} <> 'CONFIRMED' or ${table.competitionId} is not null`,
+    ),
   ],
 );
 

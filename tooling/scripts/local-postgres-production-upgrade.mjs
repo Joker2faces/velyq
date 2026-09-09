@@ -218,6 +218,14 @@ FROM catalog.sports sp WHERE sp.code = 'FOOTBALL';
 
 INSERT INTO catalog.event_identities (id, event_id, source_code, source_key)
 VALUES ('99000000-0000-4000-8000-000000000004', '99000000-0000-4000-8000-000000000003', 'API_SPORTS', 'PROD_LEGACY_TEST_FIXTURE');
+
+-- Production currently contains legacy LIVE rows without an identity. The
+-- closure migration must protect every future write without rewriting or
+-- falsely relabelling this historical row.
+INSERT INTO catalog.events (id, sport_id, competition_id, starts_at, status, synthetic)
+SELECT '99000000-0000-4000-8000-000000000005', sp.id,
+       '99000000-0000-4000-8000-000000000001', now() - interval '1 day', 'FT', false
+FROM catalog.sports sp WHERE sp.code = 'FOOTBALL';
 SQL
 
 echo '--- capturing pre-reconciliation state ---'
@@ -242,6 +250,14 @@ psql -f '${wslWorkspace}/supabase/migrations/20260925110000_legacy_identity_comp
 psql -f '${wslWorkspace}/supabase/migrations/20260922090000_score_results_idempotency_key.sql'
 psql -f '${wslWorkspace}/supabase/migrations/20260925100000_forecasts_decisions_and_settlements.sql'
 
+echo '--- reproducing the observed CONFIRMED-without-catalog legacy state ---'
+psql -c "
+  update catalog.competition_identities
+  set mapping_status = 'CONFIRMED', competition_id = null, verified_at = now()
+  where id = '99000000-0000-4000-8000-000000000002'
+"
+psql -f '${wslWorkspace}/supabase/migrations/20260926120000_enforce_identity_invariants.sql'
+
 echo '--- verifying the release tables now exist ---'
 psql -t -A -c "select to_regclass('intelligence.forecasts') is not null" | grep -qx t
 psql -t -A -c "select to_regclass('intelligence.decisions') is not null" | grep -qx t
@@ -263,13 +279,13 @@ psql -t -A -c "select canonical_code, source_code, source_key, source_name from 
 psql -t -A -c "select event_id, source_code, source_key from catalog.event_identities where id = '99000000-0000-4000-8000-000000000004'" \\
   | grep -qx '99000000-0000-4000-8000-000000000003|API_SPORTS|PROD_LEGACY_TEST_FIXTURE'
 
-echo '--- verifying the NEW branch-required columns were backfilled correctly, without guessing ---'
+echo '--- verifying the NEW branch-required provider columns and reproduced legacy anomaly ---'
 psql -t -A -c "
   select provider_id is not null
     and provider_competition_id = 'PROD_LEGACY_TEST_LEAGUE'
     and display_name = 'Serie A'
-    and mapping_status = 'PENDING_REVIEW'
-    and competition_id = '99000000-0000-4000-8000-000000000001'
+    and mapping_status = 'CONFIRMED'
+    and competition_id is null
   from catalog.competition_identities where id = '99000000-0000-4000-8000-000000000002'
 " | grep -qx t
 psql -t -A -c "
@@ -282,13 +298,42 @@ psql -t -A -c "
   where ci.id = '99000000-0000-4000-8000-000000000002'
 " | grep -qx API_SPORTS
 
-echo '--- verifying the deferred provenance trigger WAS enabled (zero orphan LIVE events in this fixture) ---'
+echo '--- verifying the future-write provenance invariant is enabled despite a legacy orphan ---'
 psql -t -A -c "
   select count(*) = 1 from pg_trigger where tgname = 'events_provenance_required'
 " | grep -qx t
+psql -t -A -c "
+  select count(*) = 1 from catalog.events
+  where id = '99000000-0000-4000-8000-000000000005'
+    and synthetic = false
+" | grep -qx t
+if psql -c "
+  insert into catalog.events (id, sport_id, competition_id, starts_at, status, synthetic)
+  select '99000000-0000-4000-8000-000000000006', sport_id,
+         competition_id, now(), 'NS', false
+  from catalog.events where id = '99000000-0000-4000-8000-000000000005'
+" >/dev/null 2>&1; then
+  echo 'future LIVE orphan was incorrectly accepted' >&2
+  exit 1
+fi
 
-echo '--- verifying no NOT NULL/constraint violation and no rows silently marked CONFIRMED ---'
-psql -t -A -c "select count(*) = 0 from catalog.competition_identities where mapping_status = 'CONFIRMED'" | grep -qx t
+echo '--- verifying CONFIRMED now requires a catalog competition for future writes ---'
+psql -t -A -c "
+  select convalidated = false from pg_constraint
+  where conname = 'competition_identities_confirmed_requires_catalog'
+" | grep -qx t
+if psql -c "
+  insert into catalog.competition_identities
+    (provider_id, provider_competition_id, display_name, mapping_status)
+  select id, 'INVALID_CONFIRMED_TEST', 'Invalid confirmed test', 'CONFIRMED'
+  from operations.providers where code = 'API_SPORTS'
+" >/dev/null 2>&1; then
+  echo 'future invalid CONFIRMED identity was incorrectly accepted' >&2
+  exit 1
+fi
+
+echo '--- verifying the reproduced legacy CONFIRMED anomaly remains for reviewed remediation ---'
+psql -t -A -c "select count(*) = 1 from catalog.competition_identities where mapping_status = 'CONFIRMED' and competition_id is null" | grep -qx t
 
 echo '--- verifying pre-reconciliation data survived unrewritten ---'
 psql -t -A -F',' -c "

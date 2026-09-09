@@ -135,7 +135,7 @@ export LD_LIBRARY_PATH=$runtime/usr/lib/x86_64-linux-gnu
 let success = false;
 try {
   wsl(bootstrap);
-  run(
+  const testOutput = run(
     process.execPath,
     [
       join(workspace, "node_modules", "vitest", "vitest.mjs"),
@@ -148,6 +148,7 @@ try {
       shell: false,
     },
   );
+  console.log(testOutput);
   success = true;
   console.log("PASS local PostgreSQL migration, seed and DB integration suite");
 } finally {
