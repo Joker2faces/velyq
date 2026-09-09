@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { proxy } from "../../apps/web/proxy.ts";
 import {
-  customerToday,
+  customerTodaySnapshot,
   findCustomerMatch,
 } from "../../apps/web/app/customer-data.ts";
 
@@ -81,8 +81,17 @@ describe("customer route protection and scenario reachability", () => {
   });
 
   it("keeps every customer scenario reachable by its event id", () => {
+    /*
+     * The snapshot is built per call (it must not read the clock at module
+     * load -- see app/customer-data.ts), so comparing one snapshot against
+     * `findCustomerMatch`'s own requires a pinned clock, or the two
+     * disagree by however many milliseconds elapsed between them.
+     */
+    process.env["VELYQ_DEMO_CLOCK"] = "2027-03-15T10:00:00.000Z";
+    const customerToday = customerTodaySnapshot();
     expect(customerToday.matches).toHaveLength(7);
     for (const match of customerToday.matches)
       expect(findCustomerMatch(match.eventId)).toEqual(match);
+    delete process.env["VELYQ_DEMO_CLOCK"];
   });
 });

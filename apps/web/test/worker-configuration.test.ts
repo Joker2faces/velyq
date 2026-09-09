@@ -40,9 +40,24 @@ describe("deployed Worker configuration", () => {
     expect(vars["VELYQ_SYNTHETIC_PREVIEW"]).toBeUndefined();
   });
 
-  it("keeps synthetic football data enabled", () => {
+  /*
+   * The isolated release-candidate Worker inherited SYNTHETIC_DEMO from this
+   * config and served fabricated football on authenticated pages while
+   * reporting itself LIVE. The base config is now LIVE, and synthetic data
+   * is an explicit `--env demo` opt-in.
+   */
+  it("defaults to LIVE football data, never synthetic", () => {
     const vars = workerConfig().vars ?? {};
-    expect(vars["VELYQ_CUSTOMER_INTELLIGENCE_MODE"]).toBe("SYNTHETIC_DEMO");
+    expect(vars["VELYQ_CUSTOMER_INTELLIGENCE_MODE"]).toBe("LIVE");
+  });
+
+  it("keeps synthetic football data reachable only through the explicit demo environment", () => {
+    const config = workerConfig() as {
+      env?: Record<string, { vars?: Record<string, unknown> }>;
+    };
+    expect(
+      config.env?.["demo"]?.vars?.["VELYQ_CUSTOMER_INTELLIGENCE_MODE"],
+    ).toBe("SYNTHETIC_DEMO");
   });
 
   it("binds Hyperdrive, and does not supply a direct database URL", () => {

@@ -1833,6 +1833,35 @@ a.row:hover {
   width: 2px;
 }
 
+/* -------------------------------------------------- Today watch rows */
+
+/*
+ * `.match-row` / `.match-row__metrics` were used by the Today watch list but
+ * never had any rules, so the metric spans rendered as unseparated inline
+ * text: "Current 2.00Interesting from 2.29+Distance to validity 0.29". The
+ * markup was already correct (one span per metric) -- only the spacing was
+ * missing. Wrapping matters here for the same reason it does in the header:
+ * the Greek labels ("Απόσταση από το όριο") are materially longer than the
+ * English ones and must not overflow at 390px.
+ */
+.match-row {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  justify-content: space-between;
+  padding-top: var(--space-3);
+}
+
+.match-row__metrics {
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--space-2) var(--space-4);
+}
+
 .fixture__meta {
   color: var(--text-muted);
   font-family: var(--font-label);

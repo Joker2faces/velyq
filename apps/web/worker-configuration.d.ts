@@ -9,7 +9,7 @@ interface __BaseEnv_Env {
   NEXT_PUBLIC_SUPABASE_URL: "https://zvdqkmevjfwprexshpap.supabase.co";
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_YEvRp91UoERENWagW5gY6g_8JHyPv_a";
   VELYQ_APPLICATION_ORIGIN: "https://velyq-poc.joker2face1990.workers.dev";
-  VELYQ_CUSTOMER_INTELLIGENCE_MODE: "SYNTHETIC_DEMO";
+  VELYQ_CUSTOMER_INTELLIGENCE_MODE: "LIVE";
 }
 declare namespace Cloudflare {
   interface Env extends __BaseEnv_Env {}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { customerToday } from "../../apps/web/app/customer-data";
+import { customerTodaySnapshot } from "../../apps/web/app/customer-data";
+
+const customerToday = customerTodaySnapshot();
 
 describe("customer synthetic scenario matrix", () => {
   it("exposes every required Phase 1 recommendation state", () => {

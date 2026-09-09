@@ -18,20 +18,11 @@ afterEach(() => {
 });
 
 /*
- * This file's tests were observed to fail intermittently (Test timed out
- * in 5000ms) only under a full parallel `vitest run` of the whole
- * monorepo, never in isolation and never from a logic defect: reproduced
- * across repeated full-suite runs, the actual work inside each failing
- * test (a plain object map over half a dozen literal records) takes
- * microseconds -- the timeout is consumed by `await import("../app/
- * customer-data")` occasionally queueing behind esbuild transform-worker
- * contention from the other ~90 test files transforming concurrently.
- * Every test in this file pays that same dynamic-import cost, so the fix
- * is a per-file default, not a fix to one test's assertions -- there is
- * nothing in the assertions themselves to fix.
+ * Every test here pays a dynamic-import cost that is transform-bound under
+ * a full parallel run (it once failed on the 5000ms default for that reason
+ * alone, never from a logic defect). The timeout that accommodates it now
+ * lives once in tooling/vitest/vitest.config.mts.
  */
-vi.setConfig({ testTimeout: 20_000 });
-
 describe("rolling demo clock", () => {
   it("resolves the injected clock rather than the real current time", async () => {
     const { resolveDemoClock } = await import("../app/demo-clock");
@@ -108,12 +99,28 @@ describe("rolling demo clock", () => {
     }
   });
 
-  it("customerToday (the live export) reflects the current real clock", async () => {
+  it("customerTodaySnapshot() reads the real clock at call time, not at module load", async () => {
     delete process.env["VELYQ_DEMO_CLOCK"];
-    // The module is cached (with a fixed clock) by earlier tests in this file.
     vi.resetModules();
-    const { customerToday } = await import("../app/customer-data");
-    const asOf = new Date(customerToday.asOf).getTime();
+    const { customerTodaySnapshot } = await import("../app/customer-data");
+    const asOf = new Date(customerTodaySnapshot().asOf).getTime();
     expect(Math.abs(Date.now() - asOf)).toBeLessThan(60_000);
+  });
+
+  /*
+   * The deployed Worker rendered "Thursday, 01 January 1970" because the
+   * snapshot was a module-level const: Cloudflare evaluates top-level module
+   * code during isolate startup, outside a request, where the clock is not
+   * real. Importing the module must therefore not, by itself, stamp a
+   * timestamp -- the epoch is what that mistake looks like.
+   */
+  it("does not stamp a timestamp at import time, and never yields the epoch", async () => {
+    delete process.env["VELYQ_DEMO_CLOCK"];
+    vi.resetModules();
+    const module = await import("../app/customer-data");
+    expect(module).not.toHaveProperty("customerToday");
+
+    const asOf = new Date(module.customerTodaySnapshot().asOf);
+    expect(asOf.getUTCFullYear()).toBeGreaterThan(1970);
   });
 });

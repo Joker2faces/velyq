@@ -313,19 +313,42 @@ export function buildCustomerTodayData(now: Date): CustomerTodayDto {
   };
 }
 
-const customerTodayData: CustomerTodayDto =
-  buildCustomerTodayData(resolveDemoClock());
+/**
+ * The synthetic snapshot, built per call rather than once at module scope.
+ *
+ * This used to be a module-level `const` initialised with
+ * `buildCustomerTodayData(resolveDemoClock())`, which is why the deployed
+ * Worker rendered "Thursday, 01 January 1970" as its Today dateline. A
+ * Cloudflare Worker evaluates module top-level code during isolate startup,
+ * outside any request, where the clock is pinned rather than real -- so
+ * `new Date()` there produced the Unix epoch, `asOf` became
+ * "1970-01-01T00:00:00.000Z", and `formatLongDate` faithfully rendered it.
+ * Every kickoff was then epoch-plus-an-offset too.
+ *
+ * Reading the clock inside a call means it is read during a request, when
+ * the runtime has a real one. It is deliberately not memoised: the snapshot
+ * is a handful of object spreads, and caching the first request's timestamp
+ * for the isolate's lifetime is what "today" drifting stale looked like
+ * before.
+ */
+export function customerTodaySnapshot(
+  now: Date = resolveDemoClock(),
+): CustomerTodayDto {
+  return buildCustomerTodayData(now);
+}
 
 export const customerReadRepository = {
-  getToday: () => customerTodayData,
+  getToday: () => customerTodaySnapshot(),
   getMatch: (eventId: string) =>
-    customerTodayData.matches.find((match) => match.eventId === eventId) ??
-    null,
+    customerTodaySnapshot().matches.find(
+      (match) => match.eventId === eventId,
+    ) ?? null,
 };
 export const customerQueries = new CustomerQueryService(customerReadRepository);
-export const customerToday = customerTodayData;
 export function findCustomerMatch(
   eventId: string,
 ): CustomerMatchDto | undefined {
-  return customerTodayData.matches.find((match) => match.eventId === eventId);
+  return customerTodaySnapshot().matches.find(
+    (match) => match.eventId === eventId,
+  );
 }

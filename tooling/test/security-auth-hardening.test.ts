@@ -44,6 +44,13 @@ describe("security auth hardening", () => {
 
   it("enforces paid customer entitlements at the session boundary", async () => {
     process.env["NODE_ENV"] = "test";
+    /*
+     * Exercises the entitlement gate without a database, which is only a
+     * legitimate state in the explicit demo mode now: in LIVE a missing
+     * database is an authorization outage (503), never an implied FREE
+     * customer. The entitlement logic under test is mode-independent.
+     */
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = "SYNTHETIC_DEMO";
     delete process.env["VELYQ_DATABASE_URL"];
     process.env["NEXT_PUBLIC_SUPABASE_URL"] = "https://supabase.test";
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] = "publishable-test";
@@ -85,13 +92,35 @@ describe("security auth hardening", () => {
     });
   });
 
-  it("uses fixtures only outside production or in explicit preview mode", async () => {
+  /*
+   * The synthetic fixture is reachable through exactly one door.
+   *
+   * This previously asserted the opposite contract -- fixtures whenever
+   * NODE_ENV was not production, or whenever VELYQ_SYNTHETIC_PREVIEW was
+   * set -- which is what let the Cloudflare release candidate serve
+   * Premier Synthetic League and a fabricated settled-decision history to
+   * an authenticated customer while reporting itself LIVE. A LIVE runtime
+   * with no database must answer null (rendered as 503), never a fixture.
+   */
+  it("reaches the synthetic fixture only under an explicit SYNTHETIC_DEMO mode", async () => {
     delete process.env["VELYQ_DATABASE_URL"];
     process.env["NODE_ENV"] = "production";
     delete process.env["VELYQ_SYNTHETIC_PREVIEW"];
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = "LIVE";
     expect(await customerService()).toBeNull();
 
+    /* The retired preview flag must not resurrect the fixture. */
     process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
+    expect(await customerService()).toBeNull();
+    delete process.env["VELYQ_SYNTHETIC_PREVIEW"];
+
+    /* Neither may a non-production platform, on its own. */
+    process.env["NODE_ENV"] = "test";
+    expect(await customerService()).toBeNull();
+    process.env["NODE_ENV"] = "production";
+
+    /* Only the explicit opt-in does. */
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = "SYNTHETIC_DEMO";
     expect(await customerService()).not.toBeNull();
   });
 

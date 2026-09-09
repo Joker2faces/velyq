@@ -5,7 +5,9 @@ import {
   formatPointsDelta,
   formatProbability,
 } from "@velyq/ui";
-import { customerToday } from "../app/customer-data";
+import { customerTodaySnapshot } from "../app/customer-data";
+
+const customerToday = customerTodaySnapshot();
 
 /**
  * Data-presentation QA.

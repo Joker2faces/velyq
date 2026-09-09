@@ -9,10 +9,15 @@ import {
   openDatabaseCustomerQueries,
   type RuntimeCustomerQueries,
 } from "./customer-database";
-import { customerToday } from "./customer-data";
+import { customerTodaySnapshot } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { customerFixtureMode, requireCustomerSession } from "./api/auth";
+import { requireCustomerSession } from "./api/auth";
+import {
+  configuredDataMode,
+  resolveCustomerDataSource,
+  syntheticDataAllowed,
+} from "./data-mode";
 import { desc, eq } from "drizzle-orm";
 import { subscriptions } from "@velyq/database/schema/private";
 import { DatabasePermissionResolver } from "@velyq/database";
@@ -56,12 +61,13 @@ const fixtureService: CustomerService = {
     >(
       {
         async getToday() {
-          return customerToday;
+          return customerTodaySnapshot();
         },
         async getMatch(eventId) {
           return (
-            customerToday.matches.find((match) => match.eventId === eventId) ??
-            null
+            customerTodaySnapshot().matches.find(
+              (match) => match.eventId === eventId,
+            ) ?? null
           );
         },
       },
@@ -77,16 +83,17 @@ const fixtureService: CustomerService = {
     >(
       {
         async getToday() {
-          return customerToday;
+          return customerTodaySnapshot();
         },
         async getMatch() {
           return (
-            customerToday.matches.find((match) => match.eventId === eventId) ??
-            null
+            customerTodaySnapshot().matches.find(
+              (match) => match.eventId === eventId,
+            ) ?? null
           );
         },
       },
-      { mapToday: () => customerToday, mapMatch: (raw) => raw },
+      { mapToday: () => customerTodaySnapshot(), mapMatch: (raw) => raw },
     ).getMatch(eventId, asOf);
   },
   async close() {},
@@ -115,16 +122,31 @@ function mappedDatabaseService(
   };
 }
 
+/**
+ * Resolves the customer read service, failing closed in LIVE.
+ *
+ * The removed branch here is the P0: on a database failure this used to
+ * fall through `customerFixtureMode()` into `fixtureService`, so a
+ * connectivity fault in a LIVE deployment silently answered with
+ * fabricated football (Premier Synthetic League, Northbridge United, a
+ * made-up settled-decision history) instead of an outage. A LIVE runtime
+ * now has exactly two possible answers -- the real database, or null,
+ * which every caller renders as an honest 503. `fixtureService` is
+ * unreachable unless the deployment explicitly opted into SYNTHETIC_DEMO.
+ *
+ * The source decision itself lives in ./data-mode so that the health and
+ * readiness endpoints resolve it from the same function rather than
+ * re-deriving (and previously contradicting) it.
+ */
 export async function customerService(): Promise<CustomerService | null> {
-  if (process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] === "SYNTHETIC_DEMO") {
-    return fixtureService;
-  }
+  const mode = configuredDataMode();
+  if (mode === "SYNTHETIC_DEMO") return fixtureService;
+
   const runtime = await openDatabaseCustomerQueries();
-  return runtime
-    ? mappedDatabaseService(runtime)
-    : customerFixtureMode()
-      ? fixtureService
-      : null;
+  const source = resolveCustomerDataSource(mode, runtime !== null);
+  if (source === "DATABASE" && runtime) return mappedDatabaseService(runtime);
+  if (runtime) await runtime.close();
+  return null;
 }
 
 export async function loadCustomerToday(
@@ -238,7 +260,15 @@ export async function loadCustomerContext() {
 }
 
 async function requireCustomerPageAccess(entitlement: CustomerEntitlement) {
-  if (customerFixtureMode()) {
+  /*
+   * The unauthenticated-preview shortcut is a SYNTHETIC_DEMO affordance
+   * only: it lets a demo deployment with no database render the fixture
+   * without a session. Reached in LIVE it would have been an outright
+   * authentication bypass on a database fault, so it is now gated on the
+   * explicit opt-in rather than on `customerFixtureMode()`'s former
+   * platform inference.
+   */
+  if (syntheticDataAllowed()) {
     const runtime = await openDatabaseCustomerQueries();
     if (!runtime) return true;
     await runtime.close();

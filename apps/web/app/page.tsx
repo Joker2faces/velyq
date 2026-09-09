@@ -12,7 +12,7 @@ import {
   translator,
 } from "@velyq/ui";
 import { getLocale } from "./locale";
-import { customerToday } from "./customer-data";
+import { customerTodaySnapshot } from "./customer-data";
 import { planCatalog } from "./plan-config";
 import { PublicShell } from "./components/site-chrome";
 import {
@@ -38,6 +38,7 @@ export default async function Home() {
    * fixture's own fictional clubs, so the public page can never imply
    * coverage of a real fixture.
    */
+  const customerToday = customerTodaySnapshot();
   const featured =
     customerToday.matches.find(
       (match) => match.recommendation === "STRONG_EDGE",

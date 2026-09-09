@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { customerToday } from "../app/customer-data.js";
+import { customerTodaySnapshot } from "../app/customer-data.js";
+
+const customerToday = customerTodaySnapshot();
 import { formatPercent } from "@velyq/ui";
 
 const expectedScenarios = [

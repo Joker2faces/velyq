@@ -173,7 +173,13 @@ describe("runtime customer authorization", () => {
     expectEverySessionClosed();
   });
 
-  it("fails closed without a database unless preview is explicitly enabled", async () => {
+  /*
+   * A missing database is an authorization outage in LIVE, and the retired
+   * VELYQ_SYNTHETIC_PREVIEW flag must not turn it back into an implied FREE
+   * customer -- that inference is what let the Cloudflare release candidate
+   * hand out entitlements (and synthetic football) without a database.
+   */
+  it("fails closed without a database in LIVE, and no preview flag reopens it", async () => {
     runtimeState.available = false;
 
     const unavailable = await requireCustomerSession(authenticatedRequest());
@@ -184,6 +190,21 @@ describe("runtime customer authorization", () => {
     });
 
     process.env["VELYQ_SYNTHETIC_PREVIEW"] = "true";
+    const stillClosed = await requireCustomerSession(
+      authenticatedRequest(),
+      "today.view",
+    );
+    expect(stillClosed?.status).toBe(503);
+    await expect(stillClosed?.json()).resolves.toMatchObject({
+      code: "AUTHORIZATION_UNAVAILABLE",
+    });
+    delete process.env["VELYQ_SYNTHETIC_PREVIEW"];
+
+    /*
+     * The explicit demo mode keeps its documented no-database affordance:
+     * a FREE entitlement decision, which still refuses a paid surface.
+     */
+    process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] = "SYNTHETIC_DEMO";
     await expect(
       requireCustomerSession(authenticatedRequest(), "today.view"),
     ).resolves.toBeNull();

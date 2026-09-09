@@ -20,5 +20,23 @@ export default defineConfig({
     ],
     environment: "node",
     globals: false,
+    /*
+     * Vitest's 5000ms default is too tight for this repository, and three
+     * separate files have now hit it for the same non-defect reason: a test
+     * whose body runs in microseconds times out because its
+     * `await import(...)` of a large module graph (@velyq/database ->
+     * drizzle, @velyq/auth, the customer runtime) queues behind esbuild
+     * transform workers while ~100 other test files transform in parallel.
+     * It reproduces only under a full parallel run, never in isolation, and
+     * always on the first dynamic import in a file -- the cold-transform
+     * cost, not the assertions.
+     *
+     * Two files previously carried their own `vi.setConfig({ testTimeout })`
+     * for exactly this. One deliberate global value is more honest than
+     * per-file overrides accumulating one flake at a time: it says the
+     * bound belongs to the runner's transform behaviour, not to any test's
+     * logic. Kept finite so a genuinely hung test still fails.
+     */
+    testTimeout: 20_000,
   },
 });

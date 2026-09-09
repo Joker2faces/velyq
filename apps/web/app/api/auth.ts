@@ -11,6 +11,7 @@ import { DatabasePermissionResolver } from "@velyq/database";
 import { subscriptions } from "@velyq/database/schema/private";
 import { desc, eq } from "drizzle-orm";
 import { openRuntimeDatabaseSession } from "../runtime-database/runtime-database";
+import { syntheticDataAllowed } from "../data-mode";
 
 const PRIVATE_PROBLEM_HEADERS = { "cache-control": "private, no-store" };
 
@@ -29,12 +30,36 @@ export function requestId(request: Request) {
     : crypto.randomUUID();
 }
 
+/**
+ * Whether the synthetic fixture system may be reached.
+ *
+ * Previously inferred from the platform (`VERCEL_ENV` absent + `NODE_ENV`
+ * not exactly "production" => synthetic permitted), which made every
+ * Cloudflare Worker deployment synthetic-capable by accident: `VERCEL_ENV`
+ * is always absent there. Now it is exactly one thing -- the explicit
+ * `SYNTHETIC_DEMO` opt-in resolved in ./data-mode -- so a LIVE deployment
+ * has no path back into fabricated football, and neither a missing
+ * platform variable nor a database fault can create one.
+ */
 export function customerFixtureMode() {
-  if (process.env["VERCEL_ENV"] === "production") return false;
-  return (
-    process.env["NODE_ENV"] !== "production" ||
-    process.env["VELYQ_SYNTHETIC_PREVIEW"] === "true"
-  );
+  return syntheticDataAllowed();
+}
+
+/**
+ * Whether a redirect origin may be derived from the incoming request when
+ * `VELYQ_APPLICATION_ORIGIN` is not configured.
+ *
+ * Deliberately NOT the data mode. This is a request-trust question -- may a
+ * client-supplied Host/Origin decide where we send a browser after
+ * sign-in -- and answering it with "are synthetic fixtures allowed?" is the
+ * same category error that let a LIVE Worker serve fabricated football.
+ * Local development and tests have no configured origin and legitimately
+ * need this; every real deployment (canonical Worker, every release
+ * candidate, Vercel) sets `VELYQ_APPLICATION_ORIGIN` explicitly and returns
+ * above without ever reaching here.
+ */
+function requestDerivedOriginAllowed() {
+  return process.env["NODE_ENV"] !== "production";
 }
 
 export function customerRedirectUrl(request: Request, pathname: string) {
@@ -55,7 +80,7 @@ export function customerRedirectUrl(request: Request, pathname: string) {
     return null;
   }
 
-  if (!customerFixtureMode()) return null;
+  if (!requestDerivedOriginAllowed()) return null;
   try {
     const incoming = new URL(request.headers.get("origin") ?? request.url);
     return incoming.protocol === "https:" || incoming.protocol === "http:"

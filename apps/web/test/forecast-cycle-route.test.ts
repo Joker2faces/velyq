@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const SECRET = "test-route-secret";
 
@@ -9,15 +9,10 @@ const SECRET = "test-route-secret";
  * database access, plus the real "no database configured" fallback this
  * test environment naturally exercises (VELYQ_DATABASE_URL is unset here).
  *
- * Same per-file timeout bump as apps/web/test/demo-clock-rolling.test.ts,
- * for the same measured reason: each test here does `await import(
- * "../app/api/internal/forecast-cycle/route")`, which occasionally queues
- * behind esbuild transform-worker contention under a full parallel
- * `vitest run` of the whole monorepo (reproduced once in this session),
- * never in isolation and never from a logic defect in the route itself.
+ * Each test dynamically imports the route, which is transform-bound under a
+ * full parallel run; the timeout that accommodates that now lives once in
+ * tooling/vitest/vitest.config.mts rather than per file.
  */
-vi.setConfig({ testTimeout: 20_000 });
-
 describe("POST/GET /api/internal/forecast-cycle", () => {
   beforeEach(() => {
     process.env["CRON_SECRET"] = SECRET;
