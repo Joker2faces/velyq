@@ -15,12 +15,34 @@ in the master release log. Anything not observed says so.
 | Customer browser journeys (`pnpm test:e2e --project=customer`) | **PASS** | 7/7, and 7/7 on two further consecutive runs against committed baselines with no snapshot update |
 | Admin browser journey (`pnpm test:e2e:admin`) | **PASS** | 5/5, including tracing seeded operations from provider run to prediction, score and quality |
 | Package builds | **PASS** | 14/14 |
-| Full build (`pnpm build`) | **PASS** | 18/18 — includes `@velyq/web`, `@velyq/admin`, both workers |
+| Full build (`pnpm build`) | **PASS, with a caveat** | 18/18 — includes `@velyq/web`, `@velyq/admin`, both workers. See the note below. |
 | Worker readiness (`pnpm worker:verify`) | **PASS** | "Worker readiness: PASS" |
 | Fresh-database migration + DB integration (`pnpm test:db:local`) | **PASS** | PostgreSQL 17 in WSL, from empty: 9 files, 35 tests |
 | Upgrade migration (`pnpm test:db:upgrade`) | **PASS** | representative upgrade path, data preserved |
 | Production-schema upgrade simulation (`pnpm test:db:production-upgrade`) | **PASS** | release migrations applied on top of the ACTUAL verified production legacy schema; data preserved; new columns backfilled deterministically; provenance trigger enabled |
 | Flake check | **PASS** | full suite run 3x consecutively clean after root-causing the one failure seen |
+
+### One unreproduced local build failure
+
+`@velyq/web#build` failed **once**, in a `typecheck` -> `test` -> `build`
+sweep. It did not recur in **six** subsequent runs, including four of that
+exact three-step ordering. No error text was captured — the output was passed
+through a grep filter that discarded it, which was a mistake in how the sweep
+was run, not a property of the build.
+
+The cause is therefore **not established**, and this is recorded as a caveat
+rather than a clean pass. The most plausible mechanism, unproven: this
+worktree lives under `C:\Users\thodo\OneDrive\Έγγραφα\…`, and
+`@velyq/web:typecheck` deletes and recreates `.next` immediately before a
+build writes into it. A build directory inside a syncing OneDrive folder is a
+known source of intermittent `EPERM`/`EBUSY` on Windows, and that hazard
+applies to anyone working on this machine regardless of this particular
+failure — worth excluding `.next` from OneDrive sync, or moving the worktree
+outside the synced tree.
+
+What it does **not** affect: the deployed build. Vercel builds `apps/web` on
+its own Linux infrastructure from uploaded source, and GitHub Actions builds
+on Linux too. A Windows file-contention flake cannot reach either.
 
 ### Test-suite discovery (section 45)
 
