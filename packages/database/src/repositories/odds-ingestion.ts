@@ -25,7 +25,17 @@ import {
  * coverage means adding another entry here and to `SELECTION_TO_OUTCOME`,
  * not changing the write path itself.
  */
-const WIRED_MARKET = "MATCH_WINNER_1X2" as const;
+/**
+ * The only market this writer persists.
+ *
+ * Exported because callers must be able to filter to it *before* handing
+ * rows over: the identity lookup below happens per row and precedes this
+ * check, so a batch containing every market the provider quotes pays a
+ * database round trip for each row it was always going to reject. One
+ * fixture's odds response is several hundred such rows.
+ */
+export const WIRED_ODDS_MARKET = "MATCH_WINNER_1X2" as const;
+const WIRED_MARKET = WIRED_ODDS_MARKET;
 const CANONICAL_DEFINITION = canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2;
 
 const SELECTION_TO_OUTCOME: Readonly<Record<string, "HOME" | "DRAW" | "AWAY">> =

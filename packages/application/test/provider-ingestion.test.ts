@@ -59,6 +59,7 @@ type Harness = {
   deps: ProviderIngestionDeps<Fixture, Odds>;
   calls: string[];
   recordedQuota: ObservedQuota[];
+  recordedPurposes: string[];
 };
 
 function harness(
@@ -71,12 +72,14 @@ function harness(
 ): Harness {
   const calls: string[] = [];
   const recordedQuota: ObservedQuota[] = [];
+  const recordedPurposes: string[] = [];
 
   const deps: ProviderIngestionDeps<Fixture, Odds> = {
     clock: () => NOW,
     loadQuotaSnapshot: async () => options.snapshot ?? healthySnapshot(),
-    recordQuotaObservation: async (observed) => {
+    recordQuotaObservation: async (observed, purpose) => {
       recordedQuota.push(observed);
+      recordedPurposes.push(purpose);
     },
     spentToday: async () => ({
       DISCOVERY: 0,
@@ -115,7 +118,7 @@ function harness(
     }),
     ...overrides,
   };
-  return { deps, calls, recordedQuota };
+  return { deps, calls, recordedQuota, recordedPurposes };
 }
 
 describe("runProviderIngestion", () => {
@@ -167,7 +170,14 @@ describe("runProviderIngestion", () => {
       },
     );
 
-    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+    /*
+     * An explicit ceiling: this test is about the abort, so it needs room for
+     * more than the one request a default pass allows.
+     */
+    const result = await runProviderIngestion(deps, {
+      trigger: "SCHEDULER",
+      maxOddsRequestsPerRun: 4,
+    });
 
     /*
      * Concurrent requests would have spent all four before the 429 could be
@@ -219,7 +229,10 @@ describe("runProviderIngestion", () => {
       { candidates: [candidate("a"), candidate("b")] },
     );
 
-    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+    const result = await runProviderIngestion(deps, {
+      trigger: "SCHEDULER",
+      maxOddsRequestsPerRun: 2,
+    });
 
     expect(result.oddsRequestsAttempted).toBe(2);
     expect(result.errorsByReason["ODDS_RETRYABLE"]).toBe(1);
@@ -372,5 +385,85 @@ describe("per-run ceiling", () => {
 
     expect(result.oddsRequestsAttempted).toBe(1);
     expect(result.skippedByReason["ODDS_RUN_CEILING"]).toBeUndefined();
+  });
+});
+
+describe("durable spend accounting", () => {
+  it("charges each observation to the purpose that caused it", async () => {
+    /*
+     * The first live run was killed after its requests were made but before
+     * its run record was written, so five spent requests left no trace in
+     * the per-purpose budgets. Tagging the observation -- which is written
+     * immediately after each call -- is what makes the accounting survive a
+     * killed invocation.
+     */
+    /*
+     * One purpose per pass, so each is checked in its own pass rather than
+     * expecting both from a single run.
+     */
+    const discovering = harness({}, { dueDates: ["2026-09-09"] });
+    await runProviderIngestion(discovering.deps, { trigger: "SCHEDULER" });
+    expect(discovering.recordedPurposes).toEqual(["DISCOVERY"]);
+
+    const pricing = harness({}, { candidates: [candidate("a")] });
+    await runProviderIngestion(pricing.deps, { trigger: "SCHEDULER" });
+    expect(pricing.recordedPurposes).toEqual(["ODDS"]);
+  });
+
+  it("charges a status probe to the discovery budget that funds it", async () => {
+    const { deps, recordedPurposes } = harness(
+      {},
+      { snapshot: healthySnapshot({ remaining: null }) },
+    );
+
+    await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(recordedPurposes).toEqual(["DISCOVERY"]);
+  });
+});
+
+describe("one purpose per invocation", () => {
+  it("discovers at most one date per pass", async () => {
+    /*
+     * A fixture list is several hundred fixtures to normalise, and the
+     * horizon needs two dates. Doing both in one pass is what exceeded the
+     * executor's wall-clock limit: the provider calls succeeded and the
+     * invocation was killed before recording them.
+     */
+    const { deps, calls } = harness(
+      {},
+      { dueDates: ["2026-09-09", "2026-09-10"] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["discover:2026-09-09"]);
+    expect(result.discoveryDatesDue).toHaveLength(2);
+    expect(result.skippedByReason["DISCOVERY_RUN_CEILING"]).toBe(1);
+  });
+
+  it("defers pricing on a pass that discovered, and says so", async () => {
+    const { deps, calls } = harness(
+      {},
+      { dueDates: ["2026-09-09"], candidates: [candidate("a")] },
+    );
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["discover:2026-09-09"]);
+    expect(result.oddsRequestsAttempted).toBe(0);
+    expect(result.skippedByReason["ODDS_DEFERRED_AFTER_DISCOVERY"]).toBe(1);
+  });
+
+  it("prices freely on a pass with no discovery due", async () => {
+    const { deps, calls } = harness({}, { candidates: [candidate("a")] });
+
+    const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+
+    expect(calls).toEqual(["odds:a"]);
+    expect(result.oddsRequestsAttempted).toBe(1);
+    expect(
+      result.skippedByReason["ODDS_DEFERRED_AFTER_DISCOVERY"],
+    ).toBeUndefined();
   });
 });

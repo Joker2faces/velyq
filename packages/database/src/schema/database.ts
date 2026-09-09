@@ -38,6 +38,7 @@ import {
 import {
   jobs,
   providerIngestionRuns,
+  providerOddsRequests,
   providerPolicyVersions,
   providerQuotaState,
   providerSyncRuns,
@@ -91,6 +92,7 @@ export const databaseSchema = {
   profiles,
   providerMarketMappings,
   providerIngestionRuns,
+  providerOddsRequests,
   providerPolicyVersions,
   providerQuotaState,
   providerSyncRuns,

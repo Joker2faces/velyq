@@ -215,6 +215,13 @@ export const providerQuotaState = operationsSchema.table(
     dailyLimit: integer("daily_limit"),
     remaining: integer("remaining"),
     requestsUsed: integer("requests_used").notNull().default(0),
+    /* Per-purpose spend, incremented in the same write as `remaining` so
+       budget accounting never depends on an invocation surviving to write a
+       run record. */
+    discoveryRequests: integer("discovery_requests").notNull().default(0),
+    oddsRequests: integer("odds_requests").notNull().default(0),
+    lineupRequests: integer("lineup_requests").notNull().default(0),
+    resultRequests: integer("result_requests").notNull().default(0),
     lastObservedAt: timestamp("last_observed_at", { withTimezone: true }),
     lastProviderCallAt: timestamp("last_provider_call_at", {
       withTimezone: true,
@@ -245,6 +252,10 @@ export const providerQuotaState = operationsSchema.table(
     check(
       "provider_quota_state_requests_used_check",
       sql`${table.requestsUsed} >= 0`,
+    ),
+    check(
+      "provider_quota_state_purpose_counters_check",
+      sql`${table.discoveryRequests} >= 0 and ${table.oddsRequests} >= 0 and ${table.lineupRequests} >= 0 and ${table.resultRequests} >= 0`,
     ),
   ],
 );
@@ -326,5 +337,45 @@ export const providerIngestionRuns = operationsSchema.table(
       "provider_ingestion_runs_calls_check",
       sql`${table.providerCallsUsed} >= 0`,
     ),
+  ],
+);
+
+/**
+ * When we last asked the provider about a fixture's odds.
+ *
+ * Deliberately separate from both odds timestamps. The provider's
+ * `providerObservedAt` is its own `update` time and is frequently hours old,
+ * so scheduling on it makes a fixture permanently due; `receivedAt` only
+ * advances when a row is actually inserted, and a re-request returning
+ * unchanged prices inserts nothing. Either way the marker meant to stop the
+ * loop could not advance, and live runs re-bought the same fixture on seven
+ * consecutive passes.
+ *
+ * Asking is an operational fact, recorded on its own terms.
+ */
+export const providerOddsRequests = operationsSchema.table(
+  "provider_odds_requests",
+  {
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    /* The provider's own reference, so this is written straight after the
+       call without first resolving an internal event id. */
+    providerFixtureId: text("provider_fixture_id").notNull(),
+    lastRequestedAt: timestamp("last_requested_at", {
+      withTimezone: true,
+    }).notNull(),
+    requestCount: integer("request_count").notNull().default(1),
+  },
+  (table) => [
+    primaryKey({
+      name: "provider_odds_requests_pkey",
+      columns: [table.providerId, table.providerFixtureId],
+    }),
+    index("provider_odds_requests_last_requested_idx").on(
+      table.providerId,
+      table.lastRequestedAt.desc(),
+    ),
+    check("provider_odds_requests_count_check", sql`${table.requestCount} > 0`),
   ],
 );

@@ -41,6 +41,7 @@ import {
   loadCompetitionBridge,
 } from "./fixture-ingestion.js";
 import {
+  WIRED_ODDS_MARKET,
   ensureFootballReferenceData,
   ingestFootballOdds,
 } from "./odds-ingestion.js";
@@ -52,6 +53,7 @@ import {
 } from "../schema/market.js";
 import {
   providerIngestionRuns,
+  providerOddsRequests,
   providerQuotaState as quotaStateTable,
 } from "../schema/operations.js";
 
@@ -96,6 +98,20 @@ const HORIZON_DAYS = 2;
 /** Only fixtures this close to kickoff are worth spending an odds request on. */
 const ODDS_INTEREST_WINDOW_HOURS = 36;
 
+/**
+ * How many bookmakers per fixture are followed.
+ *
+ * Consensus, best price and dispersion need several bookmakers, not every
+ * bookmaker the provider lists, and persisting the full panel does not fit
+ * the executor's wall-clock limit (see `persistOdds`). Six keeps a real
+ * spread while bounding one fixture to roughly eighteen observations.
+ *
+ * Raise this once odds persistence writes in batches rather than per
+ * observation, or if the executor gains a longer limit -- the provider
+ * response already contains the rest, so nothing extra needs to be bought.
+ */
+const MAX_BOOKMAKERS_PER_FIXTURE = 6;
+
 function utcDate(at: Date, dayOffset = 0): string {
   const shifted = new Date(at);
   shifted.setUTCDate(shifted.getUTCDate() + dayOffset);
@@ -138,7 +154,28 @@ export async function createProviderIngestionAdapter(
 ): Promise<ProviderIngestionAdapter> {
   const clock = options.clock ?? (() => new Date());
   const client =
-    options.client ?? createApiSportsClient("football", { retries: 1 });
+    options.client ??
+    createApiSportsClient("football", {
+      /*
+       * Tighter than the client's 8s default, and with no in-invocation
+       * retry.
+       *
+       * The client's retry is a real second HTTP request, so the provider
+       * decrements quota for it -- which is how a pass capped at two odds
+       * requests spent six. It also multiplies the wall-clock cost of the
+       * slowest possible response inside an invocation that has a hard
+       * limit, and losing the invocation loses the run record.
+       *
+       * Retrying by rescheduling is strictly better here: the scheduler
+       * wakes every fifteen minutes, and every unit of work is due-based, so
+       * a failed discovery or a failed price is simply still due on the next
+       * pass. The failure is recorded in `errorsByReason` either way, so a
+       * persistent fault is visible rather than hidden behind silent
+       * retries.
+       */
+      timeoutMs: 6_000,
+      retries: 0,
+    });
   const reference = await ensureFootballReferenceData(database, PROVIDER_CODE);
   const providerId = reference.providerId;
 
@@ -190,7 +227,10 @@ export async function createProviderIngestionAdapter(
       };
     },
 
-    async recordQuotaObservation(observed: ObservedQuota): Promise<void> {
+    async recordQuotaObservation(
+      observed: ObservedQuota,
+      purpose: IngestionPurpose,
+    ): Promise<void> {
       const quotaDay = utcQuotaDay(observed.observedAt);
       const snapshot: ProviderQuotaSnapshot = {
         dailyLimit: observed.dailyLimit,
@@ -206,6 +246,10 @@ export async function createProviderIngestionAdapter(
           dailyLimit: observed.dailyLimit,
           remaining: observed.remaining,
           requestsUsed: 1,
+          discoveryRequests: purpose === "DISCOVERY" ? 1 : 0,
+          oddsRequests: purpose === "ODDS" ? 1 : 0,
+          lineupRequests: purpose === "LINEUP" ? 1 : 0,
+          resultRequests: purpose === "RESULT" ? 1 : 0,
           lastObservedAt: observed.observedAt,
           lastProviderCallAt: observed.observedAt,
           policyState: providerQuotaState(snapshot, observed.observedAt),
@@ -220,6 +264,10 @@ export async function createProviderIngestionAdapter(
             /* Counts calls, so a day's spend is visible even when the
                provider stops reporting a remaining figure. */
             requestsUsed: sql`${quotaStateTable.requestsUsed} + 1`,
+            discoveryRequests: sql`${quotaStateTable.discoveryRequests} + excluded.discovery_requests`,
+            oddsRequests: sql`${quotaStateTable.oddsRequests} + excluded.odds_requests`,
+            lineupRequests: sql`${quotaStateTable.lineupRequests} + excluded.lineup_requests`,
+            resultRequests: sql`${quotaStateTable.resultRequests} + excluded.result_requests`,
             lastObservedAt: sql`excluded.last_observed_at`,
             lastProviderCallAt: sql`excluded.last_provider_call_at`,
             policyState: sql`excluded.policy_state`,
@@ -231,27 +279,31 @@ export async function createProviderIngestionAdapter(
 
     async spentToday(): Promise<Readonly<Record<IngestionPurpose, number>>> {
       /*
-       * Derived from the run log rather than kept in extra counters, so the
-       * spend figures can never disagree with the runs that produced them.
+       * Read from the quota-state counters, not from the run log. A run can
+       * be killed after its requests have been made -- the first live pass
+       * was -- and spend that left no trace would let the next pass believe
+       * the budget untouched.
        */
       const [row] = await database
         .select({
-          discovery: sql<number>`coalesce(sum(coalesce(array_length(${providerIngestionRuns.discoveryDatesRequested}, 1), 0)), 0)`,
-          odds: sql<number>`coalesce(sum(${providerIngestionRuns.oddsRequestsAttempted}), 0)`,
+          discovery: quotaStateTable.discoveryRequests,
+          odds: quotaStateTable.oddsRequests,
+          lineup: quotaStateTable.lineupRequests,
+          result: quotaStateTable.resultRequests,
         })
-        .from(providerIngestionRuns)
+        .from(quotaStateTable)
         .where(
           and(
-            eq(providerIngestionRuns.providerId, providerId),
-            eq(providerIngestionRuns.quotaDay, utcQuotaDay(clock())),
+            eq(quotaStateTable.providerId, providerId),
+            eq(quotaStateTable.quotaDay, utcQuotaDay(clock())),
           ),
-        );
+        )
+        .limit(1);
       return {
-        DISCOVERY: Number(row?.discovery ?? 0),
-        ODDS: Number(row?.odds ?? 0),
-        /* Not yet requested by this pipeline; see the lineup/result notes. */
-        LINEUP: 0,
-        RESULT: 0,
+        DISCOVERY: row?.discovery ?? 0,
+        ODDS: row?.odds ?? 0,
+        LINEUP: row?.lineup ?? 0,
+        RESULT: row?.result ?? 0,
       };
     },
 
@@ -288,14 +340,37 @@ export async function createProviderIngestionAdapter(
        * `latest` is the newest price for the fixture across all its outcomes,
        * which is what the freshness policy is defined over.
        */
+      /*
+       * Loaded as a plain keyed read rather than a correlated subquery.
+       *
+       * The marker is what stops the scheduler re-buying the same fixture
+       * every pass, so it must be unambiguous: expressed as a subquery
+       * alongside raw `sql` joins it came back empty in the application while
+       * returning correctly in psql, and a silently-null guard is worse than
+       * no guard. There are only ever a few dozen fixtures in the horizon, so
+       * one small read and a map lookup is both cheaper to reason about and
+       * cheap to run.
+       */
+      const requestLog = new Map(
+        (
+          await database
+            .select({
+              providerFixtureId: providerOddsRequests.providerFixtureId,
+              lastRequestedAt: providerOddsRequests.lastRequestedAt,
+            })
+            .from(providerOddsRequests)
+            .where(eq(providerOddsRequests.providerId, providerId))
+        ).map((row) => [row.providerFixtureId, row.lastRequestedAt]),
+      );
+
       const rows = await database
         .select({
           providerFixtureId: sql<string>`identity.provider_fixture_id`,
-          kickoffAt: events.startsAt,
+          kickoffAt: sql<Date | string>`${events.startsAt}`,
           providerCompetitionId: sql<
             string | null
           >`identity_competition.provider_competition_id`,
-          latestObservedAt: sql<Date | null>`(
+          latestObservedAt: sql<Date | string | null>`(
             select max(${oddsObservations.providerObservedAt})
             from ${oddsObservations}
             join ${eventMarketOutcomes}
@@ -324,17 +399,41 @@ export async function createProviderIngestionAdapter(
           ),
         );
 
-      return rows
-        .filter((row) =>
-          oddsRefreshDue(row.latestObservedAt, now, row.kickoffAt),
+      /*
+       * Coerced explicitly rather than trusted to arrive as Dates. The raw
+       * `sql` joins above sidestep Drizzle's column mapping, so a timestamp
+       * comes back as the driver's own representation -- a string, in
+       * practice -- and the first live run failed with
+       * `a.getTime is not a function` once those values reached the
+       * kickoff comparison. Converting at this boundary keeps the timestamp
+       * handling in one place instead of scattering guards through the
+       * policy functions that consume it.
+       */
+      const asDate = (value: Date | string | null): Date | null =>
+        value === null ? null : value instanceof Date ? value : new Date(value);
+
+      return rows.flatMap((row) => {
+        const kickoffAt = asDate(row.kickoffAt);
+        if (!kickoffAt) return [];
+        if (
+          !oddsRefreshDue(
+            asDate(row.latestObservedAt),
+            now,
+            kickoffAt,
+            requestLog.get(row.providerFixtureId) ?? null,
+          )
         )
-        .map((row) => ({
-          providerFixtureId: row.providerFixtureId,
-          kickoffAt: row.kickoffAt,
-          competitionMapped:
-            row.providerCompetitionId !== null &&
-            mappedProviderCompetitionIds.has(row.providerCompetitionId),
-        }));
+          return [];
+        return [
+          {
+            providerFixtureId: row.providerFixtureId,
+            kickoffAt,
+            competitionMapped:
+              row.providerCompetitionId !== null &&
+              mappedProviderCompetitionIds.has(row.providerCompetitionId),
+          },
+        ];
+      });
     },
 
     async discoverFixtures(
@@ -375,10 +474,38 @@ export async function createProviderIngestionAdapter(
     async fetchOdds(
       providerFixtureId: string,
     ): Promise<ProviderCallOutcome<readonly NormalizedOdds[]>> {
+      /*
+       * Recorded before the response is even inspected. The point of the
+       * marker is that we spent a request, which is true regardless of what
+       * came back -- including a failure, where re-asking immediately would
+       * be the worst possible response to a provider that is unwell.
+       */
+      const markRequested = async (): Promise<void> => {
+        await database
+          .insert(providerOddsRequests)
+          .values({
+            providerId,
+            providerFixtureId,
+            lastRequestedAt: clock(),
+            requestCount: 1,
+          })
+          .onConflictDoUpdate({
+            target: [
+              providerOddsRequests.providerId,
+              providerOddsRequests.providerFixtureId,
+            ],
+            set: {
+              lastRequestedAt: sql`excluded.last_requested_at`,
+              requestCount: sql`${providerOddsRequests.requestCount} + 1`,
+            },
+          });
+      };
+
       try {
         const response = await client.get("/odds", {
           fixture: providerFixtureId,
         });
+        await markRequested();
         const observedAt = clock();
         const quota = observedQuotaFrom(response.quota, null, observedAt);
         const value = (response.body.response ?? []).flatMap((record) =>
@@ -386,6 +513,7 @@ export async function createProviderIngestionAdapter(
         );
         return { ok: true, value, quota };
       } catch (error) {
+        await markRequested().catch(() => {});
         return { ok: false, reason: classifyProviderError(error), quota: null };
       }
     },
@@ -425,7 +553,37 @@ export async function createProviderIngestionAdapter(
       const skippedByReason: Record<string, number> = {};
       let written = 0;
 
+      /*
+       * Filtered before persistence, not during it.
+       *
+       * A single date's fixture list is hundreds of fixtures across every
+       * competition the provider covers, and `ingestFootballFixture` refuses
+       * every one whose competition identity is not CONFIRMED -- but it
+       * refuses them *after* several database round trips each. On a remote
+       * database that cost the first live run its wall-clock budget: the
+       * provider calls and the eight fixtures that mattered all succeeded,
+       * then the invocation was killed grinding through fixtures it was
+       * always going to reject, losing the run record.
+       *
+       * Deciding it here from the already-loaded identity set turns hundreds
+       * of doomed round trips into one set lookup, and the rejection is
+       * still counted so the funnel stays honest about how much of the
+       * provider's universe the product actually covers.
+       */
+      const relevant: DiscoveredFixture<NormalizedEvent>[] = [];
       for (const fixture of fixtures) {
+        if (
+          fixture.competitionProviderId !== null &&
+          mappedProviderCompetitionIds.has(fixture.competitionProviderId)
+        ) {
+          relevant.push(fixture);
+          continue;
+        }
+        skippedByReason["FIXTURE_COMPETITION_NOT_MAPPED"] =
+          (skippedByReason["FIXTURE_COMPETITION_NOT_MAPPED"] ?? 0) + 1;
+      }
+
+      for (const fixture of relevant) {
         const outcome = await ingestFootballFixture(database, {
           providerId,
           providerCode: PROVIDER_CODE,
@@ -451,11 +609,56 @@ export async function createProviderIngestionAdapter(
     },
 
     async persistOdds(observations) {
-      const outcomes = await ingestFootballOdds(
-        database,
-        observations,
-        reference,
+      /*
+       * Bounded to a fixed set of bookmakers per fixture before persistence.
+       *
+       * One fixture's `/odds` response is 59-103 observations across 10-13
+       * bookmakers (measured in production), and `ingestFootballOdds` does
+       * several round trips per observation -- identity lookup, market and
+       * outcome upserts, the content-hash provenance row, the observation
+       * itself. Against a remote database that is roughly 12 seconds for a
+       * single fixture, which is what kept ending the invocation after the
+       * provider call had already been paid for.
+       *
+       * A cap on the bookmaker count is the honest way to bound it: market
+       * consensus, best price and dispersion need *several* bookmakers, not
+       * all of them, so this keeps the product's actual requirement and drops
+       * the long tail. The selection is by sorted bookmaker key rather than
+       * response order, so the same bookmakers are followed from one pass to
+       * the next -- movement history is only meaningful if it compares like
+       * with like, and a set that shifted per response would manufacture
+       * apparent movement out of a changing panel.
+       */
+      /*
+       * Restricted to the wired market before anything touches the database.
+       *
+       * `ingestFootballOdds` performs its event-identity lookup per row and
+       * only then rejects a row whose market is not wired -- so a batch
+       * containing every market the provider quotes pays a round trip for
+       * each of the several hundred rows it was always going to discard.
+       * That, not the volume of prices actually kept, is what exhausted the
+       * invocation: roughly twenty useful observations arrived wrapped in
+       * seven hundred doomed ones.
+       */
+      const wired = observations.filter(
+        (observation) => observation.canonicalMarket === WIRED_ODDS_MARKET,
       );
+      const notWired = observations.length - wired.length;
+
+      const byBookmaker = new Map<string, typeof wired>();
+      for (const observation of wired) {
+        const existing = byBookmaker.get(observation.bookmaker) ?? [];
+        byBookmaker.set(observation.bookmaker, [...existing, observation]);
+      }
+      const keptBookmakers = [...byBookmaker.keys()]
+        .sort((a, b) => a.localeCompare(b))
+        .slice(0, MAX_BOOKMAKERS_PER_FIXTURE);
+      const kept = keptBookmakers.flatMap(
+        (bookmaker) => byBookmaker.get(bookmaker) ?? [],
+      );
+      const droppedBookmakers = byBookmaker.size - keptBookmakers.length;
+
+      const outcomes = await ingestFootballOdds(database, kept, reference);
       const skippedByReason: Record<string, number> = {};
       let written = 0;
       let duplicate = 0;
@@ -470,7 +673,15 @@ export async function createProviderIngestionAdapter(
           (skippedByReason[`ODDS_${outcome.reason}`] ?? 0) + 1;
       }
 
+      if (notWired > 0) {
+        skippedByReason["ODDS_MARKET_NOT_WIRED"] = notWired;
+      }
+      if (droppedBookmakers > 0) {
+        skippedByReason["ODDS_BOOKMAKER_PANEL_CAP"] = droppedBookmakers;
+      }
+
       return {
+        /* What the provider actually offered, so the cap stays visible. */
         received: observations.length,
         written,
         duplicate,

@@ -167,3 +167,40 @@ describe("kickoff-aware refresh cadence", () => {
     }
   });
 });
+
+describe("scheduling on when we last asked", () => {
+  const kickoff = (hoursAway: number) =>
+    new Date(NOW.getTime() + hoursAway * 3_600_000);
+
+  it("does not re-buy a price the provider already reported as hours old", () => {
+    /*
+     * The provider's `update` timestamp is frequently well in the past, so a
+     * price can arrive already outside the actionable window. Scheduling on
+     * it alone made a fixture permanently due: four consecutive live passes
+     * each spent a request and wrote nothing but eighteen duplicates.
+     */
+    const providerSaysTwoHoursOld = minutesAgo(120);
+    const weJustAsked = minutesAgo(1);
+
+    expect(
+      oddsRefreshDue(providerSaysTwoHoursOld, NOW, kickoff(6), weJustAsked),
+    ).toBe(false);
+  });
+
+  it("becomes due again once our own interval has elapsed", () => {
+    /* 2h band at six hours out; asked 121 minutes ago. */
+    expect(
+      oddsRefreshDue(minutesAgo(300), NOW, kickoff(6), minutesAgo(121)),
+    ).toBe(true);
+  });
+
+  it("still refuses to spend on a price that is already actionable", () => {
+    expect(
+      oddsRefreshDue(minutesAgo(5), NOW, kickoff(6), minutesAgo(600)),
+    ).toBe(false);
+  });
+
+  it("falls back to the provider timestamp when we have never asked", () => {
+    expect(oddsRefreshDue(minutesAgo(400), NOW, kickoff(6), null)).toBe(true);
+  });
+});

@@ -34,6 +34,7 @@ import {
 import {
   jobs,
   providerIngestionRuns,
+  providerOddsRequests,
   providerPolicyVersions,
   providerQuotaState,
   providerSyncRuns,
@@ -82,6 +83,7 @@ export const phaseOneTables = [
   providerMarketMappings,
   jobs,
   providerIngestionRuns,
+  providerOddsRequests,
   providerPolicyVersions,
   providerQuotaState,
   providerSyncRuns,

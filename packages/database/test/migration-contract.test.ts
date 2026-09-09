@@ -39,6 +39,7 @@ const EXPECTED_TABLES = [
   "market.provider_market_mappings",
   "operations.jobs",
   "operations.provider_ingestion_runs",
+  "operations.provider_odds_requests",
   "operations.provider_policy_versions",
   "operations.provider_quota_state",
   "operations.provider_sync_runs",
@@ -131,7 +132,7 @@ describe("reviewed database migration contract", () => {
     expect(sql).toContain("namespace.nspname = 'intelligence'");
   });
 
-  it("creates exactly the approved 43-table allowlist", () => {
+  it("creates exactly the approved 44-table allowlist", () => {
     expect(createdTables(migrationSql())).toEqual(EXPECTED_TABLES);
   });
 

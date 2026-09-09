@@ -78,7 +78,19 @@ export type ProviderIngestionDeps<TFixture, TOdds> = Readonly<{
   clock: () => Date;
 
   loadQuotaSnapshot: () => Promise<ProviderQuotaSnapshot>;
-  recordQuotaObservation: (observed: ObservedQuota) => Promise<void>;
+  /**
+   * Persists an observation immediately after the call that produced it, and
+   * counts it against `purpose`.
+   *
+   * Purpose-tagged and written per call rather than summarised per run,
+   * because a run can be killed after its requests have been made: the first
+   * live pass was, and five spent requests left no trace in the per-purpose
+   * budgets. A request that was made must be a request that is counted.
+   */
+  recordQuotaObservation: (
+    observed: ObservedQuota,
+    purpose: IngestionPurpose,
+  ) => Promise<void>;
   /** Requests already spent per purpose during the current quota day. */
   spentToday: () => Promise<Readonly<Record<IngestionPurpose, number>>>;
 
@@ -132,6 +144,22 @@ export type ProviderIngestionResult = Readonly<{
   oddsDuplicates: number;
   skippedByReason: Readonly<Record<string, number>>;
   errorsByReason: Readonly<Record<string, number>>;
+  /**
+   * Wall-clock cost of each phase.
+   *
+   * The executor kills a run at a hard limit, and a killed run reports
+   * nothing -- so "which phase was slow" is unanswerable exactly when it
+   * matters most. Recording it per phase turns that into a number an
+   * operator can read off a successful run instead of inferring it from
+   * failures.
+   */
+  timings: Readonly<{
+    discoveryMs: number;
+    fixturePersistMs: number;
+    candidatesMs: number;
+    oddsFetchMs: number;
+    oddsPersistMs: number;
+  }>;
 }>;
 
 function bump(counter: Record<string, number>, key: string, by = 1): void {
@@ -184,12 +212,29 @@ export function prioritizeOddsCandidates(
  * long it is killed. The executor is a serverless function with a wall-clock
  * limit, and each odds request is a sequential network round trip with its
  * own retry, so an unbounded run would be truncated mid-flight -- spending
- * quota on responses that were never persisted. Four per run against a
- * 15-minute cadence is 384 requests of daily capacity, far above the 60 the
+ * quota on responses that were never persisted. One per run against a
+ * 15-minute cadence is 96 requests of daily capacity, still above the 60 the
  * quota policy will actually allow, so this ceiling costs no throughput and
- * only bounds latency.
+ * only bounds latency -- and it keeps a single slow provider response from
+ * being able to end the invocation.
  */
-const DEFAULT_MAX_ODDS_REQUESTS_PER_RUN = 4;
+const DEFAULT_MAX_ODDS_REQUESTS_PER_RUN = 1;
+
+/**
+ * At most one fixture list per invocation.
+ *
+ * A date's fixture list is the single most expensive response the provider
+ * returns -- several hundred fixtures to normalise -- and the horizon needs
+ * two of them. Doing both in one pass, then also pricing fixtures, is what
+ * exceeded the executor's wall-clock limit twice: the provider calls
+ * succeeded and the invocation was killed before it could record what it had
+ * done.
+ *
+ * One per pass is enough. Fixture lists stay fresh for six hours and the
+ * scheduler wakes every fifteen minutes, so the horizon is fully covered
+ * within half an hour of a cold start and stays covered thereafter.
+ */
+const MAX_DISCOVERY_REQUESTS_PER_RUN = 1;
 
 export async function runProviderIngestion<TFixture, TOdds>(
   deps: ProviderIngestionDeps<TFixture, TOdds>,
@@ -210,6 +255,14 @@ export async function runProviderIngestion<TFixture, TOdds>(
 
   let providerCallsUsed = 0;
   let quotaProbed = false;
+  const timings = {
+    discoveryMs: 0,
+    fixturePersistMs: 0,
+    candidatesMs: 0,
+    oddsFetchMs: 0,
+    oddsPersistMs: 0,
+  };
+  const since = (start: number) => deps.clock().getTime() - start;
 
   /*
    * Applied after every provider response. The remaining count arrives in the
@@ -217,9 +270,12 @@ export async function runProviderIngestion<TFixture, TOdds>(
    * effect of doing real work -- which is what makes a dedicated quota probe
    * almost always unnecessary.
    */
-  const absorb = async (observed: ObservedQuota | null): Promise<void> => {
+  const absorb = async (
+    observed: ObservedQuota | null,
+    purpose: IngestionPurpose,
+  ): Promise<void> => {
     if (!observed) return;
-    await deps.recordQuotaObservation(observed);
+    await deps.recordQuotaObservation(observed, purpose);
     snapshot = {
       remaining: observed.remaining,
       dailyLimit: observed.dailyLimit ?? snapshot.dailyLimit,
@@ -244,11 +300,19 @@ export async function runProviderIngestion<TFixture, TOdds>(
   const discoveryDatesRequested: string[] = [];
   const discovered: DiscoveredFixture<TFixture>[] = [];
 
-  for (const date of discoveryDatesDue.slice(0, discoveryBudget.allowed)) {
+  const discoveryAllowedThisRun = Math.min(
+    discoveryBudget.allowed,
+    MAX_DISCOVERY_REQUESTS_PER_RUN,
+  );
+  if (discoveryAllowedThisRun < discoveryDatesDue.length)
+    bump(skippedByReason, "DISCOVERY_RUN_CEILING");
+
+  const discoveryStartedAt = deps.clock().getTime();
+  for (const date of discoveryDatesDue.slice(0, discoveryAllowedThisRun)) {
     const outcome = await deps.discoverFixtures(date);
     providerCallsUsed += 1;
     discoveryDatesRequested.push(date);
-    await absorb(outcome.quota);
+    await absorb(outcome.quota, "DISCOVERY");
 
     if (!outcome.ok) {
       bump(errorsByReason, `DISCOVERY_${outcome.reason}`);
@@ -262,15 +326,36 @@ export async function runProviderIngestion<TFixture, TOdds>(
     discovered.push(...outcome.value);
   }
 
+  timings.discoveryMs = since(discoveryStartedAt);
+
+  const fixturePersistStartedAt = deps.clock().getTime();
   const fixtures =
     discovered.length > 0
       ? await deps.persistFixtures(discovered)
       : { received: 0, written: 0, skippedByReason: {} };
+  timings.fixturePersistMs = since(fixturePersistStartedAt);
   mergeSkips(skippedByReason, fixtures.skippedByReason);
 
   /* -------------------------------------------------------------------- odds */
 
-  const candidates = await deps.oddsCandidates();
+  /*
+   * A pass that spent its budget discovering does not also price.
+   *
+   * Both phases in one invocation is what the wall-clock limit refused, and
+   * splitting them costs nothing: the next wake-up is fifteen minutes away,
+   * well inside every refresh band except the final one, and newly
+   * discovered fixtures are hours from kickoff by definition. Keeping each
+   * invocation to a single purpose is also what makes a killed run cheap --
+   * there is only ever one kind of work in flight to lose.
+   */
+  const discoveryRan = discoveryDatesRequested.length > 0;
+  if (discoveryRan) {
+    bump(skippedByReason, "ODDS_DEFERRED_AFTER_DISCOVERY");
+  }
+
+  const candidatesStartedAt = deps.clock().getTime();
+  const candidates = discoveryRan ? [] : await deps.oddsCandidates();
+  timings.candidatesMs = since(candidatesStartedAt);
   const oddsBudget = purposeRequestBudget({
     purpose: "ODDS",
     snapshot,
@@ -307,6 +392,7 @@ export async function runProviderIngestion<TFixture, TOdds>(
    * twenty in flight, spending quota the provider has already refused. One at
    * a time means the very next request can be abandoned.
    */
+  const oddsFetchStartedAt = deps.clock().getTime();
   for (const candidate of prioritized.slice(0, oddsAllowedThisRun)) {
     const state = providerQuotaState(snapshot, deps.clock());
     if (state === "EXHAUSTED" || state === "CRITICAL") {
@@ -317,7 +403,7 @@ export async function runProviderIngestion<TFixture, TOdds>(
     const outcome = await deps.fetchOdds(candidate.providerFixtureId);
     providerCallsUsed += 1;
     oddsRequestsAttempted += 1;
-    await absorb(outcome.quota);
+    await absorb(outcome.quota, "ODDS");
 
     if (!outcome.ok) {
       bump(errorsByReason, `ODDS_${outcome.reason}`);
@@ -327,11 +413,14 @@ export async function runProviderIngestion<TFixture, TOdds>(
          * provider did not send a remaining count with the refusal -- a
          * refusal is itself the most reliable signal we have.
          */
-        await absorb({
-          remaining: 0,
-          dailyLimit: snapshot.dailyLimit,
-          observedAt: deps.clock(),
-        });
+        await absorb(
+          {
+            remaining: 0,
+            dailyLimit: snapshot.dailyLimit,
+            observedAt: deps.clock(),
+          },
+          "ODDS",
+        );
         break;
       }
       continue;
@@ -339,10 +428,14 @@ export async function runProviderIngestion<TFixture, TOdds>(
     collected.push(...outcome.value);
   }
 
+  timings.oddsFetchMs = since(oddsFetchStartedAt);
+
+  const oddsPersistStartedAt = deps.clock().getTime();
   const odds =
     collected.length > 0
       ? await deps.persistOdds(collected)
       : { received: 0, written: 0, duplicate: 0, skippedByReason: {} };
+  timings.oddsPersistMs = since(oddsPersistStartedAt);
   mergeSkips(skippedByReason, odds.skippedByReason);
 
   /* ------------------------------------------------------------- quota probe */
@@ -356,7 +449,9 @@ export async function runProviderIngestion<TFixture, TOdds>(
     const outcome = await deps.probeQuotaStatus();
     providerCallsUsed += 1;
     quotaProbed = true;
-    await absorb(outcome.quota);
+    /* Charged to discovery: it is the purpose whose budget funds finding out
+       what the day's budget actually is. */
+    await absorb(outcome.quota, "DISCOVERY");
     if (!outcome.ok) bump(errorsByReason, `STATUS_${outcome.reason}`);
   }
 
@@ -385,5 +480,6 @@ export async function runProviderIngestion<TFixture, TOdds>(
     oddsDuplicates: odds.duplicate,
     skippedByReason,
     errorsByReason,
+    timings,
   };
 }

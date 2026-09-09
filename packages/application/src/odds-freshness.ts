@@ -137,21 +137,35 @@ export function oddsRefreshIntervalMinutes(
 /**
  * Whether a fixture's prices are worth re-requesting.
  *
- * Two conditions, and both must hold: the price must no longer be actionable
- * (the same boundary the decision engine uses, so the pipeline never settles
- * into refreshing prices it would refuse to act on, or acting on prices it
- * never refreshes), *and* enough time must have passed for another request to
- * be worth its share of a finite daily budget.
+ * The two timestamps here are deliberately different things, and conflating
+ * them burns quota.
  *
- * A fixture that has already kicked off is not refreshed: its closing price
- * is whatever was last observed, and spending a request to watch an in-play
- * market the product does not price would take budget from a fixture that
- * still has a decision left in it.
+ * `latestObservedAt` is the provider's own view of when the market was
+ * observed. It is the right basis for judging the *evidence* -- whether a
+ * price still describes the current market -- and it is what the decision
+ * engine uses. But it is not under our control: the provider frequently
+ * reports an `update` timestamp hours in the past, so a price can arrive
+ * already outside the actionable window. Scheduling on it alone means such a
+ * fixture is permanently "due", and the pipeline re-buys the identical prices
+ * on every pass forever. That is exactly what happened on the first live
+ * pricing runs: four consecutive passes spent a request each and wrote
+ * nothing but eighteen duplicates.
+ *
+ * `lastFetchedAt` is when *we* last spent a request on this fixture. That is
+ * the right basis for deciding whether to spend another, because it is the
+ * only one that advances when we act.
+ *
+ * So: the evidence must be worth replacing, and enough time must have passed
+ * since we last asked. A fixture that has already kicked off is not
+ * refreshed at all -- its closing price is whatever was last observed, and
+ * watching an in-play market the product does not price would take budget
+ * from a fixture that still has a decision left in it.
  */
 export function oddsRefreshDue(
   latestObservedAt: Date | null,
   asOf: Date,
   kickoffAt?: Date,
+  lastFetchedAt?: Date | null,
 ): boolean {
   if (kickoffAt && kickoffAt.getTime() <= asOf.getTime()) return false;
 
@@ -161,5 +175,17 @@ export function oddsRefreshDue(
   if (assessment.ageMinutes === null) return true;
   if (!kickoffAt) return true;
 
-  return assessment.ageMinutes >= oddsRefreshIntervalMinutes(kickoffAt, asOf);
+  const interval = oddsRefreshIntervalMinutes(kickoffAt, asOf);
+
+  /*
+   * Prefer our own last-asked time when we have one. Falling back to the
+   * provider's timestamp keeps the older single-argument behaviour for
+   * callers that genuinely have nothing better.
+   */
+  const minutesSinceWeAsked =
+    lastFetchedAt == null
+      ? assessment.ageMinutes
+      : Math.max(0, (asOf.getTime() - lastFetchedAt.getTime()) / 60_000);
+
+  return minutesSinceWeAsked >= interval;
 }
