@@ -136,18 +136,17 @@ export function ResultsView({
                   {t.outcome}: {item.finalScore}
                 </span>
                 <span>
-                  {t.model}{" "}
-                  {formatPercent(item.modelProbability as never, 1, locale)} ·{" "}
-                  {formatOdds(item.oddsAtDecision as never, locale)}
+                  {t.model} {formatPercent(item.modelProbability, 1, locale)} ·{" "}
+                  {formatOdds(item.oddsAtDecision, locale)}
                 </span>
                 <span>
-                  {t.fair} {formatOdds(item.fairOdds as never, locale)} · EV{" "}
-                  {formatPercent(item.expectedValue as never, 1, locale)}
+                  {t.fair} {formatOdds(item.fairOdds, locale)} · EV{" "}
+                  {formatPercent(item.expectedValue, 1, locale)}
                 </span>
                 <span>
                   {t.price}: {priceLabel(item.priceQuality)}
                   {item.clv
-                    ? ` · CLV ${formatPercent(item.clv as never, 1, locale)}`
+                    ? ` · CLV ${formatPercent(item.clv, 1, locale)}`
                     : ""}
                 </span>
               </div>

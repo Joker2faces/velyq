@@ -1,4 +1,3 @@
-import type { CustomerMatchDto } from "@velyq/contracts";
 import type { Locale } from "@velyq/ui";
 const EN: Record<string, string> = {
   MISSING_LINEUP: "Waiting for lineup",
@@ -24,12 +23,4 @@ const EL: Record<string, string> = {
 };
 export function forecastReason(code: string, locale: Locale): string {
   return (locale === "el" ? EL : EN)[code] ?? code.replaceAll("_", " ");
-}
-export function priceThreshold(match: CustomerMatchDto) {
-  if (match.fairOdds === null || match.currentOdds === null) return null;
-  const minimum = Number(match.fairOdds) * 1.03;
-  return {
-    minimum,
-    distancePercent: (minimum / Number(match.currentOdds) - 1) * 100,
-  };
 }

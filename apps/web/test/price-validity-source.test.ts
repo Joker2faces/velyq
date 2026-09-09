@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
@@ -67,12 +67,16 @@ describe("price validity comes from the authoritative module", () => {
      * wrong pixel, it was a second implementation of a policy. This fails if
      * any customer surface starts multiplying a price again.
      */
-    const views = [
-      "app/today/today-view.tsx",
-      "app/edge/edge-view.tsx",
-      "app/radar/radar-view.tsx",
-      "app/matches/[id]/page.tsx",
-    ];
+    /*
+     * Every customer source under app/, discovered rather than enumerated.
+     * The list used to name four views, and a second implementation of this
+     * exact policy -- `Number(match.fairOdds) * 1.03`, with a 3% margin --
+     * survived in app/customer/forecast-presentation.ts precisely because it
+     * was not one of the four. Route handlers are excluded: app/api/** is
+     * the server boundary that legitimately calls the analytics modules.
+     */
+    const views = collectCustomerSources(join(appDirectory, "app"));
+    expect(views.length).toBeGreaterThan(10);
 
     for (const view of views) {
       /*
@@ -90,6 +94,57 @@ describe("price validity comes from the authoritative module", () => {
       expect(source, `${view} applies a hand-rolled margin`).not.toMatch(
         /\*\s*1\.0[0-9]/,
       );
+
+      /*
+       * Today's forecast panel derived a whole 1X2 distribution from the one
+       * probability the DTO carries, by splitting the remainder as
+       * `(1 - probability) / 2`. The model never produced that uniform
+       * split, and because the cell was chosen by comparing the canonical
+       * selection code against "Home"/"Draw"/"Away" -- which never matches
+       * -- every cell showed the invented figure.
+       */
+      expect(
+        source,
+        `${view} derives a probability distribution of its own`,
+      ).not.toMatch(/\(\s*1\s*-\s*probability\s*\)\s*\//);
+
+      /*
+       * `DecimalString` is a branded type precisely so a float-derived
+       * string cannot be passed off as a canonical decimal. `as never`
+       * defeats that check, and is how the derivation above type-checked.
+       */
+      expect(source, `${view} casts away a decimal brand`).not.toMatch(
+        /as\s+never/,
+      );
+
+      /*
+       * The canonical selection codes are HOME/DRAW/AWAY. Comparing against
+       * display strings silently never matches, which is what made the
+       * defect invisible rather than obvious.
+       */
+      expect(
+        source,
+        `${view} compares a selection against a display string`,
+      ).not.toMatch(/selection\s*===\s*"(?:Home|Draw|Away)"/);
     }
   });
 });
+
+/** Customer-facing sources under `app/`, excluding the API boundary. */
+function collectCustomerSources(root: string): string[] {
+  const found: string[] = [];
+  const walk = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const absolute = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "api" && directory === root) continue;
+        walk(absolute);
+        continue;
+      }
+      if (/\.(ts|tsx)$/.test(entry.name))
+        found.push(relative(root, absolute).replaceAll("\\", "/"));
+    }
+  };
+  walk(root);
+  return found.map((path) => `app/${path}`);
+}

@@ -333,14 +333,24 @@ export function TodayView({
           />
           <div className="forecast-list">
             {matches.map((match) => {
+              /*
+               * Only the selected outcome's probability crosses the DTO, so
+               * only it is shown. This panel used to render a full 1X2 row
+               * by splitting the remainder as `(1 - p) / 2` -- a uniform
+               * distribution the model never produced -- and to pick which
+               * cell got the real figure by comparing `match.selection`
+               * against "Home"/"Draw"/"Away". The DTO carries the canonical
+               * codes HOME/DRAW/AWAY, so those comparisons never matched and
+               * every cell rendered the invented number: a 60% model
+               * probability displayed as "Home 20.0% Draw 20.0% Away 20.0%"
+               * under a VELYQ MODEL badge, while the same page printed
+               * "Model 60.0%" for that match. Showing one true number beats
+               * three false ones.
+               */
               const probability =
                 match.modelProbability === null
                   ? null
                   : Number(match.modelProbability);
-              const other =
-                probability === null
-                  ? null
-                  : ((1 - probability) / 2).toFixed(3);
               return (
                 <article
                   className="forecast-card"
@@ -375,39 +385,9 @@ export function TodayView({
                     <>
                       <div className="forecast-card__probabilities">
                         <span>
-                          Home{" "}
+                          {selectionLabel(match.selection, locale)}{" "}
                           <b>
-                            {formatProbability(
-                              (match.selection === "Home"
-                                ? probability
-                                : Number(other)
-                              ).toString() as never,
-                              locale,
-                            )}
-                          </b>
-                        </span>
-                        <span>
-                          Draw{" "}
-                          <b>
-                            {formatProbability(
-                              (match.selection === "Draw"
-                                ? probability
-                                : Number(other)
-                              ).toString() as never,
-                              locale,
-                            )}
-                          </b>
-                        </span>
-                        <span>
-                          Away{" "}
-                          <b>
-                            {formatProbability(
-                              (match.selection === "Away"
-                                ? probability
-                                : Number(other)
-                              ).toString() as never,
-                              locale,
-                            )}
+                            {formatProbability(match.modelProbability, locale)}
                           </b>
                         </span>
                       </div>
