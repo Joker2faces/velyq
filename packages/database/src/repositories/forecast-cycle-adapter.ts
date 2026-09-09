@@ -351,18 +351,14 @@ export async function createForecastCycleDbAdapter(
       ? { decisionPolicy: options.decisionPolicy }
       : {}),
     /*
-     * `prediction_runs.trigger_job_id` is a uuid column, and the trigger
-     * hands us a human-readable label ("forecast-cycle-trigger:<iso>"), so
-     * passing it through unchanged made Postgres reject every insert with
-     * invalid uuid syntax -- which is why a live cycle scanned real fixtures,
-     * resolved every identity, and still persisted nothing. Hashing the
-     * label to a uuid keeps what the label was for (two runs of the same
-     * trigger collapse to one row, so a retried cycle stays idempotent)
-     * while satisfying the column's type.
+     * Only ever a real `operations.jobs` id. The column is a foreign key to
+     * that table, so anything invented -- a label, or a hash of one -- is
+     * rejected, and the column is nullable precisely because a
+     * trigger-initiated cycle has no queued job behind it. Such a run is
+     * identified by `prediction_runs.id`, which is derived deterministically
+     * below.
      */
-    ...(options.triggerJobId
-      ? { triggerJobId: deterministicId(options.triggerJobId) }
-      : {}),
+    ...(options.triggerJobId ? { triggerJobId: options.triggerJobId } : {}),
     modelArtifact: options.modelArtifact,
     modelVersionId,
     calibrationVersionId,

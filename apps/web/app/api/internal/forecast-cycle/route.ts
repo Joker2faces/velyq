@@ -82,7 +82,15 @@ async function runTrigger(request: Request, body: unknown) {
       modelArtifact,
       providerCode: PROVIDER_CODE,
       dataOrigin: validated.value.mode,
-      triggerJobId: runId,
+      /*
+       * Deliberately no `triggerJobId`. `prediction_runs.trigger_job_id` is a
+       * foreign key into `operations.jobs`, and this trigger is not a queued
+       * job -- it is an HTTP call. Passing `runId` here made every insert
+       * fail (first as invalid uuid syntax, then as a foreign-key violation),
+       * so a live cycle scanned real fixtures, resolved every identity, and
+       * persisted nothing. `runId` remains the correlation id in the logs
+       * below, which is what it was always good for.
+       */
     });
     const result = await runForecastCycle(adapter, {
       from: validated.value.from,
