@@ -25,6 +25,8 @@ import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
+import { canonicalMarketDefinitions } from "@velyq/market-semantics";
+import { buildCustomerMarketConsensus, deriveRiskFlags } from "./market-consensus";
 
 /**
  * Reads a PostgreSQL NUMERIC column into a validated decimal.
@@ -146,6 +148,26 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
   const sourceObservationIds =
     outcome?.predictionInputs.map((input) => input.sourceObservationId) ?? [];
+  /*
+   * The Market Map for the headline 1X2 market -- built from the same raw
+   * per-bookmaker odds rows `odds` above came from, just regrouped across
+   * the market's three outcomes instead of narrowed to one. Undefined
+   * (not a zeroed object) whenever no bookmaker has quoted this market.
+   */
+  const marketConsensus = buildCustomerMarketConsensus(
+    raw,
+    canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code,
+    canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.outcomeCodes,
+  );
+  const riskFlags = deriveRiskFlags({
+    freshness: freshnessAssessment.freshness,
+    qualityReasonCodes: quality?.reasonCodes ?? [],
+    lineup,
+    movementState: movementSummary.state,
+    modelMaturity: "EXPERIMENTAL",
+    marketConsensus,
+    currentSelection: outcome?.outcomeDefinition.code ?? "",
+  });
   return {
     eventId: raw.event.id,
     homeTeam: home,
@@ -224,6 +246,8 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
       ...(quality ? { qualityAssessmentId: quality.id } : {}),
     },
     secondaryMarkets: secondaryMarketsFor(raw),
+    ...(marketConsensus ? { marketConsensus } : {}),
+    riskFlags,
   };
 }
 

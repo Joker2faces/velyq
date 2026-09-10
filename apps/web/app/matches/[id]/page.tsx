@@ -21,12 +21,14 @@ import {
   translator,
 } from "@velyq/ui";
 import { loadCustomerMatch, loadPostMatchAutopsy } from "../../customer-runtime";
-import { PostMatchAutopsy } from "../../components/match";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
 import {
   DecisionReasoning,
+  MarketMap,
+  PostMatchAutopsy,
   PriceValidity,
+  RiskFlags,
   SecondaryMarkets,
 } from "../../components/match";
 import {
@@ -347,6 +349,13 @@ export default async function Match({
             </Card>
           ) : null}
 
+          {match.marketConsensus ? (
+            <Card>
+              <CardHead title={t("marketMapTitle")} hint={t("marketMapLead")} />
+              <MarketMap consensus={match.marketConsensus} locale={locale} />
+            </Card>
+          ) : null}
+
           {match.secondaryMarkets && match.secondaryMarkets.length > 0 ? (
             <Card>
               <CardHead
@@ -367,6 +376,12 @@ export default async function Match({
            */}
           <Card>
             <DecisionReasoning match={match} locale={locale} />
+            {match.riskFlags && match.riskFlags.length > 0 ? (
+              <>
+                <p className="risk-flags__title">{t("riskFlagsTitle")}</p>
+                <RiskFlags flags={match.riskFlags} locale={locale} />
+              </>
+            ) : null}
           </Card>
 
           {/* ----------------------------------------------- quality/lineup */}

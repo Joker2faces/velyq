@@ -111,6 +111,9 @@ importers:
       '@velyq/decimal':
         specifier: workspace:*
         version: link:../../packages/decimal
+      '@velyq/market-semantics':
+        specifier: workspace:*
+        version: link:../../packages/market-semantics
       '@velyq/research':
         specifier: workspace:*
         version: link:../../packages/research

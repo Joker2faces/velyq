@@ -340,6 +340,37 @@ export function reasonLabels(codes: readonly string[], locale: Locale) {
   return codes.map((code) => reasonLabel(code, locale));
 }
 
+// ------------------------------------------------------------ risk flags
+
+const RISK_FLAG_LABELS: Readonly<Record<string, MessageKey>> = {
+  STALE_MARKET: "riskFlagStaleMarket",
+  AGING_MARKET: "riskFlagAgingMarket",
+  LOW_MARKET_COVERAGE: "riskFlagLowMarketCoverage",
+  HIGH_BOOKMAKER_DISPERSION: "riskFlagHighBookmakerDispersion",
+  WAITING_FOR_LINEUP: "riskFlagWaitingForLineup",
+  MODEL_EXPERIMENTAL: "riskFlagModelExperimental",
+  IDENTITY_UNCERTAIN: "riskFlagIdentityUncertain",
+  INSUFFICIENT_HISTORY: "riskFlagInsufficientHistory",
+  OUTLIER_PRICE: "riskFlagOutlierPrice",
+  MARKET_CONSENSUS_UNAVAILABLE: "riskFlagMarketConsensusUnavailable",
+};
+
+/** Same "never fabricate, report unavailable" discipline as `reasonLabel`. */
+export function riskFlagLabel(code: string, locale: Locale) {
+  const key = RISK_FLAG_LABELS[code];
+  return translate(key ?? "reasonUnknown", locale);
+}
+
+export function riskFlagLabels(codes: readonly string[], locale: Locale) {
+  return codes.map((code) => riskFlagLabel(code, locale));
+}
+
+/** Every risk flag reads as a caution, never as a market-moving alarm --
+    VELYQ is explanatory context, not a warning siren. */
+export function riskFlagTone(_code: string): Tone {
+  return "caution";
+}
+
 // -------------------------------------------------------- price validity
 
 const PRICE_VALIDITY_LABELS: Readonly<Record<string, MessageKey>> = {

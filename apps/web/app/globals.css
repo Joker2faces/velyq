@@ -2467,6 +2467,81 @@ a.row:hover {
   color: var(--primary);
 }
 
+.market-map__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.market-map__coverage {
+  font-size: 0.8125rem;
+  color: var(--secondary);
+}
+
+.market-map__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.market-map__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.market-map__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.market-map__outcome {
+  font-family: var(--font-label);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.market-map__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.market-map__figures dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.market-map__figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--primary);
+}
+
+.risk-flags__title {
+  margin: var(--space-4) 0 var(--space-2);
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.risk-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* ------------------------------------------------------------- reasoning
 
    Positive and negative intelligence side by side, with equal weight. A

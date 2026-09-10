@@ -21,6 +21,7 @@
     "@velyq/contracts": "workspace:*",
     "@velyq/database": "workspace:*",
     "@velyq/decimal": "workspace:*",
+    "@velyq/market-semantics": "workspace:*",
     "@velyq/research": "workspace:*",
     "@velyq/ui": "workspace:*",
     "@vinext/cloudflare": "1.0.0-beta.7",

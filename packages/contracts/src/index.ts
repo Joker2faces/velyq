@@ -767,6 +767,92 @@ export type CustomerMatchDto = Readonly<{
    * as zero EDGE on the headline market. Never fabricated to fill the space.
    */
   secondaryMarkets?: readonly CustomerSecondaryMarketDto[];
+  /**
+   * The Market Map: what every complete bookmaker book says about this
+   * market, built from one coherent provider instant -- never a consensus
+   * assembled by comparing bookmakers observed at different times. Absent
+   * (not a zeroed-out object) whenever no bookmaker has quoted this market
+   * at all; null `consensus`/`noVigConsensus` fields whenever no single
+   * bookmaker's book was complete enough to de-vig, which is a real,
+   * common, honest state -- not an error.
+   */
+  marketConsensus?: CustomerMarketConsensusDto;
+  /**
+   * Real, evidence-derived explanatory context -- never a fabricated
+   * confidence score. Each code names a specific, checkable condition
+   * (stale market, low bookmaker coverage, high bookmaker disagreement,
+   * waiting on a lineup, an experimental model, ...); an empty array is the
+   * common, healthy case, not a placeholder. Optional (rather than always
+   * an array) only so existing fixture/demo builders are not forced to
+   * declare it; the live mapper always sets it.
+   */
+  riskFlags?: readonly CustomerRiskFlag[];
+}>;
+
+/**
+ * Every risk flag VELYQ can currently derive from real, stored evidence.
+ * Versioned by `RISK_FLAG_POLICY_VERSION` below -- the thresholds behind
+ * these are a product decision, not incidental constants, and changing one
+ * changes what a customer is told, so it is tracked like every other
+ * policy in this codebase (`price-validity.v1`, `phase-1-quality.v1`, ...).
+ */
+export type CustomerRiskFlag =
+  | "STALE_MARKET"
+  | "AGING_MARKET"
+  | "LOW_MARKET_COVERAGE"
+  | "HIGH_BOOKMAKER_DISPERSION"
+  | "WAITING_FOR_LINEUP"
+  | "MODEL_EXPERIMENTAL"
+  | "IDENTITY_UNCERTAIN"
+  | "INSUFFICIENT_HISTORY"
+  | "OUTLIER_PRICE"
+  | "MARKET_CONSENSUS_UNAVAILABLE";
+
+export const RISK_FLAG_POLICY_VERSION = "risk-flags.v1";
+
+export const customerRiskFlags: readonly CustomerRiskFlag[] = Object.freeze([
+  "STALE_MARKET",
+  "AGING_MARKET",
+  "LOW_MARKET_COVERAGE",
+  "HIGH_BOOKMAKER_DISPERSION",
+  "WAITING_FOR_LINEUP",
+  "MODEL_EXPERIMENTAL",
+  "IDENTITY_UNCERTAIN",
+  "INSUFFICIENT_HISTORY",
+  "OUTLIER_PRICE",
+  "MARKET_CONSENSUS_UNAVAILABLE",
+]);
+
+/**
+ * One outcome's row in the Market Map: what bookmakers offered, and (when
+ * enough of them offered a complete book) what the de-vigged consensus
+ * implied.
+ */
+export type CustomerMarketConsensusOutcomeDto = Readonly<{
+  outcomeCode: string;
+  bestOdds: DecimalString | null;
+  medianOdds: DecimalString | null;
+  minOdds: DecimalString | null;
+  maxOdds: DecimalString | null;
+  /** Distinct bookmakers quoting THIS outcome, complete book or not. */
+  bookmakerCount: number;
+  /** Null whenever no bookmaker's book was complete enough to de-vig. */
+  consensusProbability: DecimalString | null;
+  consensusProbabilityLow: DecimalString | null;
+  consensusProbabilityHigh: DecimalString | null;
+  dispersion: DecimalString | null;
+}>;
+
+export type CustomerMarketConsensusDto = Readonly<{
+  /** The one coherent provider instant this whole snapshot was built from. */
+  observedAt: string;
+  freshness: CustomerOddsFreshness;
+  method: "MULTIPLICATIVE" | "POWER" | "SHIN";
+  /** Distinct bookmakers with ANY observation in this snapshot. */
+  bookmakerCount: number;
+  /** Bookmakers whose book was complete enough to enter the de-vig consensus. */
+  completeBookmakerCount: number;
+  outcomes: readonly CustomerMarketConsensusOutcomeDto[];
 }>;
 
 /**
@@ -1126,6 +1212,51 @@ function validateCustomerMatchInput(input: unknown): string[] {
     }
   }
 
+  if (input["riskFlags"] !== undefined) {
+    if (!Array.isArray(input["riskFlags"])) {
+      errors.push("riskFlags must be an array");
+    } else if (
+      !input["riskFlags"].every((code) =>
+        customerRiskFlags.includes(code as CustomerRiskFlag),
+      )
+    ) {
+      errors.push("riskFlags contains an unrecognised code");
+    }
+  }
+
+  if (input["marketConsensus"] !== undefined) {
+    for (const error of validateCustomerMarketConsensusInput(
+      input["marketConsensus"],
+    ))
+      errors.push(`marketConsensus.${error}`);
+  }
+
+  return errors;
+}
+
+function validateCustomerMarketConsensusInput(input: unknown): string[] {
+  const errors: string[] = [];
+  if (!isObject(input)) return ["must be an object"];
+  if (!isTimestamp(input["observedAt"])) errors.push("observedAt is invalid");
+  if (!customerOddsFreshnessStates.includes(input["freshness"] as never))
+    errors.push("freshness is invalid");
+  if (!["MULTIPLICATIVE", "POWER", "SHIN"].includes(input["method"] as string))
+    errors.push("method is invalid");
+  if (
+    !Number.isInteger(input["bookmakerCount"]) ||
+    (input["bookmakerCount"] as number) < 0
+  )
+    errors.push("bookmakerCount is invalid");
+  if (
+    !Number.isInteger(input["completeBookmakerCount"]) ||
+    (input["completeBookmakerCount"] as number) < 0
+  )
+    errors.push("completeBookmakerCount is invalid");
+  if (!Array.isArray(input["outcomes"])) {
+    errors.push("outcomes must be an array");
+  } else if (input["outcomes"].length === 0) {
+    errors.push("outcomes must not be empty");
+  }
   return errors;
 }
 

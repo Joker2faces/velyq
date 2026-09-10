@@ -1,5 +1,6 @@
 import type {
   CustomerMatchDto,
+  CustomerMarketConsensusDto,
   CustomerSecondaryMarketDto,
 } from "@velyq/contracts";
 import Link from "next/link";
@@ -20,6 +21,8 @@ import {
   reasonLabel,
   reasonLabels,
   recommendationExplanation,
+  riskFlagLabel,
+  riskFlagTone,
   selectionLabel,
   translator,
   type Locale,
@@ -587,6 +590,89 @@ export function PostMatchAutopsy({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Market Map: every bookmaker's complete book for this market, de-vigged
+ * and averaged where enough books were complete, from one coherent provider
+ * instant (see `buildMarketSnapshot`/`buildCustomerMarketConsensus`). No
+ * bookmaker is ever named -- only aggregate figures a customer can act on.
+ */
+export function MarketMap({
+  consensus,
+  locale,
+}: {
+  consensus: CustomerMarketConsensusDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  return (
+    <div className="market-map">
+      <div className="market-map__meta">
+        <Badge tone={freshnessTone(consensus.freshness)}>
+          {freshnessLabel(consensus.freshness, locale)}
+        </Badge>
+        <span className="market-map__coverage">
+          {t("marketMapCoverage")}: {consensus.completeBookmakerCount}/
+          {consensus.bookmakerCount}
+        </span>
+      </div>
+      <div className="market-map__rows">
+        {consensus.outcomes.map((row) => (
+          <div className="market-map__row" key={row.outcomeCode}>
+            <span className="market-map__outcome">
+              {selectionLabel(row.outcomeCode, locale)}
+            </span>
+            <dl className="market-map__figures">
+              <div>
+                <dt>{t("marketMapBestPrice")}</dt>
+                <dd>
+                  {row.bestOdds === null ? "—" : formatOdds(row.bestOdds, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("marketMapMedianPrice")}</dt>
+                <dd>
+                  {row.medianOdds === null
+                    ? "—"
+                    : formatOdds(row.medianOdds, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("marketMapConsensus")}</dt>
+                <dd>
+                  {row.consensusProbability === null
+                    ? t("marketMapNoConsensus")
+                    : formatProbability(row.consensusProbability, locale)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Real, evidence-derived explanatory context -- never a fabricated
+    confidence score. Renders nothing for an empty (the common) case. */
+export function RiskFlags({
+  flags,
+  locale,
+}: {
+  flags: readonly string[];
+  locale: Locale;
+}) {
+  if (flags.length === 0) return null;
+  return (
+    <div className="risk-flags">
+      {flags.map((code) => (
+        <Badge key={code} tone={riskFlagTone(code)}>
+          {riskFlagLabel(code, locale)}
+        </Badge>
+      ))}
     </div>
   );
 }

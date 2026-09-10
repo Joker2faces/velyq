@@ -13,6 +13,15 @@ export {
   type MarketConsensus,
 } from "./devig.js";
 
+export {
+  buildMarketSnapshot,
+  ODDS_OUTLIER_POLICY_VERSION,
+  type MarketSnapshot,
+  type MarketSnapshotOutcome,
+  type OutlierCandidate,
+  type RawBookmakerObservation,
+} from "./market-snapshot.js";
+
 export type SportCode = "FOOTBALL";
 export type MarketFamilyCode =
   | "MATCH_RESULT"
