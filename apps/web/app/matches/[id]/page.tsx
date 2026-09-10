@@ -360,11 +360,36 @@ export default async function Match({
           </div>
 
           {/*
-           * Shown first once it exists: a settled fixture's own real
-           * outcome is what a customer actually wants to check first,
-           * before the pre-match verdict and price cards below -- which
-           * remain visible underneath as the honest record of what was
-           * said before kickoff.
+           * Why, why not, and what would overturn either -- directly under
+           * the verdict, not several cards further down.
+           *
+           * The reason codes were previously visible only as bare badges
+           * inside the data-quality card, which buried the negative
+           * intelligence that is often the most useful thing on the page --
+           * and nothing stated what would change the verdict at all. This
+           * card was later wired in but placed after Autopsy/Market
+           * Map/Secondary Markets, which meant the single most common
+           * question on the page -- "why is this WAIT/NO_BET" -- required
+           * scrolling past unrelated cards to reach an answer that was
+           * right there in the data all along. Moved up to sit immediately
+           * beside the verdict it explains.
+           */}
+          <Card>
+            <DecisionReasoning match={match} locale={locale} />
+            {match.riskFlags && match.riskFlags.length > 0 ? (
+              <>
+                <p className="risk-flags__title">{t("riskFlagsTitle")}</p>
+                <RiskFlags flags={match.riskFlags} locale={locale} />
+              </>
+            ) : null}
+          </Card>
+
+          {/*
+           * Shown next once it exists: a settled fixture's own real
+           * outcome is what a customer actually wants to check first among
+           * the remaining cards, before the market-detail cards below --
+           * which remain visible underneath as the honest record of what
+           * was said before kickoff.
            */}
           {autopsy ? (
             <Card>
@@ -392,24 +417,6 @@ export default async function Match({
               <SecondaryMarkets match={match} locale={locale} />
             </Card>
           ) : null}
-
-          {/*
-           * Why, why not, and what would overturn either.
-           *
-           * The reason codes were previously visible only as bare badges
-           * inside the data-quality card, which buried the negative
-           * intelligence that is often the most useful thing on the page --
-           * and nothing stated what would change the verdict at all.
-           */}
-          <Card>
-            <DecisionReasoning match={match} locale={locale} />
-            {match.riskFlags && match.riskFlags.length > 0 ? (
-              <>
-                <p className="risk-flags__title">{t("riskFlagsTitle")}</p>
-                <RiskFlags flags={match.riskFlags} locale={locale} />
-              </>
-            ) : null}
-          </Card>
 
           {lifecycle ? (
             <Card>
