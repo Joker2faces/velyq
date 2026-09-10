@@ -57,7 +57,7 @@ production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 | P1-M | Accessibility audit (§55) | OPEN | Beyond the focused checks already in the customer journey. |
 | P1-N | Post-match autopsy (§27) | OPEN | P0-B/P0-C now unblock it: settled outcomes and stored results exist. |
 | P1-O | Opportunity lifecycle (§86) | OPEN | DISCOVERED -> WATCH -> PRICE_VALID -> EDGE -> WAIT_FOR_LINEUP -> EDGE_DISAPPEARED -> CLOSED -> SETTLED with timestamps. |
-| P1-P | "Why nothing today?" aggregate explanation (§87) | PARTIAL | A funnel diagnostic exists; needs the customer-facing aggregate with real counts. |
+| P1-P | "Why nothing today?" aggregate explanation (§87) | **DONE** | `CustomerTodayDto.summary` (`CustomerTodayAggregateDto`: totalFixtures, counts by recommendation, lineupGated) computed once in `mapToday` from the same unsliced fixture list Today already maps -- no second query, and independent of the internal funnel-diagnostic route (still ops-only, untouched). Today's empty state cites real counts instead of a stock sentence. `summariseTodayAggregate` lives in its own zero-dependency module so the demo/fixture builder needn't pull in the database adapter. |
 
 ### Added by this mandate
 
