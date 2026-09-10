@@ -84,6 +84,41 @@ during this session, after the Market Consensus/Market Map/Risk Flags
 increment (code `aaf8a80`) built and pushed successfully but could not be
 promoted to production.
 
+### GitHub Actions is billing-locked (blocks the real-PostgreSQL CI gate)
+
+The `db-integration` CI job (`.github/workflows/ci.yml`) is the only environment
+in this project that runs a genuine PostgreSQL 17 (via the Supabase CLI, which
+manages its own Docker containers on the Ubuntu runner) -- no local Postgres
+or Docker is available in the engineering environment this session ran in.
+`gh workflow run ci.yml --ref codex/velyq-final-product-v1` was dispatched to
+get real-database verification of the session's DB-facing changes (the
+`getOddsHistory` bound-query fix, the CLV write path, the multi-class
+calibration query). Every job failed to start with the identical annotation:
+**"The job was not started because your account is locked due to a billing
+issue."** This is a genuine, external account-level block, confirmed
+immediately and consistently across all 12 jobs in the run
+(https://github.com/Joker2faces/velyq/actions/runs/34527023380) -- not a
+flake, not something a retry fixes, and not an engineering-side problem.
+There is no owner-side override available from this session (billing issues
+require the account owner to resolve them with GitHub directly).
+
+**Do not repeatedly re-dispatch this workflow while the account remains
+billing-locked** -- same principle as the Vercel deployment cap: it wastes
+engineering time on an external blocker rather than advancing anything. When
+the owner confirms the billing issue is resolved, re-dispatch once
+(`gh workflow run ci.yml --ref codex/velyq-final-product-v1`) and let the
+`db-integration` job run to completion before drawing any conclusion.
+
+**Practical consequence**: every DB-facing change queued on
+`codex/velyq-final-product-v1` remains **PUSHED AND UNIT-TESTED, NOT
+PRODUCTION-VERIFIED against real Postgres** until either local Docker/Postgres
+becomes available in the engineering environment, or the GitHub Actions
+billing lock clears and the `db-integration` job runs green. This specifically
+includes: the `getOddsHistory` bounded-query rewrite, the `ingestFootballResults`
+CLV write path, the multi-class calibration query, and the Market Consensus
+snapshot queries. None of these should be described as "release-verified" in
+any status report until this gate actually runs.
+
 ---
 
 ## 3. Rollback
