@@ -8,7 +8,12 @@ import {
   buildMarketSnapshot,
   type RawBookmakerObservation,
 } from "@velyq/market-semantics";
-import { numericColumnToDecimalString, type DecimalString } from "@velyq/decimal";
+import {
+  compareDecimalStrings,
+  numericColumnToDecimalString,
+  parseDecimalString,
+  type DecimalString,
+} from "@velyq/decimal";
 import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 
 const decimal = (value: string | null): DecimalString | null => {
@@ -122,7 +127,11 @@ export function buildCustomerMarketConsensus(
  * constant.
  */
 const MINIMUM_BOOKMAKER_COVERAGE = 3;
-const HIGH_DISPERSION_THRESHOLD = 0.08;
+const HIGH_DISPERSION_THRESHOLD_DECIMAL = parseDecimalString("0.08");
+if (!HIGH_DISPERSION_THRESHOLD_DECIMAL.ok)
+  throw new Error("HIGH_DISPERSION_THRESHOLD_DECIMAL is not canonical");
+const HIGH_DISPERSION_THRESHOLD: DecimalString =
+  HIGH_DISPERSION_THRESHOLD_DECIMAL.value;
 
 /**
  * Real, evidence-derived risk flags -- never a fabricated confidence score.
@@ -130,6 +139,62 @@ const HIGH_DISPERSION_THRESHOLD = 0.08;
  * elsewhere (freshness, quality reason codes, lineup state, market
  * consensus, movement history); this only decides which of those already-
  * real facts rise to the level of a flag worth surfacing together.
+ *
+ * Per-flag documentation (mandate §12: data source / threshold / policy
+ * version / why it matters / when it clears). All thresholds below are
+ * versioned as `RISK_FLAG_POLICY_VERSION` (`@velyq/contracts`); none of
+ * these flags ever override the Decision Engine's own verdict -- they are
+ * explanatory context alongside it, never a silent substitute for it.
+ *
+ * - STALE_MARKET / AGING_MARKET -- source: `assessOddsFreshness` (elapsed
+ *   time since the market snapshot's own provider instant vs. kickoff).
+ *   Mutually exclusive by construction (an `if`/`else if`). Clears the
+ *   instant a fresher snapshot is observed.
+ * - WAITING_FOR_LINEUP -- source: the event's own lineup state
+ *   (`EXPECTED`/`OFFICIAL`/`MISSING`/`CHANGED`). Clears once a lineup
+ *   sheet, official or provisional, is observed.
+ * - MODEL_EXPERIMENTAL -- source: the model's own maturity flag, currently
+ *   always `EXPERIMENTAL` for every model version in production (mandate
+ *   §3: never promoted on sample size alone). Clears only when a model
+ *   version is explicitly promoted, a decision made outside this function.
+ * - IDENTITY_UNCERTAIN -- source: `qualityReasonCodes` containing
+ *   `LOW_MAPPING_CONFIDENCE` (a real quality-assessment reason code written
+ *   elsewhere in the pipeline, not derived here). Clears when quality
+ *   assessment no longer emits that code for the event.
+ * - INSUFFICIENT_HISTORY -- source: `movementState ===
+ *   "INSUFFICIENT_HISTORY"` (too few price observations to know whether the
+ *   market has moved at all). Clears once enough odds history exists to
+ *   compute a real movement state.
+ * - MARKET_CONSENSUS_UNAVAILABLE -- source: `buildMarketSnapshot`'s own
+ *   `completeBookmakerCount` (no bookmaker's book was complete across every
+ *   required outcome at the snapshot instant, or there is no market
+ *   snapshot at all). Not merely "few bookmakers" -- see
+ *   LOW_MARKET_COVERAGE for that. Clears the moment any bookmaker reports a
+ *   complete book at a later instant.
+ * - LOW_MARKET_COVERAGE -- source: `marketConsensus.bookmakerCount`
+ *   (distinct bookmakers with ANY observation at the snapshot instant,
+ *   complete or not) `< MINIMUM_BOOKMAKER_COVERAGE` (3). Independent of
+ *   MARKET_CONSENSUS_UNAVAILABLE: coverage can be low while a consensus
+ *   still exists (a handful of complete books), or coverage can be
+ *   plentiful while none of them are complete -- both facts are reported
+ *   when both are true, which is complementary, not contradictory. Clears
+ *   once 3 or more bookmakers quote the outcome at the same instant.
+ * - HIGH_BOOKMAKER_DISPERSION -- source: the *selected outcome's own*
+ *   consensus `dispersion` value (only defined when a consensus exists --
+ *   see `buildCustomerMarketConsensus`, which leaves `dispersion` null
+ *   whenever `snapshot.consensus` is null), compared via exact decimal
+ *   arithmetic (`compareDecimalStrings`, never a float cast) against
+ *   `HIGH_DISPERSION_THRESHOLD` (0.08). Because `dispersion` is only ever
+ *   non-null when a real consensus was computed, this can never fire
+ *   alongside MARKET_CONSENSUS_UNAVAILABLE for the same outcome -- verified
+ *   by construction, not by a runtime guard. Clears once bookmaker prices
+ *   for the selected outcome converge back under the threshold.
+ * - OUTLIER_PRICE -- source: `buildMarketSnapshot`'s own
+ *   `outlierCandidates` (a price is a candidate only with at least 3 peer
+ *   quotes to measure it against -- see `ODDS_OUTLIER_POLICY_VERSION`),
+ *   restricted to whether the *currently selected* outcome has one. Clears
+ *   once that outcome's price is back within the outlier-detection
+ *   tolerance of its peers.
  */
 export function deriveRiskFlags(input: {
   freshness: CustomerOddsFreshness;
@@ -174,12 +239,14 @@ export function deriveRiskFlags(input: {
     const selected = input.marketConsensus.outcomes.find(
       (outcome) => outcome.outcomeCode === input.currentSelection,
     );
-    if (
-      selected?.dispersion !== null &&
-      selected?.dispersion !== undefined &&
-      Number(selected.dispersion) > HIGH_DISPERSION_THRESHOLD
-    ) {
-      flags.push("HIGH_BOOKMAKER_DISPERSION");
+    if (selected?.dispersion !== null && selected?.dispersion !== undefined) {
+      const comparison = compareDecimalStrings(
+        selected.dispersion,
+        HIGH_DISPERSION_THRESHOLD,
+      );
+      if (comparison.ok && comparison.value > 0) {
+        flags.push("HIGH_BOOKMAKER_DISPERSION");
+      }
     }
   }
 
