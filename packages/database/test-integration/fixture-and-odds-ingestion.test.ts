@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { deterministicEventId } from "@velyq/domain";
 import type { NormalizedEvent, NormalizedOdds } from "@velyq/providers";
 import { teamAliasLookupFor } from "@velyq/providers";
@@ -459,6 +459,93 @@ describe("fixture and odds ingestion, against a real database", () => {
       "2.10000000",
     ]);
   });
+
+  /*
+   * Pagination/growth audit finding (mandate section 15): getOddsHistory
+   * had no LIMIT at all, unlike its sibling oddsChain in getMatch, which
+   * already caps at MAX_ODDS_HISTORY (500) after a documented past bug from
+   * exactly this pattern -- a widely-quoted outcome's price refresh cadence
+   * exceeding 500 rows made the "latest" observation not actually the
+   * latest. Proves the fix keeps the newest observations (never the
+   * oldest) and respects the cap against a real database, not just the
+   * unit-level query-builder assertion.
+   */
+  it("[getOddsHistory] caps at the newest 500 observations, never the oldest", async () => {
+    await ingest(fixture({ providerEventId: "900010" }));
+    const eventId = deterministicEventId(PROVIDER_CODE, "900010");
+
+    const TOTAL_OBSERVATIONS = 505;
+    const baseInstant = Date.parse("2026-09-19T00:00:00.000Z");
+    for (let index = 0; index < TOTAL_OBSERVATIONS; index += 1) {
+      const observedAt = new Date(baseInstant + index * 60_000).toISOString();
+      await ingestFootballOdds(
+        database,
+        [
+          {
+            sport: "FOOTBALL",
+            providerEventId: "900010",
+            bookmaker: "Cap Test Book",
+            providerMarket: "1",
+            canonicalMarket: "MATCH_WINNER_1X2",
+            selection: "Home",
+            decimalOdds:
+              `${(1.5 + index / 1000).toFixed(3)}` as NormalizedOdds["decimalOdds"],
+            providerObservedAt: observedAt,
+            ingestedAt: observedAt,
+            provider: "API_SPORTS",
+            sourceReference: "test",
+          },
+        ],
+        referenceData,
+      );
+    }
+
+    const [outcome] = await database
+      .select({ id: eventMarketOutcomes.id })
+      .from(eventMarketOutcomes)
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        outcomeDefinitions,
+        eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+      )
+      .where(
+        and(
+          eq(eventMarkets.eventId, eventId),
+          eq(outcomeDefinitions.code, "HOME"),
+        ),
+      );
+    expect(outcome).toBeDefined();
+
+    const { DatabaseCustomerQueryAdapter } =
+      await import("../src/repositories/customer-queries.js");
+    const adapter = new DatabaseCustomerQueryAdapter(database, {
+      dataOrigin: "LIVE",
+    });
+    const history = await adapter.getOddsHistory(
+      eventId,
+      outcome!.id,
+      new Date(baseInstant + TOTAL_OBSERVATIONS * 60_000),
+    );
+    expect(history).not.toBeNull();
+    expect(history!.observations).toHaveLength(500);
+
+    /*
+     * Ascending chronological order, and the retained window is the newest
+     * 500 -- observations 5..504 (0-indexed), never 0..499. The oldest 5
+     * (indices 0-4) must be gone.
+     */
+    const observedTimes = history!.observations.map((observation) =>
+      observation.providerObservedAt.getTime(),
+    );
+    expect(observedTimes).toEqual([...observedTimes].sort((a, b) => a - b));
+    expect(observedTimes[0]).toBe(baseInstant + 5 * 60_000);
+    expect(observedTimes.at(-1)).toBe(
+      baseInstant + (TOTAL_OBSERVATIONS - 1) * 60_000,
+    );
+  }, 60_000);
 
   /* ------------------------------------------------- over/under 2.5 goals */
 
