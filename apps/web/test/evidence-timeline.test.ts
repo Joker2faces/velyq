@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CustomerRawMatch } from "@velyq/database";
 import { mapMatch } from "../app/customer-database";
+import { buildEvidenceTimeline } from "../app/evidence-timeline";
 
 /**
  * Evidence Timeline: the real, ordered sequence of price and lineup
@@ -113,5 +114,125 @@ describe("evidence timeline", () => {
     };
     const dto = mapMatch(emptied);
     expect(dto.evidenceTimeline).toEqual([]);
+  });
+
+  it("never fills the timeline with a price re-observation that did not move the price", () => {
+    const data = raw();
+    const outcome = data.outcomes[0]!;
+    const events = buildEvidenceTimeline(
+      {
+        ...data,
+        outcomes: [
+          {
+            ...outcome,
+            odds: [
+              {
+                decimalOdds: "2",
+                providerObservedAt: new Date("2026-09-20T09:00:00.000Z"),
+                isSynthetic: false,
+                bookmakerId: "book-a",
+              },
+              // Same price, later instant: a real persisted observation,
+              // but not a material price event.
+              {
+                decimalOdds: "2",
+                providerObservedAt: new Date("2026-09-20T09:15:00.000Z"),
+                isSynthetic: false,
+                bookmakerId: "book-a",
+              },
+              // Genuine move: must appear.
+              {
+                decimalOdds: "1.9",
+                providerObservedAt: new Date("2026-09-20T09:30:00.000Z"),
+                isSynthetic: false,
+                bookmakerId: "book-a",
+              },
+            ] as unknown as CustomerRawMatch["outcomes"][number]["odds"],
+          },
+        ],
+        lineups: [],
+      },
+      outcome.outcome.id,
+    );
+    const priceEvents = events.filter((event) => event.type === "PRICE_OBSERVED");
+    expect(priceEvents).toHaveLength(2);
+    expect(priceEvents.map((event) => event.price)).toEqual(["2", "1.9"]);
+  });
+
+  it("never fills the timeline with a lineup poll that reconfirms an unchanged status", () => {
+    const data = raw();
+    const events = buildEvidenceTimeline(
+      {
+        ...data,
+        lineups: [
+          {
+            id: "lineup-1",
+            eventId: "event-1",
+            teamParticipantId: "team-home",
+            status: "EXPECTED",
+            providerObservedAt: new Date("2026-09-20T10:00:00.000Z"),
+          },
+          // Same status, later poll: not material.
+          {
+            id: "lineup-2",
+            eventId: "event-1",
+            teamParticipantId: "team-home",
+            status: "EXPECTED",
+            providerObservedAt: new Date("2026-09-20T10:15:00.000Z"),
+          },
+          // Genuine status change: must appear.
+          {
+            id: "lineup-3",
+            eventId: "event-1",
+            teamParticipantId: "team-home",
+            status: "OFFICIAL",
+            providerObservedAt: new Date("2026-09-20T10:30:00.000Z"),
+          },
+        ] as unknown as CustomerRawMatch["lineups"],
+      },
+      data.outcomes[0]!.outcome.id,
+    );
+    const lineupEvents = events.filter(
+      (event) => event.type === "LINEUP_OBSERVED",
+    );
+    expect(lineupEvents).toHaveLength(2);
+    expect(lineupEvents.map((event) => event.lineupStatus)).toEqual([
+      "EXPECTED",
+      "OFFICIAL",
+    ]);
+  });
+
+  it("tracks lineup materiality independently per team, never letting one side's status suppress the other's", () => {
+    const data = raw();
+    const events = buildEvidenceTimeline(
+      {
+        ...data,
+        lineups: [
+          {
+            id: "lineup-home",
+            eventId: "event-1",
+            teamParticipantId: "team-home",
+            status: "EXPECTED",
+            providerObservedAt: new Date("2026-09-20T10:00:00.000Z"),
+          },
+          // Different team, same status: a real, distinct first-seen event.
+          {
+            id: "lineup-away",
+            eventId: "event-1",
+            teamParticipantId: "team-away",
+            status: "EXPECTED",
+            providerObservedAt: new Date("2026-09-20T10:00:00.000Z"),
+          },
+        ] as unknown as CustomerRawMatch["lineups"],
+      },
+      data.outcomes[0]!.outcome.id,
+    );
+    const lineupEvents = events.filter(
+      (event) => event.type === "LINEUP_OBSERVED",
+    );
+    expect(lineupEvents).toHaveLength(2);
+    expect(new Set(lineupEvents.map((event) => event.team))).toEqual(
+      new Set(["HOME", "AWAY"]),
+    );
   });
 });
