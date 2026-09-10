@@ -85,7 +85,8 @@ Known-good deployments:
 
 | Deployment | Note |
 | --- | --- |
-| `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` | First release of the honesty/quota fixes (code `9e28cf9`) |
+| `dpl_CTjZTQuridUZMtytpgxP7gAJFW3V` | **Current.** Customer redesign increment (code `4d04fbf`) — match cards, Today restructure, EDGE segmentation, RADAR evidence depth |
+| `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` | Release of the honesty/quota fixes (code `9e28cf9`) |
 | `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy` | Predecessor; predates every fix in that release |
 
 ---
