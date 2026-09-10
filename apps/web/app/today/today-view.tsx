@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  competitionLabel,
   reasonLabel,
   formatCount,
   formatLongDate,
@@ -307,8 +306,9 @@ export function TodayView({
                       {match.homeTeam} — {match.awayTeam}
                     </strong>
                     <p className="match-row__meta">
-                      Model {formatProbability(match.modelProbability, locale)}{" "}
-                      · {selectionLabel(match.selection, locale)}
+                      {t("matchModelShort")}{" "}
+                      {formatProbability(match.modelProbability, locale)} ·{" "}
+                      {selectionLabel(match.selection, locale)}
                     </p>
                   </div>
                   <div className="match-row__metrics">
@@ -339,99 +339,14 @@ export function TodayView({
           </Card>
         ) : null}
 
-        <Card>
-          <CardHead
-            title={forecastLabels.title}
-            hint="Forecasts remain useful even when no price is actionable."
-          />
-          <div className="forecast-list">
-            {matches.map((match) => {
-              /*
-               * Only the selected outcome's probability crosses the DTO, so
-               * only it is shown. This panel used to render a full 1X2 row
-               * by splitting the remainder as `(1 - p) / 2` -- a uniform
-               * distribution the model never produced -- and to pick which
-               * cell got the real figure by comparing `match.selection`
-               * against "Home"/"Draw"/"Away". The DTO carries the canonical
-               * codes HOME/DRAW/AWAY, so those comparisons never matched and
-               * every cell rendered the invented number: a 60% model
-               * probability displayed as "Home 20.0% Draw 20.0% Away 20.0%"
-               * under a VELYQ MODEL badge, while the same page printed
-               * "Model 60.0%" for that match. Showing one true number beats
-               * three false ones.
-               */
-              const probability =
-                match.modelProbability === null
-                  ? null
-                  : Number(match.modelProbability);
-              return (
-                <article
-                  className="forecast-card"
-                  key={`forecast-${match.eventId}`}
-                >
-                  <div className="forecast-card__head">
-                    <div>
-                      <p className="eyebrow">
-                        {competitionLabel(match.competition)} ·{" "}
-                        {formatTime(match.startsAt, locale)}
-                      </p>
-                      <h3>
-                        {match.homeTeam} — {match.awayTeam}
-                      </h3>
-                    </div>
-                    <Badge
-                      tone={probability === null ? "neutral" : "heuristic"}
-                    >
-                      {probability === null
-                        ? forecastLabels.unavailable
-                        : forecastLabels.source}
-                    </Badge>
-                  </div>
-                  {probability === null ? (
-                    <p>
-                      {forecastLabels.reason}:{" "}
-                      {match.quality.reasonCodes
-                        .map((code) => reasonLabel(code, locale))
-                        .join(", ")}
-                    </p>
-                  ) : (
-                    <>
-                      <div className="forecast-card__probabilities">
-                        <span>
-                          {selectionLabel(match.selection, locale)}{" "}
-                          <b>
-                            {formatProbability(match.modelProbability, locale)}
-                          </b>
-                        </span>
-                      </div>
-                      <p>
-                        <b>{forecastLabels.decision}:</b>{" "}
-                        {recommendationLabel(match.recommendation, locale)}
-                        {/*
-                         * A selection with nothing holding it back has no
-                         * reasons, and the label was printed anyway -- the
-                         * strong-edge card read "Decision: Strong edge ·
-                         * Reason:" and then stopped, which looks like
-                         * something failed to load rather than like good
-                         * news.
-                         */}
-                        {match.quality.reasonCodes.length > 0 ? (
-                          <>
-                            {" · "}
-                            {forecastLabels.reason}:{" "}
-                            {match.quality.reasonCodes
-                              .map((code) => reasonLabel(code, locale))
-                              .join(", ")}
-                          </>
-                        ) : null}
-                      </p>
-                    </>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        </Card>
+        {/*
+         * The Forecasts panel lived here and has been folded into the fixture
+         * cards below. It repeated the same seven matches with the same
+         * competition, kick-off, teams, selection, decision and reason that a
+         * card already carries; its one unique value was the model
+         * probability, which now sits on the card beside the price -- which is
+         * the comparison the product exists to make.
+         */}
 
         <div className="split">
           <Card>

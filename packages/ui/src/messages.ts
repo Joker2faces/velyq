@@ -442,6 +442,8 @@ export const messages = {
   matchSelection: "Selection",
   matchCurrentOdds: "Current odds",
   matchModelProbability: "Model probability",
+  /* Short form, for places where the number carries the meaning: cards. */
+  matchModelShort: "Model",
   matchImpliedProbability: "Implied probability",
   matchFairOdds: "Fair odds",
   matchExpectedValue: "Expected value",
@@ -1091,6 +1093,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchSelection: "Επιλογή",
   matchCurrentOdds: "Τρέχουσα απόδοση",
   matchModelProbability: "Πιθανότητα μοντέλου",
+  matchModelShort: "Μοντέλο",
   matchImpliedProbability: "Πιθανότητα αγοράς",
   matchFairOdds: "Δίκαιη απόδοση",
   matchExpectedValue: "Αναμενόμενη αξία",

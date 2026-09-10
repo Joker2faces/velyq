@@ -898,6 +898,14 @@
 .split {
   display: grid;
   gap: var(--space-4);
+  /*
+   * Cards size to their own content rather than stretching to match the
+   * tallest sibling. Grid items stretch by default, so a short panel beside
+   * a long one grew a large empty panel of dark space below its content --
+   * which read as a broken or still-loading card rather than as a card that
+   * simply had less to say.
+   */
+  align-items: start;
 }
 
 /* -------------------------------------------------- 9. intelligence rows */
@@ -2163,4 +2171,32 @@ a.row:hover {
 
 .today-summary__item--negative dd {
   color: var(--clay-strong);
+}
+
+/* Model beside market on a card: the comparison, not two loose numbers. */
+.match-card__numbers {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.match-card__model {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.match-card__model-label {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+
+.match-card__model b {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--secondary);
 }

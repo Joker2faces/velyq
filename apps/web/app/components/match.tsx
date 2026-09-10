@@ -2,6 +2,7 @@ import type { CustomerMatchDto } from "@velyq/contracts";
 import Link from "next/link";
 import {
   formatOdds,
+  formatProbability,
   formatTime,
   freshnessLabel,
   freshnessTone,
@@ -187,18 +188,36 @@ export function MatchCard({
           </span>
         </span>
 
-        {match.currentOdds === null ? (
-          <span className="match-card__price match-card__price--absent">
-            {t("reasonMarketDataUnavailable")}
-          </span>
-        ) : (
-          <span className="match-card__price">
-            <b>{formatOdds(match.currentOdds, locale)}</b>
-            <Badge tone={freshnessTone(match.freshness)}>
-              {freshnessLabel(match.freshness, locale)}
-            </Badge>
-          </span>
-        )}
+        {/*
+         * Model beside market, which is the question the product exists to
+         * answer: what does VELYQ believe, what does the market believe,
+         * and do they disagree? Showing the price alone makes this a
+         * fixture list; showing both makes it intelligence. A match with no
+         * model probability simply omits it -- the reason line below says
+         * why -- rather than printing a dash that reads like a failure.
+         */}
+        <span className="match-card__numbers">
+          {match.modelProbability === null ? null : (
+            <span className="match-card__model">
+              <span className="match-card__model-label">
+                {t("matchModelShort")}
+              </span>
+              <b>{formatProbability(match.modelProbability, locale)}</b>
+            </span>
+          )}
+          {match.currentOdds === null ? (
+            <span className="match-card__price match-card__price--absent">
+              {t("reasonMarketDataUnavailable")}
+            </span>
+          ) : (
+            <span className="match-card__price">
+              <b>{formatOdds(match.currentOdds, locale)}</b>
+              <Badge tone={freshnessTone(match.freshness)}>
+                {freshnessLabel(match.freshness, locale)}
+              </Badge>
+            </span>
+          )}
+        </span>
       </footer>
 
       {reason ? <p className="match-card__reason">{reason}</p> : null}
