@@ -193,6 +193,12 @@ export type AdminMultiClassCalibrationDto = AdminMultiClassMetricsDto &
     modelVersion: string;
     byCompetition: readonly (AdminMultiClassMetricsDto &
       Readonly<{ competitionCode: string }>)[];
+    /** Split by season (events.season_label, "UNKNOWN" when unset) -- a
+        model can be well-calibrated pooled across seasons while having
+        quietly drifted or been retrained mid-season; pooling across time
+        hides exactly that. */
+    bySeason: readonly (AdminMultiClassMetricsDto &
+      Readonly<{ seasonLabel: string }>)[];
     /** The real de-vig consensus (`buildMarketSnapshot`, same math as the
         customer-facing Market Map) scored on the exact same settled events
         VELYQ priced -- not VELYQ's own competitor, a baseline it must beat

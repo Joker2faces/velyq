@@ -273,6 +273,7 @@ export class DatabaseAdminQueries implements AdminQueries {
         sf.model_version,
         sf.event_market_id,
         e.starts_at as kickoff,
+        e.season_label,
         c.code as competition_code,
         r.true_outcome,
         max(case when sf.outcome_code = 'HOME' then sf.probability end) as p_home,
@@ -282,7 +283,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       join results r on r.event_id = sf.event_id
       join catalog.events e on e.id = sf.event_id
       join catalog.competitions c on c.id = e.competition_id
-      group by sf.model_version, sf.event_market_id, e.starts_at, r.true_outcome, c.code
+      group by sf.model_version, sf.event_market_id, e.starts_at, e.season_label, r.true_outcome, c.code
       having
         max(case when sf.outcome_code = 'HOME' then sf.probability end) is not null and
         max(case when sf.outcome_code = 'DRAW' then sf.probability end) is not null and
@@ -295,9 +296,23 @@ export class DatabaseAdminQueries implements AdminQueries {
       string,
       Map<string, ProbabilisticSample[]>
     >();
+    /*
+     * Season splits catch a different failure mode than competition splits:
+     * a model can be well-calibrated pooled across seasons while having
+     * quietly drifted (or been retrained/re-tuned) mid-season -- pooling
+     * across time hides exactly that, the same reason competition pooling
+     * hides a single under-sampled league being wrong.
+     */
+    const multiClassBySeason = new Map<
+      string,
+      Map<string, ProbabilisticSample[]>
+    >();
     for (const item of multiClassResult.rows) {
       const version = String(item["model_version"]);
       const competitionCode = String(item["competition_code"]);
+      const seasonLabel = item["season_label"]
+        ? String(item["season_label"])
+        : "UNKNOWN";
       const sample: ProbabilisticSample = {
         probabilities: [
           Number(item["p_home"]),
@@ -316,6 +331,9 @@ export class DatabaseAdminQueries implements AdminQueries {
         sample,
       ]);
       multiClassByCompetition.set(version, byCompetition);
+      const bySeason = multiClassBySeason.get(version) ?? new Map();
+      bySeason.set(seasonLabel, [...(bySeason.get(seasonLabel) ?? []), sample]);
+      multiClassBySeason.set(version, bySeason);
     }
     /*
      * Never promoted to non-EXPERIMENTAL on sample size alone -- that
@@ -460,6 +478,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       ([modelVersion, samples]) => {
         const byCompetitionMap =
           multiClassByCompetition.get(modelVersion) ?? new Map();
+        const bySeasonMap = multiClassBySeason.get(modelVersion) ?? new Map();
         return {
           modelVersion,
           ...multiClassMetricsFor(samples),
@@ -467,6 +486,12 @@ export class DatabaseAdminQueries implements AdminQueries {
             .map(([competitionCode, competitionSamples]) => ({
               competitionCode,
               ...multiClassMetricsFor(competitionSamples),
+            }))
+            .sort((a, b) => b.sampleCount - a.sampleCount),
+          bySeason: [...bySeasonMap]
+            .map(([seasonLabel, seasonSamples]) => ({
+              seasonLabel,
+              ...multiClassMetricsFor(seasonSamples),
             }))
             .sort((a, b) => b.sampleCount - a.sampleCount),
           noVigConsensus: marketBaselineFor(

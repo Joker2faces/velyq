@@ -345,6 +345,36 @@ export default async function IntelligencePage() {
                       </tbody>
                     </table>
                   ) : null}
+                  {model.bySeason.length > 0 ? (
+                    <table className="ops-table">
+                      <thead>
+                        <tr>
+                          <th>Season</th>
+                          <th>Sample</th>
+                          <th>Brier</th>
+                          <th>Log loss</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.bySeason.map((season) => (
+                          <tr key={season.seasonLabel}>
+                            <td>{season.seasonLabel}</td>
+                            <td>{season.sampleCount}</td>
+                            <td>
+                              {season.brierScore === null
+                                ? "INSUFFICIENT SAMPLE"
+                                : season.brierScore.toFixed(4)}
+                            </td>
+                            <td>
+                              {season.logLoss === null
+                                ? "—"
+                                : season.logLoss.toFixed(4)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
                   <table className="ops-table">
                     <thead>
                       <tr>
