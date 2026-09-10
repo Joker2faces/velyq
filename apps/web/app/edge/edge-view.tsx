@@ -4,6 +4,8 @@ import Link from "next/link";
 import {
   formatCount,
   formatOdds,
+  freshnessLabel,
+  freshnessTone,
   formatPercent,
   formatPointsDelta,
   formatProbability,
@@ -14,7 +16,6 @@ import {
   recommendationLabel,
   recommendationTone,
   selectionLabel,
-  summariseCustomerMatches,
   translator,
   type Locale,
 } from "@velyq/ui";
@@ -47,13 +48,42 @@ export function EdgeView({
 }) {
   const t = translator(locale);
   const matches = data.matches;
-  /* Priced rows first, ordered by the strength of the edge; rows the model
-     declined to estimate are grouped separately with their reason, rather
-     than interleaved with actionable ones. */
-  const priced = matches
-    .filter((match) => match.probabilityEdge !== null)
-    .sort((a, b) => numeric(b.probabilityEdge) - numeric(a.probabilityEdge));
-  const gated = matches.filter((match) => match.probabilityEdge === null);
+  /*
+   * Segmented by decision state, not by whether an edge could be computed.
+   *
+   * This page used to split on `probabilityEdge !== null`, which put every
+   * evaluated market under "Current opportunities" -- so a selection the
+   * engine had explicitly refused sat beside one it endorsed, and the page
+   * said "evaluated" while reading as "actionable". Those are different
+   * claims, and conflating them is how a decision-support product turns into
+   * a tip sheet.
+   *
+   * EDGE_DISAPPEARED gets its own section rather than being folded into
+   * waiting: an edge that was published and then withdrawn is a lifecycle
+   * event a customer is owed, not an absence.
+   */
+  const byEdge = (a: CustomerMatchDto, b: CustomerMatchDto) =>
+    numeric(b.probabilityEdge) - numeric(a.probabilityEdge);
+  const actionable = matches
+    .filter((match) => match.recommendation === "STRONG_EDGE")
+    .sort(byEdge);
+  const expired = matches
+    .filter((match) => match.recommendation === "EDGE_DISAPPEARED")
+    .sort(byEdge);
+  const waiting = matches
+    .filter(
+      (match) =>
+        match.recommendation === "WAIT" ||
+        match.recommendation === "WAIT_FOR_LINEUP",
+    )
+    .sort(byEdge);
+  const noEdge = matches
+    .filter(
+      (match) =>
+        match.recommendation === "NO_BET" ||
+        match.recommendation === "INSUFFICIENT_DATA",
+    )
+    .sort(byEdge);
 
   return (
     <div className="page">
@@ -94,65 +124,106 @@ export function EdgeView({
 
         <Card>
           <CardHead
-            title={t("edgeCurrentOpportunities")}
-            hint={t("edgeSortNote")}
+            title={t("edgeSectionActionable")}
+            hint={t("edgeSectionActionableNote")}
             aside={
               <span className="card__hint">
                 {t("edgeTracked", {
                   count: formatCount(matches.length),
-                  actionable: formatCount(
-                    summariseCustomerMatches(matches).actionable,
-                  ),
+                  actionable: formatCount(actionable.length),
                 })}
               </span>
             }
           />
-          {priced.length === 0 ? (
+          {actionable.length === 0 ? (
             <EmptyState title={t("edgeEmpty")} body={t("todayNoEdge")} />
           ) : (
-            priced.map((match) => (
+            actionable.map((match) => (
               <EdgeRow key={match.eventId} match={match} locale={locale} />
             ))
           )}
         </Card>
 
-        {gated.length > 0 ? (
+        {expired.length > 0 ? (
           <Card>
-            <CardHead title={t("edgeGated")} hint={t("edgeGatedNote")} />
-            {gated.map((match) => (
-              <Link
-                className="row"
-                href={`/matches/${match.eventId}`}
-                key={match.eventId}
-              >
-                <div className="row__head">
-                  <span className="row__teams">
-                    <span className="fixture__team">{match.homeTeam}</span>
-                    <span className="fixture__divider" aria-hidden="true" />
-                    <span className="fixture__team">{match.awayTeam}</span>
-                  </span>
-                  <Badge tone={recommendationTone(match.recommendation)}>
-                    {recommendationLabel(match.recommendation, locale)}
-                  </Badge>
-                </div>
-                <p className="row__reason">
-                  {recommendationExplanation(match.recommendation, locale)}
-                </p>
-                <div className="reasons">
-                  {reasonLabels(match.quality.reasonCodes, locale).map(
-                    (reason) => (
-                      <Badge key={reason} tone="muted">
-                        {reason}
-                      </Badge>
-                    ),
-                  )}
-                </div>
-              </Link>
+            <CardHead
+              title={t("edgeSectionExpired")}
+              hint={t("edgeSectionExpiredNote")}
+            />
+            {expired.map((match) => (
+              <EdgeRow key={match.eventId} match={match} locale={locale} />
+            ))}
+          </Card>
+        ) : null}
+
+        {waiting.length > 0 ? (
+          <Card>
+            <CardHead
+              title={t("edgeSectionWaiting")}
+              hint={t("edgeSectionWaitingNote")}
+            />
+            {waiting.map((match) => (
+              <HeldRow key={match.eventId} match={match} locale={locale} />
+            ))}
+          </Card>
+        ) : null}
+
+        {noEdge.length > 0 ? (
+          <Card>
+            <CardHead
+              title={t("edgeSectionNoEdge")}
+              hint={t("edgeSectionNoEdgeNote")}
+            />
+            {noEdge.map((match) => (
+              <HeldRow key={match.eventId} match={match} locale={locale} />
             ))}
           </Card>
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * A market that was evaluated and is not actionable.
+ *
+ * Deliberately lighter than `EdgeRow`: the metrics that matter for acting on
+ * a price are not the point here, the reason it is being held is.
+ */
+function HeldRow({
+  match,
+  locale,
+}: {
+  match: CustomerMatchDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  return (
+    <Link className="row" href={`/matches/${match.eventId}`}>
+      <div className="row__head">
+        <span className="row__teams">
+          <span className="fixture__team">{match.homeTeam}</span>
+          <span className="fixture__divider" aria-hidden="true" />
+          <span className="fixture__team">{match.awayTeam}</span>
+        </span>
+        <Badge tone={recommendationTone(match.recommendation)}>
+          {recommendationLabel(match.recommendation, locale)}
+        </Badge>
+      </div>
+      <p className="row__reason">
+        {recommendationExplanation(match.recommendation, locale)}
+      </p>
+      <div className="reasons">
+        {reasonLabels(match.quality.reasonCodes, locale).map((reason) => (
+          <Badge key={reason} tone="muted">
+            {reason}
+          </Badge>
+        ))}
+      </div>
+      <div className="row__foot">
+        <span className="row__sub">{t("openMatchIntelligence")} →</span>
+      </div>
+    </Link>
   );
 }
 
@@ -178,6 +249,10 @@ function EdgeRow({
           </div>
         </div>
         <div className="page__badges">
+          {/* How current the price is: an edge on a stale price is not one. */}
+          <Badge tone={freshnessTone(match.freshness)}>
+            {freshnessLabel(match.freshness, locale)}
+          </Badge>
           <Badge tone={qualityTone(match.quality.grade)}>
             {t("matchGrade")} {match.quality.grade}
           </Badge>
@@ -207,6 +282,17 @@ function EdgeRow({
           value={formatPercent(match.expectedValue, 1, locale)}
           tone={numeric(match.expectedValue) > 0 ? "positive" : "negative"}
           hint={t("explainEvBody")}
+        />
+        {/*
+         * The lowest price still worth acting on, taken from the
+         * authoritative price-validity output rather than derived here. A
+         * customer comparing the current price against it can see at a
+         * glance how much room is left before the opportunity stops being
+         * one.
+         */}
+        <Stat
+          label={t("edgeColumnMinimumValid")}
+          value={formatOdds(match.priceValidity.minimumAcceptableOdds, locale)}
         />
       </div>
 

@@ -400,6 +400,25 @@ export const messages = {
   edgeColumnEdge: "Probability edge",
   edgeColumnEv: "Expected value",
   edgeColumnQuality: "Quality",
+  /* The lowest price still clearing the policy, straight from priceValidity. */
+  edgeColumnMinimumValid: "Minimum valid",
+  /*
+   * EDGE segments by decision state, not by whether an edge could be
+   * computed. Evaluating a market is not the same as being able to act on
+   * it, and a page that lists both together says it is.
+   */
+  edgeSectionActionable: "Actionable now",
+  edgeSectionActionableNote:
+    "The model and the market disagree, the price still clears the policy, and nothing is holding the decision back.",
+  edgeSectionExpired: "Edge disappeared",
+  edgeSectionExpiredNote:
+    "VELYQ published an edge here and the current price no longer supports one. Kept visible rather than quietly dropped.",
+  edgeSectionWaiting: "Waiting",
+  edgeSectionWaitingNote:
+    "Evaluated, but held back until the evidence is good enough to act on.",
+  edgeSectionNoEdge: "No current edge",
+  edgeSectionNoEdgeNote:
+    "Evaluated and found not worth acting on. This is a result, not a gap.",
   edgeEmpty: "No opportunities are being tracked right now.",
   edgeSortNote: "Ordered by probability edge, strongest first.",
   edgeAxisCaption:
@@ -1054,6 +1073,19 @@ const greek: Readonly<Record<MessageKey, string>> = {
   edgeColumnEdge: "Διαφορά πιθανότητας",
   edgeColumnEv: "Αναμενόμενη αξία",
   edgeColumnQuality: "Ποιότητα",
+  edgeColumnMinimumValid: "Ελάχιστη έγκυρη",
+  edgeSectionActionable: "Έτοιμα τώρα",
+  edgeSectionActionableNote:
+    "Το μοντέλο και η αγορά διαφωνούν, η απόδοση εξακολουθεί να πληροί την πολιτική και τίποτα δεν εμποδίζει την απόφαση.",
+  edgeSectionExpired: "Η αξία εξαφανίστηκε",
+  edgeSectionExpiredNote:
+    "Η VELYQ είχε εντοπίσει αξία εδώ και η τρέχουσα απόδοση δεν τη στηρίζει πλέον. Παραμένει ορατό αντί να αποκρυβεί.",
+  edgeSectionWaiting: "Σε αναμονή",
+  edgeSectionWaitingNote:
+    "Αξιολογήθηκε, αλλά παραμένει σε αναμονή έως ότου τα στοιχεία επαρκούν για δράση.",
+  edgeSectionNoEdge: "Καμία τρέχουσα αξία",
+  edgeSectionNoEdgeNote:
+    "Αξιολογήθηκε και κρίθηκε ότι δεν αξίζει δράση. Αυτό είναι αποτέλεσμα, όχι κενό.",
   edgeEmpty: "Δεν παρακολουθείται καμία ευκαιρία τώρα.",
   edgeSortNote: "Ταξινόμηση κατά διαφορά πιθανότητας, από τη μεγαλύτερη.",
   edgeAxisCaption:
