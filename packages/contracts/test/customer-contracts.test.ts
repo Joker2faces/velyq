@@ -212,3 +212,106 @@ describe("customer match freshness vocabulary", () => {
     }
   });
 });
+
+/*
+ * `secondaryMarkets` carries every other market a fixture has a real
+ * decision for -- today, FT Over/Under 2.5's OVER and UNDER selections --
+ * beyond the match-result headline the rest of the DTO describes.
+ */
+describe("customer match secondary markets", () => {
+  const validSecondaryMarket = {
+    marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+    marketLabelKey: "market.football_full_time_total",
+    lineValue: "2.5",
+    selection: "OVER",
+    recommendation: "WAIT",
+    modelProbability: "0.55",
+    currentOdds: "1.95",
+    fairOdds: "1.818181818181818181818181818182",
+    probabilityEdge: "0.05",
+    expectedValue: "0.07",
+    freshness: "CURRENT",
+  } as const;
+
+  it("is optional -- a fixture with no other priced market omits it", () => {
+    expect(validateCustomerMatchDto(validMatch).ok).toBe(true);
+  });
+
+  it("accepts an empty array", () => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      secondaryMarkets: [],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts a real totals decision on each side", () => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      secondaryMarkets: [
+        validSecondaryMarket,
+        { ...validSecondaryMarket, selection: "UNDER" },
+      ],
+    });
+    expect(result.ok, JSON.stringify(!result.ok && result.errors)).toBe(true);
+  });
+
+  it("accepts a refusal state with null metrics, the same as the headline market", () => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      secondaryMarkets: [
+        {
+          ...validSecondaryMarket,
+          recommendation: "INSUFFICIENT_DATA",
+          modelProbability: null,
+          currentOdds: null,
+          fairOdds: null,
+          probabilityEdge: null,
+          expectedValue: null,
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an unrecognised recommendation or freshness code", () => {
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        secondaryMarkets: [
+          { ...validSecondaryMarket, recommendation: "SOMETHING_ELSE" },
+        ],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        secondaryMarkets: [{ ...validSecondaryMarket, freshness: "FRESH" }],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a non-array value", () => {
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        secondaryMarkets: "OVER",
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a market code or selection that is not a real string", () => {
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        secondaryMarkets: [{ ...validSecondaryMarket, marketCode: "" }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateCustomerMatchDto({
+        ...validMatch,
+        secondaryMarkets: [{ ...validSecondaryMarket, selection: "" }],
+      }).ok,
+    ).toBe(false);
+  });
+});

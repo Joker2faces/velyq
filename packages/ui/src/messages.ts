@@ -527,6 +527,9 @@ export const messages = {
   matchMarket: "Model against market",
   matchEdgeBreakdown: "EDGE breakdown",
   matchRadarEvidence: "RADAR evidence",
+  matchOtherMarketsTitle: "Other markets",
+  matchOtherMarketsLead:
+    "Every other market with a real decision for this fixture.",
   matchQuality: "Data quality",
   matchLineup: "Lineup state",
   matchWhy: "Why this verdict",
@@ -754,6 +757,8 @@ export const messages = {
   selectionHome: "Home win",
   selectionDraw: "Draw",
   selectionAway: "Away win",
+  selectionOver: "Over 2.5",
+  selectionUnder: "Under 2.5",
 
   // ------------------------------------------------------------- lineups
   lineupOfficial: "Official",
@@ -1281,6 +1286,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchMarket: "Μοντέλο έναντι αγοράς",
   matchEdgeBreakdown: "Ανάλυση EDGE",
   matchRadarEvidence: "Στοιχεία RADAR",
+  matchOtherMarketsTitle: "Άλλες αγορές",
+  matchOtherMarketsLead:
+    "Κάθε άλλη αγορά με πραγματική απόφαση για αυτόν τον αγώνα.",
   matchQuality: "Ποιότητα δεδομένων",
   matchLineup: "Ενδεκάδα",
   matchWhy: "Γιατί βγήκε αυτό",
@@ -1486,6 +1494,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   selectionHome: "Νίκη γηπεδούχου",
   selectionDraw: "Ισοπαλία",
   selectionAway: "Νίκη φιλοξενούμενου",
+  selectionOver: "Πάνω 2.5",
+  selectionUnder: "Κάτω 2.5",
 
   lineupOfficial: "Επίσημη",
   lineupExpected: "Αναμενόμενη",

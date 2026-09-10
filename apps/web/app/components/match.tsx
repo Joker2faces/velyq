@@ -1,4 +1,7 @@
-import type { CustomerMatchDto } from "@velyq/contracts";
+import type {
+  CustomerMatchDto,
+  CustomerSecondaryMarketDto,
+} from "@velyq/contracts";
 import Link from "next/link";
 import {
   formatOdds,
@@ -8,6 +11,7 @@ import {
   freshnessTone,
   competitionLabel,
   isGatedRecommendation,
+  marketLabel,
   priceValidityLabel,
   priceValidityTone,
   recommendationLabel,
@@ -349,6 +353,73 @@ export function PriceValidity({
           </dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+/**
+ * Every other market this fixture has a real decision for, beyond the
+ * match-result headline the rest of this page describes -- today, that
+ * means FT Over/Under 2.5's OVER and UNDER selections.
+ *
+ * Renders nothing when the array is empty, which is the normal, honest
+ * state for a fixture the totals writer has not priced yet: VELYQ is not a
+ * tipster, and an absent section here is exactly as legitimate as zero EDGE
+ * on the headline market. Never fabricated to fill the space, and every
+ * number comes straight from `secondaryMarkets`, computed server-side by
+ * the same decision engine and freshness policy as the headline card.
+ */
+export function SecondaryMarkets({
+  match,
+  locale,
+}: {
+  match: CustomerMatchDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  const markets = match.secondaryMarkets ?? [];
+  if (markets.length === 0) return null;
+
+  return (
+    <div className="secondary-markets">
+      {markets.map((row: CustomerSecondaryMarketDto) => (
+        <div
+          className="secondary-markets__row"
+          key={`${row.marketCode}:${row.selection}`}
+        >
+          <div className="secondary-markets__heading">
+            <span className="secondary-markets__market">
+              {marketLabel(row.marketLabelKey, locale)}
+              {row.lineValue ? ` ${row.lineValue}` : ""}
+            </span>
+            <Badge tone={recommendationTone(row.recommendation)}>
+              {recommendationLabel(row.recommendation, locale)}
+            </Badge>
+          </div>
+          <dl className="secondary-markets__figures">
+            <div>
+              <dt>{t("matchSelection")}</dt>
+              <dd>{selectionLabel(row.selection, locale)}</dd>
+            </div>
+            <div>
+              <dt>{t("priceValidityCurrent")}</dt>
+              <dd>
+                {row.currentOdds === null
+                  ? "—"
+                  : formatOdds(row.currentOdds, locale)}
+              </dd>
+            </div>
+            <div>
+              <dt>{t("matchModelShort")}</dt>
+              <dd>
+                {row.modelProbability === null
+                  ? "—"
+                  : formatProbability(row.modelProbability, locale)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      ))}
     </div>
   );
 }

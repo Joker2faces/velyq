@@ -38,7 +38,15 @@ describe("customer vocabulary", () => {
   it.each(["en", "el"] as const)(
     "never returns an identifier for a selection or decision in %s",
     (locale) => {
-      for (const code of ["HOME", "DRAW", "AWAY", "outcome.home"]) {
+      for (const code of [
+        "HOME",
+        "DRAW",
+        "AWAY",
+        "OVER",
+        "UNDER",
+        "outcome.home",
+        "outcome.over",
+      ]) {
         expect(selectionLabel(code, locale)).not.toMatch(internal);
       }
       for (const code of [

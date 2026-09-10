@@ -6,6 +6,7 @@ import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import type {
   CustomerMatchDto,
   CustomerScenarioDto,
+  CustomerSecondaryMarketDto,
   CustomerTodayDto,
 } from "@velyq/contracts";
 import {
@@ -83,7 +84,7 @@ function dataLabelFor(raw: CustomerRawMatch): CustomerDataLabel {
     : LIVE_DATA_LABEL;
 }
 
-function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
+export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   const home =
     raw.participants.find(
       ({ eventParticipant }) => eventParticipant.role === "HOME",
@@ -218,7 +219,64 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
         : {}),
       ...(quality ? { qualityAssessmentId: quality.id } : {}),
     },
+    secondaryMarkets: secondaryMarketsFor(raw),
   };
+}
+
+/**
+ * Every other market this fixture has a real decision for, beyond the
+ * match-result headline `selectOutcome` picks.
+ *
+ * Built from the same `raw.outcomes` the headline card reads, through the
+ * same primitives (`summariseOddsMovement`, `assessOddsFreshness`) -- there
+ * is exactly one way this codebase turns stored odds observations into a
+ * current price and a freshness verdict, and a second market does not get a
+ * second, looser one.
+ *
+ * `raw.outcomes` already arrives ordered by market family, code, line and
+ * outcome sort order (`customer-queries.ts`), so this only needs to filter,
+ * never sort.
+ */
+export function secondaryMarketsFor(
+  raw: CustomerRawMatch,
+): readonly CustomerSecondaryMarketDto[] {
+  return raw.outcomes
+    .filter(
+      ({ marketDefinition }) =>
+        !MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code),
+    )
+    .map((outcome): CustomerSecondaryMarketDto => {
+      const movementSummary = summariseOddsMovement(outcome.odds);
+      const current = movementSummary.currentOdds;
+      const latestObservation =
+        outcome.odds.length === 0
+          ? null
+          : new Date(
+              Math.max(
+                ...outcome.odds.map((o) => o.providerObservedAt.getTime()),
+              ),
+            );
+      const freshnessAssessment = assessOddsFreshness(
+        latestObservation,
+        raw.asOf,
+      );
+      return {
+        marketCode: outcome.marketDefinition.code,
+        marketLabelKey: outcome.marketDefinition.labelKey,
+        lineValue: outcome.market.lineValue,
+        selection: outcome.outcomeDefinition.code,
+        recommendation: (outcome.prediction?.prediction.decisionStatus ??
+          "INSUFFICIENT_DATA") as CustomerSecondaryMarketDto["recommendation"],
+        modelProbability: decimal(
+          outcome.prediction?.prediction.modelProbability,
+        ),
+        currentOdds: decimal(current),
+        fairOdds: decimal(outcome.prediction?.prediction.fairOdds),
+        probabilityEdge: decimal(outcome.prediction?.prediction.edge),
+        expectedValue: decimal(outcome.prediction?.prediction.expectedValue),
+        freshness: freshnessAssessment.freshness,
+      };
+    });
 }
 
 /**

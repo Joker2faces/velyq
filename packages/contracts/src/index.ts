@@ -744,6 +744,48 @@ export type CustomerMatchDto = Readonly<{
     qualityAssessmentId?: string;
     featureCutoff: string;
   }>;
+  /**
+   * Every other market this fixture has a real decision for, beyond the
+   * match-result headline above -- today, that means FT Over/Under 2.5's
+   * OVER and UNDER selections, each independently evaluated by the same
+   * decision engine and carrying the same numbers a customer would need to
+   * judge it: model probability, current price, fair odds, edge, EV.
+   *
+   * Optional and often empty. A fixture the totals writer has not priced
+   * yet, or one still WAIT/NO_BET on both sides, has nothing wrong with it --
+   * VELYQ is not a tipster, and an empty array here is exactly as legitimate
+   * as zero EDGE on the headline market. Never fabricated to fill the space.
+   */
+  secondaryMarkets?: readonly CustomerSecondaryMarketDto[];
+}>;
+
+/**
+ * One other market's decision for a fixture the headline card does not
+ * cover. See `CustomerMatchDto.secondaryMarkets`.
+ */
+export type CustomerSecondaryMarketDto = Readonly<{
+  /** The canonical market-definition code, e.g. "FOOTBALL_FULL_TIME_TOTAL". */
+  marketCode: string;
+  /**
+   * The market's own label key, e.g. "market.football_full_time_total" --
+   * what a surface actually passes to `marketLabel()`. Carried separately
+   * from `marketCode` rather than derived from it client-side: the two are
+   * related by a convention (`odds-ingestion.ts` builds one from the other),
+   * not by a guarantee, and a presentation boundary should read the label
+   * the catalog actually stored rather than reconstruct it.
+   */
+  marketLabelKey: string;
+  /** The line this market is wired at, e.g. "2.5"; null for a lineless market. */
+  lineValue: string | null;
+  /** The canonical outcome code this row is for, e.g. "OVER". */
+  selection: string;
+  recommendation: RecommendationStatus;
+  modelProbability: DecimalString | null;
+  currentOdds: DecimalOdds["value"] | null;
+  fairOdds: DecimalString | null;
+  probabilityEdge: DecimalString | null;
+  expectedValue: DecimalString | null;
+  freshness: CustomerOddsFreshness;
 }>;
 export type CustomerScenarioDto = Readonly<{
   id: string;
@@ -1041,6 +1083,73 @@ function validateCustomerMatchInput(input: unknown): string[] {
       errors.push("trace.sourceObservationIds must contain non-empty strings");
   }
 
+  if (input["secondaryMarkets"] !== undefined) {
+    if (!Array.isArray(input["secondaryMarkets"])) {
+      errors.push("secondaryMarkets must be an array");
+    } else {
+      input["secondaryMarkets"].forEach((entry, index) => {
+        for (const error of validateCustomerSecondaryMarketInput(entry))
+          errors.push(`secondaryMarkets[${index}].${error}`);
+      });
+    }
+  }
+
+  return errors;
+}
+
+function validateCustomerSecondaryMarketInput(input: unknown): string[] {
+  const errors: string[] = [];
+  if (!isObject(input)) return ["must be an object"];
+  if (!isNonEmptyString(input["marketCode"]))
+    errors.push("marketCode is required");
+  if (!isNonEmptyString(input["marketLabelKey"]))
+    errors.push("marketLabelKey is required");
+  if (input["lineValue"] !== null && !isNonEmptyString(input["lineValue"]))
+    errors.push("lineValue must be null or a non-empty string");
+  if (!isNonEmptyString(input["selection"]))
+    errors.push("selection is required");
+  if (
+    !customerRecommendationStatuses.includes(
+      input["recommendation"] as RecommendationStatus,
+    )
+  )
+    errors.push("recommendation is invalid");
+  if (
+    !customerOddsFreshnessStates.includes(
+      input["freshness"] as CustomerOddsFreshness,
+    )
+  )
+    errors.push("freshness is invalid");
+  validateNullableCustomerDecimal(
+    input["modelProbability"],
+    "modelProbability",
+    errors,
+    (value) => probability(value),
+  );
+  validateNullableCustomerDecimal(
+    input["currentOdds"],
+    "currentOdds",
+    errors,
+    (value) => decimalOdds(value),
+  );
+  validateNullableCustomerDecimal(
+    input["fairOdds"],
+    "fairOdds",
+    errors,
+    (value) => fairOddsDecimal(value),
+  );
+  validateNullableCustomerDecimal(
+    input["probabilityEdge"],
+    "probabilityEdge",
+    errors,
+    (value) => edge(value),
+  );
+  validateNullableCustomerDecimal(
+    input["expectedValue"],
+    "expectedValue",
+    errors,
+    (value) => expectedValue(value),
+  );
   return errors;
 }
 

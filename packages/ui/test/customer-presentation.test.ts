@@ -47,7 +47,6 @@ describe("selection labels", () => {
 
   it("refuses to print anything shaped like an internal identifier", () => {
     for (const internal of [
-      "outcome.over",
       "market.ft_1x2",
       "market.over_2_5",
       "INSUFFICIENT_DATA",
@@ -60,6 +59,30 @@ describe("selection labels", () => {
   it("still passes through a real market line the provider states", () => {
     /* "Over 2.5" is what Greek betting markets print; not an identifier. */
     expect(selectionLabel("Over 2.5", "en")).toBe("Over 2.5");
+  });
+
+  /*
+   * `OVER`/`UNDER` are exactly what `decisions.selection` and
+   * `outcome_definitions.code` store for the FT Over/Under 2.5 market
+   * (odds-ingestion.ts's `WIRED_ODDS_MARKETS.TOTAL_GOALS.selections`).
+   * `OVER` matches `looksInternal`'s SCREAMING_SNAKE pattern, so before this
+   * map carried an entry for it, the first live totals decision to reach
+   * History would have rendered "Full-time goals · — · ...".
+   */
+  it("translates the FT Over/Under 2.5 selection codes", () => {
+    expect(selectionLabel("OVER", "en")).toBe("Over 2.5");
+    expect(selectionLabel("UNDER", "en")).toBe("Under 2.5");
+    expect(selectionLabel("OVER", "el")).toBe("Πάνω 2.5");
+    expect(selectionLabel("UNDER", "el")).toBe("Κάτω 2.5");
+  });
+
+  it("translates the totals outcome-definition label keys too", () => {
+    for (const locale of ["en", "el"] as const) {
+      expect(selectionLabel("outcome.over", locale)).not.toBe("—");
+      expect(selectionLabel("outcome.under", locale)).not.toBe("—");
+      expect(selectionLabel("outcome.over", locale)).not.toContain("outcome.");
+      expect(selectionLabel("outcome.under", locale)).not.toContain("outcome.");
+    }
   });
 });
 

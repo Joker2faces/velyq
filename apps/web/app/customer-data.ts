@@ -65,6 +65,41 @@ function matchTemplates(): ReadonlyArray<
         scoreVersion: "edge.v1",
         sourceObservationIds: ["72000000-0000-4000-8000-000000000001"],
       },
+      /*
+       * A genuine second market on the flagship fixture, deliberately NOT
+       * showing the same verdict as the 1X2 headline above -- the model
+       * disagreeing with itself across markets is normal, not a defect, and
+       * a demo that always agreed with its own headline would misrepresent
+       * how the real pipeline behaves.
+       */
+      secondaryMarkets: [
+        {
+          marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+          marketLabelKey: "market.football_full_time_total",
+          lineValue: "2.5",
+          selection: "OVER",
+          recommendation: "WAIT",
+          modelProbability: d("0.58"),
+          currentOdds: d("1.98"),
+          fairOdds: d("1.724137931034482758620689655172"),
+          probabilityEdge: d("0.02"),
+          expectedValue: d("0.148"),
+          freshness: "CURRENT",
+        },
+        {
+          marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+          marketLabelKey: "market.football_full_time_total",
+          lineValue: "2.5",
+          selection: "UNDER",
+          recommendation: "NO_BET",
+          modelProbability: d("0.42"),
+          currentOdds: d("1.87"),
+          fairOdds: d("2.380952380952380952380952380952"),
+          probabilityEdge: d("-0.02"),
+          expectedValue: d("-0.214"),
+          freshness: "CURRENT",
+        },
+      ],
     },
     {
       eventId: "76000000-0000-4000-8000-000000000002",

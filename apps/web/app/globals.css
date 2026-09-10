@@ -2309,6 +2309,63 @@ a.row:hover {
   color: var(--secondary);
 }
 
+/* ------------------------------------------------------- secondary markets */
+
+.secondary-markets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.secondary-markets__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.secondary-markets__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.secondary-markets__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.secondary-markets__market {
+  font-family: var(--font-label);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.secondary-markets__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.secondary-markets__figures dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.secondary-markets__figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--primary);
+}
+
 /* ------------------------------------------------------------- reasoning
 
    Positive and negative intelligence side by side, with equal weight. A

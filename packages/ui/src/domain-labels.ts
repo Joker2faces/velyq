@@ -124,6 +124,20 @@ const SELECTION_LABELS: Readonly<Record<string, MessageKey>> = {
   Home: "selectionHome",
   Draw: "selectionDraw",
   Away: "selectionAway",
+  /*
+   * OVER/UNDER are the FT Over/Under 2.5 selections `decisions.selection`
+   * and `outcome_definitions.code` actually store. Without these, `OVER`
+   * matches `looksInternal`'s SCREAMING_SNAKE pattern and this function
+   * answered "—" for it -- the first live totals decision to reach History
+   * would have shown "Full-time goals · — · ...". The label spells out the
+   * line (2.5) because the writer currently pins every totals market at
+   * that line, so "Over 2.5" is unambiguous; see odds-ingestion.ts's
+   * `WIRED_ODDS_MARKETS.TOTAL_GOALS`.
+   */
+  OVER: "selectionOver",
+  UNDER: "selectionUnder",
+  "outcome.over": "selectionOver",
+  "outcome.under": "selectionUnder",
 };
 
 /**

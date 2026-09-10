@@ -23,7 +23,11 @@ import {
 import { loadCustomerMatch } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
-import { DecisionReasoning, PriceValidity } from "../../components/match";
+import {
+  DecisionReasoning,
+  PriceValidity,
+  SecondaryMarkets,
+} from "../../components/match";
 import {
   ArrowLink,
   Badge,
@@ -323,6 +327,16 @@ export default async function Match({
               </p>
             </Card>
           </div>
+
+          {match.secondaryMarkets && match.secondaryMarkets.length > 0 ? (
+            <Card>
+              <CardHead
+                title={t("matchOtherMarketsTitle")}
+                hint={t("matchOtherMarketsLead")}
+              />
+              <SecondaryMarkets match={match} locale={locale} />
+            </Card>
+          ) : null}
 
           {/*
            * Why, why not, and what would overturn either.
