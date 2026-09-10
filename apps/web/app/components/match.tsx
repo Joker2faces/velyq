@@ -1,10 +1,12 @@
 import type {
+  CustomerEvidenceTimelineEventDto,
   CustomerMatchDto,
   CustomerMarketConsensusDto,
   CustomerSecondaryMarketDto,
 } from "@velyq/contracts";
 import Link from "next/link";
 import {
+  formatDateTime,
   formatOdds,
   formatPercent,
   formatProbability,
@@ -13,6 +15,7 @@ import {
   freshnessTone,
   competitionLabel,
   isGatedRecommendation,
+  lineupLabel,
   marketLabel,
   priceValidityLabel,
   priceValidityTone,
@@ -675,6 +678,46 @@ export function RiskFlags({
         </Badge>
       ))}
     </div>
+  );
+}
+
+/**
+ * Evidence Timeline: the real, ordered sequence of price and lineup
+ * observations behind the verdict -- every event here is a stored
+ * observation, never a synthesized narrative about what happened.
+ */
+export function EvidenceTimeline({
+  events,
+  locale,
+}: {
+  events: readonly CustomerEvidenceTimelineEventDto[];
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  if (events.length === 0) return null;
+  return (
+    <ol className="evidence-timeline">
+      {events.map((event) => (
+        <li className="evidence-timeline__row" key={`${event.type}:${event.at}`}>
+          <span className="evidence-timeline__at">
+            {formatDateTime(event.at, locale)}
+          </span>
+          <span className="evidence-timeline__detail">
+            {event.type === "PRICE_OBSERVED"
+              ? `${t("evidenceTimelinePriceObserved")}: ${
+                  event.price === null ? "—" : formatOdds(event.price, locale)
+                }`
+              : `${t("evidenceTimelineLineupObserved")}${
+                  event.team ? ` (${event.team})` : ""
+                }: ${
+                  event.lineupStatus
+                    ? lineupLabel(event.lineupStatus, locale)
+                    : "—"
+                }`}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

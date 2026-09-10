@@ -815,6 +815,11 @@ export const messages = {
   marketMapCoverage: "Bookmakers",
   marketMapNoConsensus: "No complete book yet",
   riskFlagsTitle: "Risk flags",
+  evidenceTimelineTitle: "Evidence timeline",
+  evidenceTimelineLead: "Every price and lineup observation behind this verdict, in order.",
+  evidenceTimelinePriceObserved: "Price observed",
+  evidenceTimelineLineupObserved: "Lineup observed",
+
 
   reasonEdgeTooSmall: "Edge too small to act on",
   reasonPriceTooShort: "Price is too short",
@@ -1583,6 +1588,11 @@ const greek: Readonly<Record<MessageKey, string>> = {
   marketMapCoverage: "Στοιχηματικές",
   marketMapNoConsensus: "Δεν υπάρχει ακόμα πλήρες βιβλίο",
   riskFlagsTitle: "Σημαίες κινδύνου",
+  evidenceTimelineTitle: "Χρονολόγιο αποδείξεων",
+  evidenceTimelineLead: "Κάθε παρατήρηση τιμής και ενδεκάδας πίσω από αυτή την ετυμηγορία, με σειρά.",
+  evidenceTimelinePriceObserved: "Παρατηρήθηκε τιμή",
+  evidenceTimelineLineupObserved: "Παρατηρήθηκε ενδεκάδα",
+
 
   reasonEdgeTooSmall: "Το πλεονέκτημα είναι πολύ μικρό",
   reasonPriceTooShort: "Η απόδοση είναι πολύ χαμηλή",

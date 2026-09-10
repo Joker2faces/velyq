@@ -25,6 +25,7 @@ import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
 import {
   DecisionReasoning,
+  EvidenceTimeline,
   MarketMap,
   PostMatchAutopsy,
   PriceValidity,
@@ -383,6 +384,16 @@ export default async function Match({
               </>
             ) : null}
           </Card>
+
+          {match.evidenceTimeline && match.evidenceTimeline.length > 0 ? (
+            <Card>
+              <CardHead
+                title={t("evidenceTimelineTitle")}
+                hint={t("evidenceTimelineLead")}
+              />
+              <EvidenceTimeline events={match.evidenceTimeline} locale={locale} />
+            </Card>
+          ) : null}
 
           {/* ----------------------------------------------- quality/lineup */}
           <div className="split">

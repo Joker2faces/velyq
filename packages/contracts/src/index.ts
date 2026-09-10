@@ -787,6 +787,12 @@ export type CustomerMatchDto = Readonly<{
    * declare it; the live mapper always sets it.
    */
   riskFlags?: readonly CustomerRiskFlag[];
+  /**
+   * The real, ordered sequence of price and lineup observations behind this
+   * verdict. Optional and often short or empty -- a fixture just discovered
+   * has little evidence yet, which is the honest state, not an error.
+   */
+  evidenceTimeline?: readonly CustomerEvidenceTimelineEventDto[];
 }>;
 
 /**
@@ -853,6 +859,20 @@ export type CustomerMarketConsensusDto = Readonly<{
   /** Bookmakers whose book was complete enough to enter the de-vig consensus. */
   completeBookmakerCount: number;
   outcomes: readonly CustomerMarketConsensusOutcomeDto[];
+}>;
+
+/**
+ * One real, stored observation in the Evidence Timeline -- never a
+ * synthesized or inferred event. `price`/`lineupStatus`/`team` are set only
+ * for the event type they describe; the other is always null, not omitted,
+ * so a reader does not have to guess which fields apply.
+ */
+export type CustomerEvidenceTimelineEventDto = Readonly<{
+  type: "PRICE_OBSERVED" | "LINEUP_OBSERVED";
+  at: string;
+  price: DecimalString | null;
+  lineupStatus: "EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED" | null;
+  team: "HOME" | "AWAY" | null;
 }>;
 
 /**

@@ -27,6 +27,7 @@ import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import { buildCustomerMarketConsensus, deriveRiskFlags } from "./market-consensus";
+import { buildEvidenceTimeline } from "./evidence-timeline";
 
 /**
  * Reads a PostgreSQL NUMERIC column into a validated decimal.
@@ -250,6 +251,7 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     secondaryMarkets: secondaryMarketsFor(raw),
     ...(marketConsensus ? { marketConsensus } : {}),
     riskFlags,
+    evidenceTimeline: buildEvidenceTimeline(raw, outcome?.outcome.id),
   };
 }
 
