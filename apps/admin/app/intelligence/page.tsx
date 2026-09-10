@@ -152,11 +152,46 @@ export default async function IntelligencePage() {
                   <span className="ops-metric__value">
                     {model.status === "INSUFFICIENT_SAMPLE"
                       ? "INSUFFICIENT SAMPLE"
-                      : `Brier ${model.brierScore?.toFixed(4)} · Log loss ${model.logLoss?.toFixed(4)}`}
+                      : `Brier ${model.brierScore?.toFixed(4)} · Log loss ${model.logLoss?.toFixed(4)} · ECE ${model.calibrationError?.toFixed(4)}`}
                   </span>
                   <span className="ops-metric__note">
                     Sample {model.sampleCount}
+                    {model.baselineHitRate !== null
+                      ? ` · baseline hit rate ${(model.baselineHitRate * 100).toFixed(1)}%`
+                      : ""}
                   </span>
+                  {/*
+                   * A binary framing of the decision's own selected outcome
+                   * (did it happen or not), not a full three-way 1X2
+                   * calibration -- see the code comment in
+                   * getIntelligenceOverview for why. Still real: each bin is
+                   * a real bucket of real decisions.
+                   */}
+                  {model.calibrationBins.some((bin) => bin.count > 0) ? (
+                    <table className="ops-table">
+                      <thead>
+                        <tr>
+                          <th>Predicted</th>
+                          <th>Observed</th>
+                          <th>N</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.calibrationBins
+                          .filter((bin) => bin.count > 0)
+                          .map((bin) => (
+                            <tr key={bin.lowerBound}>
+                              <td>
+                                {(bin.lowerBound * 100).toFixed(0)}–
+                                {(bin.upperBound * 100).toFixed(0)}%
+                              </td>
+                              <td>{(bin.observedFrequency * 100).toFixed(1)}%</td>
+                              <td>{bin.count}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  ) : null}
                 </div>
               ))
             ) : (

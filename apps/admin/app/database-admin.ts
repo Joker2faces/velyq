@@ -1,4 +1,12 @@
 import { desc, eq, sql } from "drizzle-orm";
+import {
+  brierScore,
+  empiricalFrequencies,
+  expectedCalibrationError,
+  logLoss,
+  reliabilityBins,
+  type ProbabilisticSample,
+} from "@velyq/research";
 import { DatabasePermissionResolver } from "@velyq/database/repositories/permissions";
 import type { PrivilegedVelyqDatabase } from "@velyq/database/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/server";
@@ -135,27 +143,36 @@ export class DatabaseAdminQueries implements AdminQueries {
       });
       grouped.set(version, values);
     }
+    /*
+     * A binary framing of the decision's own selected outcome (did it
+     * happen or not), not a true three-way 1X2 calibration -- the forecasts
+     * table stores one probability per outcome the decision engine acted
+     * on, not the full HOME/DRAW/AWAY vector for the same market instance,
+     * so a genuine multi-class calibration would need a new join across
+     * sibling forecasts. This is scored with the shared, tested scoring
+     * functions (`@velyq/research`) rather than a hand-rolled formula, and
+     * adds what the ad-hoc version never had: calibration bins and the
+     * empirical-frequency baseline any model has to beat.
+     */
     const modelHealth = [...grouped].map(([modelVersion, values]) => {
       const enough = values.length >= 30;
+      const samples: ProbabilisticSample[] = values.map((value) => ({
+        probabilities: [value.probability, 1 - value.probability],
+        observedIndex: value.actual === 1 ? 0 : 1,
+      }));
+      const baseline = enough ? empiricalFrequencies(samples, 2) : null;
       return {
         modelVersion,
         sampleCount: values.length,
-        brierScore: enough
-          ? values.reduce(
-              (sum, value) => sum + (value.probability - value.actual) ** 2,
-              0,
-            ) / values.length
+        brierScore: enough ? brierScore(samples) : null,
+        logLoss: enough ? logLoss(samples) : null,
+        calibrationError: enough
+          ? expectedCalibrationError(samples, 2)
           : null,
-        logLoss: enough
-          ? -values.reduce(
-              (sum, value) =>
-                sum +
-                value.actual * Math.log(Math.max(value.probability, 1e-12)) +
-                (1 - value.actual) *
-                  Math.log(Math.max(1 - value.probability, 1e-12)),
-              0,
-            ) / values.length
-          : null,
+        calibrationBins: enough ? reliabilityBins(samples, 0) : [],
+        /** How often the selected outcome actually happened, historically --
+            the baseline a model with real skill must beat. */
+        baselineHitRate: baseline ? (baseline[0] ?? null) : null,
         status: enough
           ? ("AVAILABLE" as const)
           : ("INSUFFICIENT_SAMPLE" as const),

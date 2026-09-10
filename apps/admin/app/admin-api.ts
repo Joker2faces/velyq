@@ -119,6 +119,21 @@ export type AdminIntelligenceOverviewDto = Readonly<{
     sampleCount: number;
     brierScore: number | null;
     logLoss: number | null;
+    /** Expected calibration error over the decision's own selected-outcome
+        probability, binary-framed (see `calibrationBins`). */
+    calibrationError: number | null;
+    /** Reliability bins for the same binary framing; empty until enough
+        samples exist. */
+    calibrationBins: readonly Readonly<{
+      lowerBound: number;
+      upperBound: number;
+      count: number;
+      meanPredicted: number;
+      observedFrequency: number;
+    }>[];
+    /** How often the selected outcome actually happened, historically --
+        the baseline a model with real skill must beat. */
+    baselineHitRate: number | null;
     status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
   }>[];
 }>;
