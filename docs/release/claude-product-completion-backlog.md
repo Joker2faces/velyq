@@ -17,7 +17,7 @@ production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 
 | # | Item | Status | Notes |
 | --- | --- | --- | --- |
-| P0-A | Customer UX redesign (mandate §8-§27) | OPEN | Previously authorised and not implemented. Now required. Largest single item. |
+| P0-A | Customer UX redesign (mandate §8-§27) | **IN PROGRESS** | Done: match-card primitives (`TeamCrest`, `CompetitionMark`, `MatchCard`), Today restructure (KPI strip + card grid + Forecasts folded in, page 34% shorter), EDGE segmented by decision state with minimum-valid price and freshness, RADAR evidence depth. Remaining: Match Intelligence flagship (§14), public homepage (§59), Watch panel density, navigation review (§10), History (§26). |
 | P0-B | Result ingestion end to end (§28) | OPEN | `RESULT: 10` daily budget allocated; no fetch port, no due predicate, no call site. |
 | P0-C | Settlement complete + tested (§29) | OPEN | Engine exists (`result-settlement.ts`); depends on P0-B for live results. |
 | P0-D | Over/Under 2.5 end to end (§30) | OPEN | Writer hardcodes one market and `lineValue: null`. Every other layer supports totals. |
