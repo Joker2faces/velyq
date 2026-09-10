@@ -58,6 +58,7 @@ const queries: AdminQueries = {
     lastSuccessfulResultSync: null,
     lastSettlementRun: null,
     modelHealth: [],
+    identityIssues: [],
   }),
 };
 

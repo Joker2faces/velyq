@@ -237,6 +237,36 @@ export default async function IntelligencePage() {
               </div>
             )}
           </section>
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Identity issues</h2>
+            </div>
+            {data.identityIssues.length ? (
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Provider competition</th>
+                    <th>Status</th>
+                    <th>Provider id</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.identityIssues.map((issue) => (
+                    <tr key={issue.providerCompetitionId}>
+                      <td>{issue.displayName}</td>
+                      <td>{issue.mappingStatus}</td>
+                      <td>{issue.providerCompetitionId}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="state">
+                <h3>No unresolved identities</h3>
+                <p>Every competition identity on record is CONFIRMED.</p>
+              </div>
+            )}
+          </section>
         </div>
       </AdminShell>
     );

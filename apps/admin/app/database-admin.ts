@@ -128,6 +128,22 @@ export class DatabaseAdminQueries implements AdminQueries {
       ]),
     );
     /*
+     * "Where are identity problems?" -- a competition identity stuck at
+     * PENDING_REVIEW or REJECTED is exactly why a fixture can be discovered
+     * but never priced: the forecast cycle fails closed on anything but
+     * CONFIRMED, by design (see the mapping_status comment on
+     * competition_identities), so an unresolved identity is a real,
+     * actionable blocker, not noise.
+     */
+    const identityResult = await this.database.execute(
+      sql`select display_name, mapping_status, provider_competition_id from catalog.competition_identities where mapping_status <> 'CONFIRMED' order by created_at desc limit 20`,
+    );
+    const identityIssues = identityResult.rows.map((item) => ({
+      displayName: String(item["display_name"]),
+      mappingStatus: String(item["mapping_status"]),
+      providerCompetitionId: String(item["provider_competition_id"]),
+    }));
+    /*
      * Competition joined in so sample sizes and calibration can be split by
      * competition, not just pooled across every league a model has ever
      * priced -- a model that is well calibrated overall can still be
@@ -238,6 +254,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       lastSuccessfulResultSync: timestamp("last_successful_result_sync"),
       lastSettlementRun: timestamp("last_settlement_run"),
       modelHealth,
+      identityIssues,
     };
   }
 

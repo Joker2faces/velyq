@@ -115,6 +115,14 @@ export type AdminIntelligenceOverviewDto = Readonly<{
   lastSuccessfulResultSync: string | null;
   lastSettlementRun: string | null;
   modelHealth: readonly AdminModelHealthDto[];
+  /** Competition identities stuck at PENDING_REVIEW or REJECTED -- the
+      forecast cycle fails closed on anything but CONFIRMED, so this is a
+      real, actionable blocker list, not noise. */
+  identityIssues: readonly Readonly<{
+    displayName: string;
+    mappingStatus: string;
+    providerCompetitionId: string;
+  }>[];
 }>;
 
 /** Shared metric shape, computed identically pooled and per-competition. */
