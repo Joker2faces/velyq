@@ -6,3 +6,5 @@
 # Tracking it guarantees a permanently dirty tree after a build. `typecheck`
 # runs `typegen:next` first, so a fresh clone always regenerates it.
 next-env.d.ts
+.vercel
+.env*
