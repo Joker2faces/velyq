@@ -528,6 +528,7 @@ export const messages = {
   matchEdgeBreakdown: "EDGE breakdown",
   matchRadarEvidence: "RADAR evidence",
   matchOtherMarketsTitle: "Other markets",
+  matchAlsoEdge: "Also EDGE",
   matchOtherMarketsLead:
     "Every other market with a real decision for this fixture.",
   matchQuality: "Data quality",
@@ -1287,6 +1288,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchEdgeBreakdown: "Ανάλυση EDGE",
   matchRadarEvidence: "Στοιχεία RADAR",
   matchOtherMarketsTitle: "Άλλες αγορές",
+  matchAlsoEdge: "Επίσης EDGE",
   matchOtherMarketsLead:
     "Κάθε άλλη αγορά με πραγματική απόφαση για αυτόν τον αγώνα.",
   matchQuality: "Ποιότητα δεδομένων",

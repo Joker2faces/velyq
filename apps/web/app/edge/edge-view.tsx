@@ -10,6 +10,7 @@ import {
   formatPointsDelta,
   formatProbability,
   isGatedRecommendation,
+  marketLabel as translateMarketLabel,
   qualityTone,
   reasonLabels,
   recommendationExplanation,
@@ -198,6 +199,9 @@ function HeldRow({
   locale: Locale;
 }) {
   const t = translator(locale);
+  const strongSecondaryMarkets = (match.secondaryMarkets ?? []).filter(
+    (row) => row.recommendation === "STRONG_EDGE",
+  );
   return (
     <Link className="row" href={`/matches/${match.eventId}`}>
       <div className="row__head">
@@ -220,6 +224,23 @@ function HeldRow({
           </Badge>
         ))}
       </div>
+      {/*
+       * The headline market being held back does not mean nothing on this
+       * fixture is actionable -- a totals decision can clear the policy
+       * independently. Fires only for a real STRONG_EDGE decision.
+       */}
+      {strongSecondaryMarkets.length > 0 ? (
+        <p className="row__secondary">
+          {t("matchAlsoEdge")}:{" "}
+          {strongSecondaryMarkets
+            .map(
+              (row) =>
+                translateMarketLabel(row.marketLabelKey, locale) +
+                (row.lineValue ? ` ${row.lineValue}` : ""),
+            )
+            .join(", ")}
+        </p>
+      ) : null}
       <div className="row__foot">
         <span className="row__sub">{t("openMatchIntelligence")} →</span>
       </div>
@@ -235,6 +256,9 @@ function EdgeRow({
   locale: Locale;
 }) {
   const t = translator(locale);
+  const strongSecondaryMarkets = (match.secondaryMarkets ?? []).filter(
+    (row) => row.recommendation === "STRONG_EDGE",
+  );
   return (
     <Link className="row" href={`/matches/${match.eventId}`}>
       <div className="row__head">
@@ -311,6 +335,24 @@ function EdgeRow({
           edge: formatPointsDelta(match.probabilityEdge, locale),
         })}
       />
+
+      {/*
+       * A compact pointer to an actionable secondary market, never a claim
+       * about its own movement or freshness -- those do not exist for a
+       * secondary market yet. Fires only for a real STRONG_EDGE decision.
+       */}
+      {strongSecondaryMarkets.length > 0 ? (
+        <p className="row__secondary">
+          {t("matchAlsoEdge")}:{" "}
+          {strongSecondaryMarkets
+            .map(
+              (row) =>
+                translateMarketLabel(row.marketLabelKey, locale) +
+                (row.lineValue ? ` ${row.lineValue}` : ""),
+            )
+            .join(", ")}
+        </p>
+      ) : null}
 
       <div className="row__foot">
         <span className="row__sub">{t("openMatchIntelligence")} →</span>

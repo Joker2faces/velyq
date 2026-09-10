@@ -1037,6 +1037,13 @@ a.row:hover {
   max-width: 72ch;
 }
 
+.row__secondary {
+  color: var(--signal-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0;
+}
+
 /* Opening → current price journey. */
 .journey {
   align-items: center;
@@ -2031,6 +2038,13 @@ a.row:hover {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--secondary);
+}
+
+.match-card__secondary {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--signal-strong);
 }
 
 /* ------------------------------------------------------------------- crests

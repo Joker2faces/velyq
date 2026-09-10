@@ -165,6 +165,9 @@ export function MatchCard({
   const reason = headlineReason(match, locale);
   const kickoff = formatTime(match.startsAt, locale);
   const target = href ?? `/matches/${match.eventId}`;
+  const strongSecondaryMarkets = (match.secondaryMarkets ?? []).filter(
+    (row) => row.recommendation === "STRONG_EDGE",
+  );
 
   const card = (
     <article className="match-card">
@@ -230,6 +233,25 @@ export function MatchCard({
       </footer>
 
       {reason ? <p className="match-card__reason">{reason}</p> : null}
+      {/*
+       * A compact pointer to an actionable secondary market, never a claim
+       * about its own movement or freshness -- those figures do not exist
+       * for a secondary market yet, and this line does not invent them. It
+       * only ever fires for a real STRONG_EDGE decision, so a quiet fixture
+       * (the normal case) shows nothing extra.
+       */}
+      {strongSecondaryMarkets.length > 0 ? (
+        <p className="match-card__secondary">
+          {t("matchAlsoEdge")}:{" "}
+          {strongSecondaryMarkets
+            .map(
+              (row) =>
+                marketLabel(row.marketLabelKey, locale) +
+                (row.lineValue ? ` ${row.lineValue}` : ""),
+            )
+            .join(", ")}
+        </p>
+      ) : null}
     </article>
   );
 

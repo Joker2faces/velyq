@@ -138,6 +138,27 @@ function matchTemplates(): ReadonlyArray<
         scoreVersion: "edge.v1",
         sourceObservationIds: ["72000000-0000-4000-8000-000000000011"],
       },
+      /*
+       * The headline market is gated on a missing lineup, but the totals
+       * market is already fully priced and clears the policy -- a real,
+       * honest illustration that a fixture blocked on one market can still
+       * have an actionable decision on another.
+       */
+      secondaryMarkets: [
+        {
+          marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+          marketLabelKey: "market.football_full_time_total",
+          lineValue: "2.5",
+          selection: "OVER",
+          recommendation: "STRONG_EDGE",
+          modelProbability: d("0.64"),
+          currentOdds: d("1.80"),
+          fairOdds: d("1.5625"),
+          probabilityEdge: d("0.084"),
+          expectedValue: d("0.152"),
+          freshness: "CURRENT",
+        },
+      ],
     },
     {
       eventId: "76000000-0000-4000-8000-000000000003",
