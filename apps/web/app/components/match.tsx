@@ -67,6 +67,24 @@ type OpportunityLifecycleDto = Readonly<{
   thresholdCrossings: number;
 }>;
 
+/** Mirrors `WhatChangedDto` in `../customer-runtime.ts`. */
+type WhatChangedDto = Readonly<{
+  firstEvaluatedAt: string;
+  lastEvaluatedAt: string;
+  changes: readonly Readonly<{
+    kind:
+      | "PRICE_CHANGED"
+      | "MODEL_CHANGED"
+      | "LINEUP_CHANGED"
+      | "QUALITY_CHANGED"
+      | "DECISION_CHANGED"
+      | "EDGE_CHANGED"
+      | "MARKET_CHANGED";
+    before: string | null;
+    after: string | null;
+  }>[];
+}>;
+
 /**
  * Football-first presentation primitives.
  *
@@ -784,6 +802,47 @@ export function OpportunityLifecycle({
         <dt>{t("opportunityLifecycleCrossings")}</dt>
         <dd>{lifecycle.thresholdCrossings}</dd>
       </div>
+    </dl>
+  );
+}
+
+const WHAT_CHANGED_LABEL_KEYS = {
+  PRICE_CHANGED: "whatChangedPrice",
+  MODEL_CHANGED: "whatChangedModel",
+  LINEUP_CHANGED: "whatChangedLineup",
+  QUALITY_CHANGED: "whatChangedQuality",
+  DECISION_CHANGED: "whatChangedDecision",
+  EDGE_CHANGED: "whatChangedEdge",
+  MARKET_CHANGED: "whatChangedMarket",
+} as const;
+
+/**
+ * What Changed: a factual diff between the first decision VELYQ ever
+ * recorded for this selection and the latest one -- never a narrated
+ * summary, only the field-by-field before/after values `diffSnapshots`
+ * (packages/analytics) computed.
+ */
+export function WhatChanged({
+  whatChanged,
+  locale,
+}: {
+  whatChanged: WhatChangedDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  if (whatChanged.changes.length === 0) {
+    return <p className="what-changed__none">{t("whatChangedNone")}</p>;
+  }
+  return (
+    <dl className="what-changed">
+      {whatChanged.changes.map((change) => (
+        <div className="what-changed__row" key={change.kind}>
+          <dt>{t(WHAT_CHANGED_LABEL_KEYS[change.kind])}</dt>
+          <dd>
+            {change.before ?? "—"} → {change.after ?? "—"}
+          </dd>
+        </div>
+      ))}
     </dl>
   );
 }

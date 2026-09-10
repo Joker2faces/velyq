@@ -828,6 +828,17 @@ export const messages = {
   opportunityLifecycleFirstSeen: "First seen",
   opportunityLifecycleDuration: "Duration",
   opportunityLifecycleCrossings: "Threshold crossings",
+  whatChangedTitle: "What changed",
+  whatChangedLead: "A factual diff between the first and latest evaluation of this selection.",
+  whatChangedNone: "Nothing has changed since the first evaluation.",
+  whatChangedPrice: "Price",
+  whatChangedModel: "Model probability",
+  whatChangedLineup: "Lineup",
+  whatChangedQuality: "Data quality",
+  whatChangedDecision: "Decision",
+  whatChangedEdge: "Expected value",
+  whatChangedMarket: "Market",
+
 
 
 
@@ -1611,6 +1622,17 @@ const greek: Readonly<Record<MessageKey, string>> = {
   opportunityLifecycleFirstSeen: "Πρώτη εμφάνιση",
   opportunityLifecycleDuration: "Διάρκεια",
   opportunityLifecycleCrossings: "Αλλαγές ορίου",
+  whatChangedTitle: "Τι άλλαξε",
+  whatChangedLead: "Μια πραγματική διαφορά ανάμεσα στην πρώτη και την τελευταία αξιολόγηση αυτής της επιλογής.",
+  whatChangedNone: "Τίποτα δεν έχει αλλάξει από την πρώτη αξιολόγηση.",
+  whatChangedPrice: "Απόδοση",
+  whatChangedModel: "Πιθανότητα μοντέλου",
+  whatChangedLineup: "Ενδεκάδα",
+  whatChangedQuality: "Ποιότητα δεδομένων",
+  whatChangedDecision: "Απόφαση",
+  whatChangedEdge: "Αναμενόμενη αξία",
+  whatChangedMarket: "Αγορά",
+
 
 
 

@@ -24,6 +24,7 @@ import {
   loadCustomerMatch,
   loadOpportunityLifecycle,
   loadPostMatchAutopsy,
+  loadWhatChanged,
 } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
@@ -36,6 +37,7 @@ import {
   PriceValidity,
   RiskFlags,
   SecondaryMarkets,
+  WhatChanged,
 } from "../../components/match";
 import {
   ArrowLink,
@@ -109,6 +111,7 @@ export default async function Match({
     match.selection,
     new Date(),
   );
+  const whatChanged = await loadWhatChanged(id, match.selection);
   const hasEstimate = match.probabilityEdge !== null;
   /*
    * Price history exists only once movement was actually establishable.
@@ -402,6 +405,16 @@ export default async function Match({
                 hint={t("opportunityLifecycleLead")}
               />
               <OpportunityLifecycle lifecycle={lifecycle} locale={locale} />
+            </Card>
+          ) : null}
+
+          {whatChanged ? (
+            <Card>
+              <CardHead
+                title={t("whatChangedTitle")}
+                hint={t("whatChangedLead")}
+              />
+              <WhatChanged whatChanged={whatChanged} locale={locale} />
             </Card>
           ) : null}
 

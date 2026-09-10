@@ -12,7 +12,7 @@ import {
 import { DatabaseHistoryQueryAdapter } from "@velyq/database";
 import { customerFixtureMode } from "./api/auth";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
-import { edgePersistence } from "@velyq/analytics";
+import { diffSnapshots, edgePersistence, type Snapshot } from "@velyq/analytics";
 import { customerTodaySnapshot } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -323,6 +323,93 @@ export async function loadOpportunityLifecycle(
       durationMs: result.durationMs,
       observationCount: result.observationCount,
       thresholdCrossings: result.thresholdCrossings,
+    };
+  } finally {
+    await session.close();
+  }
+}
+
+export type WhatChangedDto = Readonly<{
+  firstEvaluatedAt: string;
+  lastEvaluatedAt: string;
+  changes: readonly Readonly<{
+    kind:
+      | "PRICE_CHANGED"
+      | "MODEL_CHANGED"
+      | "LINEUP_CHANGED"
+      | "QUALITY_CHANGED"
+      | "DECISION_CHANGED"
+      | "EDGE_CHANGED"
+      | "MARKET_CHANGED";
+    before: string | null;
+    after: string | null;
+  }>[];
+}>;
+
+/**
+ * What Changed: a factual diff between the first decision VELYQ ever
+ * recorded for this selection and the latest one -- price, model
+ * probability, decision status, expected value. Built from the same
+ * decision history `loadOpportunityLifecycle` reads, through
+ * `diffSnapshots` (packages/analytics), which existed fully tested with no
+ * caller anywhere.
+ *
+ * Deliberately narrower than `diffSnapshots`'s full seven-field `Snapshot`:
+ * a decision row does not carry the lineup state or quality grade that was
+ * in effect when IT was written (those live on separate assessment rows
+ * this query does not join), so `lineup`/`quality` are held constant across
+ * both snapshots here rather than guessed -- reporting a change we cannot
+ * actually verify would be worse than omitting it. `market` is included
+ * genuinely (both snapshots are the same market by construction, so it
+ * never fires, which is correct).
+ *
+ * Null when fewer than two decisions exist for this selection -- nothing
+ * has had the chance to change yet.
+ */
+export async function loadWhatChanged(
+  eventId: string,
+  selection: string,
+): Promise<WhatChangedDto | null> {
+  if (customerFixtureMode()) return null;
+  if (!selection) return null;
+  const session = await openRuntimeDatabaseSession();
+  if (!session) return null;
+  try {
+    const rows = await new DatabaseHistoryQueryAdapter(
+      session.database,
+    ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
+    const relevant = rows
+      .filter(
+        (row) =>
+          row.marketDefinition.code ===
+            canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
+          row.decision.selection === selection,
+      )
+      .sort(
+        (a, b) => a.decision.createdAt.getTime() - b.decision.createdAt.getTime(),
+      );
+    if (relevant.length < 2) return null;
+    const first = relevant[0]!;
+    const last = relevant.at(-1)!;
+    const toSnapshot = (row: (typeof relevant)[number]): Snapshot => ({
+      at: row.decision.createdAt.toISOString(),
+      price: row.decision.offeredOdds,
+      modelProbability: row.forecast.probability,
+      lineup: "unknown",
+      quality: "unknown",
+      decision: row.decision.status,
+      edge: row.decision.expectedValue,
+      market: row.marketDefinition.code,
+    });
+    const changes = diffSnapshots(toSnapshot(first), toSnapshot(last));
+    return {
+      firstEvaluatedAt: first.decision.createdAt.toISOString(),
+      lastEvaluatedAt: last.decision.createdAt.toISOString(),
+      changes: changes.map((change) => ({
+        kind: change.kind,
+        before: change.before,
+        after: change.after,
+      })),
     };
   } finally {
     await session.close();

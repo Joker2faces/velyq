@@ -2426,6 +2426,45 @@ a.row:hover {
   color: var(--primary);
 }
 
+.what-changed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.what-changed__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.what-changed__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.what-changed__row dt {
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  color: var(--secondary);
+}
+
+.what-changed__row dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--primary);
+}
+
+.what-changed__none {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
 .autopsy__score {
   margin: 0 0 var(--space-4);
   font-family: var(--font-label);
