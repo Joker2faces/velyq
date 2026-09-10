@@ -226,9 +226,15 @@ export async function loadPostMatchAutopsy(
   const session = await openRuntimeDatabaseSession();
   if (!session) return null;
   try {
+    /*
+     * The same corpus discipline `DatabaseCustomerQueryAdapter` applies
+     * everywhere else: a LIVE read must never be able to answer for a
+     * SYNTHETIC_DEMO event id (or the reverse), even by a bare id passed
+     * from elsewhere with no prior corpus check of its own.
+     */
     const rows = await new DatabaseHistoryQueryAdapter(
       session.database,
-    ).listDecisionsForEvent(eventId);
+    ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
     const settled = rows.filter(
       (row) => row.settlement && row.settlement.outcome !== "UNSETTLED",
     );

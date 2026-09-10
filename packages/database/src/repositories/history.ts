@@ -147,8 +147,17 @@ export class DatabaseHistoryQueryAdapter {
    * event instead of paged by recency, since a fixture only ever has a
    * handful of decisions across its markets.
    */
+  /**
+   * `synthetic` is required, not defaulted, on purpose -- the same
+   * discipline `DatabaseCustomerQueryAdapter`'s `corpus` predicate already
+   * applies. Omitting it would let a caller pass any event id at all and
+   * get a real answer regardless of which corpus (LIVE vs SYNTHETIC_DEMO)
+   * it actually belongs to, which is exactly the defect the customer read
+   * path was built to prevent everywhere else.
+   */
   async listDecisionsForEvent(
     eventId: string,
+    synthetic: boolean,
   ): Promise<readonly HistoricalDecisionRow[]> {
     const rows = await this.database
       .select({
@@ -189,7 +198,7 @@ export class DatabaseHistoryQueryAdapter {
         eventResults,
         eq(marketSettlements.eventResultId, eventResults.id),
       )
-      .where(eq(events.id, eventId))
+      .where(and(eq(events.id, eventId), eq(events.synthetic, synthetic)))
       .orderBy(desc(decisions.createdAt), desc(decisions.id));
 
     const teams = await this.database
