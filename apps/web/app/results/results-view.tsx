@@ -150,7 +150,13 @@ export function ResultsView({
           title={t.all}
           hint={`${data.modelVersion} · ${data.period}`}
         />{" "}
-        <div className="results-list">
+        {/*
+         * Announced politely so a screen-reader user learns older decisions
+         * loaded without the page stealing focus from wherever they were --
+         * the button click already told them something would happen, this
+         * only confirms it did.
+         */}
+        <div className="results-list" aria-live="polite">
           {decisions.map((item) => (
             <article className="results-row" key={item.id}>
               <div>

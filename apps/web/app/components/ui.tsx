@@ -29,7 +29,7 @@ export function Badge({
 }) {
   return (
     <span className={`badge badge--${tone}`}>
-      {dot ? <span className="badge__dot" /> : null}
+      {dot ? <span className="badge__dot" aria-hidden="true" /> : null}
       {children}
     </span>
   );
