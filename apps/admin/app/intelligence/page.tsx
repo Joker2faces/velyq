@@ -289,6 +289,73 @@ export default async function IntelligencePage() {
           </section>
           <section className="panel">
             <div className="panel-heading">
+              <h2>True 1X2 calibration (HOME/DRAW/AWAY)</h2>
+            </div>
+            <p>
+              Every settled fixture the model priced, scored on the actual
+              three-way outcome — not only the events a decision was acted
+              on for. Kept EXPERIMENTAL below the sample-size floor
+              regardless of how the numbers look; this audit does not
+              promote model maturity.
+            </p>
+            {data.multiClassCalibration.length ? (
+              data.multiClassCalibration.map((model) => (
+                <div className="ops-metric" key={model.modelVersion}>
+                  <span className="ops-metric__label">
+                    {model.modelVersion}
+                  </span>
+                  <span className="ops-metric__value">
+                    {model.status === "INSUFFICIENT_SAMPLE"
+                      ? "EXPERIMENTAL · INSUFFICIENT SAMPLE"
+                      : `Brier ${model.brierScore?.toFixed(4)} · Log loss ${model.logLoss?.toFixed(4)} · ECE ${model.calibrationError?.toFixed(4)}`}
+                  </span>
+                  <span className="ops-metric__note">
+                    Sample {model.sampleCount}
+                    {model.baselineFrequencies
+                      ? ` · empirical baseline HOME ${(model.baselineFrequencies.home * 100).toFixed(1)}% / DRAW ${(model.baselineFrequencies.draw * 100).toFixed(1)}% / AWAY ${(model.baselineFrequencies.away * 100).toFixed(1)}%`
+                      : ""}
+                  </span>
+                  {model.byCompetition.length > 0 ? (
+                    <table className="ops-table">
+                      <thead>
+                        <tr>
+                          <th>Competition</th>
+                          <th>Sample</th>
+                          <th>Brier</th>
+                          <th>Log loss</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.byCompetition.map((competition) => (
+                          <tr key={competition.competitionCode}>
+                            <td>{competition.competitionCode}</td>
+                            <td>{competition.sampleCount}</td>
+                            <td>
+                              {competition.brierScore === null
+                                ? "INSUFFICIENT SAMPLE"
+                                : competition.brierScore.toFixed(4)}
+                            </td>
+                            <td>
+                              {competition.logLoss === null
+                                ? "—"
+                                : competition.logLoss.toFixed(4)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <div className="state">
+                <h3>INSUFFICIENT SAMPLE</h3>
+                <p>No settled 1X2 fixtures are available yet.</p>
+              </div>
+            )}
+          </section>
+          <section className="panel">
+            <div className="panel-heading">
               <h2>Identity issues</h2>
             </div>
             {data.identityIssues.length ? (

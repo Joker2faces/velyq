@@ -231,6 +231,126 @@ export class DatabaseAdminQueries implements AdminQueries {
           .sort((a, b) => b.sampleCount - a.sampleCount),
       };
     });
+    /*
+     * TRUE three-way 1X2 calibration, not the binary "did the selected
+     * outcome happen" framing above. `forecast-cycle.ts` already writes one
+     * forecast row per outcome (HOME/DRAW/AWAY) for every event it prices --
+     * the data was always there, just never joined this way. This pulls all
+     * three sibling forecasts for the same event_market and derives the true
+     * outcome directly from `event_results` scores, independent of which
+     * outcome (if any) VELYQ actually decided on -- so this includes events
+     * where the decision engine never acted at all, unlike the binary
+     * section above which only ever sees settled, acted-on decisions.
+     */
+    const multiClassResult = await this.database.execute(sql`
+      with sibling_forecasts as (
+        select f.model_version, f.probability, od.code as outcome_code, em.id as event_market_id, em.event_id
+        from intelligence.forecasts f
+        join market.event_market_outcomes emo on emo.id = f.event_market_outcome_id
+        join market.outcome_definitions od on od.id = emo.outcome_definition_id
+        join market.event_markets em on em.id = emo.event_market_id
+        join market.market_definitions md on md.id = em.market_definition_id
+        where md.code = 'FOOTBALL_FULL_TIME_1X2'
+      ),
+      results as (
+        select event_id,
+          case when home_score > away_score then 'HOME'
+               when home_score < away_score then 'AWAY'
+               else 'DRAW' end as true_outcome
+        from intelligence.event_results
+        where status = 'FINAL' and home_score is not null and away_score is not null
+      )
+      select
+        sf.model_version,
+        c.code as competition_code,
+        r.true_outcome,
+        max(case when sf.outcome_code = 'HOME' then sf.probability end) as p_home,
+        max(case when sf.outcome_code = 'DRAW' then sf.probability end) as p_draw,
+        max(case when sf.outcome_code = 'AWAY' then sf.probability end) as p_away
+      from sibling_forecasts sf
+      join results r on r.event_id = sf.event_id
+      join catalog.events e on e.id = sf.event_id
+      join catalog.competitions c on c.id = e.competition_id
+      group by sf.model_version, sf.event_market_id, r.true_outcome, c.code
+      having
+        max(case when sf.outcome_code = 'HOME' then sf.probability end) is not null and
+        max(case when sf.outcome_code = 'DRAW' then sf.probability end) is not null and
+        max(case when sf.outcome_code = 'AWAY' then sf.probability end) is not null
+    `);
+    const outcomeIndex = (code: string) =>
+      code === "HOME" ? 0 : code === "DRAW" ? 1 : 2;
+    const multiClassGrouped = new Map<string, ProbabilisticSample[]>();
+    const multiClassByCompetition = new Map<
+      string,
+      Map<string, ProbabilisticSample[]>
+    >();
+    for (const item of multiClassResult.rows) {
+      const version = String(item["model_version"]);
+      const competitionCode = String(item["competition_code"]);
+      const sample: ProbabilisticSample = {
+        probabilities: [
+          Number(item["p_home"]),
+          Number(item["p_draw"]),
+          Number(item["p_away"]),
+        ],
+        observedIndex: outcomeIndex(String(item["true_outcome"])),
+      };
+      multiClassGrouped.set(version, [
+        ...(multiClassGrouped.get(version) ?? []),
+        sample,
+      ]);
+      const byCompetition = multiClassByCompetition.get(version) ?? new Map();
+      byCompetition.set(competitionCode, [
+        ...(byCompetition.get(competitionCode) ?? []),
+        sample,
+      ]);
+      multiClassByCompetition.set(version, byCompetition);
+    }
+    /*
+     * Never promoted to non-EXPERIMENTAL on sample size alone -- that
+     * remains a modelling and product decision, not something this audit
+     * can certify. 30 is the same minimum-sample floor already used for the
+     * binary framing above, applied per class-vector sample (one per
+     * settled event) rather than per decision.
+     */
+    const multiClassMetricsFor = (samples: ProbabilisticSample[]) => {
+      const enough = samples.length >= 30;
+      const baseline = enough ? empiricalFrequencies(samples, 3) : null;
+      return {
+        sampleCount: samples.length,
+        status: enough
+          ? ("AVAILABLE" as const)
+          : ("INSUFFICIENT_SAMPLE" as const),
+        brierScore: enough ? brierScore(samples) : null,
+        logLoss: enough ? logLoss(samples) : null,
+        calibrationError: enough
+          ? expectedCalibrationError(samples, 3)
+          : null,
+        baselineFrequencies: baseline
+          ? {
+              home: baseline[0] ?? 0,
+              draw: baseline[1] ?? 0,
+              away: baseline[2] ?? 0,
+            }
+          : null,
+      };
+    };
+    const multiClassCalibration = [...multiClassGrouped].map(
+      ([modelVersion, samples]) => {
+        const byCompetitionMap =
+          multiClassByCompetition.get(modelVersion) ?? new Map();
+        return {
+          modelVersion,
+          ...multiClassMetricsFor(samples),
+          byCompetition: [...byCompetitionMap]
+            .map(([competitionCode, competitionSamples]) => ({
+              competitionCode,
+              ...multiClassMetricsFor(competitionSamples),
+            }))
+            .sort((a, b) => b.sampleCount - a.sampleCount),
+        };
+      },
+    );
     const count = (key: string) => Number(row[key] ?? 0);
     const timestamp = (key: string) =>
       row[key] ? new Date(String(row[key])).toISOString() : null;
@@ -257,6 +377,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       lastSuccessfulResultSync: timestamp("last_successful_result_sync"),
       lastSettlementRun: timestamp("last_settlement_run"),
       modelHealth,
+      multiClassCalibration,
       identityIssues,
     };
   }

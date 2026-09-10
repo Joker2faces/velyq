@@ -115,6 +115,11 @@ export type AdminIntelligenceOverviewDto = Readonly<{
   lastSuccessfulResultSync: string | null;
   lastSettlementRun: string | null;
   modelHealth: readonly AdminModelHealthDto[];
+  /** TRUE three-way HOME/DRAW/AWAY calibration -- every settled 1X2 event
+      the model priced, not only the ones a decision was acted on for.
+      Distinct from `modelHealth`, which scores only the decision engine's
+      own selected-outcome probability. */
+  multiClassCalibration: readonly AdminMultiClassCalibrationDto[];
   /** Competition identities stuck at PENDING_REVIEW or REJECTED -- the
       forecast cycle fails closed on anything but CONFIRMED, so this is a
       real, actionable blocker list, not noise. */
@@ -155,6 +160,29 @@ export type AdminModelHealthDto = AdminModelMetricsDto &
         pooled cannot hide being systematically wrong on one league it has
         too little history of on its own. */
     byCompetition: readonly (AdminModelMetricsDto &
+      Readonly<{ competitionCode: string }>)[];
+  }>;
+
+/** Shared multi-class metric shape, computed identically pooled and
+    per-competition. Never used to auto-promote model maturity -- that
+    stays a modelling/product decision, not something an audit certifies. */
+export type AdminMultiClassMetricsDto = Readonly<{
+  sampleCount: number;
+  status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+  brierScore: number | null;
+  logLoss: number | null;
+  calibrationError: number | null;
+  baselineFrequencies: Readonly<{
+    home: number;
+    draw: number;
+    away: number;
+  }> | null;
+}>;
+
+export type AdminMultiClassCalibrationDto = AdminMultiClassMetricsDto &
+  Readonly<{
+    modelVersion: string;
+    byCompetition: readonly (AdminMultiClassMetricsDto &
       Readonly<{ competitionCode: string }>)[];
   }>;
 
