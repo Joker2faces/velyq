@@ -45,9 +45,13 @@ type PostMatchAutopsyRow = Readonly<{
   selection: string;
   decisionStatus: string;
   whyNotCodes: readonly string[];
+  decidedAt: string;
   modelProbability: string | null;
+  impliedProbabilityAtDecision: string | null;
   fairOdds: string | null;
   offeredOdds: string | null;
+  minimumAcceptableOddsAtDecision: string | null;
+  priceValidityPolicyVersion: string;
   outcome: "WIN" | "LOSS" | "VOID" | "UNSETTLED";
   closingOdds: string | null;
   clv: string | null;
@@ -561,6 +565,9 @@ export function PostMatchAutopsy({
                 {row.lineValue ? ` ${row.lineValue}` : ""}
                 {" · "}
                 {selectionLabel(row.selection, locale)}
+                {" · "}
+                {t("matchAutopsyDecidedAt")}{" "}
+                {formatDateTime(row.decidedAt, locale)}
               </span>
               <Badge
                 tone={
@@ -593,6 +600,25 @@ export function PostMatchAutopsy({
                   {row.offeredOdds === null
                     ? "—"
                     : formatOdds(row.offeredOdds, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("matchAutopsyImpliedProbability")}</dt>
+                <dd>
+                  {row.impliedProbabilityAtDecision === null
+                    ? "—"
+                    : formatProbability(
+                        row.impliedProbabilityAtDecision,
+                        locale,
+                      )}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("matchAutopsyMinimumOdds")}</dt>
+                <dd>
+                  {row.minimumAcceptableOddsAtDecision === null
+                    ? "—"
+                    : formatOdds(row.minimumAcceptableOddsAtDecision, locale)}
                 </dd>
               </div>
               <div>

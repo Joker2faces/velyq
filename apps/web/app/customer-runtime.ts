@@ -15,6 +15,7 @@ import {
 } from "@velyq/database";
 import { customerFixtureMode } from "./api/auth";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
+import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import {
   diffSnapshots,
   edgePersistence,
@@ -204,9 +205,20 @@ export type PostMatchAutopsyRow = Readonly<{
   selection: string;
   decisionStatus: string;
   whyNotCodes: readonly string[];
+  decidedAt: string;
   modelProbability: string | null;
+  /** 1/offeredOdds at the moment of decision -- what the market itself
+      implied then, derived from the price actually recorded, never a
+      separately-stored or fabricated figure. */
+  impliedProbabilityAtDecision: string | null;
   fairOdds: string | null;
   offeredOdds: string | null;
+  /** What `price-validity.v1` would have required, evaluated against the
+      real modelProbability/offeredOdds this decision actually recorded --
+      the same shared, versioned policy the live verdict uses, applied to
+      history rather than a margin invented here. */
+  minimumAcceptableOddsAtDecision: string | null;
+  priceValidityPolicyVersion: string;
   outcome: "WIN" | "LOSS" | "VOID" | "UNSETTLED";
   closingOdds: string | null;
   clv: string | null;
@@ -272,20 +284,30 @@ export function derivePostMatchAutopsy(
       : `${result.homeScore}–${result.awayScore}`;
   return {
     finalScore,
-    rows: settled.map((row) => ({
-      marketLabelKey: row.marketDefinition.labelKey,
-      lineValue: null,
-      selection: row.decision.selection,
-      decisionStatus: row.decision.status,
-      whyNotCodes: row.decision.whyNotCodes,
-      modelProbability: row.forecast.probability,
-      fairOdds: row.decision.fairOdds,
-      offeredOdds: row.decision.offeredOdds,
-      outcome: (row.settlement?.outcome ??
-        "UNSETTLED") as PostMatchAutopsyRow["outcome"],
-      closingOdds: row.settlement?.closingOdds ?? null,
-      clv: row.settlement?.clv ?? null,
-    })),
+    rows: settled.map((row) => {
+      const validity = evaluatePriceValidity({
+        modelProbability: row.forecast.probability,
+        currentOdds: row.decision.offeredOdds,
+      });
+      return {
+        marketLabelKey: row.marketDefinition.labelKey,
+        lineValue: null,
+        selection: row.decision.selection,
+        decisionStatus: row.decision.status,
+        whyNotCodes: row.decision.whyNotCodes,
+        decidedAt: row.decision.createdAt.toISOString(),
+        modelProbability: row.forecast.probability,
+        impliedProbabilityAtDecision: validity.impliedProbability,
+        fairOdds: row.decision.fairOdds,
+        offeredOdds: row.decision.offeredOdds,
+        minimumAcceptableOddsAtDecision: validity.minimumAcceptableOdds,
+        priceValidityPolicyVersion: validity.policyVersion,
+        outcome: (row.settlement?.outcome ??
+          "UNSETTLED") as PostMatchAutopsyRow["outcome"],
+        closingOdds: row.settlement?.closingOdds ?? null,
+        clv: row.settlement?.clv ?? null,
+      };
+    }),
   };
 }
 
