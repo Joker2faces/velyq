@@ -1615,7 +1615,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   marketMapCoverage: "Στοιχηματικές",
   marketMapNoConsensus: "Δεν υπάρχει ακόμα πλήρες βιβλίο",
   riskFlagsTitle: "Σημαίες κινδύνου",
-  evidenceTimelineTitle: "Χρονολόγιο αποδείξεων",
+  evidenceTimelineTitle: "Χρονολόγιο στοιχείων",
   evidenceTimelineLead: "Κάθε παρατήρηση τιμής και ενδεκάδας πίσω από αυτή την ετυμηγορία, με σειρά.",
   evidenceTimelinePriceObserved: "Παρατηρήθηκε τιμή",
   evidenceTimelineLineupObserved: "Παρατηρήθηκε ενδεκάδα",
