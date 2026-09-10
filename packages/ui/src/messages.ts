@@ -812,7 +812,9 @@ export const messages = {
   historyLiveData: "Live data",
   historyAllQualifying: "All qualifying decisions",
   historyModel: "Model",
-  historyFairPrice: "Fair price",
+  /* Rendered inline as "Fair 7.35 · EV 3.1%", alongside "Model 55% · 2.10",
+     so the English label is deliberately the single word. */
+  historyFairPrice: "Fair",
 } as const;
 
 export type MessageKey = keyof typeof messages;
