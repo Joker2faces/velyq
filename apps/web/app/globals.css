@@ -2405,6 +2405,27 @@ a.row:hover {
   color: var(--primary);
 }
 
+.opportunity-lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.opportunity-lifecycle dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.opportunity-lifecycle dd {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--primary);
+}
+
 .autopsy__score {
   margin: 0 0 var(--space-4);
   font-family: var(--font-label);

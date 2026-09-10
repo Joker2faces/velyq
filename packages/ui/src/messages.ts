@@ -819,6 +819,16 @@ export const messages = {
   evidenceTimelineLead: "Every price and lineup observation behind this verdict, in order.",
   evidenceTimelinePriceObserved: "Price observed",
   evidenceTimelineLineupObserved: "Lineup observed",
+  opportunityLifecycleTitle: "Opportunity lifecycle",
+  opportunityLifecycleLead: "Has this recommendation held, or has it flickered?",
+  opportunityLifecycleState: "State",
+  opportunityLifecycleActive: "Active",
+  opportunityLifecycleUnstable: "Unstable",
+  opportunityLifecycleEnded: "Ended",
+  opportunityLifecycleFirstSeen: "First seen",
+  opportunityLifecycleDuration: "Duration",
+  opportunityLifecycleCrossings: "Threshold crossings",
+
 
 
   reasonEdgeTooSmall: "Edge too small to act on",
@@ -1592,6 +1602,16 @@ const greek: Readonly<Record<MessageKey, string>> = {
   evidenceTimelineLead: "Κάθε παρατήρηση τιμής και ενδεκάδας πίσω από αυτή την ετυμηγορία, με σειρά.",
   evidenceTimelinePriceObserved: "Παρατηρήθηκε τιμή",
   evidenceTimelineLineupObserved: "Παρατηρήθηκε ενδεκάδα",
+  opportunityLifecycleTitle: "Κύκλος ζωής ευκαιρίας",
+  opportunityLifecycleLead: "Κράτησε αυτή η σύσταση, ή άλλαξε κατ' επανάληψη;",
+  opportunityLifecycleState: "Κατάσταση",
+  opportunityLifecycleActive: "Ενεργή",
+  opportunityLifecycleUnstable: "Ασταθής",
+  opportunityLifecycleEnded: "Έληξε",
+  opportunityLifecycleFirstSeen: "Πρώτη εμφάνιση",
+  opportunityLifecycleDuration: "Διάρκεια",
+  opportunityLifecycleCrossings: "Αλλαγές ορίου",
+
 
 
   reasonEdgeTooSmall: "Το πλεονέκτημα είναι πολύ μικρό",

@@ -20,13 +20,18 @@ import {
   selectionLabel,
   translator,
 } from "@velyq/ui";
-import { loadCustomerMatch, loadPostMatchAutopsy } from "../../customer-runtime";
+import {
+  loadCustomerMatch,
+  loadOpportunityLifecycle,
+  loadPostMatchAutopsy,
+} from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
 import {
   DecisionReasoning,
   EvidenceTimeline,
   MarketMap,
+  OpportunityLifecycle,
   PostMatchAutopsy,
   PriceValidity,
   RiskFlags,
@@ -99,6 +104,11 @@ export default async function Match({
 
   const match = result.value;
   const autopsy = await loadPostMatchAutopsy(id);
+  const lifecycle = await loadOpportunityLifecycle(
+    id,
+    match.selection,
+    new Date(),
+  );
   const hasEstimate = match.probabilityEdge !== null;
   /*
    * Price history exists only once movement was actually establishable.
@@ -384,6 +394,16 @@ export default async function Match({
               </>
             ) : null}
           </Card>
+
+          {lifecycle ? (
+            <Card>
+              <CardHead
+                title={t("opportunityLifecycleTitle")}
+                hint={t("opportunityLifecycleLead")}
+              />
+              <OpportunityLifecycle lifecycle={lifecycle} locale={locale} />
+            </Card>
+          ) : null}
 
           {match.evidenceTimeline && match.evidenceTimeline.length > 0 ? (
             <Card>

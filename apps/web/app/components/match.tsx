@@ -57,6 +57,16 @@ type PostMatchAutopsyDto = Readonly<{
   rows: readonly PostMatchAutopsyRow[];
 }>;
 
+/** Mirrors `OpportunityLifecycleDto` in `../customer-runtime.ts` -- same
+    reason as `PostMatchAutopsyDto` above: that module is server-only. */
+type OpportunityLifecycleDto = Readonly<{
+  state: "ACTIVE" | "UNSTABLE" | "ENDED";
+  firstAppeared: string | null;
+  durationMs: number;
+  observationCount: number;
+  thresholdCrossings: number;
+}>;
+
 /**
  * Football-first presentation primitives.
  *
@@ -718,6 +728,63 @@ export function EvidenceTimeline({
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Opportunity Lifecycle: has this fixture's STRONG_EDGE recommendation held
+ * continuously, or has it flickered on and off? Built from the immutable
+ * decision history VELYQ already writes for every outcome, never a status
+ * inferred from the current page load alone.
+ */
+export function OpportunityLifecycle({
+  lifecycle,
+  locale,
+}: {
+  lifecycle: OpportunityLifecycleDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  const hours = lifecycle.durationMs / 3_600_000;
+  return (
+    <dl className="opportunity-lifecycle">
+      <div>
+        <dt>{t("opportunityLifecycleState")}</dt>
+        <dd>
+          <Badge
+            tone={
+              lifecycle.state === "ACTIVE"
+                ? "positive"
+                : lifecycle.state === "UNSTABLE"
+                  ? "caution"
+                  : "neutral"
+            }
+          >
+            {t(
+              lifecycle.state === "ACTIVE"
+                ? "opportunityLifecycleActive"
+                : lifecycle.state === "UNSTABLE"
+                  ? "opportunityLifecycleUnstable"
+                  : "opportunityLifecycleEnded",
+            )}
+          </Badge>
+        </dd>
+      </div>
+      {lifecycle.firstAppeared ? (
+        <div>
+          <dt>{t("opportunityLifecycleFirstSeen")}</dt>
+          <dd>{formatDateTime(lifecycle.firstAppeared, locale)}</dd>
+        </div>
+      ) : null}
+      <div>
+        <dt>{t("opportunityLifecycleDuration")}</dt>
+        <dd>{hours < 1 ? "<1h" : `${hours.toFixed(1)}h`}</dd>
+      </div>
+      <div>
+        <dt>{t("opportunityLifecycleCrossings")}</dt>
+        <dd>{lifecycle.thresholdCrossings}</dd>
+      </div>
+    </dl>
   );
 }
 

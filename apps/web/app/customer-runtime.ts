@@ -11,6 +11,8 @@ import {
 } from "./customer-database";
 import { DatabaseHistoryQueryAdapter } from "@velyq/database";
 import { customerFixtureMode } from "./api/auth";
+import { canonicalMarketDefinitions } from "@velyq/market-semantics";
+import { edgePersistence } from "@velyq/analytics";
 import { customerTodaySnapshot } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -261,6 +263,66 @@ export async function loadPostMatchAutopsy(
         closingOdds: row.settlement?.closingOdds ?? null,
         clv: row.settlement?.clv ?? null,
       })),
+    };
+  } finally {
+    await session.close();
+  }
+}
+
+export type OpportunityLifecycleDto = Readonly<{
+  state: "ACTIVE" | "UNSTABLE" | "ENDED";
+  firstAppeared: string | null;
+  durationMs: number;
+  observationCount: number;
+  thresholdCrossings: number;
+}>;
+
+/**
+ * Opportunity Lifecycle: has this fixture's headline selection held a
+ * STRONG_EDGE recommendation continuously, or has it flickered? Every
+ * decision this codebase ever makes for an outcome is written as its own
+ * immutable row (never overwritten) specifically so a real history like
+ * this can be read back -- `listDecisionsForEvent` (added for Post-Match
+ * Autopsy) already returns every decision for the event; this filters to
+ * the ones for the headline market and selection, and feeds the resulting
+ * timeline into `edgePersistence` (packages/analytics), which existed fully
+ * tested but had no caller anywhere before this.
+ *
+ * Null whenever no decision has ever been recorded for this selection --
+ * the honest state for a fixture the forecast cycle has not reached yet,
+ * not an error.
+ */
+export async function loadOpportunityLifecycle(
+  eventId: string,
+  selection: string,
+  asOf: Date,
+): Promise<OpportunityLifecycleDto | null> {
+  if (customerFixtureMode()) return null;
+  if (!selection) return null;
+  const session = await openRuntimeDatabaseSession();
+  if (!session) return null;
+  try {
+    const rows = await new DatabaseHistoryQueryAdapter(
+      session.database,
+    ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
+    const relevant = rows.filter(
+      (row) =>
+        row.marketDefinition.code ===
+          canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
+        row.decision.selection === selection,
+    );
+    if (relevant.length === 0) return null;
+    const observations = relevant.map((row) => ({
+      at: row.decision.createdAt.toISOString(),
+      active: row.decision.status === "STRONG_EDGE",
+    }));
+    const result = edgePersistence(observations, asOf.toISOString());
+    return {
+      state: result.state,
+      firstAppeared: result.firstAppeared,
+      durationMs: result.durationMs,
+      observationCount: result.observationCount,
+      thresholdCrossings: result.thresholdCrossings,
     };
   } finally {
     await session.close();
