@@ -479,6 +479,7 @@ export function SecondaryMarkets({
               </dd>
             </div>
           </dl>
+          <RiskFlags flags={row.riskFlags ?? []} locale={locale} />
         </div>
       ))}
     </div>

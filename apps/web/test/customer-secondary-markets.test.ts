@@ -288,3 +288,56 @@ describe("customerDatabaseMapper.mapToday", () => {
     });
   });
 });
+
+describe("secondaryMarketsFor market consensus", () => {
+  it("builds one shared consensus for OVER and UNDER at the same line, from complete bookmaker books", () => {
+    const raw = match([
+      outcome({ marketCode: "FOOTBALL_FULL_TIME_1X2" }),
+      outcome({
+        marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+        lineValue: "2.5",
+        outcomeCode: "OVER",
+        currentOdds: "1.9",
+        bookmakerIds: ["book-a", "book-b"],
+      }),
+      outcome({
+        marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+        lineValue: "2.5",
+        outcomeCode: "UNDER",
+        currentOdds: "2",
+        bookmakerIds: ["book-a", "book-b"],
+      }),
+    ]);
+    const secondary = secondaryMarketsFor(raw);
+    const over = secondary.find((row) => row.selection === "OVER")!;
+    const under = secondary.find((row) => row.selection === "UNDER")!;
+
+    expect(over.marketConsensus).toBeDefined();
+    expect(over.marketConsensus!.completeBookmakerCount).toBe(2);
+    // Both rows of the same market share the identical snapshot instant.
+    expect(under.marketConsensus!.observedAt).toBe(
+      over.marketConsensus!.observedAt,
+    );
+  });
+
+  it("flags MARKET_CONSENSUS_UNAVAILABLE on a secondary market with no complete book", () => {
+    const raw = match([
+      outcome({ marketCode: "FOOTBALL_FULL_TIME_1X2" }),
+      outcome({
+        marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+        lineValue: "2.5",
+        outcomeCode: "OVER",
+        bookmakerIds: ["book-a"],
+      }),
+      outcome({
+        marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+        lineValue: "2.5",
+        outcomeCode: "UNDER",
+        hasOdds: false,
+      }),
+    ]);
+    const secondary = secondaryMarketsFor(raw);
+    const over = secondary.find((row) => row.selection === "OVER")!;
+    expect(over.riskFlags).toContain("MARKET_CONSENSUS_UNAVAILABLE");
+  });
+});

@@ -270,43 +270,85 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
 export function secondaryMarketsFor(
   raw: CustomerRawMatch,
 ): readonly CustomerSecondaryMarketDto[] {
-  return raw.outcomes
-    .filter(
-      ({ marketDefinition }) =>
-        !MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code),
-    )
-    .map((outcome): CustomerSecondaryMarketDto => {
-      const movementSummary = summariseOddsMovement(outcome.odds);
-      const current = movementSummary.currentOdds;
-      const latestObservation =
-        outcome.odds.length === 0
-          ? null
-          : new Date(
-              Math.max(
-                ...outcome.odds.map((o) => o.providerObservedAt.getTime()),
-              ),
-            );
-      const freshnessAssessment = assessOddsFreshness(
-        latestObservation,
-        raw.asOf,
-      );
-      return {
-        marketCode: outcome.marketDefinition.code,
-        marketLabelKey: outcome.marketDefinition.labelKey,
-        lineValue: outcome.market.lineValue,
-        selection: outcome.outcomeDefinition.code,
-        recommendation: (outcome.prediction?.prediction.decisionStatus ??
-          "INSUFFICIENT_DATA") as CustomerSecondaryMarketDto["recommendation"],
-        modelProbability: decimal(
-          outcome.prediction?.prediction.modelProbability,
-        ),
-        currentOdds: decimal(current),
-        fairOdds: decimal(outcome.prediction?.prediction.fairOdds),
-        probabilityEdge: decimal(outcome.prediction?.prediction.edge),
-        expectedValue: decimal(outcome.prediction?.prediction.expectedValue),
-        freshness: freshnessAssessment.freshness,
-      };
+  const secondaryOutcomes = raw.outcomes.filter(
+    ({ marketDefinition }) =>
+      !MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code),
+  );
+
+  /*
+   * One consensus per market CODE, not per row: OVER and UNDER at 2.5 are
+   * two rows sharing one market, and building the snapshot twice would
+   * waste work without changing the answer. Only one line is wired per
+   * secondary market family today (FOOTBALL_FULL_TIME_TOTAL at 2.5), so
+   * grouping by code alone -- the same assumption the rest of this
+   * pipeline already makes -- is correct; a second line on the same
+   * family would need this keyed by (code, lineValue) too.
+   */
+  const consensusByMarketCode = new Map<
+    string,
+    ReturnType<typeof buildCustomerMarketConsensus>
+  >();
+  for (const marketCode of new Set(
+    secondaryOutcomes.map((outcome) => outcome.marketDefinition.code),
+  )) {
+    const requiredOutcomes = Object.values(canonicalMarketDefinitions).find(
+      (definition) => definition.code === marketCode,
+    )?.outcomeCodes;
+    if (!requiredOutcomes) continue;
+    consensusByMarketCode.set(
+      marketCode,
+      buildCustomerMarketConsensus(raw, marketCode, requiredOutcomes),
+    );
+  }
+
+  return secondaryOutcomes.map((outcome): CustomerSecondaryMarketDto => {
+    const movementSummary = summariseOddsMovement(outcome.odds);
+    const current = movementSummary.currentOdds;
+    const latestObservation =
+      outcome.odds.length === 0
+        ? null
+        : new Date(
+            Math.max(
+              ...outcome.odds.map((o) => o.providerObservedAt.getTime()),
+            ),
+          );
+    const freshnessAssessment = assessOddsFreshness(
+      latestObservation,
+      raw.asOf,
+    );
+    const recommendation = (outcome.prediction?.prediction.decisionStatus ??
+      "INSUFFICIENT_DATA") as CustomerSecondaryMarketDto["recommendation"];
+    const consensus = consensusByMarketCode.get(outcome.marketDefinition.code);
+    const riskFlags = deriveRiskFlags({
+      freshness: freshnessAssessment.freshness,
+      qualityReasonCodes: outcome.quality?.reasonCodes ?? [],
+      lineup: deriveLineupState(raw),
+      movementState: movementSummary.state,
+      modelMaturity: "EXPERIMENTAL",
+      marketConsensus: consensus?.dto,
+      currentSelection: outcome.outcomeDefinition.code,
+      ...(consensus?.outlierOutcomeCodes
+        ? { outlierOutcomeCodes: consensus.outlierOutcomeCodes }
+        : {}),
     });
+    return {
+      marketCode: outcome.marketDefinition.code,
+      marketLabelKey: outcome.marketDefinition.labelKey,
+      lineValue: outcome.market.lineValue,
+      selection: outcome.outcomeDefinition.code,
+      recommendation,
+      modelProbability: decimal(
+        outcome.prediction?.prediction.modelProbability,
+      ),
+      currentOdds: decimal(current),
+      fairOdds: decimal(outcome.prediction?.prediction.fairOdds),
+      probabilityEdge: decimal(outcome.prediction?.prediction.edge),
+      expectedValue: decimal(outcome.prediction?.prediction.expectedValue),
+      freshness: freshnessAssessment.freshness,
+      ...(consensus?.dto ? { marketConsensus: consensus.dto } : {}),
+      riskFlags,
+    };
+  });
 }
 
 /**

@@ -882,6 +882,9 @@ export type CustomerSecondaryMarketDto = Readonly<{
   probabilityEdge: DecimalString | null;
   expectedValue: DecimalString | null;
   freshness: CustomerOddsFreshness;
+  /** The Market Map for this secondary market. See `CustomerMatchDto.marketConsensus`. */
+  marketConsensus?: CustomerMarketConsensusDto;
+  riskFlags?: readonly CustomerRiskFlag[];
 }>;
 export type CustomerScenarioDto = Readonly<{
   id: string;
