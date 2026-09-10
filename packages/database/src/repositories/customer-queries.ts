@@ -445,6 +445,15 @@ export class DatabaseCustomerQueryAdapter {
       .limit(1);
     if (!ownership) return null;
 
+    /*
+     * Same discipline as `getMatch`'s `oddsChain` (see the comment above
+     * it): unbounded here would let a widely-quoted, long-open outcome
+     * return thousands of rows -- one per bookmaker per refresh instant
+     * over a multi-month pre-match window. Newest `MAX_ODDS_HISTORY` first,
+     * then reversed back into the chronological order this endpoint is
+     * documented to return, so a cap keeps the *latest* observations, not
+     * whichever happened to be written first.
+     */
     const rows = await this.database
       .select()
       .from(oddsObservations)
@@ -456,9 +465,11 @@ export class DatabaseCustomerQueryAdapter {
         ),
       )
       .orderBy(
-        asc(oddsObservations.providerObservedAt),
-        asc(oddsObservations.id),
-      );
+        desc(oddsObservations.providerObservedAt),
+        desc(oddsObservations.id),
+      )
+      .limit(MAX_ODDS_HISTORY)
+      .then((result) => result.reverse());
     return {
       eventId: ownership.eventId,
       eventMarketOutcomeId: ownership.outcomeId,
