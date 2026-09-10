@@ -92,10 +92,15 @@ function testFixture(
       HOME: "outcome-home",
       DRAW: "outcome-draw",
       AWAY: "outcome-away",
+      OVER: "outcome-over",
+      UNDER: "outcome-under",
     },
     ...overrides,
   };
 }
+
+/** Selections priced per fixture: 3 for FT 1X2, 2 for FT Over/Under 2.5. */
+const SELECTIONS_PER_FIXTURE = 5;
 
 const goodQuality = assessDataQuality({
   policyVersion: DEFAULT_DATA_QUALITY_POLICY.policyVersion,
@@ -188,19 +193,20 @@ const WINDOW = {
 };
 
 describe("runForecastCycle", () => {
-  it("produces a real prediction, forecast, and decision for each of the three 1X2 selections, without odds staying visible as WAIT/MARKET_DATA_UNAVAILABLE", async () => {
+  it("produces a real prediction, forecast, and decision for each selection of both markets, without odds staying visible as WAIT/MARKET_DATA_UNAVAILABLE", async () => {
     const deps = testDeps();
     const result = await runForecastCycle(deps, WINDOW);
 
     expect(result.fixturesScanned).toBe(1);
     expect(result.identityResolved).toBe(1);
     expect(result.modelEligible).toBe(1);
-    expect(result.predictionsCreated).toBe(3);
-    expect(result.forecastsCreated).toBe(3);
-    expect(result.decisionsCreated).toBe(3);
+    // 3 for FT 1X2 (HOME/DRAW/AWAY) + 2 for FT Over/Under 2.5 (OVER/UNDER).
+    expect(result.predictionsCreated).toBe(SELECTIONS_PER_FIXTURE);
+    expect(result.forecastsCreated).toBe(SELECTIONS_PER_FIXTURE);
+    expect(result.decisionsCreated).toBe(SELECTIONS_PER_FIXTURE);
     // No odds anywhere -- every selection must stay a visible forecast at
     // WAIT/MARKET_DATA_UNAVAILABLE, never collapse into "no prediction".
-    expect(result.waitCount).toBe(3);
+    expect(result.waitCount).toBe(SELECTIONS_PER_FIXTURE);
     expect(result.insufficientCount).toBe(0);
     expect(Object.keys(result.errorsByReason)).toHaveLength(0);
 
@@ -217,6 +223,26 @@ describe("runForecastCycle", () => {
     for (const decision of deps.persistedDecisions) {
       expect(decision.whyNotCodes).toContain("MARKET_DATA_UNAVAILABLE");
     }
+
+    // Both markets are genuinely represented, not just five copies of one.
+    const selections = deps.persistedDecisions.map((d) => d.selection).sort();
+    expect(selections).toEqual(["AWAY", "DRAW", "HOME", "OVER", "UNDER"]);
+    // The totals market's own model probability is real Dixon-Coles output
+    // (via totalGoalsProbabilities), not a placeholder -- it must differ
+    // from the 1X2 selections' probabilities and sum to 1 with its sibling.
+    const overPrediction = deps.persistedPredictions.find(
+      (p) => p.prediction.eventMarketOutcomeId === "outcome-over",
+    );
+    const underPrediction = deps.persistedPredictions.find(
+      (p) => p.prediction.eventMarketOutcomeId === "outcome-under",
+    );
+    expect(overPrediction?.prediction.modelProbability).not.toBeNull();
+    expect(underPrediction?.prediction.modelProbability).not.toBeNull();
+    const overP = Number(overPrediction?.prediction.modelProbability);
+    const underP = Number(underPrediction?.prediction.modelProbability);
+    expect(overP).toBeGreaterThan(0);
+    expect(overP).toBeLessThan(1);
+    expect(overP + underP).toBeCloseTo(1, 6);
   });
 
   it("promotes to STRONG_EDGE only when the model artifact has cleared maturity, even if edge/EV clear the policy threshold", async () => {
@@ -275,7 +301,7 @@ describe("runForecastCycle", () => {
     // The second fixture must still be processed -- one bad fixture does
     // not fail the cycle.
     expect(result.modelEligible).toBe(1);
-    expect(result.predictionsCreated).toBe(3);
+    expect(result.predictionsCreated).toBe(SELECTIONS_PER_FIXTURE);
   });
 
   it("skips with TEAM_NOT_IN_MODEL when the away team resolves to a verified alias that has no rating", async () => {
@@ -325,8 +351,8 @@ describe("runForecastCycle", () => {
 
     expect(result.fixturesScanned).toBe(2);
     expect(result.errorsByReason["PREDICTION_INSERT_FAILED"]).toBe(1);
-    // The second fixture's three selections still persist.
-    expect(result.predictionsCreated).toBe(3);
+    // The second fixture's five selections still persist.
+    expect(result.predictionsCreated).toBe(SELECTIONS_PER_FIXTURE);
   });
 
   it("never persists a fixture whose model output fails the numerical invariant check", async () => {
@@ -358,7 +384,15 @@ describe("runForecastCycle", () => {
     });
     const result = await runForecastCycle(deps, WINDOW);
 
-    expect(result.skippedByReason["MODEL_OUTPUT_INVALID"]).toBe(1);
+    // Reasons are now market-qualified, since each market's own probability
+    // vector is validated independently -- both fail here for the same
+    // underlying corrupted artifact.
+    expect(
+      result.skippedByReason["MODEL_OUTPUT_INVALID_FOOTBALL_FULL_TIME_1X2"],
+    ).toBe(1);
+    expect(
+      result.skippedByReason["MODEL_OUTPUT_INVALID_FOOTBALL_FULL_TIME_TOTAL"],
+    ).toBe(1);
     expect(result.predictionsCreated).toBe(0);
   });
 
@@ -373,12 +407,15 @@ describe("runForecastCycle", () => {
     // is that it calls persistPrediction/persistForecast/persistDecision
     // with the same logical shape every run, which those repositories can
     // then dedupe on.
-    expect(deps.persistPrediction).toHaveBeenCalledTimes(6);
+    expect(deps.persistPrediction).toHaveBeenCalledTimes(
+      2 * SELECTIONS_PER_FIXTURE,
+    );
     const [firstRun, secondRun] = [
       (deps.persistPrediction as Mock).mock
         .calls[0]![0] as PersistPredictionInput,
-      (deps.persistPrediction as Mock).mock
-        .calls[3]![0] as PersistPredictionInput,
+      (deps.persistPrediction as Mock).mock.calls[
+        SELECTIONS_PER_FIXTURE
+      ]![0] as PersistPredictionInput,
     ];
     expect(firstRun.prediction.decisionStatus).toBe(
       secondRun.prediction.decisionStatus,

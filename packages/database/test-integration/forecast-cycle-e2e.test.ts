@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { runForecastCycle } from "@velyq/application/forecast-cycle";
 import { DEFAULT_HYPERPARAMETERS } from "@velyq/research";
 import type { ModelArtifact } from "@velyq/research";
@@ -19,7 +19,12 @@ import {
   decisions,
 } from "../src/schema/intelligence.js";
 import { competitionIdentities, competitions } from "../src/schema/catalog.js";
-import { eventMarketOutcomes, eventMarkets } from "../src/schema/market.js";
+import {
+  eventMarketOutcomes,
+  eventMarkets,
+  marketDefinitions,
+  outcomeDefinitions,
+} from "../src/schema/market.js";
 import { DatabaseCustomerQueryAdapter } from "../src/repositories/customer-queries.js";
 
 /*
@@ -223,7 +228,8 @@ describe("runForecastCycle, against a real database, end to end", () => {
 
     expect(result.fixturesScanned).toBeGreaterThanOrEqual(1);
     expect(result.modelEligible).toBeGreaterThanOrEqual(1);
-    expect(result.predictionsCreated).toBeGreaterThanOrEqual(3);
+    // 3 for FT 1X2 (HOME/DRAW/AWAY) + 2 for FT Over/Under 2.5 (OVER/UNDER).
+    expect(result.predictionsCreated).toBeGreaterThanOrEqual(5);
     expect(Object.keys(result.errorsByReason)).toHaveLength(0);
 
     // Real rows, not asserted by row-count alone: read them back and check
@@ -299,6 +305,76 @@ describe("runForecastCycle, against a real database, end to end", () => {
     expect(
       Number(matchedOutcome!.prediction!.prediction.modelProbability),
     ).toBeCloseTo(probability, 10);
+
+    /*
+     * The totals market, proven the same way: a real event market at line
+     * 2.5, real OVER/UNDER outcomes, and real persisted predictions -- not
+     * asserted by row count alone.
+     */
+    const totalsOutcomes = await database
+      .select({
+        outcomeId: eventMarketOutcomes.id,
+        outcomeCode: outcomeDefinitions.code,
+        lineValue: eventMarkets.lineValue,
+      })
+      .from(eventMarketOutcomes)
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        marketDefinitions,
+        eq(eventMarkets.marketDefinitionId, marketDefinitions.id),
+      )
+      .innerJoin(
+        outcomeDefinitions,
+        eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+      )
+      .where(
+        and(
+          eq(eventMarkets.eventId, eventId),
+          eq(marketDefinitions.code, "FOOTBALL_FULL_TIME_TOTAL"),
+        ),
+      );
+
+    expect(totalsOutcomes).toHaveLength(2);
+    expect(totalsOutcomes.every((row) => Number(row.lineValue) === 2.5)).toBe(
+      true,
+    );
+    const overOutcome = totalsOutcomes.find(
+      (row) => row.outcomeCode === "OVER",
+    );
+    const underOutcome = totalsOutcomes.find(
+      (row) => row.outcomeCode === "UNDER",
+    );
+    expect(overOutcome).toBeDefined();
+    expect(underOutcome).toBeDefined();
+
+    const totalsPredictions = await database
+      .select({
+        outcomeId: predictions.eventMarketOutcomeId,
+        probability: predictions.modelProbability,
+        status: predictions.decisionStatus,
+      })
+      .from(predictions)
+      .where(eq(predictions.eventMarketOutcomeId, overOutcome!.outcomeId));
+    const overPrediction = totalsPredictions[0];
+    expect(overPrediction).toBeDefined();
+    expect(overPrediction!.status).toBe("WAIT");
+    const overProbability = Number(overPrediction!.probability);
+
+    const [underPrediction] = await database
+      .select({ probability: predictions.modelProbability })
+      .from(predictions)
+      .where(eq(predictions.eventMarketOutcomeId, underOutcome!.outcomeId));
+    expect(underPrediction).toBeDefined();
+    const underProbability = Number(underPrediction!.probability);
+
+    // Real Dixon-Coles totals output: a genuine probability, and OVER/UNDER
+    // sum to 1 the way a real two-way market's probabilities must.
+    expect(overProbability).toBeGreaterThan(0);
+    expect(overProbability).toBeLessThan(1);
+    expect(overProbability + underProbability).toBeCloseTo(1, 6);
   });
 
   it("running the cycle twice against unchanged inputs does not create duplicate logical prediction/forecast rows", async () => {

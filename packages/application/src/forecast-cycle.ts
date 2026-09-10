@@ -9,6 +9,7 @@ import {
   modelProbabilitiesFor,
   resolveExpectedGoals,
   type ModelArtifact,
+  type SupportedMarketCode,
 } from "@velyq/research";
 
 /**
@@ -17,16 +18,52 @@ import {
  * together (identity resolution, Dixon-Coles inference, the decision
  * engine, the append-only repositories) already existed and was already
  * tested in isolation -- this is the runtime path that actually calls them,
- * for FT 1X2, end to end.
+ * for FT 1X2 and FT Over/Under 2.5, end to end.
  *
  * Deliberately port-based (every DB/model access comes in through `deps`)
  * so the orchestration logic -- numerical invariants, per-fixture failure
  * isolation, maturity gating, reason codes -- is unit-testable without a
  * database, while a thin adapter (not this file) wires the real
  * repositories for production and for the DB-backed E2E proof.
+ *
+ * Two markets, not one, and deliberately generalised rather than duplicated:
+ * `resolveExpectedGoals` and the Dixon-Coles fit are shared by both -- a
+ * fixture is either model-eligible or it is not, independent of which market
+ * is being priced -- so eligibility is resolved once per fixture and the
+ * market loop only ever asks "what does this market's own probability
+ * function say", via `modelProbabilitiesFor(market, ...)`, which
+ * `@velyq/research` already implements for both (it is what the backtest and
+ * the model audit evaluate). Nothing here invents a new model; it calls the
+ * same one twice with a different market code.
  */
 
-export type ForecastCycleSelection = "HOME" | "DRAW" | "AWAY";
+/**
+ * The two markets this cycle prices. A strict subset of
+ * `@velyq/research`'s `SupportedMarketCode` (which also has BTTS, used only
+ * by the backtest) -- VELYQ's mandate is to get FT 1X2 and FT Over/Under 2.5
+ * fully correct before considering a third, not to wire every market the
+ * research package happens to know how to score.
+ */
+export type ForecastCycleMarket = Extract<
+  SupportedMarketCode,
+  "FOOTBALL_FULL_TIME_1X2" | "FOOTBALL_FULL_TIME_TOTAL"
+>;
+
+export type ForecastCycleSelection =
+  "HOME" | "DRAW" | "AWAY" | "OVER" | "UNDER";
+
+/**
+ * The markets this cycle prices, and the selections each one produces, in
+ * the same order `modelProbabilitiesFor` returns its probability vector --
+ * that ordering is what lets a plain index lookup turn the vector into a
+ * per-selection probability with no market-specific branching below.
+ */
+export const FORECAST_CYCLE_MARKETS: Readonly<
+  Record<ForecastCycleMarket, readonly ForecastCycleSelection[]>
+> = Object.freeze({
+  FOOTBALL_FULL_TIME_1X2: Object.freeze(["HOME", "DRAW", "AWAY"] as const),
+  FOOTBALL_FULL_TIME_TOTAL: Object.freeze(["OVER", "UNDER"] as const),
+});
 
 export type ForecastCycleFixture = Readonly<{
   eventId: string;
@@ -34,6 +71,12 @@ export type ForecastCycleFixture = Readonly<{
   providerCompetitionCode: string;
   homeTeam: Readonly<{ sourceName: string; normalizedName: string }>;
   awayTeam: Readonly<{ sourceName: string; normalizedName: string }>;
+  /**
+   * Every selection this fixture has a wired event-market outcome for, across
+   * both markets. Safe as one flat map because the five selection codes are
+   * globally distinct -- HOME/DRAW/AWAY never collide with OVER/UNDER -- so
+   * no market qualifier is needed on the key.
+   */
   eventMarketOutcomeIds: Readonly<Record<ForecastCycleSelection, string>>;
 }>;
 
@@ -159,12 +202,10 @@ export type ForecastCycleResult = Readonly<{
   errorsByReason: Readonly<Record<string, number>>;
 }>;
 
-const SELECTIONS: readonly ForecastCycleSelection[] = ["HOME", "DRAW", "AWAY"];
-const SELECTION_INDEX: Readonly<Record<ForecastCycleSelection, number>> = {
-  HOME: 0,
-  DRAW: 1,
-  AWAY: 2,
-};
+const MARKETS: readonly ForecastCycleMarket[] = [
+  "FOOTBALL_FULL_TIME_1X2",
+  "FOOTBALL_FULL_TIME_TOTAL",
+];
 
 /**
  * The only place probability arithmetic is trusted before it touches the
@@ -172,14 +213,20 @@ const SELECTION_INDEX: Readonly<Record<ForecastCycleSelection, number>> = {
  * [0,1], or a vector that doesn't sum to ~1 is a silent corruption source
  * the whole rest of the product would otherwise inherit -- fair odds,
  * edge, EV, and every customer-facing number downstream of them.
+ *
+ * Parameterised on length rather than fixed at 3: FT 1X2 is a three-way
+ * market and FT Over/Under 2.5 is two-way, and the invariant -- every entry
+ * a finite probability, the vector summing to 1 -- is the same one either
+ * way.
  */
 function validateProbabilityVector(
   probabilities: readonly number[],
-): probabilities is readonly [number, number, number] {
-  if (probabilities.length !== 3) return false;
+  expectedLength: number,
+): boolean {
+  if (probabilities.length !== expectedLength) return false;
   if (probabilities.some((p) => !Number.isFinite(p) || p < 0 || p > 1))
     return false;
-  const sum = probabilities[0]! + probabilities[1]! + probabilities[2]!;
+  const sum = probabilities.reduce((total, p) => total + p, 0);
   return Math.abs(sum - 1) <= 1e-6;
 }
 
@@ -283,130 +330,143 @@ export async function runForecastCycle(
         continue;
       }
 
-      const probabilities = modelProbabilitiesFor(
-        "FOOTBALL_FULL_TIME_1X2",
-        deps.modelArtifact.parameters,
-        {
-          competitionCode: modelCompetitionCode,
-          homeTeamKey: home.teamKey,
-          awayTeamKey: away.teamKey,
-        },
-      );
-      if (!probabilities || !validateProbabilityVector(probabilities)) {
-        increment(skippedByReason, "MODEL_OUTPUT_INVALID");
-        continue;
-      }
+      /*
+       * Eligibility is resolved once per fixture, not once per market:
+       * `resolveExpectedGoals` only asks whether the model has a rating for
+       * this competition/team pair, which is a fact about the fixture, not
+       * about which market is being priced.
+       */
       modelEligible += 1;
 
       const asOf = deps.clock();
       const lineup = await deps.getLineupState(fixture);
 
-      for (const selection of SELECTIONS) {
-        const eventMarketOutcomeId = fixture.eventMarketOutcomeIds[selection];
-        const modelProbability = probabilities[SELECTION_INDEX[selection]]!;
-
-        const [odds, quality] = await Promise.all([
-          deps.getFreshestOdds(eventMarketOutcomeId, asOf),
-          deps.assessQuality(fixture, selection, asOf),
-        ]);
-
-        const evaluation = evaluateDecision({
-          modelProbability,
-          currentOdds: odds ? Number(odds.decimalOdds) : null,
-          quality: quality.assessment,
-          lineup,
-          policy: deps.decisionPolicy ?? DEFAULT_DECISION_POLICY,
-        });
-        const gated = applyMaturityGate(
-          evaluation.status,
-          evaluation.whyNotCodes,
-          deps.modelArtifact.maturity,
+      for (const market of MARKETS) {
+        const selections = FORECAST_CYCLE_MARKETS[market];
+        const probabilities = modelProbabilitiesFor(
+          market,
+          deps.modelArtifact.parameters,
+          {
+            competitionCode: modelCompetitionCode,
+            homeTeamKey: home.teamKey,
+            awayTeamKey: away.teamKey,
+          },
         );
+        if (
+          !probabilities ||
+          !validateProbabilityVector(probabilities, selections.length)
+        ) {
+          increment(skippedByReason, `MODEL_OUTPUT_INVALID_${market}`);
+          continue;
+        }
 
-        const refusalStatus =
-          gated.status === "INSUFFICIENT_DATA" ||
-          gated.status === "WAIT_FOR_LINEUP";
+        for (const [index, selection] of selections.entries()) {
+          const eventMarketOutcomeId = fixture.eventMarketOutcomeIds[selection];
+          const modelProbability = probabilities[index]!;
 
-        const prediction = await deps.persistPrediction({
-          run: {
-            modelVersionId: deps.modelVersionId,
-            calibrationVersionId: deps.calibrationVersionId,
-            eventId: fixture.eventId,
-            featureCutoff: asOf,
-            status: "COMPLETED",
-            triggerJobId: deps.triggerJobId ?? null,
-          },
-          prediction: {
-            eventMarketOutcomeId,
-            dataQualityAssessmentId: quality.assessmentId,
-            marketPriceObservationId: odds?.id ?? null,
-            decisionStatus: gated.status,
-            modelProbability: refusalStatus ? null : String(modelProbability),
-            fairOdds: refusalStatus ? null : evaluation.fairOdds,
-            marketImpliedProbability:
-              refusalStatus || !odds
-                ? null
-                : String(1 / Number(odds.decimalOdds)),
-            edge: refusalStatus
-              ? null
-              : evaluation.edge === null
-                ? null
-                : String(evaluation.edge),
-            expectedValue: refusalStatus ? null : evaluation.expectedValue,
-            reasonCodes: gated.whyNotCodes,
-            structuredReasons: { whyNotCodes: gated.whyNotCodes },
-          },
-          inputs: [],
-        });
-        predictionsCreated += 1;
+          const [odds, quality] = await Promise.all([
+            deps.getFreshestOdds(eventMarketOutcomeId, asOf),
+            deps.assessQuality(fixture, selection, asOf),
+          ]);
 
-        const forecast = await deps.persistForecast({
-          predictionId: prediction.id,
-          eventMarketOutcomeId,
-          probability: String(modelProbability),
-          modelVersion: deps.modelArtifact.version,
-          featureCutoff: asOf,
-        });
-        forecastsCreated += 1;
-
-        await deps.persistDecision({
-          forecastId: forecast.id,
-          eventMarketOutcomeId,
-          marketPriceObservationId: odds?.id ?? null,
-          status: gated.status,
-          selection,
-          offeredOdds: odds?.decimalOdds ?? null,
-          fairOdds: evaluation.fairOdds,
-          expectedValue: evaluation.expectedValue,
-          whyNotCodes: gated.whyNotCodes,
-          decisionSnapshot: {
+          const evaluation = evaluateDecision({
             modelProbability,
-            modelVersion: deps.modelArtifact.version,
-            modelMaturity: deps.modelArtifact.maturity,
-            offeredOdds: odds?.decimalOdds ?? null,
+            currentOdds: odds ? Number(odds.decimalOdds) : null,
+            quality: quality.assessment,
             lineup,
-          },
-        });
-        decisionsCreated += 1;
+            policy: deps.decisionPolicy ?? DEFAULT_DECISION_POLICY,
+          });
+          const gated = applyMaturityGate(
+            evaluation.status,
+            evaluation.whyNotCodes,
+            deps.modelArtifact.maturity,
+          );
 
-        switch (gated.status) {
-          case "STRONG_EDGE":
-            strongEdgeCount += 1;
-            break;
-          case "NO_BET":
-            noBetCount += 1;
-            break;
-          case "WAIT":
-            waitCount += 1;
-            break;
-          case "WAIT_FOR_LINEUP":
-            waitForLineupCount += 1;
-            break;
-          case "INSUFFICIENT_DATA":
-            insufficientCount += 1;
-            break;
-          default:
-            break;
+          const refusalStatus =
+            gated.status === "INSUFFICIENT_DATA" ||
+            gated.status === "WAIT_FOR_LINEUP";
+
+          const prediction = await deps.persistPrediction({
+            run: {
+              modelVersionId: deps.modelVersionId,
+              calibrationVersionId: deps.calibrationVersionId,
+              eventId: fixture.eventId,
+              featureCutoff: asOf,
+              status: "COMPLETED",
+              triggerJobId: deps.triggerJobId ?? null,
+            },
+            prediction: {
+              eventMarketOutcomeId,
+              dataQualityAssessmentId: quality.assessmentId,
+              marketPriceObservationId: odds?.id ?? null,
+              decisionStatus: gated.status,
+              modelProbability: refusalStatus ? null : String(modelProbability),
+              fairOdds: refusalStatus ? null : evaluation.fairOdds,
+              marketImpliedProbability:
+                refusalStatus || !odds
+                  ? null
+                  : String(1 / Number(odds.decimalOdds)),
+              edge: refusalStatus
+                ? null
+                : evaluation.edge === null
+                  ? null
+                  : String(evaluation.edge),
+              expectedValue: refusalStatus ? null : evaluation.expectedValue,
+              reasonCodes: gated.whyNotCodes,
+              structuredReasons: { whyNotCodes: gated.whyNotCodes },
+            },
+            inputs: [],
+          });
+          predictionsCreated += 1;
+
+          const forecast = await deps.persistForecast({
+            predictionId: prediction.id,
+            eventMarketOutcomeId,
+            probability: String(modelProbability),
+            modelVersion: deps.modelArtifact.version,
+            featureCutoff: asOf,
+          });
+          forecastsCreated += 1;
+
+          await deps.persistDecision({
+            forecastId: forecast.id,
+            eventMarketOutcomeId,
+            marketPriceObservationId: odds?.id ?? null,
+            status: gated.status,
+            selection,
+            offeredOdds: odds?.decimalOdds ?? null,
+            fairOdds: evaluation.fairOdds,
+            expectedValue: evaluation.expectedValue,
+            whyNotCodes: gated.whyNotCodes,
+            decisionSnapshot: {
+              modelProbability,
+              modelVersion: deps.modelArtifact.version,
+              modelMaturity: deps.modelArtifact.maturity,
+              offeredOdds: odds?.decimalOdds ?? null,
+              lineup,
+            },
+          });
+          decisionsCreated += 1;
+
+          switch (gated.status) {
+            case "STRONG_EDGE":
+              strongEdgeCount += 1;
+              break;
+            case "NO_BET":
+              noBetCount += 1;
+              break;
+            case "WAIT":
+              waitCount += 1;
+              break;
+            case "WAIT_FOR_LINEUP":
+              waitForLineupCount += 1;
+              break;
+            case "INSUFFICIENT_DATA":
+              insufficientCount += 1;
+              break;
+            default:
+              break;
+          }
         }
       }
     } catch (error) {

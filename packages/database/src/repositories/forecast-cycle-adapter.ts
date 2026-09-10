@@ -196,25 +196,36 @@ export async function createForecastCycleDbAdapter(
   const qualityRepository = new DatabaseQualityRepository(database);
 
   /**
-   * Ensures the FT 1X2 event market and its three outcomes exist for this
-   * event, independent of whether any odds have ever been ingested for it.
-   * A fixture with zero odds must still be able to receive a forecast (see
+   * Ensures one market's event market and its outcomes exist for this event,
+   * independent of whether any odds have ever been ingested for it. A
+   * fixture with zero odds must still be able to receive a forecast (see
    * `runForecastCycle`'s no-odds path), so this cannot be left to odds
    * ingestion's own lazy upsert -- the mandate's own regression is a
    * fixture nobody has priced yet, which is exactly the case this exists
    * to cover.
+   *
+   * Generalised over the market's reference data (definition id, its
+   * outcome-code -> outcome-definition-id map, and its pinned line) so the
+   * same function wires FT 1X2 and FT Over/Under 2.5 alike; the two callers
+   * below are the only difference between them.
    */
-  async function ensureOneXTwoOutcomes(
+  async function ensureMarketOutcomes<TCode extends string>(
     eventId: string,
-  ): Promise<Record<"HOME" | "DRAW" | "AWAY", string>> {
+    market: Readonly<{
+      marketDefinitionId: string;
+      outcomeDefinitionIds: Readonly<Record<TCode, string>>;
+      lineValue: string | null;
+    }>,
+    codes: readonly TCode[],
+  ): Promise<Record<TCode, string>> {
     const [eventMarket] = await database
       .insert(eventMarkets)
       .values({
         eventId,
-        marketDefinitionId: referenceData.marketDefinitionId,
+        marketDefinitionId: market.marketDefinitionId,
         subjectParticipantId: null,
-        lineValue: null,
-        canonicalKey: `${eventId}:${referenceData.marketDefinitionId}:null:null`,
+        lineValue: market.lineValue,
+        canonicalKey: `${eventId}:${market.marketDefinitionId}:null:${market.lineValue ?? "null"}`,
       })
       .onConflictDoNothing({
         target: [
@@ -231,12 +242,14 @@ export async function createForecastCycleDbAdapter(
      *
      * `where(eventId)` with `.limit(1)` was correct only while exactly one
      * market could exist per event. With a totals market alongside 1X2 it
-     * returns an arbitrary one -- and then attaches 1X2 outcome definitions
-     * to it. The composite foreign key on
+     * returns an arbitrary one -- and then attaches the wrong market's
+     * outcome definitions to it. The composite foreign key on
      * `(event_market_id, market_definition_id)` would refuse that, so the
      * symptom is a runtime failure on a normal path rather than corrupt
      * data; either way the lookup is wrong, and it is wrong in a way that
-     * only appears once a second market is wired.
+     * only appears once a second market is wired. This is why the fallback
+     * is keyed on the full natural identity -- event, market definition AND
+     * line -- rather than the event alone.
      */
     const eventMarketId =
       eventMarket?.id ??
@@ -247,29 +260,24 @@ export async function createForecastCycleDbAdapter(
           .where(
             and(
               eq(eventMarkets.eventId, eventId),
-              eq(
-                eventMarkets.marketDefinitionId,
-                referenceData.marketDefinitionId,
-              ),
+              eq(eventMarkets.marketDefinitionId, market.marketDefinitionId),
               isNull(eventMarkets.subjectParticipantId),
-              isNull(eventMarkets.lineValue),
+              market.lineValue === null
+                ? isNull(eventMarkets.lineValue)
+                : eq(eventMarkets.lineValue, market.lineValue),
             ),
           )
           .limit(1)
       )[0]!.id;
 
-    const outcomeIds: Record<"HOME" | "DRAW" | "AWAY", string> = {
-      HOME: "",
-      DRAW: "",
-      AWAY: "",
-    };
-    for (const code of ["HOME", "DRAW", "AWAY"] as const) {
-      const outcomeDefinitionId = referenceData.outcomeDefinitionIds[code];
+    const outcomeIds = {} as Record<TCode, string>;
+    for (const code of codes) {
+      const outcomeDefinitionId = market.outcomeDefinitionIds[code];
       const [row] = await database
         .insert(eventMarketOutcomes)
         .values({
           eventMarketId,
-          marketDefinitionId: referenceData.marketDefinitionId,
+          marketDefinitionId: market.marketDefinitionId,
           outcomeDefinitionId,
           canonicalKey: `${eventMarketId}:${outcomeDefinitionId}`,
         })
@@ -299,6 +307,40 @@ export async function createForecastCycleDbAdapter(
         )[0]!.id;
     }
     return outcomeIds;
+  }
+
+  /*
+   * `ensureFootballReferenceData` always wires both `MATCH_WINNER_1X2` and
+   * `TOTAL_GOALS` (see odds-ingestion.ts's `WIRED_ODDS_MARKETS`), so these
+   * lookups cannot genuinely fail -- the throw below is a real guard against
+   * a future change to that wiring, not dead code. The non-null assertions
+   * at the call sites exist only because TypeScript's control-flow narrowing
+   * does not follow a `const` into the async closure below; the throw here
+   * is what actually makes it safe.
+   */
+  const matchResultMarket = referenceData.markets["MATCH_WINNER_1X2"];
+  const totalsMarket = referenceData.markets["TOTAL_GOALS"];
+  if (!matchResultMarket)
+    throw new Error("MATCH_RESULT_REFERENCE_DATA_MISSING");
+  if (!totalsMarket) throw new Error("TOTALS_REFERENCE_DATA_MISSING");
+
+  /**
+   * Ensures both markets this cycle prices exist for the fixture, and
+   * returns one flat map covering all five selections. Safe to flatten
+   * because HOME/DRAW/AWAY and OVER/UNDER never collide.
+   */
+  async function ensureForecastOutcomes(
+    eventId: string,
+  ): Promise<Record<"HOME" | "DRAW" | "AWAY" | "OVER" | "UNDER", string>> {
+    const [matchResult, totals] = await Promise.all([
+      ensureMarketOutcomes(eventId, matchResultMarket!, [
+        "HOME",
+        "DRAW",
+        "AWAY",
+      ] as const),
+      ensureMarketOutcomes(eventId, totalsMarket!, ["OVER", "UNDER"] as const),
+    ]);
+    return { ...matchResult, ...totals };
   }
 
   /**
@@ -426,7 +468,7 @@ export async function createForecastCycleDbAdapter(
         const away = participantRows.find((p) => p.role === "AWAY");
         if (!home || !away) continue;
 
-        const outcomeIds = await ensureOneXTwoOutcomes(row.event.id);
+        const outcomeIds = await ensureForecastOutcomes(row.event.id);
         fixtures.push({
           eventId: row.event.id,
           providerCompetitionCode: await modelCompetitionKeyFor(
