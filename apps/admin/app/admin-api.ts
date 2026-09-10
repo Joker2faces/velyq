@@ -114,29 +114,41 @@ export type AdminIntelligenceOverviewDto = Readonly<{
   unsettledActionableDecisions: number;
   lastSuccessfulResultSync: string | null;
   lastSettlementRun: string | null;
-  modelHealth: readonly Readonly<{
-    modelVersion: string;
-    sampleCount: number;
-    brierScore: number | null;
-    logLoss: number | null;
-    /** Expected calibration error over the decision's own selected-outcome
-        probability, binary-framed (see `calibrationBins`). */
-    calibrationError: number | null;
-    /** Reliability bins for the same binary framing; empty until enough
-        samples exist. */
-    calibrationBins: readonly Readonly<{
-      lowerBound: number;
-      upperBound: number;
-      count: number;
-      meanPredicted: number;
-      observedFrequency: number;
-    }>[];
-    /** How often the selected outcome actually happened, historically --
-        the baseline a model with real skill must beat. */
-    baselineHitRate: number | null;
-    status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
-  }>[];
+  modelHealth: readonly AdminModelHealthDto[];
 }>;
+
+/** Shared metric shape, computed identically pooled and per-competition. */
+export type AdminModelMetricsDto = Readonly<{
+  sampleCount: number;
+  brierScore: number | null;
+  logLoss: number | null;
+  /** Expected calibration error over the decision's own selected-outcome
+      probability, binary-framed (see `calibrationBins`). */
+  calibrationError: number | null;
+  /** Reliability bins for the same binary framing; empty until enough
+      samples exist. */
+  calibrationBins: readonly Readonly<{
+    lowerBound: number;
+    upperBound: number;
+    count: number;
+    meanPredicted: number;
+    observedFrequency: number;
+  }>[];
+  /** How often the selected outcome actually happened, historically --
+      the baseline a model with real skill must beat. */
+  baselineHitRate: number | null;
+  status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+}>;
+
+export type AdminModelHealthDto = AdminModelMetricsDto &
+  Readonly<{
+    modelVersion: string;
+    /** Split by competition, so a model that reads as well-calibrated
+        pooled cannot hide being systematically wrong on one league it has
+        too little history of on its own. */
+    byCompetition: readonly (AdminModelMetricsDto &
+      Readonly<{ competitionCode: string }>)[];
+  }>;
 
 /**
  * The scheduler's own quota state, per provider per day -- already computed

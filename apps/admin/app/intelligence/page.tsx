@@ -192,6 +192,42 @@ export default async function IntelligencePage() {
                       </tbody>
                     </table>
                   ) : null}
+                  {model.byCompetition.length > 0 ? (
+                    <table className="ops-table">
+                      <thead>
+                        <tr>
+                          <th>Competition</th>
+                          <th>Sample</th>
+                          <th>Brier</th>
+                          <th>Log loss</th>
+                          <th>Baseline hit rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.byCompetition.map((competition) => (
+                          <tr key={competition.competitionCode}>
+                            <td>{competition.competitionCode}</td>
+                            <td>{competition.sampleCount}</td>
+                            <td>
+                              {competition.brierScore === null
+                                ? "INSUFFICIENT SAMPLE"
+                                : competition.brierScore.toFixed(4)}
+                            </td>
+                            <td>
+                              {competition.logLoss === null
+                                ? "—"
+                                : competition.logLoss.toFixed(4)}
+                            </td>
+                            <td>
+                              {competition.baselineHitRate === null
+                                ? "—"
+                                : `${(competition.baselineHitRate * 100).toFixed(1)}%`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
                 </div>
               ))
             ) : (

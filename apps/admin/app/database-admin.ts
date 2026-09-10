@@ -127,21 +127,38 @@ export class DatabaseAdminQueries implements AdminQueries {
         Number(item["count"]),
       ]),
     );
+    /*
+     * Competition joined in so sample sizes and calibration can be split by
+     * competition, not just pooled across every league a model has ever
+     * priced -- a model that is well calibrated overall can still be
+     * systematically wrong on one competition with too little history of
+     * its own, and pooling hides exactly that.
+     */
     const healthResult = await this.database.execute(
-      sql`select f.model_version, f.probability, ms.outcome from intelligence.forecasts f join intelligence.decisions d on d.forecast_id=f.id join intelligence.market_settlements ms on ms.decision_id=d.id where ms.outcome in ('WIN','LOSS') order by f.model_version`,
+      sql`select f.model_version, f.probability, ms.outcome, c.code as competition_code from intelligence.forecasts f join intelligence.decisions d on d.forecast_id=f.id join intelligence.market_settlements ms on ms.decision_id=d.id join market.event_market_outcomes emo on emo.id=d.event_market_outcome_id join market.event_markets em on em.id=emo.event_market_id join catalog.events e on e.id=em.event_id join catalog.competitions c on c.id=e.competition_id where ms.outcome in ('WIN','LOSS') order by f.model_version`,
     );
     const grouped = new Map<
       string,
       { probability: number; actual: number }[]
     >();
+    const groupedByCompetition = new Map<
+      string,
+      Map<string, { probability: number; actual: number }[]>
+    >();
     for (const item of healthResult.rows) {
       const version = String(item["model_version"]);
-      const values = grouped.get(version) ?? [];
-      values.push({
+      const competitionCode = String(item["competition_code"]);
+      const sample = {
         probability: Number(item["probability"]),
         actual: item["outcome"] === "WIN" ? 1 : 0,
-      });
-      grouped.set(version, values);
+      };
+      grouped.set(version, [...(grouped.get(version) ?? []), sample]);
+      const byCompetition = groupedByCompetition.get(version) ?? new Map();
+      byCompetition.set(competitionCode, [
+        ...(byCompetition.get(competitionCode) ?? []),
+        sample,
+      ]);
+      groupedByCompetition.set(version, byCompetition);
     }
     /*
      * A binary framing of the decision's own selected outcome (did it
@@ -154,7 +171,7 @@ export class DatabaseAdminQueries implements AdminQueries {
      * adds what the ad-hoc version never had: calibration bins and the
      * empirical-frequency baseline any model has to beat.
      */
-    const modelHealth = [...grouped].map(([modelVersion, values]) => {
+    const metricsFor = (values: { probability: number; actual: number }[]) => {
       const enough = values.length >= 30;
       const samples: ProbabilisticSample[] = values.map((value) => ({
         probabilities: [value.probability, 1 - value.probability],
@@ -162,7 +179,6 @@ export class DatabaseAdminQueries implements AdminQueries {
       }));
       const baseline = enough ? empiricalFrequencies(samples, 2) : null;
       return {
-        modelVersion,
         sampleCount: values.length,
         brierScore: enough ? brierScore(samples) : null,
         logLoss: enough ? logLoss(samples) : null,
@@ -176,6 +192,24 @@ export class DatabaseAdminQueries implements AdminQueries {
         status: enough
           ? ("AVAILABLE" as const)
           : ("INSUFFICIENT_SAMPLE" as const),
+      };
+    };
+    const modelHealth = [...grouped].map(([modelVersion, values]) => {
+      const byCompetitionMap = groupedByCompetition.get(modelVersion) ?? new Map();
+      return {
+        modelVersion,
+        ...metricsFor(values),
+        /*
+         * Split by competition so a model that reads as well-calibrated
+         * pooled cannot hide being systematically wrong on one league it
+         * has too little history of on its own.
+         */
+        byCompetition: [...byCompetitionMap]
+          .map(([competitionCode, competitionValues]) => ({
+            competitionCode,
+            ...metricsFor(competitionValues),
+          }))
+          .sort((a, b) => b.sampleCount - a.sampleCount),
       };
     });
     const count = (key: string) => Number(row[key] ?? 0);
