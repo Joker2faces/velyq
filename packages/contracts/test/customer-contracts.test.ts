@@ -19,7 +19,7 @@ const validMatch = {
     state: "NO_BET",
     label: "No bet",
   },
-  freshness: "FRESH",
+  freshness: "CURRENT",
   selection: "HOME",
   recommendation: "NO_BET",
   modelProbability: "0.6",
@@ -189,6 +189,26 @@ describe("customer match movement invariant", () => {
         validateCustomerMatchDto({ ...validMatch, observationTimes }).ok,
         String(observationTimes),
       ).toBe(false);
+    }
+  });
+});
+/*
+ * The DTO used to accept only FRESH and STALE, which made an AGING price
+ * indistinguishable from one observed a day earlier, and UNAVAILABLE
+ * indistinguishable from merely old.
+ */
+describe("customer match freshness vocabulary", () => {
+  it("accepts every state the freshness policy can produce", () => {
+    for (const freshness of ["CURRENT", "AGING", "STALE", "UNAVAILABLE"]) {
+      const result = validateCustomerMatchDto({ ...validMatch, freshness });
+      expect(result.ok, `${freshness} should validate`).toBe(true);
+    }
+  });
+
+  it("rejects the collapsed vocabulary it replaced", () => {
+    for (const freshness of ["FRESH", "fresh", "", "OLD"]) {
+      const result = validateCustomerMatchDto({ ...validMatch, freshness });
+      expect(result.ok).toBe(false);
     }
   });
 });

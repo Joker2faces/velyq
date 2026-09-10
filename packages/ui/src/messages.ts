@@ -762,8 +762,10 @@ export const messages = {
   lineupChanged: "Changed",
 
   // ----------------------------------------------------------- freshness
-  freshnessFresh: "Recent",
+  freshnessCurrent: "Current",
+  freshnessAging: "Ageing",
   freshnessStale: "Out of date",
+  freshnessUnavailable: "No price",
 
   // -------------------------------------------------------- reason codes
   reasonMissingLineup: "Lineup not published yet",
@@ -1490,8 +1492,10 @@ const greek: Readonly<Record<MessageKey, string>> = {
   lineupMissing: "Δεν ανακοινώθηκε",
   lineupChanged: "Άλλαξε",
 
-  freshnessFresh: "Πρόσφατη",
+  freshnessCurrent: "Τρέχουσα",
+  freshnessAging: "Παλιώνει",
   freshnessStale: "Παλιά",
+  freshnessUnavailable: "Χωρίς τιμή",
 
   reasonMissingLineup: "Δεν ανακοινώθηκε ενδεκάδα",
   reasonStaleData: "Παλιά καταγραφή",

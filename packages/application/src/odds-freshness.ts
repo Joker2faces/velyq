@@ -23,6 +23,21 @@ export const ODDS_FRESHNESS_POLICY_VERSION = "odds-freshness-policy-v1";
 export type OddsFreshness = "CURRENT" | "AGING" | "STALE" | "UNAVAILABLE";
 
 /**
+ * Every freshness state, as values.
+ *
+ * Exported so the customer contract can be tested against the policy rather
+ * than merely agreeing with it by inspection. The DTO cannot import this type
+ * -- `@velyq/contracts` deliberately depends on nothing but `@velyq/decimal`
+ * -- so a test compares the two instead.
+ */
+export const ODDS_FRESHNESS_STATES: readonly OddsFreshness[] = Object.freeze([
+  "CURRENT",
+  "AGING",
+  "STALE",
+  "UNAVAILABLE",
+]);
+
+/**
  * Pre-match 1X2 prices move on team news, injury reports and money. Within
  * three quarters of an hour the market has usually not moved far enough for a
  * derived edge to be misleading, so an observation this recent is treated as

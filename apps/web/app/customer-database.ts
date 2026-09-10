@@ -117,7 +117,15 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     odds.length === 0
       ? null
       : new Date(Math.max(...odds.map((o) => o.providerObservedAt.getTime())));
-  const stale = !assessOddsFreshness(latestObservation, raw.asOf).actionable;
+  /*
+   * The policy's own verdict, carried through rather than reduced to a
+   * boolean. The previous local `stale` flag existed only to pick between two
+   * DTO values, and reducing four states to one boolean is what lost the
+   * difference between a price that is merely ageing and one that does not
+   * exist. `actionable` remains the decision engine's own question, asked
+   * where decisions are made rather than re-derived here.
+   */
+  const freshnessAssessment = assessOddsFreshness(latestObservation, raw.asOf);
   const lineup = deriveLineupState(raw);
   const modelProbability = decimal(prediction?.prediction.modelProbability);
   /*
@@ -144,7 +152,7 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     startsAt: raw.event.startsAt.toISOString(),
     syntheticLabel: dataLabelFor(raw),
     scenario: scenarioFor(raw.event.id, recommendation, lineup),
-    freshness: stale ? "STALE" : "FRESH",
+    freshness: freshnessAssessment.freshness,
     /*
      * The canonical outcome code ("HOME"), not the stored `labelKey`
      * ("outcome.home"). The label key is an internal identifier and had no

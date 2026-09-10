@@ -639,6 +639,20 @@ export type RecommendationStatus =
   | "WAIT_FOR_LINEUP"
   | "INSUFFICIENT_DATA"
   | "EDGE_DISAPPEARED";
+/**
+ * The freshness states a customer surface can be shown.
+ *
+ * Declared here rather than imported because `@velyq/contracts` depends on
+ * nothing but `@velyq/decimal` by design. `odds-freshness-policy-v1` owns the
+ * thresholds and the meaning; a test asserts this list is exactly the policy's
+ * own `ODDS_FRESHNESS_STATES`, so the two cannot drift apart silently.
+ */
+export type CustomerOddsFreshness =
+  "CURRENT" | "AGING" | "STALE" | "UNAVAILABLE";
+
+export const customerOddsFreshnessStates: readonly CustomerOddsFreshness[] =
+  Object.freeze(["CURRENT", "AGING", "STALE", "UNAVAILABLE"]);
+
 export type CustomerMatchDto = Readonly<{
   eventId: string;
   homeTeam: string;
@@ -647,7 +661,20 @@ export type CustomerMatchDto = Readonly<{
   startsAt: string;
   syntheticLabel: CustomerDataLabel;
   scenario: CustomerScenarioDto;
-  freshness: "FRESH" | "STALE";
+  /**
+   * How current the market evidence is, in the policy's own vocabulary.
+   *
+   * Was `"FRESH" | "STALE"`, which collapsed four states into two: an AGING
+   * price (46 to 180 minutes old) rendered as "Out of date", exactly like one
+   * observed twenty-seven hours ago, and UNAVAILABLE -- no usable price at
+   * all -- was indistinguishable from a merely old one. Those are different
+   * facts and a customer deciding whether to act needs them apart.
+   *
+   * Only CURRENT is actionable. AGING is deliberately not: it is shown so the
+   * reader can see the market has been observed recently enough to be
+   * informative but not recently enough to price against.
+   */
+  freshness: CustomerOddsFreshness;
   selection: string;
   recommendation: RecommendationStatus;
   modelProbability: DecimalString | null;
@@ -830,7 +857,11 @@ function validateCustomerMatchInput(input: unknown): string[] {
     if (!isNonEmptyString(scenario["label"]))
       errors.push("scenario.label is invalid");
   }
-  if (!["FRESH", "STALE"].includes(input["freshness"] as string))
+  if (
+    !customerOddsFreshnessStates.includes(
+      input["freshness"] as CustomerOddsFreshness,
+    )
+  )
     errors.push("freshness is invalid");
   if (
     !customerRecommendationStatuses.includes(

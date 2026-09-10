@@ -385,7 +385,9 @@ export function DecisionReasoning({
   if (validity === "ATTRACTIVE") supporting.push(t("whyPriceClears"));
   if (validity === "MARGINAL") supporting.push(t("whyPriceMarginal"));
   if (validity === "AT_FAIR") supporting.push(t("whyPriceAtFair"));
-  if (match.freshness === "FRESH") supporting.push(t("whyEvidenceCurrent"));
+  /* Only CURRENT supports acting. AGING is informative but not actionable,
+     which is exactly the distinction the four-state DTO exists to keep. */
+  if (match.freshness === "CURRENT") supporting.push(t("whyEvidenceCurrent"));
   if (match.lineup === "OFFICIAL") supporting.push(t("whyLineupOfficial"));
   if (match.quality.reasonCodes.length === 0)
     supporting.push(t("whyQualityPassed"));
@@ -414,7 +416,7 @@ export function DecisionReasoning({
         price: formatOdds(match.priceValidity.minimumAcceptableOdds, locale),
       }),
     );
-  if (match.freshness === "FRESH") invalidation.push(t("invalidIfStale"));
+  if (match.freshness === "CURRENT") invalidation.push(t("invalidIfStale"));
   if (match.lineup === "OFFICIAL")
     invalidation.push(t("invalidIfLineupChanges"));
   if (match.lineup === "MISSING" || match.lineup === "EXPECTED")

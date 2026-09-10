@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyCustomerMatch,
+  freshnessLabel,
+  freshnessTone,
   movementLabel,
   selectionLabel,
   summariseCustomerMatches,
@@ -189,5 +191,45 @@ describe("today count reconciliation", () => {
         classifyCustomerMatch(one),
       );
     }
+  });
+});
+
+/*
+ * Four freshness states, four distinct labels, and only one of them reading as
+ * good. The DTO used to carry two, so an AGING price (46-180 minutes old)
+ * rendered exactly like one observed twenty-seven hours earlier, and
+ * UNAVAILABLE -- no usable price at all -- was indistinguishable from merely
+ * old.
+ */
+describe("freshness presentation", () => {
+  const states = ["CURRENT", "AGING", "STALE", "UNAVAILABLE"] as const;
+
+  it("gives every state its own label, in both languages", () => {
+    for (const locale of ["en", "el"] as const) {
+      const labels = states.map((state) => freshnessLabel(state, locale));
+      expect(new Set(labels).size).toBe(states.length);
+      for (const label of labels) {
+        expect(label.trim()).not.toBe("");
+        /* Never a raw code leaking through an unmapped lookup. */
+        expect(states).not.toContain(label as (typeof states)[number]);
+      }
+    }
+  });
+
+  /*
+   * Only CURRENT is actionable, so only CURRENT may read as positive. AGING in
+   * the same colour as an actionable price would undo the point of separating
+   * them; STALE and UNAVAILABLE are absences rather than warnings about a live
+   * position.
+   */
+  it("reads as good only for the one actionable state", () => {
+    expect(freshnessTone("CURRENT")).toBe("positive");
+    expect(freshnessTone("AGING")).toBe("caution");
+    expect(freshnessTone("STALE")).toBe("muted");
+    expect(freshnessTone("UNAVAILABLE")).toBe("muted");
+  });
+
+  it("does not read the retired vocabulary as fresh", () => {
+    expect(freshnessTone("FRESH")).not.toBe("positive");
   });
 });

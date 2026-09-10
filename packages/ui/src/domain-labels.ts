@@ -252,16 +252,29 @@ export function lineupTone(code: string): Tone {
 // ------------------------------------------------------------ freshness
 
 const FRESHNESS_LABELS: Readonly<Record<string, MessageKey>> = {
-  FRESH: "freshnessFresh",
+  CURRENT: "freshnessCurrent",
+  AGING: "freshnessAging",
   STALE: "freshnessStale",
+  UNAVAILABLE: "freshnessUnavailable",
 };
 
 export function freshnessLabel(code: string, locale: Locale) {
   return lookup(FRESHNESS_LABELS, code, locale);
 }
 
+/**
+ * Only CURRENT reads as good.
+ *
+ * AGING is `caution` rather than `positive`: the market has been seen recently
+ * enough to be informative but not recently enough to price against, and
+ * showing it in the same colour as an actionable price would undo the point of
+ * separating them. STALE and UNAVAILABLE are `muted` -- they are absences, not
+ * warnings about a live position.
+ */
 export function freshnessTone(code: string): Tone {
-  return code === "FRESH" ? "positive" : "caution";
+  if (code === "CURRENT") return "positive";
+  if (code === "AGING") return "caution";
+  return "muted";
 }
 
 // ---------------------------------------------------------- reason codes

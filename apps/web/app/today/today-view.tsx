@@ -104,7 +104,7 @@ export function TodayView({
   const summary = summariseCustomerMatches(matches);
   const freshMoves = matches.filter(
     (match) =>
-      match.freshness === "FRESH" &&
+      match.freshness === "CURRENT" &&
       match.openingOdds !== null &&
       match.currentOdds !== null,
   );
