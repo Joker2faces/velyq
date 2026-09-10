@@ -39,6 +39,7 @@ import {
   SecondaryMarkets,
   WhatChanged,
 } from "../../components/match";
+import { ScenarioLab } from "../../components/scenario-lab";
 import {
   ArrowLink,
   Badge,
@@ -415,6 +416,20 @@ export default async function Match({
                 hint={t("whatChangedLead")}
               />
               <WhatChanged whatChanged={whatChanged} locale={locale} />
+            </Card>
+          ) : null}
+
+          {match.modelProbability !== null ? (
+            <Card>
+              <CardHead
+                title={t("scenarioLabTitle")}
+                hint={t("scenarioLabLead")}
+              />
+              <ScenarioLab
+                modelProbability={match.modelProbability}
+                currentOdds={match.currentOdds}
+                locale={locale}
+              />
             </Card>
           ) : null}
 

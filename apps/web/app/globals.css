@@ -2465,6 +2465,54 @@ a.row:hover {
   font-size: 0.875rem;
 }
 
+.scenario-lab__disclaimer {
+  margin: 0 0 var(--space-3);
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--secondary);
+}
+
+.scenario-lab__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: 0.875rem;
+  color: var(--primary);
+}
+
+.scenario-lab__field input {
+  width: 6rem;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--primary);
+  font-family: var(--font-mono);
+}
+
+.scenario-lab__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.scenario-lab__figures dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.scenario-lab__figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--primary);
+}
+
 .autopsy__score {
   margin: 0 0 var(--space-4);
   font-family: var(--font-label);

@@ -838,6 +838,12 @@ export const messages = {
   whatChangedDecision: "Decision",
   whatChangedEdge: "Expected value",
   whatChangedMarket: "Market",
+  scenarioLabTitle: "Scenario lab",
+  scenarioLabLead: "What price would this need to clear the threshold at?",
+  scenarioLabDisclaimer: "A hypothetical you control -- not a live price.",
+  scenarioLabOddsLabel: "If the price were",
+  scenarioLabStatus: "Status",
+
 
 
 
@@ -1632,6 +1638,12 @@ const greek: Readonly<Record<MessageKey, string>> = {
   whatChangedDecision: "Απόφαση",
   whatChangedEdge: "Αναμενόμενη αξία",
   whatChangedMarket: "Αγορά",
+  scenarioLabTitle: "Εργαστήριο σεναρίων",
+  scenarioLabLead: "Σε ποια τιμή θα περνούσε το όριο;",
+  scenarioLabDisclaimer: "Ένα υποθετικό σενάριο που ελέγχετε εσείς -- όχι ζωντανή τιμή.",
+  scenarioLabOddsLabel: "Αν η απόδοση ήταν",
+  scenarioLabStatus: "Κατάσταση",
+
 
 
 
