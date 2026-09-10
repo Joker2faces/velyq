@@ -26,6 +26,7 @@ import {
   type Locale,
 } from "@velyq/ui";
 import type { CustomerMatchDto, CustomerTodayAggregateDto } from "@velyq/contracts";
+import { compareDecimalStrings, subtractDecimalStrings, type DecimalString } from "@velyq/decimal";
 import { MatchCard } from "../components/match";
 import {
   ArrowLink,
@@ -275,14 +276,23 @@ export function TodayView({
                * decision engine had not endorsed. The policy and its version
                * now live in one module and travel on the DTO.
                */
-              const target =
-                match.priceValidity.minimumAcceptableOdds === null
-                  ? null
-                  : Number(match.priceValidity.minimumAcceptableOdds);
-              const gap =
+              const target = match.priceValidity.minimumAcceptableOdds;
+              const gapResult =
                 target === null || match.currentOdds === null
                   ? null
-                  : target - Number(match.currentOdds);
+                  : subtractDecimalStrings(
+                      target as DecimalString,
+                      match.currentOdds as DecimalString,
+                    );
+              const gap = gapResult?.ok ? gapResult.value : null;
+              const gapPositive = (() => {
+                if (gap === null) return false;
+                const comparison = compareDecimalStrings(
+                  gap,
+                  "0" as DecimalString,
+                );
+                return comparison.ok && comparison.value > 0;
+              })();
               return (
                 <div className="match-row" key={`watch-${match.eventId}`}>
                   <div>
@@ -302,12 +312,12 @@ export function TodayView({
                     </span>
                     {target !== null ? (
                       <span>
-                        {forecastLabels.interesting} {target.toFixed(2)}+
+                        {forecastLabels.interesting} {formatOdds(target, locale)}+
                       </span>
                     ) : null}
-                    {gap !== null && gap > 0 ? (
+                    {gap !== null && gapPositive ? (
                       <span>
-                        {forecastLabels.distance} {gap.toFixed(2)}
+                        {forecastLabels.distance} {formatOdds(gap, locale)}
                       </span>
                     ) : null}
                     <span>
