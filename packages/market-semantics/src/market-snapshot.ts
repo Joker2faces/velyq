@@ -1,4 +1,11 @@
-import { decimalOdds, parseDecimalString, type DecimalString } from "@velyq/decimal";
+import {
+  addDecimalStrings,
+  compareDecimalStrings,
+  decimalOdds,
+  divideDecimalStrings,
+  subtractDecimalStrings,
+  type DecimalString,
+} from "@velyq/decimal";
 import {
   marketConsensus,
   type BookmakerQuote,
@@ -78,18 +85,39 @@ export const ODDS_OUTLIER_POLICY_VERSION = "odds-outlier-policy.v1";
 const OUTLIER_MINIMUM_PEER_QUOTES = 3;
 const OUTLIER_DEVIATION_THRESHOLD = 0.15;
 
-function toDecimal(value: number): DecimalString | null {
-  const fixed = value.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
-  const result = parseDecimalString(fixed === "" ? "0" : fixed);
-  return result.ok ? result.value : null;
+/** Exact ascending sort of decimal-string values -- no float conversion. */
+function sortDecimals(values: readonly DecimalString[]): DecimalString[] {
+  return [...values].sort((a, b) => {
+    const comparison = compareDecimalStrings(a, b);
+    return comparison.ok ? comparison.value : 0;
+  });
 }
 
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
+/**
+ * Exact decimal median. Even-length inputs average the two middle values
+ * via decimal add/divide, never a float mean.
+ */
+function medianDecimal(values: readonly DecimalString[]): DecimalString {
+  const sorted = sortDecimals(values);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1]! + sorted[mid]!) / 2
-    : sorted[mid]!;
+  if (sorted.length % 2 !== 0) return sorted[mid]!;
+  const lower = sorted[mid - 1]!;
+  const upper = sorted[mid]!;
+  const sum = addDecimalStrings(lower, upper);
+  if (!sum.ok) return lower;
+  const halved = divideDecimalStrings(sum.value, "2" as DecimalString);
+  return halved.ok ? halved.value : lower;
+}
+
+/** (value - median) / median, computed with exact decimal arithmetic. */
+function deviationRatio(
+  value: DecimalString,
+  medianValue: DecimalString,
+): DecimalString | null {
+  const difference = subtractDecimalStrings(value, medianValue);
+  if (!difference.ok) return null;
+  const ratio = divideDecimalStrings(difference.value, medianValue);
+  return ratio.ok ? ratio.value : null;
 }
 
 /**
@@ -143,10 +171,11 @@ export function buildMarketSnapshot(
   const outlierCandidates: OutlierCandidate[] = [];
   const outcomes: MarketSnapshotOutcome[] = requiredOutcomes.map(
     (outcomeCode) => {
-      const quotes: Readonly<{ bookmakerId: string; odds: number }>[] = [];
+      const quotes: Readonly<{ bookmakerId: string; odds: DecimalString }>[] =
+        [];
       for (const [bookmakerId, outcomeOdds] of byBookmaker) {
         const odds = outcomeOdds.get(outcomeCode);
-        if (odds !== undefined) quotes.push({ bookmakerId, odds: Number(odds) });
+        if (odds !== undefined) quotes.push({ bookmakerId, odds });
       }
       if (quotes.length === 0) {
         return {
@@ -159,31 +188,45 @@ export function buildMarketSnapshot(
         };
       }
       const values = quotes.map((quote) => quote.odds);
-      const med = median(values);
+      const sorted = sortDecimals(values);
+      const min = sorted[0]!;
+      const max = sorted[sorted.length - 1]!;
+      const med = medianDecimal(values);
+      /*
+       * Every comparison and arithmetic step here -- ordering, the median,
+       * the deviation ratio -- runs on exact decimal strings via
+       * @velyq/decimal, never a `Number()` cast: odds are the authoritative
+       * customer-facing number this module exists to produce, so float
+       * precision loss is not an acceptable source of error here even
+       * though realistic odds strings rarely trigger it in practice.
+       */
       if (quotes.length - 1 >= OUTLIER_MINIMUM_PEER_QUOTES) {
         for (const quote of quotes) {
-          const deviation = (quote.odds - med) / med;
-          if (Math.abs(deviation) > OUTLIER_DEVIATION_THRESHOLD) {
-            const medianDecimal = toDecimal(med);
-            const deviationDecimal = toDecimal(deviation);
-            if (medianDecimal && deviationDecimal) {
-              outlierCandidates.push({
-                bookmakerId: quote.bookmakerId,
-                outcomeCode,
-                decimalOdds: toDecimal(quote.odds) ?? ("0" as DecimalString),
-                medianOdds: medianDecimal,
-                deviationRatio: deviationDecimal,
-              });
-            }
+          const deviation = deviationRatio(quote.odds, med);
+          if (deviation === null) continue;
+          const magnitude =
+            deviation.startsWith("-") ? deviation.slice(1) : deviation;
+          const exceeds = compareDecimalStrings(
+            magnitude as DecimalString,
+            String(OUTLIER_DEVIATION_THRESHOLD) as DecimalString,
+          );
+          if (exceeds.ok && exceeds.value > 0) {
+            outlierCandidates.push({
+              bookmakerId: quote.bookmakerId,
+              outcomeCode,
+              decimalOdds: quote.odds,
+              medianOdds: med,
+              deviationRatio: deviation,
+            });
           }
         }
       }
       return {
         outcomeCode,
-        bestOdds: toDecimal(Math.max(...values)),
-        medianOdds: toDecimal(med),
-        minOdds: toDecimal(Math.min(...values)),
-        maxOdds: toDecimal(Math.max(...values)),
+        bestOdds: max,
+        medianOdds: med,
+        minOdds: min,
+        maxOdds: max,
         bookmakerCount: quotes.length,
       };
     },

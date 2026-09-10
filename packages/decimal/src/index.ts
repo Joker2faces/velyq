@@ -173,6 +173,23 @@ export function parseDecimalString(
   return decimal.ok ? success(input as DecimalString) : decimal;
 }
 
+/**
+ * Exact three-way comparison of two decimal strings -- no float conversion,
+ * so callers ordering, min/max-ing, or median-ing decimal-string values (odds,
+ * money, probabilities) never lose precision doing it.
+ */
+export function compareDecimalStrings(
+  left: DecimalString,
+  right: DecimalString,
+): DecimalResult<-1 | 0 | 1> {
+  const parsedLeft = decimalFromCanonical(left);
+  const parsedRight = decimalFromCanonical(right);
+  if (!parsedLeft.ok) return parsedLeft;
+  if (!parsedRight.ok) return parsedRight;
+  const comparison = parsedLeft.value.comparedTo(parsedRight.value);
+  return success(comparison as -1 | 0 | 1);
+}
+
 export function addDecimalStrings(
   left: DecimalString,
   right: DecimalString,
