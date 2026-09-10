@@ -470,6 +470,45 @@ export const messages = {
     "No model probability exists for this selection, so there is nothing to price against.",
   priceValidityPolicy: "Policy {version}",
 
+  /* ------------------------------------------- why / why not / invalidation
+
+     Positive and negative intelligence, and what would overturn either. Every
+     line is keyed off a state the server already decided -- a validity
+     status, a freshness state, a lineup state, a quality grade -- so no
+     sentence here asserts anything the engine did not. */
+  reasoningWhyTitle: "Why VELYQ sees this",
+  reasoningWhyLead: "The evidence supporting the current verdict.",
+  reasoningWhyNotTitle: "Why not",
+  reasoningWhyNotLead:
+    "What is holding this back. A refusal is a result, and the reason for it is the useful part.",
+  reasoningWhyNone: "Nothing is currently supporting a position here.",
+  reasoningWhyNotNone: "Nothing is currently holding this back.",
+  reasoningInvalidationTitle: "What would change this",
+  reasoningInvalidationLead:
+    "The conditions that would overturn the current view. Stated from the same policy that produced it.",
+
+  whyPriceClears: "The price clears the policy with room to spare.",
+  whyPriceMarginal: "The price clears the policy, but only just.",
+  whyPriceAtFair: "The price sits at fair value, so there is no edge in it.",
+  whyEvidenceCurrent: "The market evidence is current.",
+  whyLineupOfficial: "The official lineup has been published.",
+  whyQualityPassed: "Every data-quality check passed.",
+  whyModelAboveMarket:
+    "The model's probability is above the one the market's price implies.",
+  whyMovementObserved:
+    "The price has been observed moving across more than one instant.",
+
+  invalidIfPriceBelow:
+    "If the price shortens below {price}, it stops clearing the policy.",
+  invalidIfStale:
+    "If no newer price is observed, the evidence stops being current and the verdict is withheld.",
+  invalidIfLineupChanges:
+    "If the lineup changes materially before kick-off, the estimate moves with it.",
+  invalidIfLineupArrives:
+    "When the official lineup is published, this is re-evaluated against it.",
+  invalidIfQualityFalls:
+    "If data quality falls below the gate, the verdict is withheld regardless of price.",
+
   radarNoHistory: "No price history available",
   radarDrifted: "Price drifted out",
   radarShortened: "Price shortened in",
@@ -1156,6 +1195,40 @@ const greek: Readonly<Record<MessageKey, string>> = {
   priceValidityNoModel:
     "Δεν υπάρχει πιθανότητα μοντέλου για αυτή την επιλογή, οπότε δεν υπάρχει βάση αποτίμησης.",
   priceValidityPolicy: "Πολιτική {version}",
+
+  reasoningWhyTitle: "Γιατί το βλέπει έτσι η VELYQ",
+  reasoningWhyLead: "Τα στοιχεία που στηρίζουν την τρέχουσα ετυμηγορία.",
+  reasoningWhyNotTitle: "Γιατί όχι",
+  reasoningWhyNotLead:
+    "Τι το κρατά πίσω. Η άρνηση είναι αποτέλεσμα, και ο λόγος της είναι το χρήσιμο μέρος.",
+  reasoningWhyNone: "Τίποτα δεν στηρίζει αυτή τη στιγμή κάποια θέση εδώ.",
+  reasoningWhyNotNone: "Τίποτα δεν το κρατά αυτή τη στιγμή πίσω.",
+  reasoningInvalidationTitle: "Τι θα το άλλαζε",
+  reasoningInvalidationLead:
+    "Οι συνθήκες που θα ανέτρεπαν την τρέχουσα εικόνα. Διατυπωμένες από την ίδια πολιτική που την παρήγαγε.",
+
+  whyPriceClears: "Η απόδοση πληροί την πολιτική με άνεση.",
+  whyPriceMarginal: "Η απόδοση πληροί την πολιτική, αλλά οριακά.",
+  whyPriceAtFair:
+    "Η απόδοση βρίσκεται στη δίκαιη τιμή, οπότε δεν υπάρχει αξία σε αυτήν.",
+  whyEvidenceCurrent: "Τα στοιχεία της αγοράς είναι πρόσφατα.",
+  whyLineupOfficial: "Η επίσημη ενδεκάδα έχει ανακοινωθεί.",
+  whyQualityPassed: "Όλοι οι έλεγχοι ποιότητας δεδομένων πέρασαν.",
+  whyModelAboveMarket:
+    "Η πιθανότητα του μοντέλου είναι υψηλότερη από αυτή που υπονοεί η απόδοση της αγοράς.",
+  whyMovementObserved:
+    "Η απόδοση έχει παρατηρηθεί να κινείται σε περισσότερες από μία χρονικές στιγμές.",
+
+  invalidIfPriceBelow:
+    "Αν η απόδοση πέσει κάτω από {price}, παύει να πληροί την πολιτική.",
+  invalidIfStale:
+    "Αν δεν παρατηρηθεί νεότερη απόδοση, τα στοιχεία παύουν να είναι πρόσφατα και η ετυμηγορία αναστέλλεται.",
+  invalidIfLineupChanges:
+    "Αν η ενδεκάδα αλλάξει ουσιωδώς πριν τη σέντρα, η εκτίμηση αλλάζει μαζί της.",
+  invalidIfLineupArrives:
+    "Όταν ανακοινωθεί η επίσημη ενδεκάδα, το θέμα επανεκτιμάται με βάση αυτήν.",
+  invalidIfQualityFalls:
+    "Αν η ποιότητα των δεδομένων πέσει κάτω από το όριο, η ετυμηγορία αναστέλλεται ανεξάρτητα από την απόδοση.",
 
   radarNoHistory: "Δεν υπάρχει ιστορικό αποδόσεων",
   radarDrifted: "Η απόδοση ανέβηκε",

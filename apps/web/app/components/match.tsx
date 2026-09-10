@@ -7,11 +7,14 @@ import {
   freshnessLabel,
   freshnessTone,
   competitionLabel,
+  isGatedRecommendation,
   priceValidityLabel,
   priceValidityTone,
   recommendationLabel,
   recommendationTone,
   reasonLabel,
+  reasonLabels,
+  recommendationExplanation,
   selectionLabel,
   translator,
   type Locale,
@@ -346,6 +349,118 @@ export function PriceValidity({
           </dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+/**
+ * Why VELYQ sees this, why it does not, and what would overturn either.
+ *
+ * Every line is keyed off a state the server already decided -- a validity
+ * status, a freshness state, a lineup state, a quality grade, a
+ * recommendation. Nothing here compares a number against a threshold of its
+ * own, so no sentence can assert something the engine did not.
+ *
+ * The negative half is deliberately given the same weight as the positive
+ * one. A refusal is a result, and for a decision-support product the reason
+ * behind it is usually the more useful half.
+ */
+export function DecisionReasoning({
+  match,
+  locale,
+}: {
+  match: CustomerMatchDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  const validity = match.priceValidity.status;
+
+  const supporting: string[] = [];
+  /*
+   * STRONG_EDGE is the engine's own statement that the model sits above the
+   * market here, so it is read rather than re-derived from the numbers.
+   */
+  if (match.recommendation === "STRONG_EDGE")
+    supporting.push(t("whyModelAboveMarket"));
+  if (validity === "ATTRACTIVE") supporting.push(t("whyPriceClears"));
+  if (validity === "MARGINAL") supporting.push(t("whyPriceMarginal"));
+  if (validity === "AT_FAIR") supporting.push(t("whyPriceAtFair"));
+  if (match.freshness === "FRESH") supporting.push(t("whyEvidenceCurrent"));
+  if (match.lineup === "OFFICIAL") supporting.push(t("whyLineupOfficial"));
+  if (match.quality.reasonCodes.length === 0)
+    supporting.push(t("whyQualityPassed"));
+  if (match.movementState !== "INSUFFICIENT_HISTORY")
+    supporting.push(t("whyMovementObserved"));
+
+  /*
+   * The blocking half. Quality reason codes are the engine's own vocabulary
+   * for what is wrong; the recommendation explanation covers the states that
+   * are not quality failures, such as waiting on a lineup.
+   */
+  const blocking = reasonLabels(match.quality.reasonCodes, locale);
+  const gatedExplanation = isGatedRecommendation(match.recommendation)
+    ? recommendationExplanation(match.recommendation, locale)
+    : null;
+
+  /*
+   * Invalidation, stated from the same policy that produced the verdict. The
+   * price threshold is the authoritative `minimumAcceptableOdds`, never a
+   * margin computed here.
+   */
+  const invalidation: string[] = [];
+  if (match.priceValidity.minimumAcceptableOdds !== null)
+    invalidation.push(
+      t("invalidIfPriceBelow", {
+        price: formatOdds(match.priceValidity.minimumAcceptableOdds, locale),
+      }),
+    );
+  if (match.freshness === "FRESH") invalidation.push(t("invalidIfStale"));
+  if (match.lineup === "OFFICIAL")
+    invalidation.push(t("invalidIfLineupChanges"));
+  if (match.lineup === "MISSING" || match.lineup === "EXPECTED")
+    invalidation.push(t("invalidIfLineupArrives"));
+  invalidation.push(t("invalidIfQualityFalls"));
+
+  return (
+    <div className="reasoning">
+      <section className="reasoning__half">
+        <h3 className="reasoning__title">{t("reasoningWhyTitle")}</h3>
+        <p className="reasoning__lead">{t("reasoningWhyLead")}</p>
+        {supporting.length === 0 ? (
+          <p className="reasoning__empty">{t("reasoningWhyNone")}</p>
+        ) : (
+          <ul className="reasoning__list reasoning__list--for">
+            {supporting.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="reasoning__half">
+        <h3 className="reasoning__title">{t("reasoningWhyNotTitle")}</h3>
+        <p className="reasoning__lead">{t("reasoningWhyNotLead")}</p>
+        {blocking.length === 0 && gatedExplanation === null ? (
+          <p className="reasoning__empty">{t("reasoningWhyNotNone")}</p>
+        ) : (
+          <ul className="reasoning__list reasoning__list--against">
+            {gatedExplanation ? <li>{gatedExplanation}</li> : null}
+            {blocking.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="reasoning__invalidation">
+        <h3 className="reasoning__title">{t("reasoningInvalidationTitle")}</h3>
+        <p className="reasoning__lead">{t("reasoningInvalidationLead")}</p>
+        <ul className="reasoning__list reasoning__list--invalidation">
+          {invalidation.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

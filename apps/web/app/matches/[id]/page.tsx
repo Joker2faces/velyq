@@ -23,7 +23,7 @@ import {
 import { loadCustomerMatch } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
-import { PriceValidity } from "../../components/match";
+import { DecisionReasoning, PriceValidity } from "../../components/match";
 import {
   ArrowLink,
   Badge,
@@ -331,6 +331,18 @@ export default async function Match({
               </p>
             </Card>
           </div>
+
+          {/*
+           * Why, why not, and what would overturn either.
+           *
+           * The reason codes were previously visible only as bare badges
+           * inside the data-quality card, which buried the negative
+           * intelligence that is often the most useful thing on the page --
+           * and nothing stated what would change the verdict at all.
+           */}
+          <Card>
+            <DecisionReasoning match={match} locale={locale} />
+          </Card>
 
           {/* ----------------------------------------------- quality/lineup */}
           <div className="split">

@@ -2308,3 +2308,85 @@ a.row:hover {
   font-size: 0.875rem;
   color: var(--secondary);
 }
+
+/* ------------------------------------------------------------- reasoning
+
+   Positive and negative intelligence side by side, with equal weight. A
+   refusal is a result, and for decision support the reason behind it is
+   usually the more useful half -- so "why not" is not a footnote.        */
+
+.reasoning {
+  display: grid;
+  gap: var(--space-5);
+}
+
+@media (min-width: 46rem) {
+  .reasoning {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reasoning__invalidation {
+    grid-column: 1 / -1;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--line);
+  }
+}
+
+.reasoning__title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.reasoning__lead {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--secondary);
+}
+
+.reasoning__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reasoning__list li {
+  position: relative;
+  padding-left: var(--space-4);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--primary);
+}
+
+/* A small leading rule per line, coloured by what the line is doing. */
+.reasoning__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+}
+
+.reasoning__list--for li::before {
+  background: var(--signal);
+}
+
+.reasoning__list--against li::before {
+  background: var(--gold);
+}
+
+.reasoning__list--invalidation li::before {
+  background: var(--quiet);
+}
+
+.reasoning__empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--quiet);
+}
