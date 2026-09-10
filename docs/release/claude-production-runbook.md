@@ -222,11 +222,23 @@ Budgets (`packages/application/src/provider-quota.ts`): `DISCOVERY 8`,
 `ODDS 60`, `LINEUP 15`, `RESULT 10`, `RECOVERY_RESERVE 7`, assumed daily limit
 100.
 
-| Scenario | Calls/day |
-| --- | --- |
-| Quiet day | 8 (discovery only) |
-| Normal football day | ~28-68 |
-| Worst case, counted | 68, leaving 32 in reserve |
+Measured by whole-day simulation, not estimated:
+`packages/application/test/provider-quota-simulation.test.ts` runs the real
+orchestrator over all 96 wake-ups with in-memory ports, carrying quota state
+forward the way the database does. Deterministic across repeated runs.
+
+| Scenario | Calls/day | Idle wake-ups | Remaining | Breakdown |
+| --- | --- | --- | --- | --- |
+| Quiet day | **0** | 96 of 96 | 100 | nothing due |
+| Normal football day | **30** | 66 of 96 | 70 | D 2, O 9, L 9, R 10 |
+| Heavy day | **93** | 3 of 96 | 7 | D 8, O 60, L 15, R 10 |
+| Worst case | **93** | 3 of 96 | **7** | every purpose at its budget |
+
+The worst case spends exactly the allocated total and ends with exactly the
+reserve — not approximately, which is what makes the reserve a guarantee
+rather than a hope. A heavy day is bounded by the purpose budgets rather than
+by the cadence, and the per-run ceiling of one call per wake-up bounds it
+again at 96 regardless.
 
 `LINEUP`'s budget is currently **unused** — no fetch port exists for it. See
 the completion backlog.
