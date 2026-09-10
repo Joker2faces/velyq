@@ -1,4 +1,7 @@
-import type { CustomerMatchDto, CustomerTodayAggregateDto } from "@velyq/contracts";
+import type {
+  CustomerMatchDto,
+  CustomerTodayAggregateDto,
+} from "@velyq/contracts";
 
 /**
  * What `/api/v1/today` returns to a customer surface.

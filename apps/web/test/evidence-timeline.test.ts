@@ -18,7 +18,9 @@ function raw(): CustomerRawMatch {
   return {
     event: { id: "event-1", startsAt: ASOF } as CustomerRawMatch["event"],
     sport: {} as CustomerRawMatch["sport"],
-    competition: { nameKey: "competition.test" } as CustomerRawMatch["competition"],
+    competition: {
+      nameKey: "competition.test",
+    } as CustomerRawMatch["competition"],
     participants: [
       {
         participant: { id: "team-home", displayName: "Home FC" },
@@ -47,12 +49,16 @@ function raw(): CustomerRawMatch {
     ] as unknown as CustomerRawMatch["lineups"],
     outcomes: [
       {
-        market: { lineValue: null } as CustomerRawMatch["outcomes"][number]["market"],
+        market: {
+          lineValue: null,
+        } as CustomerRawMatch["outcomes"][number]["market"],
         marketDefinition: {
           code: "FOOTBALL_FULL_TIME_1X2",
           labelKey: "market.football_full_time_1x2",
         } as CustomerRawMatch["outcomes"][number]["marketDefinition"],
-        outcome: { id: outcomeId } as CustomerRawMatch["outcomes"][number]["outcome"],
+        outcome: {
+          id: outcomeId,
+        } as CustomerRawMatch["outcomes"][number]["outcome"],
         outcomeDefinition: {
           code: "HOME",
         } as CustomerRawMatch["outcomes"][number]["outcomeDefinition"],
@@ -154,7 +160,9 @@ describe("evidence timeline", () => {
       },
       outcome.outcome.id,
     );
-    const priceEvents = events.filter((event) => event.type === "PRICE_OBSERVED");
+    const priceEvents = events.filter(
+      (event) => event.type === "PRICE_OBSERVED",
+    );
     expect(priceEvents).toHaveLength(2);
     expect(priceEvents.map((event) => event.price)).toEqual(["2", "1.9"]);
   });

@@ -808,7 +808,8 @@ export const messages = {
   riskFlagOutlierPrice: "One bookmaker's price is an outlier",
   riskFlagMarketConsensusUnavailable: "No bookmaker consensus available",
   marketMapTitle: "Market Map",
-  marketMapLead: "Every complete bookmaker book for this market, as of one shared observation.",
+  marketMapLead:
+    "Every complete bookmaker book for this market, as of one shared observation.",
   marketMapBestPrice: "Best",
   marketMapMedianPrice: "Median",
   marketMapConsensus: "Consensus",
@@ -816,12 +817,14 @@ export const messages = {
   marketMapNoConsensus: "No complete book yet",
   riskFlagsTitle: "Risk flags",
   evidenceTimelineTitle: "Evidence timeline",
-  evidenceTimelineLead: "Every price and lineup observation behind this verdict, in order.",
+  evidenceTimelineLead:
+    "Every price and lineup observation behind this verdict, in order.",
   evidenceTimelinePriceObserved: "Price observed",
   evidenceTimelineLineupObserved: "Lineup observed",
   evidenceTimelineShowEarlier: "Show {count} earlier",
   opportunityLifecycleTitle: "Opportunity lifecycle",
-  opportunityLifecycleLead: "Has this recommendation held, or has it flickered?",
+  opportunityLifecycleLead:
+    "Has this recommendation held, or has it flickered?",
   opportunityLifecycleState: "State",
   opportunityLifecycleActive: "Active",
   opportunityLifecycleUnstable: "Unstable",
@@ -830,7 +833,8 @@ export const messages = {
   opportunityLifecycleDuration: "Duration",
   opportunityLifecycleCrossings: "Threshold crossings",
   whatChangedTitle: "What changed",
-  whatChangedLead: "A factual diff between the first and latest evaluation of this selection.",
+  whatChangedLead:
+    "A factual diff between the first and latest evaluation of this selection.",
   whatChangedNone: "Nothing has changed since the first evaluation.",
   whatChangedPrice: "Price",
   whatChangedModel: "Model probability",
@@ -844,10 +848,6 @@ export const messages = {
   scenarioLabDisclaimer: "A hypothetical you control -- not a live price.",
   scenarioLabOddsLabel: "If the price were",
   scenarioLabStatus: "Status",
-
-
-
-
 
   reasonEdgeTooSmall: "Edge too small to act on",
   reasonPriceTooShort: "Price is too short",
@@ -1362,7 +1362,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchOtherMarketsLead:
     "Κάθε άλλη αγορά με πραγματική απόφαση για αυτόν τον αγώνα.",
   matchAutopsyTitle: "Ανάλυση μετά τον αγώνα",
-  matchAutopsyLead: "Οι πραγματικές αποφάσεις αυτού του αγώνα και πώς εξελίχθηκαν.",
+  matchAutopsyLead:
+    "Οι πραγματικές αποφάσεις αυτού του αγώνα και πώς εξελίχθηκαν.",
   matchAutopsyFinalScore: "Τελικό σκορ",
   matchAutopsyDecisionOdds: "Απόδοση κατά την απόφαση",
   matchAutopsyClosingOdds: "Απόδοση κλεισίματος",
@@ -1601,15 +1602,18 @@ const greek: Readonly<Record<MessageKey, string>> = {
   riskFlagStaleMarket: "Η τιμή είναι παλιά",
   riskFlagAgingMarket: "Η τιμή γερνάει",
   riskFlagLowMarketCoverage: "Λίγες στοιχηματικές δίνουν απόδοση",
-  riskFlagHighBookmakerDispersion: "Οι στοιχηματικές διαφωνούν σε αυτή την τιμή",
+  riskFlagHighBookmakerDispersion:
+    "Οι στοιχηματικές διαφωνούν σε αυτή την τιμή",
   riskFlagWaitingForLineup: "Αναμονή για την αρχική ενδεκάδα",
   riskFlagModelExperimental: "Πειραματικό μοντέλο",
   riskFlagIdentityUncertain: "Αβέβαιη ταυτότητα ομάδας/διοργάνωσης",
   riskFlagInsufficientHistory: "Δεν υπάρχει ακόμα αρκετό ιστορικό τιμών",
   riskFlagOutlierPrice: "Η τιμή μιας στοιχηματικής ξεχωρίζει",
-  riskFlagMarketConsensusUnavailable: "Δεν υπάρχει διαθέσιμη συναίνεση στοιχηματικών",
+  riskFlagMarketConsensusUnavailable:
+    "Δεν υπάρχει διαθέσιμη συναίνεση στοιχηματικών",
   marketMapTitle: "Χάρτης Αγοράς",
-  marketMapLead: "Κάθε πλήρες βιβλίο στοιχηματικής για αυτή την αγορά, από μία κοινή στιγμή παρατήρησης.",
+  marketMapLead:
+    "Κάθε πλήρες βιβλίο στοιχηματικής για αυτή την αγορά, από μία κοινή στιγμή παρατήρησης.",
   marketMapBestPrice: "Καλύτερη",
   marketMapMedianPrice: "Διάμεσος",
   marketMapConsensus: "Συναίνεση",
@@ -1617,7 +1621,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   marketMapNoConsensus: "Δεν υπάρχει ακόμα πλήρες βιβλίο",
   riskFlagsTitle: "Σημαίες κινδύνου",
   evidenceTimelineTitle: "Χρονολόγιο στοιχείων",
-  evidenceTimelineLead: "Κάθε παρατήρηση τιμής και ενδεκάδας πίσω από αυτή την ετυμηγορία, με σειρά.",
+  evidenceTimelineLead:
+    "Κάθε παρατήρηση τιμής και ενδεκάδας πίσω από αυτή την ετυμηγορία, με σειρά.",
   evidenceTimelinePriceObserved: "Παρατηρήθηκε τιμή",
   evidenceTimelineLineupObserved: "Παρατηρήθηκε ενδεκάδα",
   evidenceTimelineShowEarlier: "Εμφάνιση {count} παλαιότερων",
@@ -1631,7 +1636,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
   opportunityLifecycleDuration: "Διάρκεια",
   opportunityLifecycleCrossings: "Αλλαγές ορίου",
   whatChangedTitle: "Τι άλλαξε",
-  whatChangedLead: "Μια πραγματική διαφορά ανάμεσα στην πρώτη και την τελευταία αξιολόγηση αυτής της επιλογής.",
+  whatChangedLead:
+    "Μια πραγματική διαφορά ανάμεσα στην πρώτη και την τελευταία αξιολόγηση αυτής της επιλογής.",
   whatChangedNone: "Τίποτα δεν έχει αλλάξει από την πρώτη αξιολόγηση.",
   whatChangedPrice: "Απόδοση",
   whatChangedModel: "Πιθανότητα μοντέλου",
@@ -1642,13 +1648,10 @@ const greek: Readonly<Record<MessageKey, string>> = {
   whatChangedMarket: "Αγορά",
   scenarioLabTitle: "Εργαστήριο σεναρίων",
   scenarioLabLead: "Σε ποια τιμή θα περνούσε το όριο;",
-  scenarioLabDisclaimer: "Ένα υποθετικό σενάριο που ελέγχετε εσείς -- όχι ζωντανή τιμή.",
+  scenarioLabDisclaimer:
+    "Ένα υποθετικό σενάριο που ελέγχετε εσείς -- όχι ζωντανή τιμή.",
   scenarioLabOddsLabel: "Αν η απόδοση ήταν",
   scenarioLabStatus: "Κατάσταση",
-
-
-
-
 
   reasonEdgeTooSmall: "Το πλεονέκτημα είναι πολύ μικρό",
   reasonPriceTooShort: "Η απόδοση είναι πολύ χαμηλή",

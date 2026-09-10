@@ -26,7 +26,10 @@ import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
-import { buildCustomerMarketConsensus, deriveRiskFlags } from "./market-consensus";
+import {
+  buildCustomerMarketConsensus,
+  deriveRiskFlags,
+} from "./market-consensus";
 import { buildEvidenceTimeline } from "./evidence-timeline";
 
 /**

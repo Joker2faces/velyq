@@ -118,7 +118,9 @@ export default async function Match({
   }
 
   const match = result.value;
-  const autopsy = decisionHistory ? derivePostMatchAutopsy(decisionHistory) : null;
+  const autopsy = decisionHistory
+    ? derivePostMatchAutopsy(decisionHistory)
+    : null;
   const lifecycle = decisionHistory
     ? deriveOpportunityLifecycle(decisionHistory, match.selection, new Date())
     : null;
@@ -458,7 +460,10 @@ export default async function Match({
                 title={t("evidenceTimelineTitle")}
                 hint={t("evidenceTimelineLead")}
               />
-              <EvidenceTimeline events={match.evidenceTimeline} locale={locale} />
+              <EvidenceTimeline
+                events={match.evidenceTimeline}
+                locale={locale}
+              />
             </Card>
           ) : null}
 

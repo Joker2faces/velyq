@@ -15,7 +15,11 @@ import {
 } from "@velyq/database";
 import { customerFixtureMode } from "./api/auth";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
-import { diffSnapshots, edgePersistence, type Snapshot } from "@velyq/analytics";
+import {
+  diffSnapshots,
+  edgePersistence,
+  type Snapshot,
+} from "@velyq/analytics";
 import { customerTodaySnapshot } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

@@ -16,7 +16,11 @@ const T2 = new Date("2026-09-20T11:45:00.000Z");
 
 function oneXTwoOutcome(
   outcomeCode: "HOME" | "DRAW" | "AWAY",
-  quotes: readonly { bookmakerId: string; decimalOdds: string; providerObservedAt?: Date }[],
+  quotes: readonly {
+    bookmakerId: string;
+    decimalOdds: string;
+    providerObservedAt?: Date;
+  }[],
 ): CustomerRawOutcome {
   return {
     market: { lineValue: null } as CustomerRawOutcome["market"],
@@ -25,7 +29,9 @@ function oneXTwoOutcome(
       labelKey: "market.football_full_time_1x2",
     } as CustomerRawOutcome["marketDefinition"],
     outcome: {} as CustomerRawOutcome["outcome"],
-    outcomeDefinition: { code: outcomeCode } as CustomerRawOutcome["outcomeDefinition"],
+    outcomeDefinition: {
+      code: outcomeCode,
+    } as CustomerRawOutcome["outcomeDefinition"],
     prediction: {
       prediction: {
         modelProbability: "0.5",
@@ -65,10 +71,18 @@ function match(outcomes: readonly CustomerRawOutcome[]): CustomerRawMatch {
   return {
     event: { id: "event-1", startsAt: ASOF } as CustomerRawMatch["event"],
     sport: {} as CustomerRawMatch["sport"],
-    competition: { nameKey: "competition.test" } as CustomerRawMatch["competition"],
+    competition: {
+      nameKey: "competition.test",
+    } as CustomerRawMatch["competition"],
     participants: [
-      { participant: { displayName: "Home FC" }, eventParticipant: { role: "HOME" } },
-      { participant: { displayName: "Away FC" }, eventParticipant: { role: "AWAY" } },
+      {
+        participant: { displayName: "Home FC" },
+        eventParticipant: { role: "HOME" },
+      },
+      {
+        participant: { displayName: "Away FC" },
+        eventParticipant: { role: "AWAY" },
+      },
     ] as unknown as CustomerRawMatch["participants"],
     lineups: [],
     outcomes,
@@ -125,13 +139,18 @@ describe("mapMatch market consensus and risk flags", () => {
     // book-a's earlier DRAW/AWAY prices must never be borrowed to complete it.
     expect(dto.marketConsensus!.observedAt).toBe(T2.toISOString());
     expect(dto.marketConsensus!.completeBookmakerCount).toBe(0);
-    expect(dto.marketConsensus!.outcomes.find((o) => o.outcomeCode === "HOME")!.bestOdds).toBe(
-      "9",
-    );
+    expect(
+      dto.marketConsensus!.outcomes.find((o) => o.outcomeCode === "HOME")!
+        .bestOdds,
+    ).toBe("9");
   });
 
   it("is undefined, not a zeroed object, when nobody has quoted the market", () => {
-    const raw = match([oneXTwoOutcome("HOME", []), oneXTwoOutcome("DRAW", []), oneXTwoOutcome("AWAY", [])]);
+    const raw = match([
+      oneXTwoOutcome("HOME", []),
+      oneXTwoOutcome("DRAW", []),
+      oneXTwoOutcome("AWAY", []),
+    ]);
     const dto = mapMatch(raw);
     expect(dto.marketConsensus).toBeUndefined();
   });
@@ -157,7 +176,11 @@ describe("mapMatch market consensus and risk flags", () => {
   });
 
   it("always includes MODEL_EXPERIMENTAL, the model's own honest maturity claim", () => {
-    const raw = match([oneXTwoOutcome("HOME", []), oneXTwoOutcome("DRAW", []), oneXTwoOutcome("AWAY", [])]);
+    const raw = match([
+      oneXTwoOutcome("HOME", []),
+      oneXTwoOutcome("DRAW", []),
+      oneXTwoOutcome("AWAY", []),
+    ]);
     const dto = mapMatch(raw);
     expect(dto.riskFlags).toContain("MODEL_EXPERIMENTAL");
   });

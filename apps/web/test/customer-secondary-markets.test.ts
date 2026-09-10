@@ -84,12 +84,12 @@ function outcome(
     } as unknown as CustomerRawOutcome["quality"],
     score: null,
     odds: hasOdds
-      ? (overrides.bookmakerIds ?? [undefined]).map((bookmakerId) => ({
+      ? ((overrides.bookmakerIds ?? [undefined]).map((bookmakerId) => ({
           decimalOdds: overrides.currentOdds ?? "1.95",
           providerObservedAt: OBSERVED_AT,
           isSynthetic: false,
           bookmakerId,
-        })) as unknown as CustomerRawOutcome["odds"]
+        })) as unknown as CustomerRawOutcome["odds"])
       : [],
   };
 }

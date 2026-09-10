@@ -314,6 +314,23 @@ export default tseslint.config(
         },
       ],
       "velyq/no-cross-package-relative-import": "error",
+      /*
+       * A leading underscore is this codebase's existing convention for a
+       * binding that must exist -- a required parameter kept for call-site
+       * signature consistency, a destructured field discarded on purpose --
+       * but is never read. Without this, that convention has no effect and
+       * `no-unused-vars` fails on exactly the bindings it was meant to
+       * silence.
+       */
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
     },
   },
   {

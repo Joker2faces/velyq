@@ -34,9 +34,7 @@ export function ScenarioLab({
   locale: Locale;
 }) {
   const t = translator(locale);
-  const [hypotheticalOdds, setHypotheticalOdds] = useState(
-    currentOdds ?? "2",
-  );
+  const [hypotheticalOdds, setHypotheticalOdds] = useState(currentOdds ?? "2");
 
   if (modelProbability === null) return null;
 

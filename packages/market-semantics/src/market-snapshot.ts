@@ -204,8 +204,9 @@ export function buildMarketSnapshot(
         for (const quote of quotes) {
           const deviation = deviationRatio(quote.odds, med);
           if (deviation === null) continue;
-          const magnitude =
-            deviation.startsWith("-") ? deviation.slice(1) : deviation;
+          const magnitude = deviation.startsWith("-")
+            ? deviation.slice(1)
+            : deviation;
           const exceeds = compareDecimalStrings(
             magnitude as DecimalString,
             String(OUTLIER_DEVIATION_THRESHOLD) as DecimalString,

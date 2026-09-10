@@ -25,8 +25,15 @@ import {
   translator,
   type Locale,
 } from "@velyq/ui";
-import type { CustomerMatchDto, CustomerTodayAggregateDto } from "@velyq/contracts";
-import { compareDecimalStrings, subtractDecimalStrings, type DecimalString } from "@velyq/decimal";
+import type {
+  CustomerMatchDto,
+  CustomerTodayAggregateDto,
+} from "@velyq/contracts";
+import {
+  compareDecimalStrings,
+  subtractDecimalStrings,
+  type DecimalString,
+} from "@velyq/decimal";
 import { MatchCard } from "../components/match";
 import {
   ArrowLink,
@@ -312,7 +319,8 @@ export function TodayView({
                     </span>
                     {target !== null ? (
                       <span>
-                        {forecastLabels.interesting} {formatOdds(target, locale)}+
+                        {forecastLabels.interesting}{" "}
+                        {formatOdds(target, locale)}+
                       </span>
                     ) : null}
                     {gap !== null && gapPositive ? (
@@ -591,7 +599,8 @@ function todayNoEdgeBody(
   t: ReturnType<typeof translator>,
 ): string {
   if (summary.totalFixtures === 0) return t("recNoBetBody");
-  const priced = summary.totalFixtures - summary.byRecommendation.INSUFFICIENT_DATA;
+  const priced =
+    summary.totalFixtures - summary.byRecommendation.INSUFFICIENT_DATA;
   const counts = t("todayNoEdgeCounts", {
     total: String(summary.totalFixtures),
     priced: String(priced),

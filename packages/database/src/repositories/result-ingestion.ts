@@ -6,7 +6,11 @@ import {
   type SettlementCandidate,
 } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
-import { eligibleClv, selectClosingPrice, type PricePoint } from "@velyq/analytics";
+import {
+  eligibleClv,
+  selectClosingPrice,
+  type PricePoint,
+} from "@velyq/analytics";
 import type { NormalizedResult } from "@velyq/providers";
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import { eventIdentities, events } from "../schema/catalog.js";
@@ -180,9 +184,14 @@ async function closingPricesFor(
     kickoff: Date;
   }>[],
 ): Promise<
-  ReadonlyMap<string, Readonly<{ closingOdds: string | null; clv: string | null }>>
+  ReadonlyMap<
+    string,
+    Readonly<{ closingOdds: string | null; clv: string | null }>
+  >
 > {
-  const outcomeIds = [...new Set(candidates.map((c) => c.eventMarketOutcomeId))];
+  const outcomeIds = [
+    ...new Set(candidates.map((c) => c.eventMarketOutcomeId)),
+  ];
   if (outcomeIds.length === 0) return new Map();
   const rows = await transaction
     .select({

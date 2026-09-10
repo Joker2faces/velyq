@@ -29,7 +29,10 @@ export function summariseTodayAggregate(
   let lineupGated = 0;
   for (const match of matches) {
     byRecommendation[match.recommendation] += 1;
-    if (match.lineup === "MISSING" || match.recommendation === "WAIT_FOR_LINEUP") {
+    if (
+      match.lineup === "MISSING" ||
+      match.recommendation === "WAIT_FOR_LINEUP"
+    ) {
       lineupGated += 1;
     }
   }

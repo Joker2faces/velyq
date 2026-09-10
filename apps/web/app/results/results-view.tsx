@@ -86,9 +86,7 @@ export function ResultsView({
     }
   }
 
-  const settled = decisions.filter(
-    (item) => item.settlement !== "UNSETTLED",
-  );
+  const settled = decisions.filter((item) => item.settlement !== "UNSETTLED");
   const wins = settled.filter((item) => item.settlement === "WIN").length;
   const losses = settled.filter((item) => item.settlement === "LOSS").length;
   const clvPositive = settled.filter(

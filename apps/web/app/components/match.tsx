@@ -440,7 +440,9 @@ export function PriceValidity({
            */}
           {match.bookmakerCount ? (
             <span className="validity__figures-bookmakers">
-              {t("priceValidityBestOf", { count: String(match.bookmakerCount) })}
+              {t("priceValidityBestOf", {
+                count: String(match.bookmakerCount),
+              })}
             </span>
           ) : null}
         </div>
@@ -528,12 +530,10 @@ function settlementLabel(
   value: "WIN" | "LOSS" | "VOID" | "UNSETTLED",
   locale: Locale,
 ): string {
-  return (
-    {
-      en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
-      el: { WIN: "Νίκη", LOSS: "Ήττα", VOID: "Άκυρο", UNSETTLED: "Εκκρεμεί" },
-    }[locale][value]
-  );
+  return {
+    en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
+    el: { WIN: "Νίκη", LOSS: "Ήττα", VOID: "Άκυρο", UNSETTLED: "Εκκρεμεί" },
+  }[locale][value];
 }
 
 export function PostMatchAutopsy({
@@ -661,7 +661,9 @@ export function MarketMap({
               <div>
                 <dt>{t("marketMapBestPrice")}</dt>
                 <dd>
-                  {row.bestOdds === null ? "—" : formatOdds(row.bestOdds, locale)}
+                  {row.bestOdds === null
+                    ? "—"
+                    : formatOdds(row.bestOdds, locale)}
                 </dd>
               </div>
               <div>
@@ -737,9 +739,7 @@ export function EvidenceTimeline({
           : `${t("evidenceTimelineLineupObserved")}${
               event.team ? ` (${event.team})` : ""
             }: ${
-              event.lineupStatus
-                ? lineupLabel(event.lineupStatus, locale)
-                : "—"
+              event.lineupStatus ? lineupLabel(event.lineupStatus, locale) : "—"
             }`}
       </span>
     </li>

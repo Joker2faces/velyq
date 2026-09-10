@@ -26,7 +26,9 @@ export function buildEvidenceTimeline(
   raw: CustomerRawMatch,
   headlineOutcomeId: string | undefined,
 ): readonly CustomerEvidenceTimelineEventDto[] {
-  const headline = raw.outcomes.find((outcome) => outcome.outcome.id === headlineOutcomeId);
+  const headline = raw.outcomes.find(
+    (outcome) => outcome.outcome.id === headlineOutcomeId,
+  );
 
   const priceEvents = headline
     ? (() => {
@@ -82,8 +84,7 @@ export function buildEvidenceTimeline(
 
   const lineupEvents = (() => {
     const sortedLineups = [...raw.lineups].sort(
-      (a, b) =>
-        a.providerObservedAt.getTime() - b.providerObservedAt.getTime(),
+      (a, b) => a.providerObservedAt.getTime() - b.providerObservedAt.getTime(),
     );
     const materialEvents: {
       type: "LINEUP_OBSERVED";
@@ -118,10 +119,7 @@ export function buildEvidenceTimeline(
         sourceId: `lineup:${lineup.id}`,
         price: null,
         lineupStatus: lineup.status as
-          | "EXPECTED"
-          | "OFFICIAL"
-          | "CHANGED"
-          | "MISSING",
+          "EXPECTED" | "OFFICIAL" | "CHANGED" | "MISSING",
         team:
           side?.eventParticipant.role === "HOME" ||
           side?.eventParticipant.role === "AWAY"

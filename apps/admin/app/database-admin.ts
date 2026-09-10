@@ -210,9 +210,7 @@ export class DatabaseAdminQueries implements AdminQueries {
         sampleCount: values.length,
         brierScore: enough ? brierScore(samples) : null,
         logLoss: enough ? logLoss(samples) : null,
-        calibrationError: enough
-          ? expectedCalibrationError(samples, 2)
-          : null,
+        calibrationError: enough ? expectedCalibrationError(samples, 2) : null,
         calibrationBins: enough ? reliabilityBins(samples, 0) : [],
         /** How often the selected outcome actually happened, historically --
             the baseline a model with real skill must beat. */
@@ -223,7 +221,8 @@ export class DatabaseAdminQueries implements AdminQueries {
       };
     };
     const modelHealth = [...grouped].map(([modelVersion, values]) => {
-      const byCompetitionMap = groupedByCompetition.get(modelVersion) ?? new Map();
+      const byCompetitionMap =
+        groupedByCompetition.get(modelVersion) ?? new Map();
       return {
         modelVersion,
         ...metricsFor(values),
@@ -352,9 +351,7 @@ export class DatabaseAdminQueries implements AdminQueries {
           : ("INSUFFICIENT_SAMPLE" as const),
         brierScore: enough ? brierScore(samples) : null,
         logLoss: enough ? logLoss(samples) : null,
-        calibrationError: enough
-          ? expectedCalibrationError(samples, 3)
-          : null,
+        calibrationError: enough ? expectedCalibrationError(samples, 3) : null,
         baselineFrequencies: baseline
           ? {
               home: baseline[0] ?? 0,
@@ -395,7 +392,10 @@ export class DatabaseAdminQueries implements AdminQueries {
             )
             .innerJoin(
               outcomeDefinitions,
-              eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+              eq(
+                eventMarketOutcomes.outcomeDefinitionId,
+                outcomeDefinitions.id,
+              ),
             )
             .where(inArray(eventMarketOutcomes.eventMarketId, eventMarketIds))
         : [];
@@ -585,9 +585,11 @@ export class DatabaseAdminQueries implements AdminQueries {
         adapter.resolveAwayTeam(fixture),
       ]);
       const homeResolved =
-        home.status === "PROVIDER_IDENTITY_MATCH" || home.status === "VERIFIED_ALIAS_MATCH";
+        home.status === "PROVIDER_IDENTITY_MATCH" ||
+        home.status === "VERIFIED_ALIAS_MATCH";
       const awayResolved =
-        away.status === "PROVIDER_IDENTITY_MATCH" || away.status === "VERIFIED_ALIAS_MATCH";
+        away.status === "PROVIDER_IDENTITY_MATCH" ||
+        away.status === "VERIFIED_ALIAS_MATCH";
       if (!homeResolved) {
         teamMissing += 1;
         missingTeams.add(fixture.homeTeam.normalizedName);
@@ -650,11 +652,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       resultRequests: row.resultRequests,
       lastProviderCallAt: row.lastProviderCallAt?.toISOString() ?? null,
       policyState: row.policyState as
-        | "HEALTHY"
-        | "CONSERVE"
-        | "CRITICAL"
-        | "EXHAUSTED"
-        | "UNKNOWN",
+        "HEALTHY" | "CONSERVE" | "CRITICAL" | "EXHAUSTED" | "UNKNOWN",
     })) satisfies AdminQuotaSnapshotDto[];
   }
 

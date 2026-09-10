@@ -9,7 +9,10 @@ import type { HistoryCursor } from "@velyq/database";
  */
 export function encodeHistoryCursor(cursor: HistoryCursor): string {
   return Buffer.from(
-    JSON.stringify({ createdAt: cursor.createdAt.toISOString(), id: cursor.id }),
+    JSON.stringify({
+      createdAt: cursor.createdAt.toISOString(),
+      id: cursor.id,
+    }),
   ).toString("base64url");
 }
 

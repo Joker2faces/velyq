@@ -164,10 +164,7 @@ describe("buildMarketSnapshot", () => {
 
   it("computes an exact decimal median for an even number of quotes, never a float approximation", () => {
     const snapshot = buildMarketSnapshot(
-      [
-        obs("book-a", "HOME", "1.91"),
-        obs("book-b", "HOME", "1.95"),
-      ],
+      [obs("book-a", "HOME", "1.91"), obs("book-b", "HOME", "1.95")],
       ["HOME"],
     );
     expect(snapshot).not.toBeNull();

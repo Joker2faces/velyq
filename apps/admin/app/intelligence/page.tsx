@@ -122,11 +122,10 @@ export default async function IntelligencePage() {
             <p>
               A real-time dry run of today’s fixtures against the same
               competition/team resolution the forecast cycle uses. This
-              separates a genuine data coverage gap (competition or team not
-              in the model) from a fixture the model actually evaluated and
-              decided not to act on — that second case is a real business
-              outcome, visible above under primary blockers, not a coverage
-              problem.
+              separates a genuine data coverage gap (competition or team not in
+              the model) from a fixture the model actually evaluated and decided
+              not to act on — that second case is a real business outcome,
+              visible above under primary blockers, not a coverage problem.
             </p>
             <div className="ops-metrics">
               <div className="ops-metric">
@@ -156,8 +155,7 @@ export default async function IntelligencePage() {
             </div>
             {coverage.missingCompetitions.length ? (
               <p>
-                Missing competitions:{" "}
-                {coverage.missingCompetitions.join(", ")}
+                Missing competitions: {coverage.missingCompetitions.join(", ")}
               </p>
             ) : null}
             {coverage.missingTeams.length ? (
@@ -235,7 +233,9 @@ export default async function IntelligencePage() {
                                 {(bin.lowerBound * 100).toFixed(0)}–
                                 {(bin.upperBound * 100).toFixed(0)}%
                               </td>
-                              <td>{(bin.observedFrequency * 100).toFixed(1)}%</td>
+                              <td>
+                                {(bin.observedFrequency * 100).toFixed(1)}%
+                              </td>
                               <td>{bin.count}</td>
                             </tr>
                           ))}
@@ -293,10 +293,9 @@ export default async function IntelligencePage() {
             </div>
             <p>
               Every settled fixture the model priced, scored on the actual
-              three-way outcome — not only the events a decision was acted
-              on for. Kept EXPERIMENTAL below the sample-size floor
-              regardless of how the numbers look; this audit does not
-              promote model maturity.
+              three-way outcome — not only the events a decision was acted on
+              for. Kept EXPERIMENTAL below the sample-size floor regardless of
+              how the numbers look; this audit does not promote model maturity.
             </p>
             {data.multiClassCalibration.length ? (
               data.multiClassCalibration.map((model) => (
@@ -431,8 +430,8 @@ export default async function IntelligencePage() {
                   </table>
                   <p>
                     Lower is better for both columns. VELYQ is not promoted
-                    above EXPERIMENTAL on the strength of this comparison
-                    alone -- it is one input among several, not an automatic
+                    above EXPERIMENTAL on the strength of this comparison alone
+                    -- it is one input among several, not an automatic
                     certification.
                   </p>
                 </div>
