@@ -1,6 +1,6 @@
 import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, gte, lt, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, ne } from "drizzle-orm";
 import {
   assessDataQuality,
   DEFAULT_DATA_QUALITY_POLICY,
@@ -225,13 +225,36 @@ export async function createForecastCycleDbAdapter(
         ],
       })
       .returning({ id: eventMarkets.id });
+    /*
+     * The fallback select must use the SAME natural identity the insert
+     * conflicted on, not just the event.
+     *
+     * `where(eventId)` with `.limit(1)` was correct only while exactly one
+     * market could exist per event. With a totals market alongside 1X2 it
+     * returns an arbitrary one -- and then attaches 1X2 outcome definitions
+     * to it. The composite foreign key on
+     * `(event_market_id, market_definition_id)` would refuse that, so the
+     * symptom is a runtime failure on a normal path rather than corrupt
+     * data; either way the lookup is wrong, and it is wrong in a way that
+     * only appears once a second market is wired.
+     */
     const eventMarketId =
       eventMarket?.id ??
       (
         await database
           .select({ id: eventMarkets.id })
           .from(eventMarkets)
-          .where(eq(eventMarkets.eventId, eventId))
+          .where(
+            and(
+              eq(eventMarkets.eventId, eventId),
+              eq(
+                eventMarkets.marketDefinitionId,
+                referenceData.marketDefinitionId,
+              ),
+              isNull(eventMarkets.subjectParticipantId),
+              isNull(eventMarkets.lineValue),
+            ),
+          )
           .limit(1)
       )[0]!.id;
 

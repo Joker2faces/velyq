@@ -15,6 +15,7 @@
     "test": "vitest run --config tooling/vitest/vitest.config.mts",
     "test:integration": "node tooling/scripts/database-stage.mjs test",
     "test:db-integration": "vitest run --config tooling/vitest/vitest.db-integration.config.mts",
+    "bench:odds-writer": "node tooling/scripts/local-postgres-benchmark.mjs",
     "test:db:local": "node tooling/scripts/local-postgres.mjs",
     "test:db:upgrade": "node tooling/scripts/local-postgres-upgrade.mjs",
     "test:db:production-upgrade": "node tooling/scripts/local-postgres-production-upgrade.mjs",

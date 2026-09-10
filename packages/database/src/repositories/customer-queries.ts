@@ -242,7 +242,23 @@ export class DatabaseCustomerQueryAdapter {
         eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
       )
       .where(eq(eventMarkets.eventId, eventId))
-      .orderBy(asc(eventMarkets.id), asc(outcomeDefinitions.sortOrder))
+      /*
+       * Ordered by market identity, not by `eventMarkets.id`.
+       *
+       * That id is a random uuid, so ordering by it put the event's markets
+       * in an arbitrary sequence that changed between rows being written --
+       * invisible while one market existed per event, and a match page whose
+       * sections reorder unpredictably as soon as two do. Family then code
+       * then line is a stable, meaningful order, and the trailing id only
+       * breaks ties that identity cannot.
+       */
+      .orderBy(
+        asc(marketDefinitions.familyCode),
+        asc(marketDefinitions.code),
+        asc(eventMarkets.lineValue),
+        asc(eventMarkets.id),
+        asc(outcomeDefinitions.sortOrder),
+      )
       .limit(MAX_MATCH_MARKETS);
 
     const outcomes = await Promise.all(

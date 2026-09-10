@@ -46,9 +46,9 @@ import {
   loadCompetitionBridge,
 } from "./fixture-ingestion.js";
 import {
-  WIRED_ODDS_MARKET,
   ensureFootballReferenceData,
   ingestFootballOdds,
+  isWiredOddsMarket,
 } from "./odds-ingestion.js";
 import { ingestFootballResults } from "./result-ingestion.js";
 import { competitionIdentities, events } from "../schema/catalog.js";
@@ -964,8 +964,8 @@ export async function createProviderIngestionAdapter(
        * invocation: roughly twenty useful observations arrived wrapped in
        * seven hundred doomed ones.
        */
-      const wired = observations.filter(
-        (observation) => observation.canonicalMarket === WIRED_ODDS_MARKET,
+      const wired = observations.filter((observation) =>
+        isWiredOddsMarket(observation.canonicalMarket),
       );
       const notWired = observations.length - wired.length;
 

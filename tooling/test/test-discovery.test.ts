@@ -72,6 +72,13 @@ const VITEST_CONFIG_FILES = [
   "tooling/vitest/vitest.config.mts",
   "tooling/vitest/vitest.integration.config.mts",
   "tooling/vitest/vitest.db-integration.config.mts",
+  /*
+   * The benchmark suite counts as discovered work even though it is not part
+   * of the correctness gates: it has its own database because its bulk writes
+   * break the integration suite's exact-count assertions, and it must still
+   * be impossible to add a file there that nothing ever runs.
+   */
+  "tooling/vitest/vitest.db-benchmark.config.mts",
 ];
 
 function declaredIncludePatterns(): readonly string[] {

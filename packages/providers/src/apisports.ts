@@ -10,6 +10,14 @@ export type OddsObservationV3 = Readonly<{
   market: string;
   providerMarket: string;
   selection: string;
+  /**
+   * The market's line, where the market has one.
+   *
+   * Part of the market's identity, not a display detail: OVER 2.5 and
+   * OVER 3.5 are two different markets, and a key that omits the line makes
+   * them collide.
+   */
+  line?: string;
   decimalOdds: DecimalString;
   providerObservedAt: string;
   ingestedAt: string;
@@ -36,6 +44,9 @@ export function deduplicateObservations(
       item.bookmakerId,
       item.providerMarket,
       item.selection,
+      /* Without the line, OVER 2.5 and OVER 3.5 from one bookmaker at one
+         instant deduplicate into a single observation. */
+      item.line ?? "",
       item.providerObservedAt,
       item.decimalOdds,
     ].join("|");
@@ -428,6 +439,39 @@ const footballMarkets: Record<string, string> = {
   "5": "TOTAL_GOALS",
   "8": "BTTS",
 };
+
+/**
+ * Provider-neutral market codes whose selection carries its own line.
+ *
+ * API-Sports expresses a goals total not with the `handicap` field but inside
+ * the selection string -- `"Over 2.5"`, `"Under 3.5"`. Left as-is, the line
+ * survives only as incidental text inside a selection nobody parses, so two
+ * different lines from the same bookmaker at the same instant look like two
+ * quotes on one market. The line has to be lifted out into its own field
+ * before anything downstream can key on it.
+ */
+const LINE_BEARING_SELECTION_MARKETS: ReadonlySet<string> = new Set([
+  "TOTAL_GOALS",
+  "TEAM_TOTAL",
+  "TOTAL_POINTS",
+]);
+
+/**
+ * Splits `"Over 2.5"` into the selection `OVER` and the line `2.5`.
+ *
+ * Returns null when the value does not have that shape, so an unrecognised
+ * selection stays verbatim and is refused downstream as unmapped rather than
+ * being silently reinterpreted. The line is normalised to a plain decimal
+ * string -- never a float -- because it becomes part of a database key and of
+ * the observation's content hash.
+ */
+export function splitLineBearingSelection(
+  value: string,
+): Readonly<{ selection: string; line: string }> | null {
+  const match = /^\s*(over|under)\s+(\d+(?:\.\d+)?)\s*$/i.exec(value);
+  if (!match?.[1] || !match[2]) return null;
+  return { selection: match[1].toUpperCase(), line: match[2] };
+}
 const basketballMarkets: Record<string, string> = {
   "2": "MONEYLINE",
   "3": "SPREAD",
@@ -467,16 +511,28 @@ export function normalizeOdds(
         const value = valueRecord(valueRaw);
         const odds = String(value["odd"] ?? "");
         if (!/^\d+(?:\.\d+)?$/.test(odds) || Number(odds) <= 1) continue;
+        const rawSelection = String(value["value"] ?? "UNKNOWN");
+        const parsed = LINE_BEARING_SELECTION_MARKETS.has(canonical)
+          ? splitLineBearingSelection(rawSelection)
+          : null;
         output.push({
           sport,
           providerEventId: eventId,
           bookmaker: String(bookmaker["name"] ?? bookmaker["id"] ?? "UNKNOWN"),
           providerMarket,
           canonicalMarket: canonical,
-          selection: String(value["value"] ?? "UNKNOWN"),
-          ...(value["handicap"] === undefined
-            ? {}
-            : { line: String(value["handicap"]) }),
+          selection: parsed?.selection ?? rawSelection,
+          /*
+           * The selection's own line wins over `handicap` when both are
+           * present: for a goals total the provider puts the real line in the
+           * selection and leaves `handicap` empty, and preferring `handicap`
+           * would drop the only line that was actually quoted.
+           */
+          ...(parsed
+            ? { line: parsed.line }
+            : value["handicap"] === undefined
+              ? {}
+              : { line: String(value["handicap"]) }),
           decimalOdds: odds as DecimalString,
           providerObservedAt: String(item["update"] ?? ingestedAt),
           ingestedAt,

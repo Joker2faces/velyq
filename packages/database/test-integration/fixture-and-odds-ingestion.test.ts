@@ -23,7 +23,9 @@ import {
 import {
   eventMarketOutcomes,
   eventMarkets,
+  marketDefinitions,
   oddsObservations,
+  outcomeDefinitions,
 } from "../src/schema/market.js";
 
 /*
@@ -455,5 +457,300 @@ describe("fixture and odds ingestion, against a real database", () => {
       "2.30000000",
       "2.10000000",
     ]);
+  });
+
+  /* ------------------------------------------------- over/under 2.5 goals */
+
+  /*
+   * The second market is what turns several latent single-market assumptions
+   * into real defects, so these tests are as much about 1X2 continuing to
+   * work as about totals starting to.
+   */
+  describe("over/under 2.5", () => {
+    function totals(overrides: Partial<NormalizedOdds> = {}): NormalizedOdds {
+      return {
+        sport: "FOOTBALL",
+        providerEventId: "900001",
+        bookmaker: "Totals Book",
+        providerMarket: "5",
+        canonicalMarket: "TOTAL_GOALS",
+        selection: "OVER",
+        line: "2.5",
+        decimalOdds: "1.95" as NormalizedOdds["decimalOdds"],
+        providerObservedAt: "2026-09-19T12:00:00.000Z",
+        ingestedAt: "2026-09-19T12:00:01.000Z",
+        provider: "API_SPORTS",
+        sourceReference: "test",
+        ...overrides,
+      };
+    }
+
+    it("writes OVER and UNDER on their own event market, carrying the line", async () => {
+      await ingest(fixture());
+      const written = await ingestFootballOdds(
+        database,
+        [
+          totals(),
+          totals({
+            selection: "UNDER",
+            decimalOdds: "1.90" as NormalizedOdds["decimalOdds"],
+          }),
+        ],
+        referenceData,
+      );
+      expect(written.every((row) => row.ok)).toBe(true);
+
+      const rows = await database
+        .select({
+          code: marketDefinitions.code,
+          lineValue: eventMarkets.lineValue,
+          outcome: outcomeDefinitions.code,
+          odds: oddsObservations.decimalOdds,
+        })
+        .from(oddsObservations)
+        .innerJoin(
+          eventMarketOutcomes,
+          eq(eventMarketOutcomes.id, oddsObservations.eventMarketOutcomeId),
+        )
+        .innerJoin(
+          eventMarkets,
+          eq(eventMarkets.id, eventMarketOutcomes.eventMarketId),
+        )
+        .innerJoin(
+          marketDefinitions,
+          eq(marketDefinitions.id, eventMarkets.marketDefinitionId),
+        )
+        .innerJoin(
+          outcomeDefinitions,
+          eq(outcomeDefinitions.id, eventMarketOutcomes.outcomeDefinitionId),
+        )
+        .where(eq(marketDefinitions.code, "FOOTBALL_FULL_TIME_TOTAL"));
+
+      const bySelection = new Map(rows.map((row) => [row.outcome, row]));
+      expect([...bySelection.keys()].sort()).toEqual(["OVER", "UNDER"]);
+      /* The line reached the database, and as an exact numeric rather than
+         text hidden inside the selection string. */
+      expect(Number(bySelection.get("OVER")?.lineValue)).toBe(2.5);
+      expect(Number(bySelection.get("UNDER")?.lineValue)).toBe(2.5);
+      expect(bySelection.get("OVER")?.odds).toBe("1.95000000");
+    });
+
+    /*
+     * The event-market row must be distinct from the 1X2 one. A shared row
+     * would attach OVER/UNDER outcomes to the match-result market, and the
+     * settlement rules would then answer a totals decision with a 1X2 rule.
+     */
+    it("does not reuse the 1X2 event market", async () => {
+      await ingest(fixture());
+      await ingestFootballOdds(
+        database,
+        [
+          {
+            sport: "FOOTBALL",
+            providerEventId: "900001",
+            bookmaker: "Totals Book",
+            providerMarket: "1",
+            canonicalMarket: "MATCH_WINNER_1X2",
+            selection: "Home",
+            decimalOdds: "2.10" as NormalizedOdds["decimalOdds"],
+            providerObservedAt: "2026-09-19T12:00:00.000Z",
+            ingestedAt: "2026-09-19T12:00:01.000Z",
+            provider: "API_SPORTS",
+            sourceReference: "test",
+          },
+          totals(),
+        ],
+        referenceData,
+      );
+
+      const markets = await database
+        .select({
+          id: eventMarkets.id,
+          code: marketDefinitions.code,
+          lineValue: eventMarkets.lineValue,
+        })
+        .from(eventMarkets)
+        .innerJoin(
+          marketDefinitions,
+          eq(marketDefinitions.id, eventMarkets.marketDefinitionId),
+        )
+        .where(
+          eq(
+            eventMarkets.eventId,
+            deterministicEventId(PROVIDER_CODE, "900001"),
+          ),
+        );
+
+      const codes = markets.map((row) => row.code).sort();
+      expect(codes).toContain("FOOTBALL_FULL_TIME_1X2");
+      expect(codes).toContain("FOOTBALL_FULL_TIME_TOTAL");
+      /* Two distinct rows, and only the totals one carries a line. */
+      expect(new Set(markets.map((row) => row.id)).size).toBe(markets.length);
+      const total = markets.find(
+        (row) => row.code === "FOOTBALL_FULL_TIME_TOTAL",
+      );
+      const matchResult = markets.find(
+        (row) => row.code === "FOOTBALL_FULL_TIME_1X2",
+      );
+      expect(Number(total?.lineValue)).toBe(2.5);
+      expect(matchResult?.lineValue).toBeNull();
+    });
+
+    /*
+     * Idempotency has to survive the line becoming part of the identity: the
+     * fallback select after a conflicting insert used `isNull(lineValue)`,
+     * which matches nothing once a line is present, so a re-ingest would
+     * have failed on a path that is supposed to be a no-op.
+     */
+    it("is idempotent for a repeated totals payload", async () => {
+      await ingest(fixture());
+      /* Its own observation instant: these tests share one database, so
+         reusing an instant an earlier test already wrote would make the
+         first ingest a genuine duplicate and test nothing. */
+      const payload = totals({
+        providerObservedAt: "2026-09-19T12:10:00.000Z",
+      });
+      const first = await ingestFootballOdds(
+        database,
+        [payload],
+        referenceData,
+      );
+      expect(first[0]).toMatchObject({ ok: true, duplicate: false });
+      const again = await ingestFootballOdds(
+        database,
+        [payload],
+        referenceData,
+      );
+      expect(again[0]).toMatchObject({ ok: true, duplicate: true });
+    });
+
+    /*
+     * A line we cannot settle is refused with its own reason. Storing it
+     * would create decisions that never settle, because the only executable
+     * totals settlement rule is bound to 2.5.
+     */
+    it("refuses a line it cannot settle, distinctly from an unsupported market", async () => {
+      await ingest(fixture());
+      const rejected = await ingestFootballOdds(
+        database,
+        [
+          totals({ line: "3.5" }),
+          totals({
+            canonicalMarket: "BTTS",
+            selection: "Yes",
+            line: undefined,
+          }),
+        ],
+        referenceData,
+      );
+      expect(rejected[0]).toMatchObject({
+        ok: false,
+        reason: "LINE_NOT_WIRED",
+      });
+      expect(rejected[1]).toMatchObject({
+        ok: false,
+        reason: "MARKET_NOT_WIRED",
+      });
+    });
+
+    /* "2.50" and "2.5" are the same line; a string comparison would not say so. */
+    it("accepts an equivalently written line", async () => {
+      await ingest(fixture());
+      const written = await ingestFootballOdds(
+        database,
+        [totals({ line: "2.50" })],
+        referenceData,
+      );
+      expect(written[0]).toMatchObject({ ok: true });
+    });
+
+    /*
+     * Two lines quoted by one bookmaker at one instant are two observations.
+     * Before the line entered the content hash they hashed identically and
+     * the second was discarded as a duplicate -- so this also guards the
+     * hash, not just the acceptance rule.
+     */
+    it("keeps a lineless market's quote separate from a totals quote", async () => {
+      await ingest(fixture());
+      const instant = "2026-09-19T12:20:00.000Z";
+      const written = await ingestFootballOdds(
+        database,
+        [
+          totals({ providerObservedAt: instant }),
+          totals({
+            providerObservedAt: instant,
+            selection: "UNDER",
+            decimalOdds: "1.95" as NormalizedOdds["decimalOdds"],
+          }),
+        ],
+        referenceData,
+      );
+      /* Same bookmaker, same instant, same price, different selection: two
+         genuine observations, neither a duplicate of the other. */
+      expect(written[0]).toMatchObject({ ok: true, duplicate: false });
+      expect(written[1]).toMatchObject({ ok: true, duplicate: false });
+    });
+
+    /*
+     * The forecast cycle ensures a 1X2 market for every fixture, including
+     * unpriced ones, and its fallback lookup was keyed on the event alone.
+     * With a totals market present that returned an arbitrary market -- so
+     * this exercises that path with the second market already in place.
+     */
+    it("still resolves the 1X2 market when a totals market exists first", async () => {
+      await ingest(fixture());
+      await ingestFootballOdds(database, [totals()], referenceData);
+
+      const oneXTwo = await ingestFootballOdds(
+        database,
+        [
+          {
+            sport: "FOOTBALL",
+            providerEventId: "900001",
+            bookmaker: "Totals Book",
+            providerMarket: "1",
+            canonicalMarket: "MATCH_WINNER_1X2",
+            selection: "Draw",
+            decimalOdds: "3.40" as NormalizedOdds["decimalOdds"],
+            providerObservedAt: "2026-09-19T13:00:00.000Z",
+            ingestedAt: "2026-09-19T13:00:01.000Z",
+            provider: "API_SPORTS",
+            sourceReference: "test",
+          },
+        ],
+        referenceData,
+      );
+      expect(oneXTwo[0]).toMatchObject({ ok: true, duplicate: false });
+
+      const stored = await database
+        .select({
+          code: marketDefinitions.code,
+          outcome: outcomeDefinitions.code,
+        })
+        .from(oddsObservations)
+        .innerJoin(
+          eventMarketOutcomes,
+          eq(eventMarketOutcomes.id, oddsObservations.eventMarketOutcomeId),
+        )
+        .innerJoin(
+          eventMarkets,
+          eq(eventMarkets.id, eventMarketOutcomes.eventMarketId),
+        )
+        .innerJoin(
+          marketDefinitions,
+          eq(marketDefinitions.id, eventMarkets.marketDefinitionId),
+        )
+        .innerJoin(
+          outcomeDefinitions,
+          eq(outcomeDefinitions.id, eventMarketOutcomes.outcomeDefinitionId),
+        )
+        .where(eq(outcomeDefinitions.code, "DRAW"));
+
+      /* DRAW landed on the match-result market, not on the totals market. */
+      expect(stored.length).toBeGreaterThan(0);
+      for (const row of stored) {
+        expect(row.code).toBe("FOOTBALL_FULL_TIME_1X2");
+      }
+    });
   });
 });

@@ -213,18 +213,32 @@ function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
   };
 }
 
-/** Prefer the canonical match-result market and the outcome with persisted evidence. */
+/**
+ * The match-result outcome this card is about, or none.
+ *
+ * Restricted to the match-result market, and deliberately without the two
+ * fallbacks it used to carry. "Any outcome with evidence, else the first
+ * outcome" was right only while a single market was wired: with Over/Under
+ * 2.5 now written, those fallbacks would hand back a totals outcome and the
+ * surface would render it inside a card whose model probability, fair odds
+ * and price validity all read as a home/draw/away claim. A totals forecast
+ * presented as a match-result forecast is worse than no forecast, so when
+ * there is no match-result outcome this returns undefined and the caller
+ * renders its unavailable state -- which it already does, because every read
+ * of this value is optional.
+ *
+ * Deterministic within the match-result market too: outcomes arrive ordered
+ * by market identity then outcome sort order, and `find` keeps the first, so
+ * the same fixture resolves to the same outcome on every read.
+ */
 export function selectOutcome(raw: CustomerRawMatch) {
+  const matchResult = raw.outcomes.filter(({ marketDefinition }) =>
+    MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code),
+  );
   return (
-    raw.outcomes.find(
-      ({ marketDefinition, prediction, score }) =>
-        MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code) &&
-        (prediction !== null || score !== null),
-    ) ??
-    raw.outcomes.find(
+    matchResult.find(
       ({ prediction, score }) => prediction !== null || score !== null,
-    ) ??
-    raw.outcomes[0]
+    ) ?? matchResult[0]
   );
 }
 
