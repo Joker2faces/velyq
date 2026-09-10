@@ -85,7 +85,8 @@ Known-good deployments:
 
 | Deployment | Note |
 | --- | --- |
-| `dpl_CTjZTQuridUZMtytpgxP7gAJFW3V` | **Current.** Customer redesign increment (code `4d04fbf`) — match cards, Today restructure, EDGE segmentation, RADAR evidence depth |
+| `dpl_6jgtVJEcQkvkmZiGZYMGauaNejJe` | **Current.** Match Intelligence price-validity + decision-reasoning increment (code `568496c`). Deployed 2026-09-10 07:51 EEST by `vercel redeploy dpl_5CsYcBdXwykrEStnBBSke9Q5LSmW --target production`. Verified after deploy: health `LIVE`/`DATABASE`, all 10 routes 200 with `/api/v1/today` 401, seven security headers present, `/el` 4367 Greek words and cookie-locale `/today` 489, `/el/today` 404 as designed, zero synthetic markers on `/today`, and `match-card` / `validity__scale` / `reasoning__list` present in the served stylesheet |
+| `dpl_CTjZTQuridUZMtytpgxP7gAJFW3V` | Customer redesign increment (code `4d04fbf`) — match cards, Today restructure, EDGE segmentation, RADAR evidence depth. **Rollback target.** |
 | `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` | Release of the honesty/quota fixes (code `9e28cf9`) |
 | `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy` | Predecessor; predates every fix in that release |
 
