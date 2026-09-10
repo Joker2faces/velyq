@@ -27,7 +27,10 @@ export default async function IntelligencePage() {
       />
     );
   try {
-    const data = await runtime.queries.getIntelligenceOverview();
+    const [data, quota] = await Promise.all([
+      runtime.queries.getIntelligenceOverview(),
+      runtime.queries.getQuotaSnapshot(),
+    ]);
     return (
       <AdminShell active="/intelligence">
         <div className="ops-page">
@@ -41,6 +44,42 @@ export default async function IntelligencePage() {
               </p>
             </div>
           </div>
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Provider quota</h2>
+            </div>
+            {quota.length === 0 ? (
+              <div className="state">
+                <h3>No quota state recorded yet</h3>
+                <p>Nothing has called the provider today.</p>
+              </div>
+            ) : (
+              <div className="ops-metrics">
+                {quota.map((row) => (
+                  <div
+                    className="ops-metric"
+                    key={`${row.providerCode}:${row.quotaDay}`}
+                  >
+                    <span className="ops-metric__label">
+                      {row.providerCode} · {row.quotaDay}
+                    </span>
+                    <span className="ops-metric__value">
+                      {row.policyState}
+                      {row.remaining !== null && row.dailyLimit !== null
+                        ? ` · ${row.remaining}/${row.dailyLimit} remaining`
+                        : ""}
+                    </span>
+                    <span className="ops-metric__note">
+                      {row.requestsUsed} calls used (discovery{" "}
+                      {row.discoveryRequests}, odds {row.oddsRequests}, lineup{" "}
+                      {row.lineupRequests}, result {row.resultRequests}) · last
+                      call {row.lastProviderCallAt ?? "never"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
           <section className="panel">
             <div className="panel-heading">
               <h2>Today’s forecast funnel</h2>

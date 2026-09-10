@@ -9,6 +9,7 @@ const principal = {
 };
 
 const queries: AdminQueries = {
+  getQuotaSnapshot: async () => [],
   listProviderRuns: async () => ({ items: [], nextCursor: null }),
   getProviderRun: async () => ({
     id: "00000000-0000-4000-8000-000000000004",

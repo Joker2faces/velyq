@@ -11,7 +11,11 @@ import {
   scoreDefinitionVersions,
   scoreResults,
 } from "@velyq/database/schema/intelligence";
-import { providers, providerSyncRuns } from "@velyq/database/schema/operations";
+import {
+  providers,
+  providerQuotaState as quotaStateTable,
+  providerSyncRuns,
+} from "@velyq/database/schema/operations";
 import type { ProviderRun } from "@velyq/contracts";
 import type {
   AdminPage,
@@ -19,6 +23,7 @@ import type {
   AdminQualityDto,
   AdminQueries,
   AdminIntelligenceOverviewDto,
+  AdminQuotaSnapshotDto,
   AdminScoreDto,
 } from "./admin-api";
 import { createSupabaseAdminAuthenticator } from "./admin-auth";
@@ -183,6 +188,53 @@ export class DatabaseAdminQueries implements AdminQueries {
       lastSettlementRun: timestamp("last_settlement_run"),
       modelHealth,
     };
+  }
+
+  async getQuotaSnapshot() {
+    /*
+     * One row per provider per day already carries the state the scheduler
+     * itself computed at its last write -- no re-derivation needed, and no
+     * new table. This is exactly the "why is Today empty" question an
+     * operator asks first, and until now it was answerable only by reading
+     * a Supabase Cron response body by hand.
+     */
+    const rows = await this.database
+      .select({
+        providerCode: providers.code,
+        quotaDay: quotaStateTable.quotaDay,
+        dailyLimit: quotaStateTable.dailyLimit,
+        remaining: quotaStateTable.remaining,
+        requestsUsed: quotaStateTable.requestsUsed,
+        discoveryRequests: quotaStateTable.discoveryRequests,
+        oddsRequests: quotaStateTable.oddsRequests,
+        lineupRequests: quotaStateTable.lineupRequests,
+        resultRequests: quotaStateTable.resultRequests,
+        lastProviderCallAt: quotaStateTable.lastProviderCallAt,
+        policyState: quotaStateTable.policyState,
+      })
+      .from(quotaStateTable)
+      .innerJoin(providers, eq(quotaStateTable.providerId, providers.id))
+      .orderBy(desc(quotaStateTable.quotaDay))
+      /* Today's row per provider, plus a little history for trend context. */
+      .limit(5);
+    return rows.map((row) => ({
+      providerCode: row.providerCode,
+      quotaDay: row.quotaDay,
+      dailyLimit: row.dailyLimit,
+      remaining: row.remaining,
+      requestsUsed: row.requestsUsed,
+      discoveryRequests: row.discoveryRequests,
+      oddsRequests: row.oddsRequests,
+      lineupRequests: row.lineupRequests,
+      resultRequests: row.resultRequests,
+      lastProviderCallAt: row.lastProviderCallAt?.toISOString() ?? null,
+      policyState: row.policyState as
+        | "HEALTHY"
+        | "CONSERVE"
+        | "CRITICAL"
+        | "EXHAUSTED"
+        | "UNKNOWN",
+    })) satisfies AdminQuotaSnapshotDto[];
   }
 
   async getProviderRun(runId: string) {

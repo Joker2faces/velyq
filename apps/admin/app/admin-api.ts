@@ -123,7 +123,28 @@ export type AdminIntelligenceOverviewDto = Readonly<{
   }>[];
 }>;
 
+/**
+ * The scheduler's own quota state, per provider per day -- already computed
+ * and persisted at every provider-ingestion write, never re-derived here.
+ * This is what answers "why is Today empty" without reading a raw Supabase
+ * Cron response body by hand.
+ */
+export type AdminQuotaSnapshotDto = Readonly<{
+  providerCode: string;
+  quotaDay: string;
+  dailyLimit: number | null;
+  remaining: number | null;
+  requestsUsed: number;
+  discoveryRequests: number;
+  oddsRequests: number;
+  lineupRequests: number;
+  resultRequests: number;
+  lastProviderCallAt: string | null;
+  policyState: "HEALTHY" | "CONSERVE" | "CRITICAL" | "EXHAUSTED" | "UNKNOWN";
+}>;
+
 export type AdminQueries = Readonly<{
+  getQuotaSnapshot(): Promise<readonly AdminQuotaSnapshotDto[]>;
   listProviderRuns(
     input: Readonly<{ limit: number; cursor: string | null }>,
   ): Promise<AdminPage<ProviderRun>>;
@@ -384,6 +405,9 @@ export function createAdminApi(dependencies: AdminDependencies) {
 }
 
 const unavailableQueries: AdminQueries = Object.freeze({
+  async getQuotaSnapshot() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
   async listProviderRuns() {
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
