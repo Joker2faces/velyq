@@ -173,6 +173,9 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     movementPercent: movementSummary.movementPercent,
     movementState: movementSummary.state,
     observationTimes: movementSummary.observationTimes,
+    ...(movementSummary.bookmakerCount > 0
+      ? { bookmakerCount: movementSummary.bookmakerCount }
+      : {}),
     probabilityEdge: decimal(prediction?.prediction.edge),
     expectedValue: decimal(prediction?.prediction.expectedValue),
     priceValidity: {

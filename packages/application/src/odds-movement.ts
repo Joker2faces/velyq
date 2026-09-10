@@ -35,6 +35,17 @@ export type OddsMovementState = "MOVED" | "UNCHANGED" | "INSUFFICIENT_HISTORY";
 export type OddsMovementObservation = Readonly<{
   decimalOdds: string;
   providerObservedAt: Date;
+  /**
+   * Which bookmaker quoted this price, where known.
+   *
+   * Optional and only ever used to COUNT distinct contributors to the current
+   * price, never to identify one in a customer surface -- VELYQ names no
+   * bookmaker anywhere, the same restraint already applied to money-flow and
+   * stake-volume claims. A caller with no bookmaker identity (a synthetic
+   * fixture, an older payload) simply gets a bookmaker count of zero rather
+   * than a wrong one.
+   */
+  bookmakerId?: string;
 }>;
 
 export type OddsMovementSummary = Readonly<{
@@ -47,6 +58,15 @@ export type OddsMovementSummary = Readonly<{
   state: OddsMovementState;
   /** Distinct observation instants, so a caller can explain the state. */
   observationTimes: number;
+  /**
+   * How many distinct bookmakers contributed to `currentOdds`.
+   *
+   * `currentOdds` is already the best price across every bookmaker observed
+   * at the latest instant (see `bestAt` below) -- this is what makes that
+   * number legible as a genuine "best of N" figure rather than an
+   * unexplained single price. Zero when no bookmaker identity was supplied.
+   */
+  bookmakerCount: number;
 }>;
 
 const EMPTY: OddsMovementSummary = {
@@ -55,6 +75,7 @@ const EMPTY: OddsMovementSummary = {
   movementPercent: null,
   state: "INSUFFICIENT_HISTORY",
   observationTimes: 0,
+  bookmakerCount: 0,
 };
 
 /**
@@ -110,7 +131,19 @@ export function summariseOddsMovement(
   const instants = [...byInstant.keys()].sort((a, b) => a - b);
   if (instants.length === 0) return EMPTY;
 
-  const currentOdds = bestAt(byInstant.get(instants.at(-1)!) ?? []);
+  const currentInstantObservations = byInstant.get(instants.at(-1)!) ?? [];
+  const currentOdds = bestAt(currentInstantObservations);
+  /*
+   * Distinct bookmakers, not row count: the same bookmaker occasionally
+   * appears twice at one instant (a re-quote the provider deduplicated
+   * imperfectly), and counting rows would overstate how many independent
+   * prices the "best of N" figure actually rests on.
+   */
+  const bookmakerCount = new Set(
+    currentInstantObservations
+      .map((observation) => observation.bookmakerId)
+      .filter((id): id is string => id !== undefined),
+  ).size;
 
   if (instants.length < 2) {
     /*
@@ -124,6 +157,7 @@ export function summariseOddsMovement(
       movementPercent: null,
       state: "INSUFFICIENT_HISTORY",
       observationTimes: 1,
+      bookmakerCount,
     };
   }
 
@@ -135,6 +169,7 @@ export function summariseOddsMovement(
       movementPercent: null,
       state: "INSUFFICIENT_HISTORY",
       observationTimes: instants.length,
+      bookmakerCount,
     };
   }
 
@@ -152,6 +187,7 @@ export function summariseOddsMovement(
       movementPercent: null,
       state: "INSUFFICIENT_HISTORY",
       observationTimes: instants.length,
+      bookmakerCount,
     };
   }
 
@@ -163,6 +199,7 @@ export function summariseOddsMovement(
       movementPercent: null,
       state: "INSUFFICIENT_HISTORY",
       observationTimes: instants.length,
+      bookmakerCount,
     };
   }
 
@@ -173,5 +210,6 @@ export function summariseOddsMovement(
     /* Exact-zero only; a real move of any size is a move. */
     state: Number(movement.value) === 0 ? "UNCHANGED" : "MOVED",
     observationTimes: instants.length,
+    bookmakerCount,
   };
 }

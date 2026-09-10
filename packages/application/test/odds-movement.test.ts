@@ -165,4 +165,59 @@ describe("summariseOddsMovement", () => {
     expect(summary.openingOdds).toBeNull();
     expect(summary.state).toBe("INSUFFICIENT_HISTORY");
   });
+
+  describe("bookmakerCount", () => {
+    it("counts distinct bookmakers behind the current price, not rows", () => {
+      const summary = summariseOddsMovement([
+        {
+          decimalOdds: "1.90000000",
+          providerObservedAt: new Date(T1),
+          bookmakerId: "book-a",
+        },
+        {
+          decimalOdds: "1.90000000",
+          providerObservedAt: new Date(T1),
+          bookmakerId: "book-a",
+        },
+        {
+          decimalOdds: "1.85000000",
+          providerObservedAt: new Date(T1),
+          bookmakerId: "book-b",
+        },
+      ]);
+
+      expect(summary.bookmakerCount).toBe(2);
+    });
+
+    it("only counts bookmakers observed at the latest instant", () => {
+      const summary = summariseOddsMovement([
+        {
+          decimalOdds: "2.10000000",
+          providerObservedAt: new Date(T1),
+          bookmakerId: "book-a",
+        },
+        {
+          decimalOdds: "2.10000000",
+          providerObservedAt: new Date(T1),
+          bookmakerId: "book-b",
+        },
+        {
+          decimalOdds: "2.00000000",
+          providerObservedAt: new Date(T2),
+          bookmakerId: "book-a",
+        },
+      ]);
+
+      expect(summary.bookmakerCount).toBe(1);
+    });
+
+    it("is zero when no bookmaker identity was supplied", () => {
+      const summary = summariseOddsMovement(at(T1, "1.90000000"));
+      expect(summary.bookmakerCount).toBe(0);
+    });
+
+    it("is zero for an outcome with no observations", () => {
+      expect(summariseOddsMovement([]).bookmakerCount).toBe(0);
+    });
+  });
 });

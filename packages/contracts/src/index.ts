@@ -703,6 +703,16 @@ export type CustomerMatchDto = Readonly<{
    */
   observationTimes: number;
   /**
+   * Distinct bookmakers behind `currentOdds` at the latest instant.
+   *
+   * `currentOdds` was already the best price across every bookmaker observed
+   * -- this is what turns that number into a legible "best of N" figure
+   * rather than an unexplained single price. Never names which bookmakers;
+   * VELYQ names no bookmaker on any customer surface. Optional and absent
+   * (not zero) when no bookmaker identity was available to count.
+   */
+  bookmakerCount?: number;
+  /**
    * Authoritative price-validity output, computed server-side.
    *
    * Carried on the DTO so no surface has to derive a watch threshold of its
@@ -963,6 +973,11 @@ function validateCustomerMatchInput(input: unknown): string[] {
   const observationTimes = input["observationTimes"];
   if (!Number.isInteger(observationTimes) || (observationTimes as number) < 0)
     errors.push("observationTimes is invalid");
+  if (input["bookmakerCount"] !== undefined) {
+    const bookmakerCount = input["bookmakerCount"];
+    if (!Number.isInteger(bookmakerCount) || (bookmakerCount as number) < 0)
+      errors.push("bookmakerCount is invalid");
+  }
   /*
    * The invariant the movement fix exists to protect, expressed at the
    * boundary: a surface must never be handed a movement figure alongside a

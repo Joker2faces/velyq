@@ -455,6 +455,7 @@ export const messages = {
   priceValidityLead:
     "Whether the price on offer still clears the policy, and how much room is left before it does not.",
   priceValidityCurrent: "Current price",
+  priceValidityBestOf: "Best of {count} books",
   priceValidityFair: "Fair price",
   priceValidityBreakEven: "Break-even",
   priceValidityMinimum: "Minimum acceptable",
@@ -1221,6 +1222,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   priceValidityLead:
     "Αν η προσφερόμενη απόδοση πληροί ακόμη την πολιτική, και πόσο περιθώριο απομένει.",
   priceValidityCurrent: "Τρέχουσα απόδοση",
+  priceValidityBestOf: "Καλύτερη από {count} στοιχηματικές",
   priceValidityFair: "Δίκαιη απόδοση",
   priceValidityBreakEven: "Νεκρό σημείο",
   priceValidityMinimum: "Ελάχιστη αποδεκτή",

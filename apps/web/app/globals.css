@@ -2317,6 +2317,12 @@ a.row:hover {
   font-weight: 600;
 }
 
+.validity__figures-bookmakers {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--secondary);
+}
+
 .validity__note {
   margin: 0;
   font-size: 0.875rem;

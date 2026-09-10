@@ -373,6 +373,16 @@ export function PriceValidity({
               ? "—"
               : formatOdds(match.currentOdds, locale)}
           </dd>
+          {/*
+           * "Best of N": currentOdds is already the best price across every
+           * bookmaker observed at the latest instant (summariseOddsMovement),
+           * this just makes that fact legible. Never names which bookmakers.
+           */}
+          {match.bookmakerCount ? (
+            <span className="validity__figures-bookmakers">
+              {t("priceValidityBestOf", { count: String(match.bookmakerCount) })}
+            </span>
+          ) : null}
         </div>
       </dl>
     </div>

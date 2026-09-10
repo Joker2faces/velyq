@@ -28,6 +28,7 @@ function outcome(
     edge: string | null;
     expectedValue: string | null;
     hasOdds: boolean;
+    bookmakerIds: string[];
   }> = {},
 ): CustomerRawOutcome {
   const hasOdds = overrides.hasOdds ?? true;
@@ -75,13 +76,12 @@ function outcome(
     } as unknown as CustomerRawOutcome["quality"],
     score: null,
     odds: hasOdds
-      ? ([
-          {
-            decimalOdds: overrides.currentOdds ?? "1.95",
-            providerObservedAt: OBSERVED_AT,
-            isSynthetic: false,
-          },
-        ] as unknown as CustomerRawOutcome["odds"])
+      ? (overrides.bookmakerIds ?? [undefined]).map((bookmakerId) => ({
+          decimalOdds: overrides.currentOdds ?? "1.95",
+          providerObservedAt: OBSERVED_AT,
+          isSynthetic: false,
+          bookmakerId,
+        })) as unknown as CustomerRawOutcome["odds"]
       : [],
   };
 }
@@ -217,5 +217,25 @@ describe("secondaryMarketsFor", () => {
     expect(dto.currentOdds).toBe("2.1");
     expect(dto.secondaryMarkets).toHaveLength(1);
     expect(dto.secondaryMarkets![0]!.selection).toBe("OVER");
+  });
+
+  it("carries the headline's bookmaker count onto the DTO", () => {
+    const raw = match([
+      outcome({
+        marketCode: "FOOTBALL_FULL_TIME_1X2",
+        outcomeCode: "HOME",
+        bookmakerIds: ["book-a", "book-b", "book-c"],
+      }),
+    ]);
+    const dto = mapMatch(raw);
+    expect(dto.bookmakerCount).toBe(3);
+  });
+
+  it("omits bookmakerCount rather than reporting zero when identity is unknown", () => {
+    const raw = match([
+      outcome({ marketCode: "FOOTBALL_FULL_TIME_1X2", outcomeCode: "HOME" }),
+    ]);
+    const dto = mapMatch(raw);
+    expect(dto.bookmakerCount).toBeUndefined();
   });
 });
