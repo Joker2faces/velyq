@@ -667,6 +667,15 @@ export type CustomerMatchDto = Readonly<{
    */
   movementState: "MOVED" | "UNCHANGED" | "INSUFFICIENT_HISTORY";
   /**
+   * How many DISTINCT observation instants back the movement figure.
+   *
+   * Evidence depth, not row count: several bookmakers quoting at the same
+   * moment is one instant, and a movement computed from two instants is a
+   * far weaker claim than one computed from forty. RADAR shows it so a
+   * customer can weigh the figure instead of taking it on trust.
+   */
+  observationTimes: number;
+  /**
    * Authoritative price-validity output, computed server-side.
    *
    * Carried on the DTO so no surface has to derive a watch threshold of its
@@ -878,6 +887,21 @@ function validateCustomerMatchInput(input: unknown): string[] {
     )
   )
     errors.push("movementState is invalid");
+  const observationTimes = input["observationTimes"];
+  if (!Number.isInteger(observationTimes) || (observationTimes as number) < 0)
+    errors.push("observationTimes is invalid");
+  /*
+   * The invariant the movement fix exists to protect, expressed at the
+   * boundary: a surface must never be handed a movement figure alongside a
+   * claim that there is not enough history to compute one.
+   */
+  if (
+    input["movementState"] === "INSUFFICIENT_HISTORY" &&
+    (input["movementPercent"] !== null || input["openingOdds"] !== null)
+  )
+    errors.push(
+      "movementState INSUFFICIENT_HISTORY requires a null movementPercent and openingOdds",
+    );
   const priceValidity = input["priceValidity"];
   if (typeof priceValidity !== "object" || priceValidity === null) {
     errors.push("priceValidity is invalid");

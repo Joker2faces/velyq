@@ -1,0 +1,269 @@
+# VELYQ — Production Runbook
+
+Operational reference for deploying, verifying and recovering the customer
+application. Written so the next engineer can act without this chat history.
+
+---
+
+## 1. Identity of the production system
+
+| Item | Value |
+| --- | --- |
+| Customer URL | <https://project-cf8ty.vercel.app> |
+| Vercel project | `velyq` |
+| Project ID | `prj_XeLstdKUMp5q3erxVFyO3Oh8xSvs` |
+| Team / org ID | `team_vQN1raOYespGG8CZES6KEEtq` |
+| Root directory | `apps/web` |
+| Framework | Next.js, Node 24.x |
+| Admin project | `velyq-admin-staging` |
+| Repository | <https://github.com/Joker2faces/velyq> |
+| Release branch | `codex/velyq-final-product-v1` |
+
+**Verify project identity before every production deployment.** Never create a
+new Vercel project. `npx vercel project ls` must show `velyq` mapped to
+`project-cf8ty.vercel.app`.
+
+The project **is connected to GitHub**. A push to a branch produces a *preview*
+deployment carrying a git-branch alias
+(`velyq-git-<branch>-joker2faces-projects.vercel.app`). Production is deployed
+only from the project's production branch or explicitly via the CLI.
+
+---
+
+## 2. Deploying
+
+### The route that works
+
+CLI *uploads* have been observed to stall indefinitely at status `UNKNOWN` with
+no build logs — both with and without `--archive=tgz`. Every deployment that
+has succeeded recently was built from git source. The reliable route is
+therefore to push, let the git integration build a preview, then **rebuild that
+deployment into production**:
+
+```bash
+git push origin codex/velyq-final-product-v1
+# wait for the preview to reach Ready (about 1 minute), find its id:
+npx vercel ls velyq
+npx vercel redeploy <preview-deployment-id> --target production --no-wait
+```
+
+`redeploy` rebuilds from the same source **with the Production environment**,
+which is the critical difference.
+
+### Never promote a preview
+
+Vercel builds previews with the **Preview** environment, which does not have
+`VELYQ_DATABASE_URL`, `VELYQ_CUSTOMER_INTELLIGENCE_MODE` or
+`VELYQ_APPLICATION_ORIGIN`. Promoting a preview to production would put the
+customer app into LIVE-with-no-database and answer 503 on every surface. Always
+`redeploy --target production`; never "Promote to Production" on a preview.
+
+### Deployment is fail-safe
+
+Vercel re-points the production alias only on a **successful** build. A stalled
+or failed deployment leaves the live site serving its current deployment, so a
+failed attempt is not an outage.
+
+---
+
+## 3. Rollback
+
+Record before every deploy:
+
+```bash
+# current production deployment id -- this is the rollback target
+npx vercel inspect https://project-cf8ty.vercel.app | grep -E "^\s+(id|url)"
+```
+
+To roll back:
+
+```bash
+npx vercel rollback <previous-deployment-id> --scope team_vQN1raOYespGG8CZES6KEEtq
+```
+
+Known-good deployments:
+
+| Deployment | Note |
+| --- | --- |
+| `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` | First release of the honesty/quota fixes (code `9e28cf9`) |
+| `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy` | Predecessor; predates every fix in that release |
+
+---
+
+## 4. Post-deploy verification
+
+Run all of it. Deployment is not completion.
+
+```bash
+# 1. Health must report LIVE against a real database
+curl -s https://project-cf8ty.vercel.app/api/health
+```
+
+Expected, and the single most important check:
+
+```json
+{"environment":"production","configuredDataMode":"LIVE",
+ "effectiveCustomerDataMode":"LIVE","customerDataSource":"DATABASE",
+ "syntheticFallbackAllowed":false,"databaseAvailable":true,
+ "syntheticOnly":false}
+```
+
+`customerDataSource` must be `DATABASE`. If it is `UNAVAILABLE`, the database
+is unreachable and the app is correctly failing closed — it is **not** serving
+synthetic football, but customers see an unavailable state. Check
+`VELYQ_DATABASE_URL` and the database's own health.
+
+A four-field response (`status`, `service`, `environment`, `syntheticOnly`
+only) means an **old build** is live.
+
+```bash
+# 2. Readiness
+curl -s https://project-cf8ty.vercel.app/api/ready
+
+# 3. Routes: all 200, and /api/v1/today must be 401 unauthenticated
+for p in / /today /edge /radar /results /account /pricing /sign-in /api/ready /api/v1/today; do
+  printf "%-16s " "$p"
+  curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" "https://project-cf8ty.vercel.app$p"
+done
+
+# 4. Security headers on an authenticated route
+curl -s -D - -o /dev/null https://project-cf8ty.vercel.app/today | \
+  grep -iE "content-security-policy|strict-transport|x-frame|x-content-type|referrer-policy|permissions-policy|cache-control"
+
+# 5. Greek. Public routes are prefixed; authenticated routes use the cookie.
+curl -s https://project-cf8ty.vercel.app/el | grep -c "[Α-Ωα-ω]"
+curl -s -H "Cookie: velyq-locale=el" https://project-cf8ty.vercel.app/today | grep -c "[Α-Ωα-ω]"
+```
+
+**`/el/today` returning 404 is correct.** `app/locale-path.ts` gives `/el`
+variants only to the ten prerendered public routes; authenticated routes are
+server-rendered and read the `velyq-locale` cookie instead.
+
+No authenticated surface may contain synthetic markers:
+
+```bash
+curl -s https://project-cf8ty.vercel.app/today | grep -cE "Northbridge|Premier Synthetic"   # must be 0
+```
+
+The public landing page **does** contain them by design — it renders the
+shipped synthetic fixture with fictional clubs so it can never imply coverage
+of a real match.
+
+---
+
+## 5. Local development and verification
+
+```bash
+export PATH="/c/Users/thodo/.npm-global:$PATH"   # pnpm lives here (corepack's
+                                                 # global shim needs admin)
+cd C:/Users/thodo/velyq-release                  # worktree OUTSIDE OneDrive
+```
+
+| Gate | Command |
+| --- | --- |
+| Format | `pnpm format` |
+| Lint | `pnpm lint` |
+| Typecheck | `pnpm typecheck` |
+| Unit + integration | `pnpm test` |
+| Full build | `pnpm build` |
+| Worker readiness | `pnpm worker:verify` |
+| Fresh DB migration + integration | `pnpm test:db:local` |
+| Upgrade migration | `pnpm test:db:upgrade` |
+| Production-schema simulation | `pnpm test:db:production-upgrade` |
+| Customer browser journeys | `pnpm test:e2e --project=customer` |
+| Admin browser journey | `pnpm test:e2e:admin` |
+
+The database suites run PostgreSQL 17 inside WSL `Ubuntu-24.04` on port 55432,
+provisioned and torn down by the scripts. `pnpm test:e2e:admin` provisions its
+own seeded database; the customer project deliberately needs none because it
+runs on the synthetic corpus.
+
+### Two environment traps
+
+1. **`vercel link` / `vercel deploy` write `apps/web/.env.production.local`,
+   and `next start` loads it.** That file carries a real `VELYQ_DATABASE_URL`,
+   so the e2e harness will try to reach a database it cannot use and every
+   customer API will hang. Delete `.env*.local` before running e2e locally.
+2. **A killed build leaves a truncated `.next` artifact** which then fails
+   typecheck with `TS1127: Invalid character` in
+   `.next/types/root-params.d.ts`. Fix with `rm -rf apps/*/.next`.
+
+---
+
+## 6. The data pipeline
+
+```
+Supabase Cron (*/15)
+  -> POST apps/admin /api/internal/provider-ingest
+    -> runProviderIngestion (packages/application/src/provider-ingestion.ts)
+      -> API-Sports (packages/providers/src/apisports.ts)
+        -> normalization + identity + writers (packages/database)
+          -> PostgreSQL
+            -> customer read path (apps/web)
+```
+
+### Quota invariants — do not break these
+
+- **One provider call per scheduler wake-up, maximum.** Discovery and odds are
+  mutually exclusive per run and each capped at one request.
+- **An idle wake-up makes zero calls.** Every call site sits inside a loop
+  bounded by `min(purpose budget, per-run ceiling, candidate count)`.
+- Due-state comes from persisted tables (`provider_ingestion_runs`,
+  `provider_odds_requests`), never from timers.
+- A call that returns nothing usable is still charged, via
+  `recordRequestAttempt` — otherwise a failing provider makes the daily budgets
+  inoperative.
+
+Budgets (`packages/application/src/provider-quota.ts`): `DISCOVERY 8`,
+`ODDS 60`, `LINEUP 15`, `RESULT 10`, `RECOVERY_RESERVE 7`, assumed daily limit
+100.
+
+| Scenario | Calls/day |
+| --- | --- |
+| Quiet day | 8 (discovery only) |
+| Normal football day | ~28-68 |
+| Worst case, counted | 68, leaving 32 in reserve |
+
+`LINEUP` and `RESULT` budgets are currently **unused** — no fetch port exists
+for either. See the completion backlog.
+
+### Checking the scheduler
+
+The cron is defined in `supabase/operations/provider-ingest-cron.sql`, which is
+deliberately **not** a migration — so the repository cannot prove what the live
+project schedules. Confirm with:
+
+```sql
+select * from cron.job where jobname = 'velyq-provider-ingest';
+```
+
+Note that file targets `velyq-admin-staging.vercel.app`.
+
+---
+
+## 7. Secrets
+
+Never print values. Production environment variable **names**:
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+`NEXT_PUBLIC_VELYQ_ADMIN_URL`, `VELYQ_DATABASE_URL`,
+`VELYQ_APPLICATION_ORIGIN`, `VELYQ_CUSTOMER_INTELLIGENCE_MODE`,
+`VELYQ_INGEST_SECRET`, `APISPORTS_KEY`, `CRON_SECRET`.
+
+Vercel refuses to disclose Secret-typed values (`vercel env pull` writes
+`[SENSITIVE]`), so their effective values can only be confirmed by observed
+behaviour — which is what `/api/health` is for.
+
+**Outstanding:** a Supabase Personal Access Token was exposed in an earlier
+transcript and must be treated as compromised. Revoke at Supabase → Account →
+Access Tokens. This does not affect the database password, anon key, service
+role key or JWT secret, none of which were exposed.
+
+---
+
+## 8. Protected lines
+
+Do not modify `main`, `integration/phase-1`, or PR #3. Do not delete branches.
+Do not alter the canonical Cloudflare deployment `velyq-poc`. The preserved
+pre-existing lineage is `backup/home-master-unique-20260909` (`3a5f0cb`) plus a
+bundle at `C:\Users\thodo\velyq-backups\velyq-home-master-unique-20260909.bundle`.

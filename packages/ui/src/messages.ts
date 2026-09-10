@@ -437,6 +437,13 @@ export const messages = {
   radarMovement: "Movement",
   radarFreshness: "Freshness",
   radarHistory: "Observed price history",
+  /*
+   * Evidence depth. Several bookmakers quoting at one moment is a single
+   * instant, so this counts instants, not rows -- a movement from two is a
+   * much weaker claim than one from forty, and the customer should be able
+   * to see which they are looking at.
+   */
+  radarObservations: "Observations",
   radarNoHistory: "No price history available",
   radarDrifted: "Price drifted out",
   radarShortened: "Price shortened in",
@@ -1102,6 +1109,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   radarMovement: "Μεταβολή",
   radarFreshness: "Τελευταία καταγραφή",
   radarHistory: "Ιστορικό αποδόσεων",
+  radarObservations: "Παρατηρήσεις",
   radarNoHistory: "Δεν υπάρχει ιστορικό αποδόσεων",
   radarDrifted: "Η απόδοση ανέβηκε",
   radarShortened: "Η απόδοση έπεσε",

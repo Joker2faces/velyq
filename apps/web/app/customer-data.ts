@@ -17,7 +17,11 @@ const d = (value: string) => value as DecimalString;
 function matchTemplates(): ReadonlyArray<
   Omit<
     CustomerMatchDto,
-    "startsAt" | "trace" | "movementState" | "priceValidity"
+    | "startsAt"
+    | "trace"
+    | "movementState"
+    | "observationTimes"
+    | "priceValidity"
   > & {
     startsAtOffsetHours: number;
     trace: Omit<CustomerMatchDto["trace"], "featureCutoff">;
@@ -348,6 +352,12 @@ export function buildCustomerTodayData(now: Date): CustomerTodayDto {
             : Number(match.movementPercent) === 0
               ? ("UNCHANGED" as const)
               : ("MOVED" as const),
+        /*
+         * Evidence depth, kept consistent with the state above: a movement
+         * figure requires at least two distinct observation instants, and
+         * INSUFFICIENT_HISTORY means exactly one was ever seen.
+         */
+        observationTimes: match.movementPercent === null ? 1 : 2,
         priceValidity: priceValidityFor(match),
         trace: { ...trace, featureCutoff: asOf },
       }),

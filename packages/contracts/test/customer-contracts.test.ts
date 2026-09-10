@@ -29,6 +29,7 @@ const validMatch = {
   openingOdds: "2.1",
   movementPercent: "-0.047619047619",
   movementState: "MOVED",
+  observationTimes: 2,
   priceValidity: {
     status: "ATTRACTIVE",
     policyVersion: "price-validity.v1",
@@ -144,5 +145,50 @@ describe("customer API contracts", () => {
       expect(result.errors).toContain(
         "matches[1].currentOdds must be a valid canonical decimal string",
       );
+  });
+});
+
+/*
+ * The movement invariant, enforced at the boundary.
+ *
+ * RADAR once rendered "Price unchanged" for a market whose own opening and
+ * current prices disagreed, because a null movement figure has two
+ * incompatible meanings and the surface could not tell them apart.
+ * `movementState` was added to separate "we cannot know" from "it held". This
+ * pins the pairing so a future producer cannot emit a movement figure while
+ * simultaneously claiming there is not enough history to compute one.
+ */
+describe("customer match movement invariant", () => {
+  it("rejects a movement figure alongside INSUFFICIENT_HISTORY", () => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      movementState: "INSUFFICIENT_HISTORY",
+      movementPercent: "0.05",
+      openingOdds: "1.90",
+      observationTimes: 1,
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("accepts INSUFFICIENT_HISTORY when nothing is claimed about movement", () => {
+    const result = validateCustomerMatchDto({
+      ...validMatch,
+      movementState: "INSUFFICIENT_HISTORY",
+      movementPercent: null,
+      openingOdds: null,
+      observationTimes: 1,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("requires a non-negative integer observation count", () => {
+    for (const observationTimes of [-1, 1.5, "2", null, undefined]) {
+      expect(
+        validateCustomerMatchDto({ ...validMatch, observationTimes }).ok,
+        String(observationTimes),
+      ).toBe(false);
+    }
   });
 });
