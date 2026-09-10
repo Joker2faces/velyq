@@ -27,9 +27,10 @@ export default async function IntelligencePage() {
       />
     );
   try {
-    const [data, quota] = await Promise.all([
+    const [data, quota, coverage] = await Promise.all([
       runtime.queries.getIntelligenceOverview(),
       runtime.queries.getQuotaSnapshot(),
+      runtime.queries.getModelCoverageAudit(),
     ]);
     return (
       <AdminShell active="/intelligence">
@@ -113,6 +114,55 @@ export default async function IntelligencePage() {
                 <h3>No persisted blocker codes today</h3>
               </div>
             )}
+          </section>
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Data coverage vs. model decision</h2>
+            </div>
+            <p>
+              A real-time dry run of today’s fixtures against the same
+              competition/team resolution the forecast cycle uses. This
+              separates a genuine data coverage gap (competition or team not
+              in the model) from a fixture the model actually evaluated and
+              decided not to act on — that second case is a real business
+              outcome, visible above under primary blockers, not a coverage
+              problem.
+            </p>
+            <div className="ops-metrics">
+              <div className="ops-metric">
+                <span className="ops-metric__label">Fixtures checked</span>
+                <span className="ops-metric__value">
+                  {coverage.fixturesChecked}
+                </span>
+              </div>
+              <div className="ops-metric">
+                <span className="ops-metric__label">
+                  Competition not in model
+                </span>
+                <span className="ops-metric__value">
+                  {coverage.competitionMissing}
+                </span>
+              </div>
+              <div className="ops-metric">
+                <span className="ops-metric__label">Team not in model</span>
+                <span className="ops-metric__value">
+                  {coverage.teamMissing}
+                </span>
+              </div>
+              <div className="ops-metric">
+                <span className="ops-metric__label">Eligible for model</span>
+                <span className="ops-metric__value">{coverage.eligible}</span>
+              </div>
+            </div>
+            {coverage.missingCompetitions.length ? (
+              <p>
+                Missing competitions:{" "}
+                {coverage.missingCompetitions.join(", ")}
+              </p>
+            ) : null}
+            {coverage.missingTeams.length ? (
+              <p>Missing teams: {coverage.missingTeams.join(", ")}</p>
+            ) : null}
           </section>
           <section className="panel">
             <div className="panel-heading">

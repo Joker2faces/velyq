@@ -7,6 +7,9 @@ import {
   reliabilityBins,
   type ProbabilisticSample,
 } from "@velyq/research";
+import { utcDayWindow } from "@velyq/database";
+import { createForecastCycleDbAdapter } from "@velyq/database/repositories/forecast-cycle-adapter";
+import { loadProductionModelArtifact } from "./forecast-cycle/model-artifact";
 import { DatabasePermissionResolver } from "@velyq/database/repositories/permissions";
 import type { PrivilegedVelyqDatabase } from "@velyq/database/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/server";
@@ -255,6 +258,83 @@ export class DatabaseAdminQueries implements AdminQueries {
       lastSettlementRun: timestamp("last_settlement_run"),
       modelHealth,
       identityIssues,
+    };
+  }
+
+  /**
+   * Model/data coverage audit: for each of today's real fixtures, a genuine
+   * dry run of the SAME eligibility resolution `runForecastCycle` uses --
+   * `resolveCompetition`/`resolveHomeTeam`/`resolveAwayTeam` from the real
+   * forecast-cycle adapter, not a re-implementation that could quietly
+   * drift from the actual pipeline. No prediction, forecast or decision is
+   * written; this only asks the three questions and tabulates the answers.
+   *
+   * Distinguishes a DATA COVERAGE PROBLEM (the competition or team is not
+   * in the model at all -- COMPETITION_NOT_IN_MODEL / TEAM_NOT_IN_MODEL)
+   * from every other reason a fixture might not produce an actionable
+   * decision (the model ran and decided NO_BET/WAIT/etc, which is a real
+   * business outcome, not a coverage gap). Those two questions were
+   * previously conflated: fixtures skipped for eligibility never reach the
+   * `decisions` table at all, so admin's blocker panel -- which reads
+   * `decisions.why_not_codes` -- was structurally blind to them; the only
+   * place they ever appeared was the forecast-cycle trigger's own HTTP
+   * response body, gone the moment that request finished.
+   */
+  async getModelCoverageAudit() {
+    const modelArtifact = loadProductionModelArtifact();
+    const adapter = await createForecastCycleDbAdapter(this.database, {
+      modelArtifact,
+      providerCode: "API_SPORTS",
+      dataOrigin: "LIVE",
+    });
+    const now = new Date();
+    const window = utcDayWindow(now);
+    const fixtures = await adapter.loadEligibleFixtures({
+      from: window.start,
+      to: window.end,
+    });
+
+    let competitionMissing = 0;
+    let teamMissing = 0;
+    let eligible = 0;
+    const missingCompetitions = new Set<string>();
+    const missingTeams = new Set<string>();
+
+    for (const fixture of fixtures) {
+      const competition = await adapter.resolveCompetition(fixture);
+      if (!competition.ok) {
+        competitionMissing += 1;
+        missingCompetitions.add(fixture.providerCompetitionCode);
+        continue;
+      }
+      const [home, away] = await Promise.all([
+        adapter.resolveHomeTeam(fixture),
+        adapter.resolveAwayTeam(fixture),
+      ]);
+      const homeResolved =
+        home.status === "PROVIDER_IDENTITY_MATCH" || home.status === "VERIFIED_ALIAS_MATCH";
+      const awayResolved =
+        away.status === "PROVIDER_IDENTITY_MATCH" || away.status === "VERIFIED_ALIAS_MATCH";
+      if (!homeResolved) {
+        teamMissing += 1;
+        missingTeams.add(fixture.homeTeam.normalizedName);
+        continue;
+      }
+      if (!awayResolved) {
+        teamMissing += 1;
+        missingTeams.add(fixture.awayTeam.normalizedName);
+        continue;
+      }
+      eligible += 1;
+    }
+
+    return {
+      fixturesChecked: fixtures.length,
+      competitionMissing,
+      teamMissing,
+      eligible,
+      missingCompetitions: [...missingCompetitions].slice(0, 20),
+      missingTeams: [...missingTeams].slice(0, 20),
     };
   }
 

@@ -10,6 +10,14 @@ const principal = {
 
 const queries: AdminQueries = {
   getQuotaSnapshot: async () => [],
+  getModelCoverageAudit: async () => ({
+    fixturesChecked: 0,
+    competitionMissing: 0,
+    teamMissing: 0,
+    eligible: 0,
+    missingCompetitions: [],
+    missingTeams: [],
+  }),
   listProviderRuns: async () => ({ items: [], nextCursor: null }),
   getProviderRun: async () => ({
     id: "00000000-0000-4000-8000-000000000004",

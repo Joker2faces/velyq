@@ -178,8 +178,26 @@ export type AdminQuotaSnapshotDto = Readonly<{
   policyState: "HEALTHY" | "CONSERVE" | "CRITICAL" | "EXHAUSTED" | "UNKNOWN";
 }>;
 
+/**
+ * A read-only dry run of the same competition/team eligibility resolution
+ * `runForecastCycle` uses, tabulated across today's real fixtures. Separates
+ * a DATA COVERAGE PROBLEM (competition or team not in the model at all)
+ * from every other reason a fixture doesn't produce a decision -- those
+ * other reasons are a real model decision, not a coverage gap, and are
+ * already visible via the blocker panel.
+ */
+export type AdminModelCoverageAuditDto = Readonly<{
+  fixturesChecked: number;
+  competitionMissing: number;
+  teamMissing: number;
+  eligible: number;
+  missingCompetitions: readonly string[];
+  missingTeams: readonly string[];
+}>;
+
 export type AdminQueries = Readonly<{
   getQuotaSnapshot(): Promise<readonly AdminQuotaSnapshotDto[]>;
+  getModelCoverageAudit(): Promise<AdminModelCoverageAuditDto>;
   listProviderRuns(
     input: Readonly<{ limit: number; cursor: string | null }>,
   ): Promise<AdminPage<ProviderRun>>;
@@ -441,6 +459,9 @@ export function createAdminApi(dependencies: AdminDependencies) {
 
 const unavailableQueries: AdminQueries = Object.freeze({
   async getQuotaSnapshot() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
+  async getModelCoverageAudit(): Promise<AdminModelCoverageAuditDto> {
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
   async listProviderRuns() {
