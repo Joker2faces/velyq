@@ -27,15 +27,27 @@ const decimal = (value: string | null): DecimalString | null => {
  * only regroups outcomes that share the same market code into one flat
  * observation list, it reads no new data.
  */
+export type CustomerMarketConsensusResult = Readonly<{
+  dto: CustomerMarketConsensusDto | undefined;
+  /** Outcome codes with at least one outlier-candidate bookmaker price at
+      the snapshot instant -- used only to derive OUTLIER_PRICE, never
+      rendered with a bookmaker identity. */
+  outlierOutcomeCodes: ReadonlySet<string>;
+}>;
+
 export function buildCustomerMarketConsensus(
   raw: CustomerRawMatch,
   marketCode: string,
   requiredOutcomes: readonly string[],
-): CustomerMarketConsensusDto | undefined {
+): CustomerMarketConsensusResult {
+  const empty: CustomerMarketConsensusResult = {
+    dto: undefined,
+    outlierOutcomeCodes: new Set(),
+  };
   const marketOutcomes = raw.outcomes.filter(
     (outcome) => outcome.marketDefinition.code === marketCode,
   );
-  if (marketOutcomes.length === 0) return undefined;
+  if (marketOutcomes.length === 0) return empty;
 
   const observations: RawBookmakerObservation[] = marketOutcomes.flatMap(
     (outcome) =>
@@ -56,14 +68,14 @@ export function buildCustomerMarketConsensus(
   const snapshot = buildMarketSnapshot(observations, requiredOutcomes, {
     asOf: raw.asOf,
   });
-  if (!snapshot) return undefined;
+  if (!snapshot) return empty;
 
   const freshnessAssessment = assessOddsFreshness(
     new Date(snapshot.observedAt),
     raw.asOf,
   );
 
-  return {
+  const dto: CustomerMarketConsensusDto = {
     observedAt: snapshot.observedAt,
     freshness: freshnessAssessment.freshness,
     method: snapshot.consensus?.method ?? "MULTIPLICATIVE",
@@ -93,6 +105,13 @@ export function buildCustomerMarketConsensus(
       };
     }),
   };
+
+  return {
+    dto,
+    outlierOutcomeCodes: new Set(
+      snapshot.outlierCandidates.map((candidate) => candidate.outcomeCode),
+    ),
+  };
 }
 
 /**
@@ -120,6 +139,7 @@ export function deriveRiskFlags(input: {
   modelMaturity: "EXPERIMENTAL";
   marketConsensus: CustomerMarketConsensusDto | undefined;
   currentSelection: string;
+  outlierOutcomeCodes?: ReadonlySet<string>;
 }): readonly CustomerRiskFlag[] {
   const flags: CustomerRiskFlag[] = [];
 
@@ -161,6 +181,10 @@ export function deriveRiskFlags(input: {
     ) {
       flags.push("HIGH_BOOKMAKER_DISPERSION");
     }
+  }
+
+  if (input.outlierOutcomeCodes?.has(input.currentSelection)) {
+    flags.push("OUTLIER_PRICE");
   }
 
   return flags;

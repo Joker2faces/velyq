@@ -154,11 +154,12 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
    * the market's three outcomes instead of narrowed to one. Undefined
    * (not a zeroed object) whenever no bookmaker has quoted this market.
    */
-  const marketConsensus = buildCustomerMarketConsensus(
-    raw,
-    canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code,
-    canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.outcomeCodes,
-  );
+  const { dto: marketConsensus, outlierOutcomeCodes } =
+    buildCustomerMarketConsensus(
+      raw,
+      canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code,
+      canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.outcomeCodes,
+    );
   const riskFlags = deriveRiskFlags({
     freshness: freshnessAssessment.freshness,
     qualityReasonCodes: quality?.reasonCodes ?? [],
@@ -167,6 +168,7 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     modelMaturity: "EXPERIMENTAL",
     marketConsensus,
     currentSelection: outcome?.outcomeDefinition.code ?? "",
+    outlierOutcomeCodes,
   });
   return {
     eventId: raw.event.id,

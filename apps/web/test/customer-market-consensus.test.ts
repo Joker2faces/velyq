@@ -161,4 +161,23 @@ describe("mapMatch market consensus and risk flags", () => {
     const dto = mapMatch(raw);
     expect(dto.riskFlags).toContain("MODEL_EXPERIMENTAL");
   });
+
+  it("flags OUTLIER_PRICE when the selected outcome's own price is an outlier among enough peers", () => {
+    const raw = match([
+      oneXTwoOutcome("HOME", [
+        { bookmakerId: "book-a", decimalOdds: "2" },
+        { bookmakerId: "book-b", decimalOdds: "2.05" },
+        { bookmakerId: "book-c", decimalOdds: "1.95" },
+        { bookmakerId: "book-d", decimalOdds: "2.02" },
+        // Wildly off the other four -- and this outcome is the customer's
+        // own selection, per selectOutcome's first-outcome default.
+        { bookmakerId: "book-e", decimalOdds: "5" },
+      ]),
+      oneXTwoOutcome("DRAW", [{ bookmakerId: "book-a", decimalOdds: "3.4" }]),
+      oneXTwoOutcome("AWAY", [{ bookmakerId: "book-a", decimalOdds: "3.8" }]),
+    ]);
+    const dto = mapMatch(raw);
+    expect(dto.selection).toBe("HOME");
+    expect(dto.riskFlags).toContain("OUTLIER_PRICE");
+  });
 });
