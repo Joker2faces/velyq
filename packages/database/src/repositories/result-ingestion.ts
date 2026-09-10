@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import {
   orchestrateResultSettlement,
@@ -6,9 +6,10 @@ import {
   type SettlementCandidate,
 } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
+import { eligibleClv, selectClosingPrice, type PricePoint } from "@velyq/analytics";
 import type { NormalizedResult } from "@velyq/providers";
 import type { PrivilegedVelyqDatabase } from "../client.js";
-import { eventIdentities } from "../schema/catalog.js";
+import { eventIdentities, events } from "../schema/catalog.js";
 import {
   decisions,
   eventResults,
@@ -18,6 +19,7 @@ import {
   eventMarketOutcomes,
   eventMarkets,
   marketDefinitions,
+  oddsObservations,
   outcomeDefinitions,
 } from "../schema/market.js";
 import { providerSyncRuns, sourceObservations } from "../schema/operations.js";
@@ -111,6 +113,10 @@ async function settlementCandidatesFor(
     decisionId: string;
     marketCode: string;
     outcomeCode: string;
+    eventMarketOutcomeId: string;
+    offeredOdds: string | null;
+    decisionCreatedAt: Date;
+    kickoff: Date;
   }>[]
 > {
   return transaction
@@ -118,6 +124,10 @@ async function settlementCandidatesFor(
       decisionId: decisions.id,
       marketCode: marketDefinitions.code,
       outcomeCode: outcomeDefinitions.code,
+      eventMarketOutcomeId: eventMarketOutcomes.id,
+      offeredOdds: decisions.offeredOdds,
+      decisionCreatedAt: decisions.createdAt,
+      kickoff: events.startsAt,
     })
     .from(decisions)
     .innerJoin(
@@ -136,12 +146,112 @@ async function settlementCandidatesFor(
       outcomeDefinitions,
       eq(outcomeDefinitions.id, eventMarketOutcomes.outcomeDefinitionId),
     )
+    .innerJoin(events, eq(events.id, eventMarkets.eventId))
     .where(
       and(
         eq(eventMarkets.eventId, eventId),
         inArray(decisions.status, SETTLEABLE_DECISION_STATUSES),
       ),
     );
+}
+
+/**
+ * Closing-price policy v1, applied at settlement time (see
+ * `selectClosingPrice`/`eligibleClv` in packages/analytics for the full
+ * rules): same outcome only, ACTIVE prices at/before kickoff, each
+ * bookmaker's last observation, books over 60 minutes stale relative to the
+ * freshest discarded, median of what remains. CLV is withheld (not zero)
+ * whenever the decision was placed at/after kickoff, the closing price
+ * itself was observed after kickoff, or no valid closing price exists at
+ * all -- a missing close is a real "we don't know", never fabricated as 0%.
+ *
+ * Computed here, once per settling fixture, rather than on every customer
+ * read: CLV is a fact about a specific historical moment (the close), not
+ * something that should be able to drift on re-read as more post-kickoff
+ * odds happen to still be stored.
+ */
+async function closingPricesFor(
+  transaction: PrivilegedVelyqDatabase,
+  candidates: readonly Readonly<{
+    decisionId: string;
+    eventMarketOutcomeId: string;
+    offeredOdds: string | null;
+    decisionCreatedAt: Date;
+    kickoff: Date;
+  }>[],
+): Promise<
+  ReadonlyMap<string, Readonly<{ closingOdds: string | null; clv: string | null }>>
+> {
+  const outcomeIds = [...new Set(candidates.map((c) => c.eventMarketOutcomeId))];
+  if (outcomeIds.length === 0) return new Map();
+  const rows = await transaction
+    .select({
+      id: oddsObservations.id,
+      outcomeId: oddsObservations.eventMarketOutcomeId,
+      bookmakerId: oddsObservations.bookmakerId,
+      odds: oddsObservations.decimalOdds,
+      observedAt: oddsObservations.providerObservedAt,
+      status: oddsObservations.status,
+    })
+    .from(oddsObservations)
+    .where(inArray(oddsObservations.eventMarketOutcomeId, outcomeIds))
+    .orderBy(desc(oddsObservations.providerObservedAt));
+
+  const byOutcome = new Map<string, PricePoint[]>();
+  for (const row of rows) {
+    const points = byOutcome.get(row.outcomeId) ?? [];
+    points.push({
+      id: row.id,
+      outcomeId: row.outcomeId,
+      bookmakerId: row.bookmakerId,
+      odds: row.odds as PricePoint["odds"],
+      observedAt: row.observedAt.toISOString(),
+      status: row.status as PricePoint["status"],
+    });
+    byOutcome.set(row.outcomeId, points);
+  }
+
+  /*
+   * The closing price is a fact about the MARKET at kickoff, shared by
+   * every decision on that outcome -- computed once per outcome, not once
+   * per decision, even though several decisions (an original and a
+   * lineup-triggered recompute, say) can share one outcome and each still
+   * gets its own CLV against its own decision time and price.
+   */
+  const closingByOutcome = new Map<
+    string,
+    ReturnType<typeof selectClosingPrice>
+  >();
+  const result = new Map<
+    string,
+    Readonly<{ closingOdds: string | null; clv: string | null }>
+  >();
+  for (const candidate of candidates) {
+    let closing = closingByOutcome.get(candidate.eventMarketOutcomeId);
+    if (closing === undefined) {
+      closing = selectClosingPrice({
+        outcomeId: candidate.eventMarketOutcomeId,
+        kickoff: candidate.kickoff.toISOString(),
+        observations: byOutcome.get(candidate.eventMarketOutcomeId) ?? [],
+      });
+      closingByOutcome.set(candidate.eventMarketOutcomeId, closing);
+    }
+    const clv = candidate.offeredOdds
+      ? eligibleClv({
+          decisionOutcomeId: candidate.eventMarketOutcomeId,
+          decisionOdds: candidate.offeredOdds as never,
+          decisionAt: candidate.decisionCreatedAt.toISOString(),
+          kickoff: candidate.kickoff.toISOString(),
+          closing,
+          closingOutcomeId: candidate.eventMarketOutcomeId,
+        })
+      : null;
+    result.set(candidate.decisionId, {
+      closingOdds: closing?.odds ?? null,
+      clv,
+    });
+  }
+  return result;
 }
 
 type FixtureOutcome = Readonly<{
@@ -348,6 +458,7 @@ export async function ingestFootballResults(
             providerResult,
             candidates,
           );
+          const closingPrices = await closingPricesFor(scoped, rows);
 
           let settlements = 0;
           for (const instruction of instructions) {
@@ -364,6 +475,7 @@ export async function ingestFootballResults(
               instruction.decisionId,
             );
             if (ruleVersion === undefined) continue;
+            const closing = closingPrices.get(instruction.decisionId);
             const [row] = await transaction
               .insert(marketSettlements)
               .values({
@@ -372,6 +484,8 @@ export async function ingestFootballResults(
                 outcome: instruction.outcome,
                 settlementRuleVersion: ruleVersion,
                 settledAt: new Date(instruction.observedAt),
+                closingOdds: closing?.closingOdds ?? null,
+                clv: closing?.clv ?? null,
               })
               .onConflictDoNothing({
                 target: [
