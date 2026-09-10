@@ -129,4 +129,20 @@ describe("historical intelligence policy", () => {
       positiveClvCount: 1,
     });
   });
+
+  it("averages CLV magnitude, not just the count that beat the close", () => {
+    const result = trackRecord([
+      { settlement: "WIN", odds: "2", clv: "0.1" },
+      { settlement: "LOSS", odds: "1.8", clv: "-0.02" },
+      { settlement: "VOID", odds: null, clv: null },
+    ]);
+    expect(result.averageClv).toBeCloseTo(0.04, 10);
+  });
+
+  it("reports averageClv as null with no settled CLV to average", () => {
+    expect(
+      trackRecord([{ settlement: "UNSETTLED", odds: "2", clv: null }])
+        .averageClv,
+    ).toBeNull();
+  });
 });

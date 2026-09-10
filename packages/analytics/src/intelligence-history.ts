@@ -208,5 +208,16 @@ export function trackRecord(
       : null,
     positiveClvCount: clv.filter((value) => value > 0).length,
     clvSampleSize: clv.length,
+    /*
+     * The ratio (positiveClvCount/clvSampleSize) says how OFTEN a decision
+     * beat the closing line; it says nothing about BY HOW MUCH. A customer
+     * beating the close by a hair on most decisions and losing badly on a
+     * few reads identically to one winning big and losing small under the
+     * ratio alone -- the average magnitude is a different, complementary
+     * fact.
+     */
+    averageClv: clv.length
+      ? clv.reduce((sum, value) => sum + value, 0) / clv.length
+      : null,
   };
 }

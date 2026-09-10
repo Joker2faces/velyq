@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { trackRecord } from "@velyq/analytics";
 import {
   competitionLabel,
   formatOdds,
@@ -33,6 +34,7 @@ const copy = (locale: Locale) => {
     wins: t("historyWins"),
     losses: t("historyLosses"),
     clv: t("historyPositiveClv"),
+    avgClv: t("historyAverageClv"),
     outcome: t("historyOutcome"),
     price: t("historyPriceQuality"),
     demo: t("historySyntheticSample"),
@@ -92,6 +94,21 @@ export function ResultsView({
   const clvPositive = settled.filter(
     (item) => item.priceQuality === "POSITIVE_CLV",
   ).length;
+  /*
+   * How OFTEN a decision beat the close (clvPositive/settled.length, already
+   * shown) says nothing about BY HOW MUCH -- winning big and losing small
+   * reads identically to the reverse under the ratio alone. `trackRecord`
+   * (packages/analytics) already computes this average; it previously had
+   * no caller anywhere in the codebase. Computed over whatever is loaded so
+   * far, the same scope every other stat on this page already uses.
+   */
+  const { averageClv } = trackRecord(
+    decisions.map((item) => ({
+      settlement: item.settlement,
+      odds: item.oddsAtDecision,
+      clv: item.clv,
+    })),
+  );
   const settlementLabel = (value: string) =>
     ({
       en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
@@ -143,6 +160,23 @@ export function ResultsView({
         </Card>
         <Card className="stat--boxed">
           <Stat label={t.clv} value={`${clvPositive}/${settled.length}`} />
+        </Card>
+        <Card className="stat--boxed">
+          <Stat
+            label={t.avgClv}
+            value={formatPercent(
+              averageClv === null ? null : String(averageClv),
+              1,
+              locale,
+            )}
+            tone={
+              averageClv === null
+                ? undefined
+                : averageClv > 0
+                  ? "positive"
+                  : "negative"
+            }
+          />
         </Card>
       </div>
       <Card>
