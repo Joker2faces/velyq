@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { customerFixtureMode, requireCustomerSession } from "../../../../auth";
+import {
+  PRIVATE_RESPONSE_HEADERS,
+  customerFixtureMode,
+  requireCustomerSession,
+} from "../../../../auth";
 import {
   customerOddsHistory,
   customerService,
@@ -30,14 +34,17 @@ export async function GET(
     });
   }
   if (history) {
-    return NextResponse.json({
-      eventId,
-      syntheticLabel: "Synthetic data",
-      observations: history.observations.map((observation) => ({
-        observedAt: observation.providerObservedAt,
-        odds: observation.decimalOdds,
-      })),
-    });
+    return NextResponse.json(
+      {
+        eventId,
+        syntheticLabel: "Synthetic data",
+        observations: history.observations.map((observation) => ({
+          observedAt: observation.providerObservedAt,
+          odds: observation.decimalOdds,
+        })),
+      },
+      { headers: PRIVATE_RESPONSE_HEADERS },
+    );
   }
   const service = await customerService();
   if (!service) return problem(unavailable());
@@ -47,25 +54,31 @@ export async function GET(
     if (!result.ok) return problem(unavailable());
     const match = result.value;
     if (!customerFixtureMode()) {
-      return NextResponse.json({
-        eventId,
-        syntheticLabel: "Live data",
-        observations: [],
-      });
+      return NextResponse.json(
+        {
+          eventId,
+          syntheticLabel: "Live data",
+          observations: [],
+        },
+        { headers: PRIVATE_RESPONSE_HEADERS },
+      );
     }
     // Synthetic fallback observations: opening two hours before the
     // snapshot, current at the snapshot itself — relative to the same
     // rolling clock the match's own feature cutoff is built from, so this
     // never drifts into the past the way a hardcoded date would.
     const cutoff = new Date(match.trace.featureCutoff);
-    return NextResponse.json({
-      eventId,
-      syntheticLabel: match.syntheticLabel,
-      observations: [
-        { observedAt: offsetHours(cutoff, -2), odds: match.openingOdds },
-        { observedAt: cutoff.toISOString(), odds: match.currentOdds },
-      ],
-    });
+    return NextResponse.json(
+      {
+        eventId,
+        syntheticLabel: match.syntheticLabel,
+        observations: [
+          { observedAt: offsetHours(cutoff, -2), odds: match.openingOdds },
+          { observedAt: cutoff.toISOString(), odds: match.currentOdds },
+        ],
+      },
+      { headers: PRIVATE_RESPONSE_HEADERS },
+    );
   } finally {
     await service.close();
   }
@@ -101,6 +114,7 @@ function problem(body: Readonly<Record<string, unknown>>) {
   return NextResponse.json(body, {
     status: Number(body["status"] ?? 503),
     headers: {
+      ...PRIVATE_RESPONSE_HEADERS,
       "content-type": "application/problem+json",
       "x-request-id": String(body["requestId"]),
     },

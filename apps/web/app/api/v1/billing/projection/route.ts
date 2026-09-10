@@ -6,7 +6,12 @@ import {
   type SubscriptionStatus,
 } from "@velyq/auth";
 import { subscriptions } from "@velyq/database/schema/private";
-import { getCookie, requireCustomerSession, requestId } from "../../../auth";
+import {
+  PRIVATE_RESPONSE_HEADERS,
+  getCookie,
+  requireCustomerSession,
+  requestId,
+} from "../../../auth";
 import { openRuntimeDatabaseSession } from "../../../../runtime-database/runtime-database";
 
 export async function GET(request: Request) {
@@ -74,14 +79,29 @@ export async function GET(request: Request) {
         ? (current.status as SubscriptionStatus)
         : null;
     const resolved = resolveCustomerEntitlements({ plan, status });
-    return NextResponse.json({
-      plan: resolved.plan,
-      subscriptionStatus: resolved.subscriptionStatus,
-      currentPeriodStart: current?.periodStart ?? null,
-      currentPeriodEnd: current?.periodEnd ?? null,
-      cancelAtPeriodEnd: current?.cancelAtPeriodEnd ?? false,
-      entitlements: resolved.entitlements,
-    });
+    /*
+     * `private, no-store`, like every sibling private route.
+     *
+     * This body carries the caller's plan, subscription status, billing
+     * period and entitlements, and was the one private route returning
+     * `NextResponse.json` with no headers at all. That matters on the
+     * deployed runtime specifically: the Vinext build does not read
+     * `next.config` (see `security-headers.ts`), and `proxy.ts` sets no cache
+     * headers, so nothing supplies a default. A shared cache keyed on a URL
+     * with no per-user component would serve one customer's billing state to
+     * the next.
+     */
+    return NextResponse.json(
+      {
+        plan: resolved.plan,
+        subscriptionStatus: resolved.subscriptionStatus,
+        currentPeriodStart: current?.periodStart ?? null,
+        currentPeriodEnd: current?.periodEnd ?? null,
+        cancelAtPeriodEnd: current?.cancelAtPeriodEnd ?? false,
+        entitlements: resolved.entitlements,
+      },
+      { headers: PRIVATE_RESPONSE_HEADERS },
+    );
   } finally {
     await session.close();
   }

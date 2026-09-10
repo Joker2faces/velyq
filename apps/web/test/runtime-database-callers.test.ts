@@ -106,6 +106,10 @@ vi.mock("stripe", () => ({
 }));
 
 vi.mock("../app/api/auth", () => ({
+  /* Real value, not a stub: these routes spread it into their response
+     headers, and a private route shipping without it is the defect the
+     caching guard exists to catch. */
+  PRIVATE_RESPONSE_HEADERS: { "cache-control": "private, no-store" },
   customerFixtureMode: () => false,
   customerRedirectUrl: () => null,
   getCookie: () => "access-token",

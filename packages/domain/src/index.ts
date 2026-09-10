@@ -335,3 +335,22 @@ export function isTerminalEventLifecycleStatus(
 ): boolean {
   return TERMINAL_EVENT_LIFECYCLE_STATUSES.includes(status);
 }
+
+/**
+ * How much is known about a fixture's starting eleven.
+ *
+ * In `@velyq/domain` for the same reason as `EventLifecycleStatus`: the
+ * provider normalizer, the ingestion scheduler and the
+ * `intelligence.lineup_observations` CHECK all need it and none of those
+ * packages may depend on another.
+ *
+ * `EXPECTED` is deliberately not terminal. A provisional sheet is exactly the
+ * state that must be replaced by the confirmed one, and it is also the state
+ * in which the `WAIT_FOR_LINEUP` gate stays closed -- so treating it as an
+ * answer would both stop us asking and leave the gate shut forever.
+ */
+export type LineupStatus = "EXPECTED" | "OFFICIAL" | "UNAVAILABLE";
+
+export function isTerminalLineupStatus(status: LineupStatus): boolean {
+  return status === "OFFICIAL";
+}

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireCustomerSession } from "../../../../auth";
+import {
+  PRIVATE_RESPONSE_HEADERS,
+  requireCustomerSession,
+} from "../../../../auth";
 import { customerService, unavailable } from "../../../../../customer-runtime";
 
 export async function GET(
@@ -15,8 +18,18 @@ export async function GET(
   try {
     const result = await service.getMatch(eventId, new Date());
     if (!result.ok && result.code === "NOT_FOUND") return notFound();
+    /*
+     * Match data is shared rather than per-user, so the risk here is not
+     * identity -- it is the paywall. This route requires the `match.detail`
+     * entitlement, and an uncached-but-cacheable 200 lets a shared cache
+     * store the ELITE response and serve it to a FREE caller without
+     * `requireCustomerSession` ever running. `private, no-store` keeps the
+     * gate on the request path where it belongs.
+     */
     return result.ok
-      ? NextResponse.json(result.value)
+      ? NextResponse.json(result.value, {
+          headers: PRIVATE_RESPONSE_HEADERS,
+        })
       : problem({ ...unavailable(), requestId: crypto.randomUUID() });
   } finally {
     await service.close();

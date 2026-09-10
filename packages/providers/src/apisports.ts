@@ -1,4 +1,7 @@
-import type { EventLifecycleStatus } from "@velyq/domain";
+import type {
+  EventLifecycleStatus,
+  LineupStatus as DomainLineupStatus,
+} from "@velyq/domain";
 import type { DecimalString } from "@velyq/decimal";
 
 export type ApiSport = "football" | "basketball";
@@ -394,6 +397,129 @@ export function normalizeFootballResult(
     sourceReference,
   };
 }
+
+/**
+ * One team's lineup as the provider reports it.
+ *
+ * Deliberately without a confidence number. API-Sports does not say how
+ * likely a lineup is to be the one that starts -- it either publishes the
+ * confirmed sheet or it does not -- so inventing a confidence would be
+ * inventing evidence. The distinction the product acts on is the status, and
+ * a status is something the provider actually tells us.
+ */
+export type NormalizedLineup = Readonly<{
+  sport: "FOOTBALL";
+  providerEventId: string;
+  /** The provider's own team id. Never a display name -- see the identity rules. */
+  providerTeamId: string;
+  teamName: string;
+  status: LineupStatus;
+  formation: string | null;
+  players: readonly NormalizedLineupPlayer[];
+  substitutes: readonly NormalizedLineupPlayer[];
+  providerObservedAt: string;
+  provider: "API_SPORTS";
+  sourceReference: string;
+}>;
+
+export type NormalizedLineupPlayer = Readonly<{
+  providerPlayerId: string | null;
+  name: string;
+  shirtNumber: number | null;
+  position: string | null;
+}>;
+
+/**
+ * The three states `intelligence.lineup_observations` accepts.
+ *
+ * Re-exported from `@velyq/domain` rather than redeclared, so the normalizer,
+ * the scheduler and the database CHECK cannot drift apart.
+ */
+export type LineupStatus = DomainLineupStatus;
+
+function lineupPlayers(value: unknown): readonly NormalizedLineupPlayer[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const player = valueRecord(valueRecord(entry)["player"]);
+    const name = player["name"];
+    /* A nameless entry is not a player. Keeping it would put an empty row in
+       a lineup a customer reads. */
+    if (typeof name !== "string" || name.trim() === "") return [];
+    const number = player["number"];
+    const position = player["pos"];
+    return [
+      {
+        providerPlayerId: optionalIdentifier(player["id"]),
+        name,
+        shirtNumber:
+          typeof number === "number" && Number.isInteger(number)
+            ? number
+            : null,
+        position:
+          typeof position === "string" && position !== "" ? position : null,
+      },
+    ];
+  });
+}
+
+/**
+ * Normalizes one `/fixtures/lineups` element.
+ *
+ * The status is derived from whether a starting eleven is actually present,
+ * not from any field the provider sets: API-Sports publishes the lineup array
+ * only once the sheet is confirmed, and returns an empty response before
+ * that. So a full eleven is OFFICIAL, a partial list is EXPECTED, and nothing
+ * at all is UNAVAILABLE.
+ *
+ * That mapping is conservative in the direction that matters. `WAIT_FOR_LINEUP`
+ * must not clear on a provisional sheet, so anything short of a complete
+ * eleven stays EXPECTED and keeps the gate closed.
+ */
+export function normalizeFootballLineup(
+  raw: unknown,
+  providerEventId: string,
+  observedAt: string,
+  sourceReference = "api-sports:football:lineups",
+): NormalizedLineup {
+  const item = valueRecord(raw);
+  const team = valueRecord(item["team"]);
+  const providerTeamId = optionalIdentifier(team["id"]);
+  if (providerTeamId === null) {
+    throw new Error("INVALID_FOOTBALL_LINEUP");
+  }
+  const players = lineupPlayers(item["startXI"]);
+  const formation = item["formation"];
+  return {
+    sport: "FOOTBALL",
+    providerEventId,
+    providerTeamId,
+    teamName: String(team["name"] ?? "UNKNOWN"),
+    status:
+      players.length >= STARTING_ELEVEN
+        ? "OFFICIAL"
+        : players.length > 0
+          ? "EXPECTED"
+          : "UNAVAILABLE",
+    formation:
+      typeof formation === "string" && formation.trim() !== ""
+        ? formation
+        : null,
+    players,
+    substitutes: lineupPlayers(item["substitutes"]),
+    providerObservedAt: observedAt,
+    provider: "API_SPORTS",
+    sourceReference,
+  };
+}
+
+/**
+ * A complete starting eleven.
+ *
+ * Named rather than inlined because it is the threshold at which
+ * `WAIT_FOR_LINEUP` is allowed to clear, which makes it a product rule and
+ * not an implementation detail.
+ */
+export const STARTING_ELEVEN = 11;
 
 export function normalizeBasketballGame(
   raw: unknown,

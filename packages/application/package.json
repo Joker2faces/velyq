@@ -20,6 +20,10 @@
       "types": "./src/provider-quota.ts",
       "default": "./dist/provider-quota.js"
     },
+    "./lineup-freshness": {
+      "types": "./src/lineup-freshness.ts",
+      "default": "./dist/lineup-freshness.js"
+    },
     "./result-freshness": {
       "types": "./src/result-freshness.ts",
       "default": "./dist/result-freshness.js"

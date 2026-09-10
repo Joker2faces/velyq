@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { subscriptions } from "@velyq/database/schema/private";
-import { customerRedirectUrl, getCookie, requestId } from "../../../auth";
+import {
+  PRIVATE_RESPONSE_HEADERS,
+  customerRedirectUrl,
+  getCookie,
+  requestId,
+} from "../../../auth";
 import {
   getOrCreateStripeCustomer,
   priceIdFor,
@@ -19,13 +24,13 @@ export async function POST(request: Request) {
   if (!token || !url || !key || (plan !== "PRO" && plan !== "ELITE"))
     return NextResponse.json(
       { code: "INVALID_REQUEST", requestId: id },
-      { status: 400 },
+      { status: 400, headers: PRIVATE_RESPONSE_HEADERS },
     );
   const price = priceIdFor(plan as PaidPlan);
   if (!price)
     return NextResponse.json(
       { code: "PRICE_NOT_CONFIGURED", requestId: id },
-      { status: 503 },
+      { status: 503, headers: PRIVATE_RESPONSE_HEADERS },
     );
   const userResponse = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: key, Authorization: `Bearer ${token}` },
@@ -34,13 +39,13 @@ export async function POST(request: Request) {
   if (!userResponse.ok)
     return NextResponse.json(
       { code: "UNAUTHORIZED", requestId: id },
-      { status: 401 },
+      { status: 401, headers: PRIVATE_RESPONSE_HEADERS },
     );
   const user = (await userResponse.json()) as { id?: string; email?: string };
   if (!user.id || !user.email)
     return NextResponse.json(
       { code: "UNAUTHORIZED", requestId: id },
-      { status: 401 },
+      { status: 401, headers: PRIVATE_RESPONSE_HEADERS },
     );
   try {
     const customer = await getOrCreateStripeCustomer(user.id, user.email);
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
       if (current[0])
         return NextResponse.json(
           { code: "SUBSCRIPTION_EXISTS", requestId: id },
-          { status: 409 },
+          { status: 409, headers: PRIVATE_RESPONSE_HEADERS },
         );
     } finally {
       await databaseSession.close();
@@ -89,7 +94,10 @@ export async function POST(request: Request) {
       );
       return existingRedirect
         ? NextResponse.redirect(existingRedirect)
-        : NextResponse.json({ url: existingSession.url, requestId: id });
+        : NextResponse.json(
+            { url: existingSession.url, requestId: id },
+            { headers: PRIVATE_RESPONSE_HEADERS },
+          );
     }
     const origin =
       process.env["VELYQ_APPLICATION_ORIGIN"] ?? new URL(request.url).origin;
@@ -110,11 +118,14 @@ export async function POST(request: Request) {
     const redirect = customerRedirectUrl(request, session.url ?? "/pricing");
     return redirect
       ? NextResponse.redirect(redirect)
-      : NextResponse.json({ url: session.url, requestId: id });
+      : NextResponse.json(
+          { url: session.url, requestId: id },
+          { headers: PRIVATE_RESPONSE_HEADERS },
+        );
   } catch {
     return NextResponse.json(
       { code: "BILLING_UNAVAILABLE", requestId: id },
-      { status: 503 },
+      { status: 503, headers: PRIVATE_RESPONSE_HEADERS },
     );
   }
 }

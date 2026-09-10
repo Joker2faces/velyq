@@ -1,6 +1,6 @@
 import { createDatabaseAdminRuntime } from "./database-admin";
 import { cookies, headers } from "next/headers";
-import { hasPermission, type PermissionCode } from "@velyq/auth";
+import { hasAdminPermission, type PermissionCode } from "@velyq/auth";
 
 type HeaderStore = Readonly<{ get(name: string): string | null }>;
 type CookieStore = Readonly<{ toString(): string }>;
@@ -28,7 +28,21 @@ export async function getAdminContext(
     await runtime.close();
     return { runtime: null, authentication } as const;
   }
-  if (!hasPermission(authentication.principal, permission)) {
+  /*
+   * `hasAdminPermission`, not `hasPermission`.
+   *
+   * The admin APIs authorize with `hasAdminPermission`, which requires role
+   * ADMIN *and* `admin.access` *and* the specific permission. These pages
+   * used `hasPermission`, which checks only that the permission code is
+   * present -- so granting a fine-grained code like `audit.read` to a
+   * non-admin role (a plausible read-only analyst setup, and nothing in the
+   * schema forbids it) let that user render the full audit page including
+   * every admin action's actor, while the API serving the same data answered
+   * 403. The HTML page was the weaker door to identical data.
+   *
+   * Both doors now resolve authorization from the same function.
+   */
+  if (!hasAdminPermission(authentication.principal, permission)) {
     await runtime.close();
     return { runtime: null, authentication } as const;
   }

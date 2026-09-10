@@ -14,7 +14,22 @@ import { desc, eq } from "drizzle-orm";
 import { openRuntimeDatabaseSession } from "../runtime-database/runtime-database";
 import { syntheticDataAllowed } from "../data-mode";
 
-const PRIVATE_PROBLEM_HEADERS = { "cache-control": "private, no-store" };
+/**
+ * Cache headers for anything a signed-in customer sees.
+ *
+ * Exported so every private route shares one definition rather than each
+ * spelling it out -- which is how one of them came to spell it out not at all.
+ * This matters more on the deployed runtime than it looks: the Vinext build
+ * does not read `next.config` (see `security-headers.ts`) and `proxy.ts` sets
+ * no cache headers, so nothing supplies a default. A private response with no
+ * `Cache-Control` behind a shared cache is a cross-customer leak, and an
+ * entitlement-gated response with no `Cache-Control` is a paywall bypass.
+ */
+export const PRIVATE_RESPONSE_HEADERS = Object.freeze({
+  "cache-control": "private, no-store",
+});
+
+const PRIVATE_PROBLEM_HEADERS = PRIVATE_RESPONSE_HEADERS;
 
 export function getCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "")
