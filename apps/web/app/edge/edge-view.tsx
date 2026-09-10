@@ -30,6 +30,7 @@ import {
   Explain,
   Stat,
 } from "../components/ui";
+import { RiskFlags } from "../components/match";
 import type { TodaySurfaceDto } from "../customer/today-surface";
 
 /**
@@ -224,6 +225,7 @@ function HeldRow({
           </Badge>
         ))}
       </div>
+      <RiskFlags flags={match.riskFlags ?? []} locale={locale} />
       {/*
        * The headline market being held back does not mean nothing on this
        * fixture is actionable -- a totals decision can clear the policy
@@ -353,6 +355,8 @@ function EdgeRow({
             .join(", ")}
         </p>
       ) : null}
+
+      <RiskFlags flags={match.riskFlags ?? []} locale={locale} />
 
       <div className="row__foot">
         <span className="row__sub">{t("openMatchIntelligence")} →</span>

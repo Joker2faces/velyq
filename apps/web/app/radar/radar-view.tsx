@@ -24,6 +24,7 @@ import {
   Stat,
   Trend,
 } from "../components/ui";
+import { RiskFlags } from "../components/match";
 import type { TodaySurfaceDto } from "../customer/today-surface";
 
 /**
@@ -248,6 +249,7 @@ function RadarRow({
         </div>
         <span className="row__sub">{t("openMatchIntelligence")} →</span>
       </div>
+      <RiskFlags flags={match.riskFlags ?? []} locale={locale} />
     </Link>
   );
 }
