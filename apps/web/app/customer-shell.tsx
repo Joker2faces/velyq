@@ -36,7 +36,7 @@ function navigation(locale: Locale): readonly NavItem[] {
     { href: "/radar", label: t("navRadar"), icon: IconRadar },
     {
       href: "/results",
-      label: locale === "el" ? "Ιστορικό" : "History",
+      label: t("navHistory"),
       icon: IconEdge,
     },
     { href: "/pricing", label: t("navPricing"), icon: IconPricing },

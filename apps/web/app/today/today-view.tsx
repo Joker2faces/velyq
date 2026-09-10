@@ -118,33 +118,17 @@ export function TodayView({
     .filter((match) => match.movementPercent !== null)
     .sort(compareByMovementDescending)
     .slice(0, 4);
-  const forecastLabels =
-    locale === "el"
-      ? {
-          title: "Προβλέψεις",
-          source: "ΜΟΝΤΕΛΟ VELYQ",
-          decision: "Απόφαση",
-          unavailable: "Δεν υπάρχει πρόβλεψη",
-          reason: "Αιτία",
-          watch: "Παρακολούθηση",
-          watchHint: "Προβλέψεις για παρακολούθηση, όχι ενεργές προτάσεις.",
-          current: "Τρέχουσα",
-          interesting: "Ενδιαφέρον από",
-          distance: "Απόσταση από το όριο",
-        }
-      : {
-          title: "Forecasts",
-          source: "VELYQ MODEL",
-          decision: "Decision",
-          unavailable: "No forecast",
-          reason: "Reason",
-          watch: "Watch",
-          watchHint:
-            "Forecasts worth monitoring, not actionable recommendations.",
-          current: "Current",
-          interesting: "Interesting from",
-          distance: "Distance to validity",
-        };
+  /* Sourced from the shared catalog rather than a local `locale === "el"`
+     object: the catalog's `Record<MessageKey, string>` for Greek turns a
+     missing translation into a compile error. */
+  const forecastLabels = {
+    watch: t("forecastsWatch"),
+    watchHint: t("forecastsWatchHint"),
+    reason: t("forecastsReason"),
+    current: t("forecastsCurrent"),
+    interesting: t("forecastsInteresting"),
+    distance: t("forecastsDistance"),
+  };
 
   return (
     <div className="page">

@@ -2,46 +2,41 @@ import {
   competitionLabel,
   formatOdds,
   formatPercent,
+  intlLocale,
   marketLabel,
   recommendationLabel,
   selectionLabel,
+  translator,
   type Locale,
 } from "@velyq/ui";
 import type { HistorySurfaceDto } from "../customer/history-surface";
 import { Badge, Card, CardHead, Stat } from "../components/ui";
 
-const copy = (locale: Locale) =>
-  locale === "el"
-    ? {
-        title: "Ιστορικό αποφάσεων",
-        sub: "Όλες οι επιλέξιμες αποφάσεις εμφανίζονται, μαζί με τις ήττες.",
-        settled: "Διευθετημένες",
-        wins: "Νίκες",
-        losses: "Ήττες",
-        clv: "Θετικό CLV",
-        outcome: "Αποτέλεσμα",
-        price: "Ποιότητα τιμής",
-        demo: "Συνθετικό δείγμα QA",
-        live: "Ζωντανά δεδομένα",
-        all: "Όλες οι επιλέξιμες αποφάσεις",
-        model: "Μοντέλο",
-        fair: "Δίκαιη τιμή",
-      }
-    : {
-        title: "Decision history",
-        sub: "Every qualifying decision is shown, including losses.",
-        settled: "Settled",
-        wins: "Wins",
-        losses: "Losses",
-        clv: "Positive CLV",
-        outcome: "Outcome",
-        price: "Price quality",
-        demo: "Synthetic QA sample",
-        live: "Live data",
-        all: "All qualifying decisions",
-        model: "Model",
-        fair: "Fair",
-      };
+/**
+ * Label bundle for this view.
+ *
+ * These live in the shared message catalog rather than in a local
+ * `locale === "el"` object, so that a missing Greek string is a compile error
+ * in `messages.ts` instead of English prose leaking onto a Greek page.
+ */
+const copy = (locale: Locale) => {
+  const t = translator(locale);
+  return {
+    title: t("historyTitle"),
+    sub: t("historySubtitle"),
+    settled: t("historySettled"),
+    wins: t("historyWins"),
+    losses: t("historyLosses"),
+    clv: t("historyPositiveClv"),
+    outcome: t("historyOutcome"),
+    price: t("historyPriceQuality"),
+    demo: t("historySyntheticSample"),
+    live: t("historyLiveData"),
+    all: t("historyAllQualifying"),
+    model: t("historyModel"),
+    fair: t("historyFairPrice"),
+  };
+};
 
 export function ResultsView({
   data,
@@ -123,7 +118,7 @@ export function ResultsView({
               <div>
                 <p className="eyebrow">
                   {new Date(item.decidedAt).toLocaleDateString(
-                    locale === "el" ? "el-GR" : "en-GB",
+                    intlLocale(locale),
                   )}{" "}
                   · {competitionLabel(item.competition)}
                 </p>

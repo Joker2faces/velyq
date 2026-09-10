@@ -132,6 +132,9 @@ describe("bilingual catalog", () => {
       "Ξέχασες τον κωδικό σου;",
     );
     expect(translate("radarMarketMovement", "el")).toBe("Κίνηση αποδόσεων");
+    // The credited name stays "Joker2face"; the label around it is prose and
+    // is translated like any other label.
+    expect(translate("footerCreatedBy", "el")).toBe("Δημιουργήθηκε από");
   });
 
   it("keeps brand and product names untranslated in both locales", () => {
@@ -141,8 +144,6 @@ describe("bilingual catalog", () => {
       expect(translate("navMatchIntelligence", locale)).toBe(
         "Match Intelligence",
       );
-      // The creator credit is a proper noun and must not shift by locale.
-      expect(translate("footerCreatedBy", locale)).toBe("Created by");
     }
   });
 
@@ -153,14 +154,13 @@ describe("bilingual catalog", () => {
   });
 
   it("does not leave Greek strings identical to English prose", () => {
-    // Brand names, product names and the creator credit are intentionally
-    // shared; everything else must actually be translated.
+    // Brand and product names are intentionally shared; everything else must
+    // actually be translated.
     const shared = new Set<MessageKey>([
       "navEdge",
       "navRadar",
       "navMatchIntelligence",
       "productMatchIntelligence",
-      "footerCreatedBy",
       "planFreeName",
       "planProName",
       "planEliteName",

@@ -34,6 +34,7 @@ export const messages = {
   navPrimaryLabel: "Primary navigation",
   navSkipToContent: "Skip to main content",
   navSectionIntelligence: "Intelligence",
+  navHistory: "History",
   adminConsole: "Admin console",
   signOut: "Sign out",
   sessionActive: "Session active",
@@ -783,6 +784,35 @@ export const messages = {
   reasonMarketDataUnavailable: "No market price yet",
   reasonQualityTooLow: "Evidence quality too low",
   reasonModelMaturityInsufficient: "Model not validated for action yet",
+
+  // ------------------------------------------------- today: forecast panel
+  forecastsReason: "Reason",
+  forecastsWatch: "Watch",
+  forecastsWatchHint:
+    "Forecasts worth monitoring, not actionable recommendations.",
+  forecastsCurrent: "Current",
+  forecastsInteresting: "Interesting from",
+  forecastsDistance: "Distance to validity",
+
+  // -------------------------------------------- match intelligence paywall
+  matchLockedTitle: "Match Intelligence is available on ELITE",
+  matchLockedBody: "Upgrade for full match analysis, prices and trace.",
+  matchLockedAction: "View plans →",
+
+  // ------------------------------------------------------- history surface
+  historyTitle: "Decision history",
+  historySubtitle: "Every qualifying decision is shown, including losses.",
+  historySettled: "Settled",
+  historyWins: "Wins",
+  historyLosses: "Losses",
+  historyPositiveClv: "Positive CLV",
+  historyOutcome: "Outcome",
+  historyPriceQuality: "Price quality",
+  historySyntheticSample: "Synthetic QA sample",
+  historyLiveData: "Live data",
+  historyAllQualifying: "All qualifying decisions",
+  historyModel: "Model",
+  historyFairPrice: "Fair price",
 } as const;
 
 export type MessageKey = keyof typeof messages;
@@ -812,6 +842,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   navPrimaryLabel: "Κύρια πλοήγηση",
   navSkipToContent: "Μετάβαση στο περιεχόμενο",
   navSectionIntelligence: "Ανάλυση",
+  navHistory: "Ιστορικό",
   adminConsole: "Διαχείριση",
   signOut: "Αποσύνδεση",
   sessionActive: "Ενεργή σύνδεση",
@@ -1008,7 +1039,7 @@ const greek: Readonly<Record<MessageKey, string>> = {
   homeFinalCta: "Δημιούργησε δωρεάν λογαριασμό",
 
   footerRights: "Ανάλυση αθλητικών αγορών με AI",
-  footerCreatedBy: "Created by",
+  footerCreatedBy: "Δημιουργήθηκε από",
   footerTerms: "Όροι χρήσης",
   footerPrivacy: "Απόρρητο",
   footerResponsibleUse: "Υπεύθυνη χρήση",
@@ -1479,6 +1510,32 @@ const greek: Readonly<Record<MessageKey, string>> = {
   reasonQualityTooLow: "Πολύ χαμηλή ποιότητα δεδομένων",
   reasonModelMaturityInsufficient:
     "Το μοντέλο δεν έχει ακόμη επικυρωθεί για δράση",
+
+  forecastsReason: "Αιτία",
+  forecastsWatch: "Παρακολούθηση",
+  forecastsWatchHint: "Προβλέψεις για παρακολούθηση, όχι ενεργές προτάσεις.",
+  forecastsCurrent: "Τρέχουσα",
+  forecastsInteresting: "Ενδιαφέρον από",
+  forecastsDistance: "Απόσταση από το όριο",
+
+  matchLockedTitle: "Το Match Intelligence είναι διαθέσιμο στο ELITE",
+  matchLockedBody: "Αναβάθμισε για πλήρη ανάλυση αγώνα, αποδόσεις και trace.",
+  matchLockedAction: "Δες τα πλάνα →",
+
+  historyTitle: "Ιστορικό αποφάσεων",
+  historySubtitle:
+    "Όλες οι επιλέξιμες αποφάσεις εμφανίζονται, μαζί με τις ήττες.",
+  historySettled: "Διευθετημένες",
+  historyWins: "Νίκες",
+  historyLosses: "Ήττες",
+  historyPositiveClv: "Θετικό CLV",
+  historyOutcome: "Αποτέλεσμα",
+  historyPriceQuality: "Ποιότητα τιμής",
+  historySyntheticSample: "Συνθετικό δείγμα QA",
+  historyLiveData: "Ζωντανά δεδομένα",
+  historyAllQualifying: "Όλες οι επιλέξιμες αποφάσεις",
+  historyModel: "Μοντέλο",
+  historyFairPrice: "Δίκαιη τιμή",
 };
 
 export const translations: Readonly<

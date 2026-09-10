@@ -66,29 +66,21 @@ export default async function Match({
           <ErrorState
             title={
               locked
-                ? locale === "el"
-                  ? "Το Match Intelligence είναι διαθέσιμο στο ELITE"
-                  : "Match Intelligence is available on ELITE"
+                ? t("matchLockedTitle")
                 : notFound
                   ? t("matchNotFound")
                   : t("customerUnavailable")
             }
             body={
               locked
-                ? locale === "el"
-                  ? "Αναβάθμισε για πλήρη ανάλυση αγώνα, αποδόσεις και trace."
-                  : "Upgrade for full match analysis, prices and trace."
+                ? t("matchLockedBody")
                 : notFound
                   ? t("matchNotFoundBody")
                   : t("customerUnavailableBody")
             }
             action={
               <ArrowLink href={locked ? "/pricing" : "/today"}>
-                {locked
-                  ? locale === "el"
-                    ? "Δες τα πλάνα →"
-                    : "View plans →"
-                  : t("backToToday")}
+                {locked ? t("matchLockedAction") : t("backToToday")}
               </ArrowLink>
             }
           />
