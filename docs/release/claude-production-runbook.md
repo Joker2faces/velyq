@@ -64,6 +64,26 @@ Vercel re-points the production alias only on a **successful** build. A stalled
 or failed deployment leaves the live site serving its current deployment, so a
 failed attempt is not an outage.
 
+### Daily deployment cap (free plan)
+
+`vercel redeploy ... --target production` can return `402 Resource is
+limited - try again in 24 hours (more than 100, code:
+"api-deployments-free-per-day")` once the account's Vercel deployments for
+the day (across preview and production, both projects) hit 100. This is a
+genuine platform quota, not a bug -- confirmed by two retries a few minutes
+apart both returning the identical error. There is no owner-side override
+available on the free plan short of upgrading it, and creating a second
+Vercel project to route around it is explicitly out of scope (§ "Production
+safety": never create another Vercel project). When hit: keep implementing,
+testing, committing and pushing increments (all durable on
+`codex/velyq-final-product-v1` regardless of deploy state) and resume
+`vercel redeploy` once ~24h has passed since the cap was hit -- check with a
+harmless dry run (`vercel ls`) first, since the exact reset time is a
+rolling window, not a fixed clock boundary. Hit at 2026-09-10 ~20:40 EEST
+during this session, after the Market Consensus/Market Map/Risk Flags
+increment (code `aaf8a80`) built and pushed successfully but could not be
+promoted to production.
+
 ---
 
 ## 3. Rollback
