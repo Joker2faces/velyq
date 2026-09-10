@@ -313,6 +313,46 @@ export function reasonLabels(codes: readonly string[], locale: Locale) {
   return codes.map((code) => reasonLabel(code, locale));
 }
 
+// -------------------------------------------------------- price validity
+
+const PRICE_VALIDITY_LABELS: Readonly<Record<string, MessageKey>> = {
+  ATTRACTIVE: "priceValidityAttractive",
+  MARGINAL: "priceValidityMarginal",
+  AT_FAIR: "priceValidityAtFair",
+  BELOW_FAIR: "priceValidityBelowFair",
+  UNAVAILABLE: "priceValidityUnavailable",
+};
+
+/** What the price-validity policy concluded about the price on offer. */
+export function priceValidityLabel(status: string, locale: Locale) {
+  const key = PRICE_VALIDITY_LABELS[status];
+  return translate(key ?? "priceValidityUnavailable", locale);
+}
+
+/**
+ * Tone for a validity status.
+ *
+ * `AT_FAIR` is deliberately neutral rather than positive: a price exactly at
+ * fair value carries no expected edge, and colouring it green would say it
+ * does. `MARGINAL` and `BELOW_FAIR` share the caution tone because the
+ * badge palette has no stronger warning than that -- the labels ("Marginal"
+ * against "Too short") carry the difference, rather than inventing a tone
+ * whose styling nothing else in the product uses.
+ */
+export function priceValidityTone(status: string): Tone {
+  switch (status) {
+    case "ATTRACTIVE":
+      return "positive";
+    case "MARGINAL":
+    case "BELOW_FAIR":
+      return "caution";
+    case "UNAVAILABLE":
+      return "muted";
+    default:
+      return "neutral";
+  }
+}
+
 // --------------------------------------------------------- quality grade
 
 /**

@@ -7,6 +7,8 @@ import {
   freshnessLabel,
   freshnessTone,
   competitionLabel,
+  priceValidityLabel,
+  priceValidityTone,
   recommendationLabel,
   recommendationTone,
   reasonLabel,
@@ -233,5 +235,117 @@ export function MatchCard({
     <Link href={target} className="match-card__link" prefetch={false}>
       {card}
     </Link>
+  );
+}
+
+/**
+ * Price validity — is the price on offer still one worth taking?
+ *
+ * Every number here comes from `priceValidity`, which the server computes
+ * with the authoritative policy. Nothing is derived in this component: a view
+ * that multiplies fair odds by a margin of its own invents a policy the
+ * product never agreed, which is exactly the defect the price-validity module
+ * exists to prevent.
+ *
+ * The scale is the point. "Break-even 7.35, minimum 7.50, current 13.50" is
+ * three numbers a customer has to hold in their head; a position on a line
+ * between them is a glance.
+ */
+export function PriceValidity({
+  match,
+  locale,
+}: {
+  match: CustomerMatchDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  const { status, breakEvenOdds, minimumAcceptableOdds, policyVersion } =
+    match.priceValidity;
+
+  /*
+   * Unavailable is a real answer, not an error, and the two reasons for it
+   * are different things a customer would act on differently: no price
+   * observed yet, or no model probability to price against.
+   */
+  if (status === "UNAVAILABLE" || minimumAcceptableOdds === null) {
+    return (
+      <div className="validity validity--unavailable">
+        <p className="validity__note">
+          {match.currentOdds === null
+            ? t("priceValidityNoPrice")
+            : t("priceValidityNoModel")}
+        </p>
+      </div>
+    );
+  }
+
+  const current = match.currentOdds === null ? null : Number(match.currentOdds);
+  const breakEven = breakEvenOdds === null ? null : Number(breakEvenOdds);
+  const minimum = Number(minimumAcceptableOdds);
+
+  /*
+   * Purely positional: where the marks sit on the drawn line. This is
+   * presentation geometry, not a threshold -- the thresholds themselves
+   * arrive already decided, and the verdict shown is `status`, never
+   * something recomputed from these coordinates.
+   */
+  const floor = breakEven === null ? minimum : Math.min(breakEven, minimum);
+  const ceiling = Math.max(minimum, current ?? minimum) * 1.15;
+  const span = ceiling - floor || 1;
+  const position = (value: number) =>
+    `${Math.min(100, Math.max(0, ((value - floor) / span) * 100))}%`;
+
+  return (
+    <div className="validity">
+      <div className="validity__head">
+        <Badge tone={priceValidityTone(status)}>
+          {priceValidityLabel(status, locale)}
+        </Badge>
+        <span className="validity__policy">
+          {t("priceValidityPolicy", { version: policyVersion })}
+        </span>
+      </div>
+
+      <div className="validity__scale" aria-hidden="true">
+        <span className="validity__track" />
+        {breakEven === null ? null : (
+          <span
+            className="validity__mark validity__mark--breakeven"
+            style={{ left: position(breakEven) }}
+          />
+        )}
+        <span
+          className="validity__mark validity__mark--minimum"
+          style={{ left: position(minimum) }}
+        />
+        {current === null ? null : (
+          <span
+            className="validity__mark validity__mark--current"
+            style={{ left: position(current) }}
+          />
+        )}
+      </div>
+
+      <dl className="validity__figures">
+        {breakEven === null ? null : (
+          <div>
+            <dt>{t("priceValidityBreakEven")}</dt>
+            <dd>{formatOdds(breakEvenOdds, locale)}</dd>
+          </div>
+        )}
+        <div>
+          <dt>{t("priceValidityMinimum")}</dt>
+          <dd>{formatOdds(minimumAcceptableOdds, locale)}</dd>
+        </div>
+        <div className="validity__figures-current">
+          <dt>{t("priceValidityCurrent")}</dt>
+          <dd>
+            {match.currentOdds === null
+              ? "—"
+              : formatOdds(match.currentOdds, locale)}
+          </dd>
+        </div>
+      </dl>
+    </div>
   );
 }

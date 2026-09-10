@@ -444,6 +444,32 @@ export const messages = {
    * to see which they are looking at.
    */
   radarObservations: "Observations",
+
+  /* ------------------------------------------------------- price validity
+
+     The signature component: is the price on offer still one worth taking?
+     Every figure here comes from the authoritative price-validity policy, so
+     no surface derives a threshold of its own. */
+  priceValidityTitle: "Price validity",
+  priceValidityLead:
+    "Whether the price on offer still clears the policy, and how much room is left before it does not.",
+  priceValidityCurrent: "Current price",
+  priceValidityFair: "Fair price",
+  priceValidityBreakEven: "Break-even",
+  priceValidityMinimum: "Minimum acceptable",
+  priceValidityAttractive: "Strong value",
+  priceValidityMarginal: "Marginal",
+  priceValidityAtFair: "At fair value",
+  priceValidityBelowFair: "Too short",
+  priceValidityUnavailable: "Cannot be assessed",
+  priceValidityValid: "Price is valid",
+  priceValidityInvalid: "Price is no longer valid",
+  priceValidityNoPrice:
+    "No current price has been observed, so validity cannot be assessed.",
+  priceValidityNoModel:
+    "No model probability exists for this selection, so there is nothing to price against.",
+  priceValidityPolicy: "Policy {version}",
+
   radarNoHistory: "No price history available",
   radarDrifted: "Price drifted out",
   radarShortened: "Price shortened in",
@@ -1110,6 +1136,27 @@ const greek: Readonly<Record<MessageKey, string>> = {
   radarFreshness: "Τελευταία καταγραφή",
   radarHistory: "Ιστορικό αποδόσεων",
   radarObservations: "Παρατηρήσεις",
+
+  priceValidityTitle: "Εγκυρότητα απόδοσης",
+  priceValidityLead:
+    "Αν η προσφερόμενη απόδοση πληροί ακόμη την πολιτική, και πόσο περιθώριο απομένει.",
+  priceValidityCurrent: "Τρέχουσα απόδοση",
+  priceValidityFair: "Δίκαιη απόδοση",
+  priceValidityBreakEven: "Νεκρό σημείο",
+  priceValidityMinimum: "Ελάχιστη αποδεκτή",
+  priceValidityAttractive: "Ισχυρή αξία",
+  priceValidityMarginal: "Οριακή",
+  priceValidityAtFair: "Στη δίκαιη τιμή",
+  priceValidityBelowFair: "Πολύ χαμηλή",
+  priceValidityUnavailable: "Δεν μπορεί να αξιολογηθεί",
+  priceValidityValid: "Η απόδοση είναι έγκυρη",
+  priceValidityInvalid: "Η απόδοση δεν είναι πλέον έγκυρη",
+  priceValidityNoPrice:
+    "Δεν έχει παρατηρηθεί τρέχουσα απόδοση, οπότε η εγκυρότητα δεν μπορεί να αξιολογηθεί.",
+  priceValidityNoModel:
+    "Δεν υπάρχει πιθανότητα μοντέλου για αυτή την επιλογή, οπότε δεν υπάρχει βάση αποτίμησης.",
+  priceValidityPolicy: "Πολιτική {version}",
+
   radarNoHistory: "Δεν υπάρχει ιστορικό αποδόσεων",
   radarDrifted: "Η απόδοση ανέβηκε",
   radarShortened: "Η απόδοση έπεσε",

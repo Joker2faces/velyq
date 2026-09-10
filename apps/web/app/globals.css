@@ -2200,3 +2200,111 @@ a.row:hover {
   font-size: 0.9375rem;
   color: var(--secondary);
 }
+
+/* ---------------------------------------------------------- price validity
+
+   Three prices a customer would otherwise have to hold in their head, shown
+   as positions on one line. The marks are presentation geometry only -- the
+   verdict beside them comes from the price-validity policy, never from these
+   coordinates.                                                             */
+
+.validity {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.validity__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.validity__policy {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--quiet);
+}
+
+.validity__scale {
+  position: relative;
+  height: 2.25rem;
+}
+
+.validity__track {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    var(--clay-dim) 0%,
+    var(--line-strong) 45%,
+    var(--signal-dim) 100%
+  );
+}
+
+.validity__mark {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 1.25rem;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-pill);
+}
+
+/* Break-even: where expected value is exactly zero. */
+.validity__mark--breakeven {
+  background: var(--quiet);
+}
+
+/* The policy threshold -- the number that decides validity. */
+.validity__mark--minimum {
+  background: var(--gold);
+  height: 1.75rem;
+}
+
+/* Where the market actually is right now. */
+.validity__mark--current {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--signal-strong);
+  box-shadow: 0 0 0 4px var(--glow-pitch);
+}
+
+.validity__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.validity__figures dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.validity__figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.validity__figures-current dd {
+  color: var(--signal-strong);
+  font-weight: 600;
+}
+
+.validity__note {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--secondary);
+}

@@ -62,6 +62,8 @@ export {
   lineupLabel,
   lineupTone,
   marketLabel,
+  priceValidityLabel,
+  priceValidityTone,
   qualityMeter,
   qualityTone,
   reasonLabel,

@@ -23,6 +23,7 @@ import {
 import { loadCustomerMatch } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
+import { PriceValidity } from "../../components/match";
 import {
   ArrowLink,
   Badge,
@@ -253,6 +254,25 @@ export default async function Match({
               ) : (
                 <p className="row__reason">{t("matchNoEstimate")}</p>
               )}
+            </Card>
+
+            {/*
+             * Price validity, directly after the market picture.
+             *
+             * The DTO has carried the authoritative price-validity output
+             * all along -- break-even, minimum acceptable, status and the
+             * policy version -- and the flagship screen showed none of it.
+             * A customer could see that the model and the market disagreed
+             * without being told whether the price on offer still cleared
+             * the policy, which is the question that decides whether the
+             * disagreement is worth anything.
+             */}
+            <Card>
+              <CardHead
+                title={t("priceValidityTitle")}
+                hint={t("priceValidityLead")}
+              />
+              <PriceValidity match={match} locale={locale} />
             </Card>
 
             <Card className="sweep">
