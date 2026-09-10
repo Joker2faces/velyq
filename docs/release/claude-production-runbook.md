@@ -84,40 +84,63 @@ during this session, after the Market Consensus/Market Map/Risk Flags
 increment (code `aaf8a80`) built and pushed successfully but could not be
 promoted to production.
 
-### GitHub Actions is billing-locked (blocks the real-PostgreSQL CI gate)
+### GitHub Actions is billing-locked (blocks the CI-hosted real-PostgreSQL gate)
 
-The `db-integration` CI job (`.github/workflows/ci.yml`) is the only environment
-in this project that runs a genuine PostgreSQL 17 (via the Supabase CLI, which
-manages its own Docker containers on the Ubuntu runner) -- no local Postgres
-or Docker is available in the engineering environment this session ran in.
-`gh workflow run ci.yml --ref codex/velyq-final-product-v1` was dispatched to
-get real-database verification of the session's DB-facing changes (the
-`getOddsHistory` bound-query fix, the CLV write path, the multi-class
-calibration query). Every job failed to start with the identical annotation:
-**"The job was not started because your account is locked due to a billing
-issue."** This is a genuine, external account-level block, confirmed
-immediately and consistently across all 12 jobs in the run
-(https://github.com/Joker2faces/velyq/actions/runs/34527023380) -- not a
-flake, not something a retry fixes, and not an engineering-side problem.
-There is no owner-side override available from this session (billing issues
-require the account owner to resolve them with GitHub directly).
+The `db-integration` CI job (`.github/workflows/ci.yml`) runs a genuine
+PostgreSQL 17 (via the Supabase CLI, which manages its own Docker containers
+on the Ubuntu runner). `gh workflow run ci.yml --ref codex/velyq-final-product-v1`
+was dispatched to get CI-hosted real-database verification. Every job failed
+to start with the identical annotation: **"The job was not started because
+your account is locked due to a billing issue."** This is a genuine, external
+account-level block, confirmed immediately and consistently across all 12
+jobs in the run (https://github.com/Joker2faces/velyq/actions/runs/34527023380)
+-- not a flake, not something a retry fixes, and not an engineering-side
+problem. There is no owner-side override available from this session (billing
+issues require the account owner to resolve them with GitHub directly).
 
 **Do not repeatedly re-dispatch this workflow while the account remains
-billing-locked** -- same principle as the Vercel deployment cap: it wastes
-engineering time on an external blocker rather than advancing anything. When
-the owner confirms the billing issue is resolved, re-dispatch once
-(`gh workflow run ci.yml --ref codex/velyq-final-product-v1`) and let the
+billing-locked** -- same principle as the Vercel deployment cap. When the
+owner confirms the billing issue is resolved, re-dispatch once and let the
 `db-integration` job run to completion before drawing any conclusion.
 
-**Practical consequence**: every DB-facing change queued on
-`codex/velyq-final-product-v1` remains **PUSHED AND UNIT-TESTED, NOT
-PRODUCTION-VERIFIED against real Postgres** until either local Docker/Postgres
-becomes available in the engineering environment, or the GitHub Actions
-billing lock clears and the `db-integration` job runs green. This specifically
-includes: the `getOddsHistory` bounded-query rewrite, the `ingestFootballResults`
-CLV write path, the multi-class calibration query, and the Market Consensus
-snapshot queries. None of these should be described as "release-verified" in
-any status report until this gate actually runs.
+**Correction to an earlier note in this same file**: this section previously
+claimed "no local Postgres or Docker is available in the engineering
+environment," used as the reason CI was the only path to real-database
+verification. That claim was wrong -- discovered by actually trying the
+locally-documented path in section 5 (`pnpm test:db:local` /
+`test:db:upgrade` / `test:db:production-upgrade`) rather than assuming it was
+unavailable. Windows Subsystem for Linux (`wsl -d Ubuntu-24.04`) is present
+and working in this environment, and those three scripts provision a real
+PostgreSQL 17 inside it exactly as section 5 already documented -- no GitHub
+Actions and no billing lock involved. All three ran green this session (fresh
+migration + DB integration suite, representative upgrade path, and the
+production-faithful reconciliation against the actual legacy schema), and
+directly using them **found and fixed a real production bug**: a new
+integration test for the CLV write path (added this session,
+`packages/database/test-integration/forecast-decision-settlement.test.ts`)
+crashed with `closingLineValue: invalid odds (INVALID_DECIMAL)` against a
+real database, because `decisions.offeredOdds` is a fixed-scale Postgres
+`numeric` column that always returns trailing-zero-padded strings (e.g.
+`"2.10000000"`), which `@velyq/decimal`'s canonical parser correctly rejects.
+The float-based code this session's earlier CLV fix replaced had silently
+tolerated that padding; the new exact-decimal code did not, and would have
+aborted a real fixture's entire settlement transaction on ordinary,
+non-degenerate odds. Fixed by canonicalizing at the DB-read boundary
+(`numericColumnToDecimalString`, the same bridge every other numeric-column
+read in this codebase already uses) in `closingPricesFor`
+(`packages/database/src/repositories/result-ingestion.ts`) -- this is exactly
+why the mandate's instruction to verify against real Postgres before final
+release classification exists, and this session would have shipped a real
+regression without it.
+
+**Practical consequence, updated**: the CI-hosted `db-integration` job remains
+blocked by the GitHub Actions billing lock, but that no longer means DB-facing
+changes on `codex/velyq-final-product-v1` are unverified -- they were run
+against a real, local PostgreSQL 17 this session via the WSL path in section
+5. Future sessions in this same engineering environment should reach for
+`pnpm test:db:local` (and the upgrade/production-upgrade variants) directly,
+rather than assuming Docker/Postgres is unavailable and dispatching CI as the
+only option.
 
 ---
 

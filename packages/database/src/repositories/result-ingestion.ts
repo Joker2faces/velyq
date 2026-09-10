@@ -11,6 +11,7 @@ import {
   selectClosingPrice,
   type PricePoint,
 } from "@velyq/analytics";
+import { numericColumnToDecimalString } from "@velyq/decimal";
 import type { NormalizedResult } from "@velyq/providers";
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import { eventIdentities, events } from "../schema/catalog.js";
@@ -245,10 +246,26 @@ async function closingPricesFor(
       });
       closingByOutcome.set(candidate.eventMarketOutcomeId, closing);
     }
-    const clv = candidate.offeredOdds
+    /*
+     * `decisions.offeredOdds` is a fixed-scale `numeric` column: Postgres
+     * always returns it padded to its declared scale (e.g. "2.10000000"),
+     * never the canonical, no-trailing-zero form `@velyq/decimal` requires.
+     * Discovered against a real database -- `closingLineValue`'s decimal
+     * arithmetic (correctly made exact, not float, earlier this session)
+     * rejected the padded form outright where the old float-based version
+     * had silently tolerated it, aborting the whole fixture's settlement
+     * transaction on a genuinely real, non-degenerate price. Canonicalizing
+     * at this DB boundary -- the same bridge every other numeric-column
+     * read in this codebase uses -- is the fix, not loosening the decimal
+     * parser.
+     */
+    const canonicalOfferedOdds = candidate.offeredOdds
+      ? numericColumnToDecimalString(candidate.offeredOdds)
+      : null;
+    const clv = canonicalOfferedOdds?.ok
       ? eligibleClv({
           decisionOutcomeId: candidate.eventMarketOutcomeId,
-          decisionOdds: candidate.offeredOdds as never,
+          decisionOdds: canonicalOfferedOdds.value,
           decisionAt: candidate.decisionCreatedAt.toISOString(),
           kickoff: candidate.kickoff.toISOString(),
           closing,

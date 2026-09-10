@@ -28,7 +28,12 @@ import {
   predictions,
 } from "../src/schema/intelligence.js";
 import { competitionIdentities, competitions } from "../src/schema/catalog.js";
-import { eventMarketOutcomes, eventMarkets } from "../src/schema/market.js";
+import {
+  bookmakers,
+  eventMarketOutcomes,
+  eventMarkets,
+  oddsObservations,
+} from "../src/schema/market.js";
 import { sourceObservations } from "../src/schema/operations.js";
 
 /*
@@ -1190,6 +1195,155 @@ describe("forecast, decision and settlement, against a real database", () => {
         .from(marketSettlements)
         .where(eq(marketSettlements.decisionId, refused!.id));
       expect(settledRefused).toEqual([]);
+    });
+
+    /*
+     * The CLV write path (mandate's "critical DB gate"): closingOdds/clv on
+     * marketSettlements were previously always null in production, because
+     * ingestFootballResults -- the only settlement writer actually wired in
+     * -- never computed them. Proves the real fix against a real database:
+     * two bookmakers' last observations before kickoff produce a real
+     * closing-price median, and CLV is computed from the decision's own
+     * offered price against that close, not fabricated.
+     */
+    it("computes and persists closingOdds/clv from real pre-kickoff odds observations", async () => {
+      const decision = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.5",
+        offeredOdds: "2.2",
+        selection: "HOME",
+        eventMarketOutcomeId: outcomeIdBySelection.HOME,
+      });
+
+      const [bookmakerA] = await database
+        .insert(bookmakers)
+        .values({
+          code: "CLV_TEST_BOOK_A",
+          displayName: "CLV Test Book A",
+          synthetic: false,
+        })
+        .onConflictDoNothing({ target: [bookmakers.code] })
+        .returning({ id: bookmakers.id });
+      const bookmakerAId =
+        bookmakerA?.id ??
+        (
+          await database
+            .select({ id: bookmakers.id })
+            .from(bookmakers)
+            .where(eq(bookmakers.code, "CLV_TEST_BOOK_A"))
+            .limit(1)
+        )[0]!.id;
+
+      const [bookmakerB] = await database
+        .insert(bookmakers)
+        .values({
+          code: "CLV_TEST_BOOK_B",
+          displayName: "CLV Test Book B",
+          synthetic: false,
+        })
+        .onConflictDoNothing({ target: [bookmakers.code] })
+        .returning({ id: bookmakers.id });
+      const bookmakerBId =
+        bookmakerB?.id ??
+        (
+          await database
+            .select({ id: bookmakers.id })
+            .from(bookmakers)
+            .where(eq(bookmakers.code, "CLV_TEST_BOOK_B"))
+            .limit(1)
+        )[0]!.id;
+
+      const { providerSyncRuns } = await import("../src/schema/operations.js");
+      const [oddsSyncRun] = await database
+        .insert(providerSyncRuns)
+        .values({
+          providerId: referenceData.providerId,
+          capability: "ODDS",
+          status: "COMPLETED",
+          providerSchemaVersion: "api-sports.v1",
+          normalizationVersion: "api-sports.v1",
+          mappingVersion: "api-sports.v1",
+          policyVersionId: referenceData.policyVersionId,
+          startedAt: new Date(),
+          completedAt: new Date(),
+        })
+        .returning({ id: providerSyncRuns.id });
+
+      const [oddsSource] = await database
+        .insert(sourceObservations)
+        .values({
+          providerId: referenceData.providerId,
+          syncRunId: oddsSyncRun!.id,
+          observationType: "ODDS",
+          providerExternalId: "950001",
+          providerObservedAt: new Date("2026-09-20T17:30:00.000Z"),
+          receivedAt: new Date("2026-09-20T17:30:01.000Z"),
+          normalizedAt: new Date("2026-09-20T17:30:01.000Z"),
+          normalizationVersion: "api-sports.v1",
+          mappingVersion: "api-sports.v1",
+          contentHash: "sha256:clv-test-odds",
+        })
+        .returning({ id: sourceObservations.id });
+
+      /*
+       * Both at/before kickoff (18:00), 30 minutes apart -- well inside the
+       * policy's 60-minute freshness cutoff, so both are eligible and the
+       * closing price is their real median: (1.90 + 2.10) / 2 = 2.00.
+       */
+      await database.insert(oddsObservations).values([
+        {
+          sourceObservationId: oddsSource!.id,
+          eventMarketOutcomeId: outcomeIdBySelection.HOME,
+          bookmakerId: bookmakerAId,
+          decimalOdds: "1.90",
+          providerObservedAt: new Date("2026-09-20T17:00:00.000Z"),
+          receivedAt: new Date("2026-09-20T17:00:01.000Z"),
+          normalizedAt: new Date("2026-09-20T17:00:01.000Z"),
+          status: "ACTIVE",
+          isSynthetic: false,
+        },
+        {
+          sourceObservationId: oddsSource!.id,
+          eventMarketOutcomeId: outcomeIdBySelection.HOME,
+          bookmakerId: bookmakerBId,
+          decimalOdds: "2.10",
+          providerObservedAt: new Date("2026-09-20T17:30:00.000Z"),
+          receivedAt: new Date("2026-09-20T17:30:01.000Z"),
+          normalizedAt: new Date("2026-09-20T17:30:01.000Z"),
+          status: "ACTIVE",
+          isSynthetic: false,
+        },
+      ]);
+
+      const summary = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord({ timestamp: 1_789_300_000 }, { home: 3, away: 0 }),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+      expect(
+        summary.settlementsWritten,
+        JSON.stringify(summary.skippedByReason),
+      ).toBeGreaterThanOrEqual(1);
+
+      const [settlement] = await database
+        .select({
+          outcome: marketSettlements.outcome,
+          closingOdds: marketSettlements.closingOdds,
+          clv: marketSettlements.clv,
+        })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, decision.id));
+
+      expect(settlement?.outcome).toBe("WIN");
+      /* Median of 1.90 and 2.10 -- a real closing price, not a fabricated
+         placeholder, and never null now that the write path is fixed. */
+      expect(Number(settlement?.closingOdds)).toBeCloseTo(2.0, 8);
+      /* CLV = offeredOdds / closingOdds - 1 = 2.2 / 2.0 - 1 = 0.1 exactly. */
+      expect(Number(settlement?.clv)).toBeCloseTo(0.1, 8);
     });
   });
 });

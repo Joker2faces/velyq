@@ -70,6 +70,7 @@
     "@velyq/auth": "workspace:*",
     "@velyq/application": "workspace:*",
     "@velyq/contracts": "workspace:*",
+    "@velyq/decimal": "workspace:*",
     "@velyq/domain": "workspace:*",
     "@velyq/market-semantics": "workspace:*",
     "@velyq/providers": "workspace:*",
