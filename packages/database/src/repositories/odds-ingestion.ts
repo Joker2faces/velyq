@@ -312,6 +312,17 @@ export type OddsIngestionRejection = Readonly<{
     | "MARKET_NOT_WIRED"
     /** The market is supported but not at the line the provider quoted. */
     | "LINE_NOT_WIRED"
+    /**
+     * The provider quoted a price but said nothing about when it observed it.
+     *
+     * Refused rather than stored. An unknown-age price cannot be assessed for
+     * freshness, and the alternative -- substituting our own fetch time, which
+     * is what the normalizer used to do -- makes it read as CURRENT and
+     * therefore actionable. A price we cannot date is not evidence, and the
+     * funnel counts these so a provider that stops sending timestamps is
+     * visible rather than silently trusted.
+     */
+    | "PROVIDER_TIMESTAMP_MISSING"
     | "UNMAPPED_SELECTION";
   row: NormalizedOdds;
 }>;
@@ -419,6 +430,14 @@ export async function ingestFootballOdds(
     market: MarketReference;
     outcomeDefinitionId: string;
     contentHash: string;
+    /**
+     * The provider's observation instant, carried non-null.
+     *
+     * The per-row guard has already refused a null, but the narrowing does not
+     * survive into this record -- and re-reading the nullable field here is
+     * exactly how a fallback to our own fetch time would creep back in.
+     */
+    providerObservedAt: string;
   }>;
 
   const results: (OddsIngestionOutcome | OddsIngestionRejection)[] = [];
@@ -449,6 +468,11 @@ export async function ingestFootballOdds(
       results.push({ ok: false, reason: "LINE_NOT_WIRED", row });
       continue;
     }
+    const providerObservedAt = row.providerObservedAt;
+    if (providerObservedAt === null) {
+      results.push({ ok: false, reason: "PROVIDER_TIMESTAMP_MISSING", row });
+      continue;
+    }
     const outcomeCode = wired.selections[row.selection.toLowerCase()];
     const outcomeDefinitionId = outcomeCode
       ? market.outcomeDefinitionIds[outcomeCode]
@@ -466,7 +490,7 @@ export async function ingestFootballOdds(
       selection: row.selection,
       line: market.lineValue,
       decimalOdds: row.decimalOdds,
-      providerObservedAt: row.providerObservedAt,
+      providerObservedAt,
     });
 
     accepted.push({
@@ -475,6 +499,7 @@ export async function ingestFootballOdds(
       market,
       outcomeDefinitionId,
       contentHash,
+      providerObservedAt,
     });
     const index = results.length;
     results.push({ ok: true, eventId, duplicate: false });
@@ -593,7 +618,7 @@ export async function ingestFootballOdds(
           syncRunId: syncRun.id,
           observationType: "ODDS",
           providerExternalId: item.row.providerEventId,
-          providerObservedAt: new Date(item.row.providerObservedAt),
+          providerObservedAt: new Date(item.providerObservedAt),
           receivedAt: new Date(item.row.ingestedAt),
           normalizedAt: new Date(item.row.ingestedAt),
           normalizationVersion: "api-sports.v1",
@@ -636,7 +661,7 @@ export async function ingestFootballOdds(
           eventMarketOutcomeId: outcomeId,
           bookmakerId: bookmakerIdByCode.get(item.row.bookmaker)!,
           decimalOdds: item.row.decimalOdds,
-          providerObservedAt: new Date(item.row.providerObservedAt),
+          providerObservedAt: new Date(item.providerObservedAt),
           receivedAt: new Date(item.row.ingestedAt),
           normalizedAt: new Date(item.row.ingestedAt),
           status: "ACTIVE",

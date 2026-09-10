@@ -207,7 +207,22 @@ export type NormalizedOdds = Readonly<{
   selection: string;
   line?: string;
   decimalOdds: DecimalString;
-  providerObservedAt: string;
+  /**
+   * When the PROVIDER says the market was observed, or null if it did not say.
+   *
+   * Null is the important case, and it used to be impossible. This field fell
+   * back to our own fetch time (`item["update"] ?? ingestedAt`), so a price of
+   * entirely unknown age was recorded as having been observed the instant we
+   * asked -- the freshness policy then called it CURRENT and the decision
+   * engine treated it as actionable. That is precisely the confusion the
+   * product's freshness rule exists to prevent: freshness describes the
+   * evidence, not the request.
+   *
+   * The policy already models an unknown age -- it has an UNAVAILABLE state
+   * and treats a null instant as "never priced". It simply never saw one,
+   * because the normalizer manufactured a timestamp.
+   */
+  providerObservedAt: string | null;
   ingestedAt: string;
   provider: "API_SPORTS";
   sourceReference: string;
@@ -655,7 +670,14 @@ export function normalizeOdds(
               ? {}
               : { line: String(value["handicap"]) }),
           decimalOdds: odds as DecimalString,
-          providerObservedAt: String(item["update"] ?? ingestedAt),
+          /*
+           * The provider's own instant, or null. Never our fetch time: see
+           * `NormalizedOdds.providerObservedAt`.
+           */
+          providerObservedAt:
+            typeof item["update"] === "string" && item["update"].trim() !== ""
+              ? item["update"]
+              : null,
           ingestedAt,
           provider: "API_SPORTS",
           sourceReference,

@@ -414,6 +414,14 @@ export type DataQualityAssessment = Readonly<{
 export type QualityInput = Readonly<{
   policyVersion: string;
   asOf: string;
+  /**
+   * When the EVIDENCE was observed -- not when we received or stored it.
+   *
+   * The name is historical and has already caused one defect: a caller passed
+   * its own `asOf`, so `asOf - receivedAt` was always zero, the freshness
+   * component always scored full marks and `STALE_DATA` became unreachable.
+   * Pass the newest price's `providerObservedAt`.
+   */
   receivedAt: string;
   priceCount: number;
   bookmakerCount: number;

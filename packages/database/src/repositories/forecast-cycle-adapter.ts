@@ -495,10 +495,30 @@ export async function createForecastCycleDbAdapter(
         asOf,
       );
       const lineup = await computeLineupState(fixture);
+      /*
+       * The newest price's own observation instant, which is what the
+       * freshness component is supposed to measure.
+       *
+       * This passed `asOf` -- the cycle's own clock -- so the computed age was
+       * always exactly zero. The freshness component therefore always scored
+       * full marks, `STALE_DATA` was unreachable, and the quality grade could
+       * never reflect the property most likely to be wrong about a price.
+       *
+       * `getAllValidObservations` orders by `providerObservedAt` descending,
+       * so the first row is the newest evidence. With no prices at all the age
+       * is left at `asOf`: `priceCoverage` already scores zero for that case,
+       * and inventing an infinite age would double-count it.
+       *
+       * The field is named `receivedAt` in `QualityInput`, which is what
+       * caused this -- the policy computes `asOf - receivedAt` and calls it
+       * age, but the age that matters is the evidence's, not our copy's.
+       */
+      const newestEvidenceAt =
+        odds[0]?.providerObservedAt ?? asOf.toISOString();
       const assessment = assessDataQuality({
         policyVersion: DEFAULT_DATA_QUALITY_POLICY.policyVersion,
         asOf: asOf.toISOString(),
-        receivedAt: asOf.toISOString(),
+        receivedAt: newestEvidenceAt,
         priceCount: odds.length,
         bookmakerCount: new Set(odds.map((o) => o.bookmakerId)).size,
         lineup,

@@ -21,6 +21,7 @@ import {
   participants,
 } from "../src/schema/catalog.js";
 import {
+  bookmakers,
   eventMarketOutcomes,
   eventMarkets,
   marketDefinitions,
@@ -752,5 +753,52 @@ describe("fixture and odds ingestion, against a real database", () => {
         expect(row.code).toBe("FOOTBALL_FULL_TIME_1X2");
       }
     });
+  });
+
+  /* ------------------------------------------------ undated provider prices */
+
+  /*
+   * A price the provider will not date is refused, not stored with our clock
+   * substituted. Storing it made it read as CURRENT and therefore actionable,
+   * which inverts the product's central claim that freshness describes the
+   * evidence rather than the request.
+   */
+  it("refuses a price the provider did not date", async () => {
+    await ingest(fixture());
+    const undated: NormalizedOdds = {
+      sport: "FOOTBALL",
+      providerEventId: "900001",
+      bookmaker: "Undated Book",
+      providerMarket: "1",
+      canonicalMarket: "MATCH_WINNER_1X2",
+      selection: "Home",
+      decimalOdds: "2.05" as NormalizedOdds["decimalOdds"],
+      providerObservedAt: null,
+      ingestedAt: "2026-09-19T14:00:00.000Z",
+      provider: "API_SPORTS",
+      sourceReference: "test",
+    };
+    const written = await ingestFootballOdds(
+      database,
+      [undated],
+      referenceData,
+    );
+    expect(written[0]).toMatchObject({
+      ok: false,
+      reason: "PROVIDER_TIMESTAMP_MISSING",
+    });
+
+    /*
+     * And nothing reached the database at all for this bookmaker. Scoped to
+     * the bookmaker rather than to the timestamp, because these tests share
+     * one database and another test writing at the same instant would make a
+     * timestamp query pass or fail for reasons unrelated to this fix.
+     */
+    const leaked = await database
+      .select({ id: oddsObservations.id })
+      .from(oddsObservations)
+      .innerJoin(bookmakers, eq(bookmakers.id, oddsObservations.bookmakerId))
+      .where(eq(bookmakers.code, "Undated Book"));
+    expect(leaked).toEqual([]);
   });
 });
