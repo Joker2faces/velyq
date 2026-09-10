@@ -439,4 +439,25 @@ describe("runForecastCycle", () => {
       expect.objectContaining({ eventIds: ["event-42"] }),
     );
   });
+
+  /*
+   * Future-data-leakage guard: a lineup read that ignores `asOf` would let a
+   * cycle run against a HISTORICAL as-of (a backtest, or a recompute that is
+   * not "right now") see whatever the newest lineup sheet happens to be at
+   * call time -- including one confirmed after kickoff or after the moment
+   * the forecast claims to have been made. `getLineupState` must be called
+   * with the cycle's own clock reading, not left to infer "now" on its own;
+   * the adapter-side filter this proves the port demands is covered by the
+   * real-PostgreSQL integration suite (packages/database/test-integration).
+   */
+  it("asks getLineupState for the state as of the cycle's own clock, not an implicit now", async () => {
+    const asOf = new Date("2026-09-20T00:00:00.000Z");
+    const deps = testDeps({ clock: () => asOf });
+    await runForecastCycle(deps, WINDOW);
+
+    expect(deps.getLineupState).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: expect.any(String) }),
+      asOf,
+    );
+  });
 });

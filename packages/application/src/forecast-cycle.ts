@@ -123,8 +123,17 @@ export type ForecastCycleDeps = Readonly<{
   >;
   resolveHomeTeam: (fixture: ForecastCycleFixture) => Promise<TeamResolution>;
   resolveAwayTeam: (fixture: ForecastCycleFixture) => Promise<TeamResolution>;
+  /**
+   * Never reads a lineup observation received after `asOf`. A cycle run
+   * against a historical `asOf` (a backtest, or a recompute triggered by
+   * something other than "right now") must see the lineup exactly as it
+   * stood at that moment -- reading whatever is newest at call time would
+   * let a sheet confirmed after kickoff leak into a forecast that claims to
+   * predate it.
+   */
   getLineupState: (
     fixture: ForecastCycleFixture,
+    asOf: Date,
   ) => Promise<"EXPECTED" | "OFFICIAL" | "MISSING" | "CHANGED">;
   assessQuality: (
     fixture: ForecastCycleFixture,
@@ -357,7 +366,7 @@ export async function runForecastCycle(
       modelEligible += 1;
 
       const asOf = deps.clock();
-      const lineup = await deps.getLineupState(fixture);
+      const lineup = await deps.getLineupState(fixture, asOf);
 
       for (const market of MARKETS) {
         const selections = FORECAST_CYCLE_MARKETS[market];

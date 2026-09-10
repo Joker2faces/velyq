@@ -1,6 +1,17 @@
 import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, gte, inArray, isNull, lt, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  ne,
+} from "drizzle-orm";
 import {
   assessDataQuality,
   DEFAULT_DATA_QUALITY_POLICY,
@@ -379,6 +390,7 @@ export async function createForecastCycleDbAdapter(
 
   async function computeLineupState(
     fixture: ForecastCycleFixture,
+    asOf: Date,
   ): Promise<"EXPECTED" | "OFFICIAL" | "MISSING"> {
     const participantRows = await database
       .select({ id: participants.id, role: eventParticipants.role })
@@ -398,6 +410,14 @@ export async function createForecastCycleDbAdapter(
             and(
               eq(lineupObservations.eventId, fixture.eventId),
               eq(lineupObservations.teamParticipantId, row.id),
+              /*
+               * Without this, a cycle run against a historical `asOf` would
+               * read whichever sheet is newest AT CALL TIME -- including one
+               * received after that `asOf`, or after kickoff -- and let a
+               * forecast that claims to predate the sheet be priced with it
+               * anyway.
+               */
+              lte(lineupObservations.receivedAt, asOf),
             ),
           )
           .orderBy(desc(lineupObservations.receivedAt))
@@ -507,8 +527,8 @@ export async function createForecastCycleDbAdapter(
       };
     },
 
-    async getLineupState(fixture) {
-      return computeLineupState(fixture);
+    async getLineupState(fixture, asOf) {
+      return computeLineupState(fixture, asOf);
     },
 
     async assessQuality(fixture, selection, asOf) {
@@ -537,7 +557,7 @@ export async function createForecastCycleDbAdapter(
         eventMarketOutcomeId,
         asOf,
       );
-      const lineup = await computeLineupState(fixture);
+      const lineup = await computeLineupState(fixture, asOf);
       /*
        * The newest price's own observation instant, which is what the
        * freshness component is supposed to measure.
