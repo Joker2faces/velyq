@@ -2662,6 +2662,7 @@ a.row:hover {
 
 .evidence-timeline__row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-3);
   padding-block: var(--space-2);
@@ -2684,6 +2685,8 @@ a.row:hover {
   font-size: 0.875rem;
   color: var(--primary);
   text-align: right;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* ------------------------------------------------------------- reasoning

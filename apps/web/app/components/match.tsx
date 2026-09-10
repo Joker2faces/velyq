@@ -30,7 +30,7 @@ import {
   translator,
   type Locale,
 } from "@velyq/ui";
-import { Badge } from "./ui";
+import { Badge, Explain } from "./ui";
 
 /**
  * Mirrors `PostMatchAutopsyDto`/`PostMatchAutopsyRow` in
@@ -723,29 +723,51 @@ export function EvidenceTimeline({
 }) {
   const t = translator(locale);
   if (events.length === 0) return null;
+
+  const row = (event: CustomerEvidenceTimelineEventDto) => (
+    <li className="evidence-timeline__row" key={`${event.type}:${event.at}`}>
+      <span className="evidence-timeline__at">
+        {formatDateTime(event.at, locale)}
+      </span>
+      <span className="evidence-timeline__detail">
+        {event.type === "PRICE_OBSERVED"
+          ? `${t("evidenceTimelinePriceObserved")}: ${
+              event.price === null ? "—" : formatOdds(event.price, locale)
+            }`
+          : `${t("evidenceTimelineLineupObserved")}${
+              event.team ? ` (${event.team})` : ""
+            }: ${
+              event.lineupStatus
+                ? lineupLabel(event.lineupStatus, locale)
+                : "—"
+            }`}
+      </span>
+    </li>
+  );
+
+  /*
+   * Progressive disclosure (mandate §17): the most recent handful of
+   * observations are what a customer glancing at the match actually wants;
+   * a fixture tracked for months can accumulate dozens of price/lineup
+   * events, and dumping every one flat turns this card into an unreadable
+   * scroll on a phone. The oldest are collapsed behind the same `Explain`
+   * `<details>` primitive already used elsewhere on this page.
+   */
+  const RECENT_EVENT_COUNT = 5;
+  const recent = events.slice(-RECENT_EVENT_COUNT);
+  const earlier = events.slice(0, events.length - recent.length);
+
   return (
-    <ol className="evidence-timeline">
-      {events.map((event) => (
-        <li className="evidence-timeline__row" key={`${event.type}:${event.at}`}>
-          <span className="evidence-timeline__at">
-            {formatDateTime(event.at, locale)}
-          </span>
-          <span className="evidence-timeline__detail">
-            {event.type === "PRICE_OBSERVED"
-              ? `${t("evidenceTimelinePriceObserved")}: ${
-                  event.price === null ? "—" : formatOdds(event.price, locale)
-                }`
-              : `${t("evidenceTimelineLineupObserved")}${
-                  event.team ? ` (${event.team})` : ""
-                }: ${
-                  event.lineupStatus
-                    ? lineupLabel(event.lineupStatus, locale)
-                    : "—"
-                }`}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <>
+      {earlier.length > 0 ? (
+        <Explain
+          title={t("evidenceTimelineShowEarlier", { count: earlier.length })}
+        >
+          <ol className="evidence-timeline">{earlier.map(row)}</ol>
+        </Explain>
+      ) : null}
+      <ol className="evidence-timeline">{recent.map(row)}</ol>
+    </>
   );
 }
 
