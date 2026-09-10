@@ -11,13 +11,13 @@ in the master release log. Anything not observed says so.
 | Prettier (`pnpm format`) | **PASS** | all matched files use Prettier code style |
 | ESLint (`pnpm lint`, `--max-warnings 0`) | **PASS** | clean |
 | Typecheck (`pnpm typecheck`) | **PASS** | turbo 18/18 successful |
-| Unit + integration suite (`pnpm test`) | **PASS** | 111 files, 998 tests, 0 failed, 0 skipped |
+| Unit + integration suite (`pnpm test`) | **PASS** | 114 files, 1043 tests, 0 failed, 0 skipped |
 | Customer browser journeys (`pnpm test:e2e --project=customer`) | **PASS** | 7/7, and 7/7 on two further consecutive runs against committed baselines with no snapshot update |
 | Admin browser journey (`pnpm test:e2e:admin`) | **PASS** | 5/5, including tracing seeded operations from provider run to prediction, score and quality |
 | Package builds | **PASS** | 14/14 |
 | Full build (`pnpm build`) | **PASS, with a caveat** | 18/18 — includes `@velyq/web`, `@velyq/admin`, both workers. See the note below. |
 | Worker readiness (`pnpm worker:verify`) | **PASS** | "Worker readiness: PASS" |
-| Fresh-database migration + DB integration (`pnpm test:db:local`) | **PASS** | PostgreSQL 17 in WSL, from empty: 9 files, 35 tests |
+| Fresh-database migration + DB integration (`pnpm test:db:local`) | **PASS** | PostgreSQL 17 in WSL, from empty: 9 files, 41 tests |
 | Upgrade migration (`pnpm test:db:upgrade`) | **PASS** | representative upgrade path, data preserved |
 | Production-schema upgrade simulation (`pnpm test:db:production-upgrade`) | **PASS** | release migrations applied on top of the ACTUAL verified production legacy schema; data preserved; new columns backfilled deterministically; provenance trigger enabled |
 | Flake check | **PASS** | full suite run 3x consecutively clean after root-causing the one failure seen |
@@ -95,7 +95,7 @@ Stated plainly rather than assumed.
 | --- | --- |
 | **Customer UX/UI redesign (sections 26-38)** | **NOT DONE.** Explicitly authorised by the mandate and deliberately not attempted: the session was spent on correctness instead, because a better-looking surface that fabricates model probabilities, exhausts the provider quota or prints `market.football_full_time_1x2` at a customer would have been the wrong trade. The Today render is still closer to a dense intelligence dashboard than the "65% premium football product" section 27 asks for. This is untouched work, not work I judged unnecessary. |
 | Over/Under 2.5 end to end | The writer hardcodes one market and has no `lineValue` handling. Every other layer already supports it. Not attempted. |
-| Lineup and result ingestion | No fetch port, due predicate or call site exists. 25 requests/day of budget sit idle. Not attempted. |
+| Lineup ingestion | No fetch port, due predicate or call site exists. 15 requests/day of budget sit idle. Not attempted. Result ingestion is now done -- see below. |
 | Odds-writer batching | ~7-10 round trips per observation is why the bookmaker cap is 6. Not attempted; the cap must not be raised before it is. |
 | Cross-user IDOR | Only one authenticated identity exists. A second normal customer account is not available, so this is **NOT TESTED** — not PASS. |
 | Production authenticated surfaces | **NOT VERIFIED against production.** Needs owner credentials, which must not be requested here. The admin Match Intelligence fix is proven by unit tests, server-authoritative logic and local browser journeys — not by a real production session. |
@@ -103,3 +103,27 @@ Stated plainly rather than assumed.
 | Whether the live Supabase project really has the `*/15` cron installed, at that host | `supabase/operations/provider-ingest-cron.sql` is deliberately not a migration, so the repo cannot prove what is scheduled. Needs `select * from cron.job`. |
 | Real provider daily limit | `ASSUMED_DAILY_LIMIT = 100` is a documented assumption; only the provider `/status` endpoint reports the true `limit_day`. |
 | Identity-invariant migration applied to production | No production database credential on this machine — see the master release log. |
+
+## Result ingestion and settlement
+
+Added after the rows above, and verified at `edcf62e`.
+
+| Area | Finding |
+| --- | --- |
+| Provider status vocabulary | **PASS.** FT/AET/PEN all FINAL; INT and SUSP kept IN_PROGRESS, because an interrupted match may resume and ABANDONED would VOID live decisions; AWD and WO deliberately unmapped and throwing, because their scores are administrative rather than played. A missing score stays null -- 0-0 would settle every decision on the match as a loss. 15 unit tests. |
+| Lifecycle union has one home | **PASS.** Declared in `@velyq/domain` and consumed by the normalizer, the scheduler and the `event_results` CHECK, so a seventh state cannot be added in one layer alone. |
+| Terminal fixtures are never re-asked | **PASS.** `resultRequestDue` returns `ALREADY_TERMINAL` for FINAL, CANCELLED and ABANDONED, which is what makes the pass cost per fixture rather than per wake-up. POSTPONED is deliberately non-terminal (replays reuse the fixture id), bounded by a 72-hour give-up window instead. |
+| Scheduling uses our own ask time | **PASS.** `provider_result_requests.last_requested_at`, not the provider's observation instant -- the same defect that made the odds pass spend seven requests on one fixture. |
+| Batching | **PASS.** One `/fixtures?ids=` request covers up to twenty fixtures, which is what makes the 10-request daily budget generous. Oldest kickoff first, so the budget goes to matches most likely to be finished. |
+| Phase priority | **PASS.** Discovery, then odds, then results -- a price is actionable for 45 minutes, a result is settleable tomorrow. Results cannot starve: 8 + 60 requests of daily caps against 96 wake-ups leaves at least 28 idle. Tested both ways. |
+| Only real positions settle | **PASS.** STRONG_EDGE and EDGE_DISAPPEARED only. A refused decision has no position, and settling it would fabricate a record; EDGE_DISAPPEARED is included deliberately, because suppressing it is how a performance record flatters itself. Proven on a refused decision built identical to a settleable one except for its status. |
+| Only FINAL settles | **PASS.** An IN_PROGRESS result is stored (it is how the scheduler knows to re-ask) but settles nothing. UNSETTLED is never persisted as a settlement. |
+| Rule versions | **PASS.** Canonical `settlementRuleVersion` from the market definitions, replacing the ad-hoc `"1X2.v1"` the integration tests had been passing. Only the two markets `settleDecision` implements are settleable. |
+| Idempotency and corrections | **PASS.** Content hash covers score and lifecycle state, so a re-reported result is a duplicate while a corrected score is a new observation. Both observations survive; nothing is rewritten. Proven against real PostgreSQL. |
+| Batch fault isolation | **PASS.** One unresolvable event identity is counted and named, and the other fixtures in the batch still write. |
+| Migration safety | **PASS.** Additive only: one table, six defaulted counters, no data rewritten, idempotent statements. Green in the fresh, upgrade and production-faithful upgrade simulations. |
+
+Not verified: none of this has run against the live provider. The endpoint
+shape (`/fixtures?ids=a-b-c`) and its twenty-id ceiling are taken from the
+provider's documentation, not from an observed response, so the first live
+result pass is the thing to watch. `LINEUP`'s 15 requests/day remain unspent.

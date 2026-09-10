@@ -226,8 +226,29 @@ Budgets (`packages/application/src/provider-quota.ts`): `DISCOVERY 8`,
 | Normal football day | ~28-68 |
 | Worst case, counted | 68, leaving 32 in reserve |
 
-`LINEUP` and `RESULT` budgets are currently **unused** — no fetch port exists
-for either. See the completion backlog.
+`LINEUP`'s budget is currently **unused** — no fetch port exists for it. See
+the completion backlog.
+
+`RESULT` is now wired. It runs only on a wake-up where neither discovery nor
+odds spent a request, asks at most once per pass, and covers up to twenty
+fixtures in that one request via `/fixtures?ids=`. A fixture is asked about
+135 minutes after kickoff, re-asked every 30 minutes while unfinished, never
+asked again once FINAL/CANCELLED/ABANDONED, and abandoned after 72 hours. The
+marker is `operations.provider_result_requests`.
+
+To see what the result pass is doing:
+
+```sql
+select started_at, result_candidates, result_requests_attempted,
+       results_written, settlements_written, skipped_by_reason
+from operations.provider_ingestion_runs
+order by started_at desc limit 20;
+```
+
+**The first live result pass is worth watching.** The endpoint shape and its
+twenty-id ceiling come from the provider's documentation, not from an observed
+response. A `RESULT_REJECTED` in `errors_by_reason` means the `ids` parameter
+was refused; the fix is the parameter, not the budget.
 
 ### Checking the scheduler
 

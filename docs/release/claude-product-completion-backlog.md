@@ -7,6 +7,17 @@ resume point: if a session is interrupted, start here, not from zero.
 Status vocabulary: **OPEN**, **IN PROGRESS**, **DONE**, **BLOCKED (owner)**,
 **DEFERRED (explicit)**.
 
+### Deployed and verified
+
+`568496c` is live on <https://project-cf8ty.vercel.app> as
+`dpl_6jgtVJEcQkvkmZiGZYMGauaNejJe`, verified after deploy against the runbook:
+health `LIVE`/`DATABASE`, all ten routes 200 with `/api/v1/today` 401, seven
+security headers, Greek on both the prefixed public route and the cookie
+locale, `/el/today` 404 as designed, zero synthetic markers on `/today`.
+
+`edcf62e` (result ingestion and settlement) and `164d28f` (catalog-sourced
+customer copy) are committed and pushed but **not yet deployed**.
+
 Baseline at the start of this mandate: `043342b`, deployed code `9e28cf9`,
 production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 <https://project-cf8ty.vercel.app>, rollback `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy`.
@@ -18,8 +29,8 @@ production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 | # | Item | Status | Notes |
 | --- | --- | --- | --- |
 | P0-A | Customer UX redesign (mandate §8-§27) | **IN PROGRESS** | Done: match-card primitives (`TeamCrest`, `CompetitionMark`, `MatchCard`), Today restructure (KPI strip + card grid + Forecasts folded in, page 34% shorter), EDGE segmented by decision state with minimum-valid price and freshness, RADAR evidence depth. Remaining: Match Intelligence flagship (§14), public homepage (§59), Watch panel density, navigation review (§10), History (§26). |
-| P0-B | Result ingestion end to end (§28) | OPEN | `RESULT: 10` daily budget allocated; no fetch port, no due predicate, no call site. |
-| P0-C | Settlement complete + tested (§29) | OPEN | Engine exists (`result-settlement.ts`); depends on P0-B for live results. |
+| P0-B | Result ingestion end to end (§28) | **DONE** | `normalizeFootballResult` + `resultRequestDue` + orchestrator RESULT pass + `ingestFootballResults`, batched via `/fixtures?ids=` (20 fixtures per request). Yields to discovery then odds; terminal fixtures never re-asked; 72h give-up window. `operations.provider_result_requests` marker table. 12 orchestrator tests, 15 normalizer tests, 6 real-PostgreSQL integration tests. |
+| P0-C | Settlement complete + tested (§29) | **DONE** | Candidate reader recovers the market by joining `decisions` out to the market definition (the table has no market column). Only STRONG_EDGE/EDGE_DISAPPEARED settle; only FINAL settles; UNSETTLED never persisted. Canonical `settlementRuleVersion` rather than the ad-hoc `"1X2.v1"` the tests had used. One transaction per fixture covering result + settlements. Proven against real PostgreSQL, including replay, correction and refused-decision cases. |
 | P0-D | Over/Under 2.5 end to end (§30) | OPEN | Writer hardcodes one market and `lineValue: null`. Every other layer supports totals. |
 | P0-E | Lineup ingestion operational (§31) | OPEN | `LINEUP: 15` budget allocated; no port/predicate/call site. `WAIT_FOR_LINEUP` cannot clear from live data. |
 | P0-F | Identity invariant migration applied (§40) | BLOCKED (owner) | Review passes; needs a production DB credential. `VELYQ_DATABASE_URL` is a Vercel Secret that Vercel refuses to disclose. |
@@ -43,7 +54,7 @@ production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 | P1-K | Two-user IDOR proof (§66) | OPEN | Needs isolated DB-backed test identities in the integration environment. |
 | P1-L | Pagination on growing surfaces (§44) | OPEN | History, odds history, evidence timeline, admin runs/events/predictions. Expose coverage semantics honestly. |
 | P1-M | Accessibility audit (§55) | OPEN | Beyond the focused checks already in the customer journey. |
-| P1-N | Post-match autopsy (§27) | OPEN | Depends on P0-B/P0-C. |
+| P1-N | Post-match autopsy (§27) | OPEN | P0-B/P0-C now unblock it: settled outcomes and stored results exist. |
 | P1-O | Opportunity lifecycle (§86) | OPEN | DISCOVERED -> WATCH -> PRICE_VALID -> EDGE -> WAIT_FOR_LINEUP -> EDGE_DISAPPEARED -> CLOSED -> SETTLED with timestamps. |
 | P1-P | "Why nothing today?" aggregate explanation (§87) | PARTIAL | A funnel diagnostic exists; needs the customer-facing aggregate with real counts. |
 
@@ -51,8 +62,8 @@ production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on
 
 | # | Item | Status | Notes |
 | --- | --- | --- | --- |
-| P2-A | Hardcoded `locale === "el"` copy blocks | OPEN | `today-view.tsx` (11-key object), `results-view.tsx` (12-key object + 2 inline label fns), `customer-shell.tsx` (a nav item), `matches/[id]/page.tsx` (paywall copy). These bypass the `Record<MessageKey, string>` exhaustiveness check that guarantees Greek coverage. |
-| P2-B | `footerCreatedBy` untranslated in Greek | OPEN | `messages.ts`. |
+| P2-A | Hardcoded `locale === "el"` copy blocks | **DONE** | All four moved into `messages.ts`, so a missing Greek string is now a typecheck failure. `intlLocale()` replaces the second inline conditional. A guard test walks `apps/web/app` and fails on any `locale === "el"` in executable code. |
+| P2-B | `footerCreatedBy` untranslated in Greek | **DONE** | Translated. The test asserting it stay English called it a proper noun; the proper noun is "Joker2face", which the view renders separately. |
 | P2-C | Landing-page demo needs an explicit EXAMPLE label (§59) | OPEN | Real product vocabulary on a fictional fixture with no visible marker beyond a competition named "Premier Synthetic League". |
 | P2-D | `proxy.ts` still reads the retired `VELYQ_SYNTHETIC_PREVIEW` | OPEN | Only to choose a sign-in origin when `VELYQ_APPLICATION_ORIGIN` is unset; production sets it. Tidiness. |
 | P2-E | Odds-history API returns an ungrouped cross-section | OPEN | `observations` is the flat per-bookmaker row set, and returns `[]` in live mode. No consumer today; a latent trap. |
