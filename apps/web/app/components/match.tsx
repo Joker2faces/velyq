@@ -5,6 +5,7 @@ import type {
 import Link from "next/link";
 import {
   formatOdds,
+  formatPercent,
   formatProbability,
   formatTime,
   freshnessLabel,
@@ -24,6 +25,31 @@ import {
   type Locale,
 } from "@velyq/ui";
 import { Badge } from "./ui";
+
+/**
+ * Mirrors `PostMatchAutopsyDto`/`PostMatchAutopsyRow` in
+ * `../customer-runtime.ts` (a server-only module: `next/headers`, a raw
+ * database session). Redeclared here rather than imported so this
+ * presentation file -- reachable from `today-view.tsx`, a client component
+ * -- never has even a type-only edge into server-only code.
+ */
+type PostMatchAutopsyRow = Readonly<{
+  marketLabelKey: string;
+  lineValue: string | null;
+  selection: string;
+  decisionStatus: string;
+  whyNotCodes: readonly string[];
+  modelProbability: string | null;
+  fairOdds: string | null;
+  offeredOdds: string | null;
+  outcome: "WIN" | "LOSS" | "VOID" | "UNSETTLED";
+  closingOdds: string | null;
+  clv: string | null;
+}>;
+type PostMatchAutopsyDto = Readonly<{
+  finalScore: string;
+  rows: readonly PostMatchAutopsyRow[];
+}>;
 
 /**
  * Football-first presentation primitives.
@@ -452,6 +478,115 @@ export function SecondaryMarkets({
           </dl>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A settled fixture's own real record: what was decided, what the market's
+ * closing price was, and how it settled -- never generated commentary.
+ * Every field here is a stored value (a reason code, a snapshot number, a
+ * settlement outcome) VELYQ already computed; nothing is inferred or
+ * written about the match after the fact.
+ */
+function settlementLabel(
+  value: "WIN" | "LOSS" | "VOID" | "UNSETTLED",
+  locale: Locale,
+): string {
+  return (
+    {
+      en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
+      el: { WIN: "Νίκη", LOSS: "Ήττα", VOID: "Άκυρο", UNSETTLED: "Εκκρεμεί" },
+    }[locale][value]
+  );
+}
+
+export function PostMatchAutopsy({
+  autopsy,
+  locale,
+}: {
+  autopsy: PostMatchAutopsyDto;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  return (
+    <div className="autopsy">
+      <p className="autopsy__score">
+        {t("matchAutopsyFinalScore")}: {autopsy.finalScore}
+      </p>
+      <div className="autopsy-rows">
+        {autopsy.rows.map((row) => (
+          <div
+            className="autopsy-rows__row"
+            key={`${row.marketLabelKey}:${row.selection}`}
+          >
+            <div className="autopsy-rows__heading">
+              <span className="autopsy-rows__market">
+                {marketLabel(row.marketLabelKey, locale)}
+                {row.lineValue ? ` ${row.lineValue}` : ""}
+                {" · "}
+                {selectionLabel(row.selection, locale)}
+              </span>
+              <Badge
+                tone={
+                  row.outcome === "WIN"
+                    ? "positive"
+                    : row.outcome === "LOSS"
+                      ? "caution"
+                      : "neutral"
+                }
+              >
+                {settlementLabel(row.outcome, locale)}
+              </Badge>
+            </div>
+            <dl className="autopsy-rows__figures">
+              <div>
+                <dt>{t("matchDecision")}</dt>
+                <dd>{recommendationLabel(row.decisionStatus, locale)}</dd>
+              </div>
+              <div>
+                <dt>{t("matchModelShort")}</dt>
+                <dd>
+                  {row.modelProbability === null
+                    ? "—"
+                    : formatProbability(row.modelProbability, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("matchAutopsyDecisionOdds")}</dt>
+                <dd>
+                  {row.offeredOdds === null
+                    ? "—"
+                    : formatOdds(row.offeredOdds, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("matchAutopsyClosingOdds")}</dt>
+                <dd>
+                  {row.closingOdds === null
+                    ? "—"
+                    : formatOdds(row.closingOdds, locale)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("historyPositiveClv")}</dt>
+                <dd>
+                  {row.clv === null ? "—" : formatPercent(row.clv, 1, locale)}
+                </dd>
+              </div>
+            </dl>
+            {row.whyNotCodes.length > 0 ? (
+              <div className="reasons">
+                {reasonLabels(row.whyNotCodes, locale).map((reason) => (
+                  <Badge key={reason} tone="muted">
+                    {reason}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

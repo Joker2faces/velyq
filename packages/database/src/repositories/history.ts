@@ -138,4 +138,81 @@ export class DatabaseHistoryQueryAdapter {
       }),
     );
   }
+
+  /**
+   * Every decision this fixture ever had -- not just the STRONG_EDGE ones
+   * `listDecisions` restricts itself to -- for the post-match autopsy. Same
+   * join chain as `listDecisions` (decision -> forecast -> market/outcome
+   * definitions -> event/competition -> settlement -> result), scoped to one
+   * event instead of paged by recency, since a fixture only ever has a
+   * handful of decisions across its markets.
+   */
+  async listDecisionsForEvent(
+    eventId: string,
+  ): Promise<readonly HistoricalDecisionRow[]> {
+    const rows = await this.database
+      .select({
+        decision: decisions,
+        forecast: forecasts,
+        event: events,
+        competition: competitions,
+        marketDefinition: marketDefinitions,
+        outcomeDefinition: outcomeDefinitions,
+        settlement: marketSettlements,
+        result: eventResults,
+      })
+      .from(decisions)
+      .innerJoin(forecasts, eq(decisions.forecastId, forecasts.id))
+      .innerJoin(
+        eventMarketOutcomes,
+        eq(decisions.eventMarketOutcomeId, eventMarketOutcomes.id),
+      )
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        marketDefinitions,
+        eq(eventMarkets.marketDefinitionId, marketDefinitions.id),
+      )
+      .innerJoin(
+        outcomeDefinitions,
+        eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+      )
+      .innerJoin(events, eq(eventMarkets.eventId, events.id))
+      .innerJoin(competitions, eq(events.competitionId, competitions.id))
+      .leftJoin(
+        marketSettlements,
+        eq(marketSettlements.decisionId, decisions.id),
+      )
+      .leftJoin(
+        eventResults,
+        eq(marketSettlements.eventResultId, eventResults.id),
+      )
+      .where(eq(events.id, eventId))
+      .orderBy(desc(decisions.createdAt), desc(decisions.id));
+
+    const teams = await this.database
+      .select({ role: eventParticipants.role, name: participants.displayName })
+      .from(eventParticipants)
+      .innerJoin(
+        participants,
+        eq(eventParticipants.participantId, participants.id),
+      )
+      .where(eq(eventParticipants.eventId, eventId))
+      .orderBy(asc(eventParticipants.role));
+    const homeTeam = teams.find((team) => team.role === "HOME")?.name ?? "Home";
+    const awayTeam = teams.find((team) => team.role === "AWAY")?.name ?? "Away";
+
+    /* One decision id can appear twice via the settlement/result left joins
+       only if a decision were re-settled, which the writer forbids; kept as
+       a safety filter anyway rather than assumed. */
+    const latestRows = rows.filter(
+      (row, index) =>
+        rows.findIndex(
+          (candidate) => candidate.decision.id === row.decision.id,
+        ) === index,
+    );
+    return latestRows.map((row) => ({ ...row, homeTeam, awayTeam }));
+  }
 }

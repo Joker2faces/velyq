@@ -2405,6 +2405,68 @@ a.row:hover {
   color: var(--primary);
 }
 
+.autopsy__score {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-label);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.autopsy-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.autopsy-rows__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.autopsy-rows__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.autopsy-rows__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.autopsy-rows__market {
+  font-family: var(--font-label);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.autopsy-rows__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.autopsy-rows__figures dt {
+  font-family: var(--font-label);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.autopsy-rows__figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--primary);
+}
+
 /* ------------------------------------------------------------- reasoning
 
    Positive and negative intelligence side by side, with equal weight. A

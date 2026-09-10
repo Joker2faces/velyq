@@ -9,6 +9,8 @@ import {
   openDatabaseCustomerQueries,
   type RuntimeCustomerQueries,
 } from "./customer-database";
+import { DatabaseHistoryQueryAdapter } from "@velyq/database";
+import { customerFixtureMode } from "./api/auth";
 import { customerTodaySnapshot } from "./customer-data";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -184,6 +186,78 @@ export async function loadCustomerMatch(eventId: string) {
     return await service.getMatch(eventId, new Date());
   } finally {
     await service.close();
+  }
+}
+
+export type PostMatchAutopsyRow = Readonly<{
+  marketLabelKey: string;
+  lineValue: string | null;
+  selection: string;
+  decisionStatus: string;
+  whyNotCodes: readonly string[];
+  modelProbability: string | null;
+  fairOdds: string | null;
+  offeredOdds: string | null;
+  outcome: "WIN" | "LOSS" | "VOID" | "UNSETTLED";
+  closingOdds: string | null;
+  clv: string | null;
+}>;
+
+export type PostMatchAutopsyDto = Readonly<{
+  finalScore: string;
+  rows: readonly PostMatchAutopsyRow[];
+}>;
+
+/**
+ * A retrospective view of this fixture's own real decisions -- never
+ * generated commentary, only the stored reason codes, snapshot numbers and
+ * settlement outcome VELYQ already computed. Null whenever nothing has
+ * settled yet (a live/pre-match fixture), which is the honest, unremarkable
+ * common case, not an error.
+ *
+ * Demo mode has no settlement history to autopsy -- the demo corpus is a
+ * fixed handful of live-looking matches, never a settled result -- so this
+ * mirrors History's own live-only gate rather than inventing one.
+ */
+export async function loadPostMatchAutopsy(
+  eventId: string,
+): Promise<PostMatchAutopsyDto | null> {
+  if (customerFixtureMode()) return null;
+  const session = await openRuntimeDatabaseSession();
+  if (!session) return null;
+  try {
+    const rows = await new DatabaseHistoryQueryAdapter(
+      session.database,
+    ).listDecisionsForEvent(eventId);
+    const settled = rows.filter(
+      (row) => row.settlement && row.settlement.outcome !== "UNSETTLED",
+    );
+    if (settled.length === 0) return null;
+    const withResult = settled.find((row) => row.result);
+    const result = withResult?.result;
+    const finalScore =
+      result?.homeScore == null || result.awayScore == null
+        ? "—"
+        : `${result.homeScore}–${result.awayScore}`;
+    return {
+      finalScore,
+      rows: settled.map((row) => ({
+        marketLabelKey: row.marketDefinition.labelKey,
+        lineValue: null,
+        selection: row.decision.selection,
+        decisionStatus: row.decision.status,
+        whyNotCodes: row.decision.whyNotCodes,
+        modelProbability: row.forecast.probability,
+        fairOdds: row.decision.fairOdds,
+        offeredOdds: row.decision.offeredOdds,
+        outcome: (row.settlement?.outcome ??
+          "UNSETTLED") as PostMatchAutopsyRow["outcome"],
+        closingOdds: row.settlement?.closingOdds ?? null,
+        clv: row.settlement?.clv ?? null,
+      })),
+    };
+  } finally {
+    await session.close();
   }
 }
 

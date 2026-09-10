@@ -20,7 +20,8 @@ import {
   selectionLabel,
   translator,
 } from "@velyq/ui";
-import { loadCustomerMatch } from "../../customer-runtime";
+import { loadCustomerMatch, loadPostMatchAutopsy } from "../../customer-runtime";
+import { PostMatchAutopsy } from "../../components/match";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
 import {
@@ -94,6 +95,7 @@ export default async function Match({
   }
 
   const match = result.value;
+  const autopsy = await loadPostMatchAutopsy(id);
   const hasEstimate = match.probabilityEdge !== null;
   /*
    * Price history exists only once movement was actually establishable.
@@ -327,6 +329,23 @@ export default async function Match({
               </p>
             </Card>
           </div>
+
+          {/*
+           * Shown first once it exists: a settled fixture's own real
+           * outcome is what a customer actually wants to check first,
+           * before the pre-match verdict and price cards below -- which
+           * remain visible underneath as the honest record of what was
+           * said before kickoff.
+           */}
+          {autopsy ? (
+            <Card>
+              <CardHead
+                title={t("matchAutopsyTitle")}
+                hint={t("matchAutopsyLead")}
+              />
+              <PostMatchAutopsy autopsy={autopsy} locale={locale} />
+            </Card>
+          ) : null}
 
           {match.secondaryMarkets && match.secondaryMarkets.length > 0 ? (
             <Card>
