@@ -179,11 +179,29 @@ export type AdminMultiClassMetricsDto = Readonly<{
   }> | null;
 }>;
 
+/** Brier/log-loss only -- no baseline frequencies, which are a property of
+    the true-outcome distribution, not of a specific market baseline. */
+export type AdminMarketBaselineMetricsDto = Readonly<{
+  sampleCount: number;
+  status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+  brierScore: number | null;
+  logLoss: number | null;
+}>;
+
 export type AdminMultiClassCalibrationDto = AdminMultiClassMetricsDto &
   Readonly<{
     modelVersion: string;
     byCompetition: readonly (AdminMultiClassMetricsDto &
       Readonly<{ competitionCode: string }>)[];
+    /** The real de-vig consensus (`buildMarketSnapshot`, same math as the
+        customer-facing Market Map) scored on the exact same settled events
+        VELYQ priced -- not VELYQ's own competitor, a baseline it must beat
+        to justify existing. */
+    noVigConsensus: AdminMarketBaselineMetricsDto;
+    /** A naive, vig-included, proportionally-normalized implied probability
+        from the best available price -- a weaker, uncorrected baseline
+        shown alongside the de-vig one for contrast. */
+    impliedMarket: AdminMarketBaselineMetricsDto;
   }>;
 
 /**

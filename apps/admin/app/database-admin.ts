@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import {
   brierScore,
   empiricalFrequencies,
@@ -23,10 +23,19 @@ import {
   scoreResults,
 } from "@velyq/database/schema/intelligence";
 import {
+  eventMarketOutcomes,
+  oddsObservations,
+  outcomeDefinitions,
+} from "@velyq/database/schema/market";
+import {
   providers,
   providerQuotaState as quotaStateTable,
   providerSyncRuns,
 } from "@velyq/database/schema/operations";
+import {
+  buildMarketSnapshot,
+  type RawBookmakerObservation,
+} from "@velyq/market-semantics";
 import type { ProviderRun } from "@velyq/contracts";
 import type {
   AdminPage,
@@ -262,6 +271,8 @@ export class DatabaseAdminQueries implements AdminQueries {
       )
       select
         sf.model_version,
+        sf.event_market_id,
+        e.starts_at as kickoff,
         c.code as competition_code,
         r.true_outcome,
         max(case when sf.outcome_code = 'HOME' then sf.probability end) as p_home,
@@ -271,7 +282,7 @@ export class DatabaseAdminQueries implements AdminQueries {
       join results r on r.event_id = sf.event_id
       join catalog.events e on e.id = sf.event_id
       join catalog.competitions c on c.id = e.competition_id
-      group by sf.model_version, sf.event_market_id, r.true_outcome, c.code
+      group by sf.model_version, sf.event_market_id, e.starts_at, r.true_outcome, c.code
       having
         max(case when sf.outcome_code = 'HOME' then sf.probability end) is not null and
         max(case when sf.outcome_code = 'DRAW' then sf.probability end) is not null and
@@ -335,6 +346,116 @@ export class DatabaseAdminQueries implements AdminQueries {
           : null,
       };
     };
+    /*
+     * VELYQ's own probabilities are not the whole answer to "is this model
+     * any good" -- the mandate's explicit comparison is model vs. what the
+     * market itself already believed for the exact same settled events.
+     * Reuses the real, tested `buildMarketSnapshot` (the same function
+     * behind the customer-facing Market Map) at each event's own kickoff,
+     * never a re-derivation of the de-vig math -- so a bug fixed there is
+     * fixed here too, not duplicated and left to drift.
+     */
+    const eventMarketIds = [
+      ...new Set(
+        multiClassResult.rows.map((item) => String(item["event_market_id"])),
+      ),
+    ];
+    const oddsRows =
+      eventMarketIds.length > 0
+        ? await this.database
+            .select({
+              eventMarketId: eventMarketOutcomes.eventMarketId,
+              outcomeCode: outcomeDefinitions.code,
+              bookmakerId: oddsObservations.bookmakerId,
+              decimalOdds: oddsObservations.decimalOdds,
+              providerObservedAt: oddsObservations.providerObservedAt,
+            })
+            .from(oddsObservations)
+            .innerJoin(
+              eventMarketOutcomes,
+              eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomes.id),
+            )
+            .innerJoin(
+              outcomeDefinitions,
+              eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+            )
+            .where(inArray(eventMarketOutcomes.eventMarketId, eventMarketIds))
+        : [];
+    const oddsByEventMarket = new Map<string, RawBookmakerObservation[]>();
+    for (const oddsRow of oddsRows) {
+      oddsByEventMarket.set(oddsRow.eventMarketId, [
+        ...(oddsByEventMarket.get(oddsRow.eventMarketId) ?? []),
+        {
+          bookmakerId: oddsRow.bookmakerId,
+          outcomeCode: oddsRow.outcomeCode,
+          decimalOdds: oddsRow.decimalOdds as never,
+          providerObservedAt: oddsRow.providerObservedAt.toISOString(),
+        },
+      ]);
+    }
+    /*
+     * A naive vig-included baseline, proportionally normalized from each
+     * outcome's best price -- distinct from the real de-vig consensus
+     * below, and deliberately using plain numbers: this is a statistical
+     * scoring aggregate over many samples (like Brier/log loss themselves),
+     * not authoritative money math, so float precision here is immaterial.
+     */
+    const normalizedImpliedProbabilities = (
+      odds: readonly (string | null)[],
+    ): readonly number[] | null => {
+      if (odds.some((value) => value === null)) return null;
+      const reciprocals = odds.map((value) => 1 / Number(value));
+      const sum = reciprocals.reduce((total, value) => total + value, 0);
+      if (!Number.isFinite(sum) || sum <= 0) return null;
+      return reciprocals.map((value) => value / sum);
+    };
+    const marketNoVigGrouped = new Map<string, ProbabilisticSample[]>();
+    const marketImpliedGrouped = new Map<string, ProbabilisticSample[]>();
+    for (const item of multiClassResult.rows) {
+      const version = String(item["model_version"]);
+      const eventMarketId = String(item["event_market_id"]);
+      const kickoff = new Date(String(item["kickoff"]));
+      const observedIndex = outcomeIndex(String(item["true_outcome"]));
+      const snapshot = buildMarketSnapshot(
+        oddsByEventMarket.get(eventMarketId) ?? [],
+        ["HOME", "DRAW", "AWAY"],
+        { asOf: kickoff },
+      );
+      if (!snapshot) continue;
+      if (snapshot.consensus) {
+        marketNoVigGrouped.set(version, [
+          ...(marketNoVigGrouped.get(version) ?? []),
+          {
+            probabilities: snapshot.consensus.probabilities.map(Number),
+            observedIndex,
+          },
+        ]);
+      }
+      const bestOdds = ["HOME", "DRAW", "AWAY"].map(
+        (code) =>
+          snapshot.outcomes.find((outcome) => outcome.outcomeCode === code)
+            ?.bestOdds ?? null,
+      );
+      const implied = normalizedImpliedProbabilities(bestOdds);
+      if (implied) {
+        marketImpliedGrouped.set(version, [
+          ...(marketImpliedGrouped.get(version) ?? []),
+          { probabilities: implied, observedIndex },
+        ]);
+      }
+    }
+    const marketBaselineFor = (samples: ProbabilisticSample[]) => {
+      const enough = samples.length >= 30;
+      return {
+        sampleCount: samples.length,
+        status: enough
+          ? ("AVAILABLE" as const)
+          : ("INSUFFICIENT_SAMPLE" as const),
+        brierScore: enough ? brierScore(samples) : null,
+        logLoss: enough ? logLoss(samples) : null,
+      };
+    };
+
     const multiClassCalibration = [...multiClassGrouped].map(
       ([modelVersion, samples]) => {
         const byCompetitionMap =
@@ -348,6 +469,12 @@ export class DatabaseAdminQueries implements AdminQueries {
               ...multiClassMetricsFor(competitionSamples),
             }))
             .sort((a, b) => b.sampleCount - a.sampleCount),
+          noVigConsensus: marketBaselineFor(
+            marketNoVigGrouped.get(modelVersion) ?? [],
+          ),
+          impliedMarket: marketBaselineFor(
+            marketImpliedGrouped.get(modelVersion) ?? [],
+          ),
         };
       },
     );

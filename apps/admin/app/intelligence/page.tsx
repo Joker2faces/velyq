@@ -345,6 +345,66 @@ export default async function IntelligencePage() {
                       </tbody>
                     </table>
                   ) : null}
+                  <table className="ops-table">
+                    <thead>
+                      <tr>
+                        <th>Baseline</th>
+                        <th>Sample</th>
+                        <th>Brier</th>
+                        <th>Log loss</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>VELYQ model</td>
+                        <td>{model.sampleCount}</td>
+                        <td>
+                          {model.brierScore === null
+                            ? "INSUFFICIENT SAMPLE"
+                            : model.brierScore.toFixed(4)}
+                        </td>
+                        <td>
+                          {model.logLoss === null
+                            ? "—"
+                            : model.logLoss.toFixed(4)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>No-vig market consensus</td>
+                        <td>{model.noVigConsensus.sampleCount}</td>
+                        <td>
+                          {model.noVigConsensus.brierScore === null
+                            ? "INSUFFICIENT SAMPLE"
+                            : model.noVigConsensus.brierScore.toFixed(4)}
+                        </td>
+                        <td>
+                          {model.noVigConsensus.logLoss === null
+                            ? "—"
+                            : model.noVigConsensus.logLoss.toFixed(4)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Raw implied market (vig-included)</td>
+                        <td>{model.impliedMarket.sampleCount}</td>
+                        <td>
+                          {model.impliedMarket.brierScore === null
+                            ? "INSUFFICIENT SAMPLE"
+                            : model.impliedMarket.brierScore.toFixed(4)}
+                        </td>
+                        <td>
+                          {model.impliedMarket.logLoss === null
+                            ? "—"
+                            : model.impliedMarket.logLoss.toFixed(4)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p>
+                    Lower is better for both columns. VELYQ is not promoted
+                    above EXPERIMENTAL on the strength of this comparison
+                    alone -- it is one input among several, not an automatic
+                    certification.
+                  </p>
                 </div>
               ))
             ) : (

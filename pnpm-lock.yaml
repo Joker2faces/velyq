@@ -65,6 +65,9 @@ importers:
       '@velyq/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@velyq/market-semantics':
+        specifier: workspace:*
+        version: link:../../packages/market-semantics
       '@velyq/research':
         specifier: workspace:*
         version: link:../../packages/research

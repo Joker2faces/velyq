@@ -44,6 +44,11 @@
       "import": "./dist/schema/operations.js",
       "default": "./dist/schema/operations.js"
     },
+    "./schema/market": {
+      "types": "./src/schema/market.ts",
+      "import": "./dist/schema/market.js",
+      "default": "./dist/schema/market.js"
+    },
     "./schema/private": {
       "types": "./src/schema/private.ts",
       "import": "./dist/schema/private.js",
