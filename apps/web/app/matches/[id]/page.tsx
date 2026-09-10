@@ -21,10 +21,11 @@ import {
   translator,
 } from "@velyq/ui";
 import {
+  deriveOpportunityLifecycle,
+  derivePostMatchAutopsy,
+  deriveWhatChanged,
   loadCustomerMatch,
-  loadOpportunityLifecycle,
-  loadPostMatchAutopsy,
-  loadWhatChanged,
+  loadEventDecisionHistory,
 } from "../../customer-runtime";
 import { getLocale } from "../../locale";
 import { CustomerShell } from "../../customer-shell";
@@ -71,7 +72,18 @@ export default async function Match({
   const { id } = await params;
   const locale = await getLocale();
   const t = translator(locale);
-  const result = await loadCustomerMatch(id);
+  /*
+   * Independent of each other -- one is the customer's own entitlement-gated
+   * match read, the other is this event's raw decision history -- so they
+   * run concurrently rather than as two serial round trips. The decision
+   * history is fetched exactly once here and reused for autopsy, lifecycle
+   * and what-changed below, which used to each open their own database
+   * session and re-run the identical query (caught in a performance pass).
+   */
+  const [result, decisionHistory] = await Promise.all([
+    loadCustomerMatch(id),
+    loadEventDecisionHistory(id),
+  ]);
 
   if (!result.ok) {
     const notFound = result.code === "NOT_FOUND";
@@ -106,13 +118,13 @@ export default async function Match({
   }
 
   const match = result.value;
-  const autopsy = await loadPostMatchAutopsy(id);
-  const lifecycle = await loadOpportunityLifecycle(
-    id,
-    match.selection,
-    new Date(),
-  );
-  const whatChanged = await loadWhatChanged(id, match.selection);
+  const autopsy = decisionHistory ? derivePostMatchAutopsy(decisionHistory) : null;
+  const lifecycle = decisionHistory
+    ? deriveOpportunityLifecycle(decisionHistory, match.selection, new Date())
+    : null;
+  const whatChanged = decisionHistory
+    ? deriveWhatChanged(decisionHistory, match.selection)
+    : null;
   const hasEstimate = match.probabilityEdge !== null;
   /*
    * Price history exists only once movement was actually establishable.

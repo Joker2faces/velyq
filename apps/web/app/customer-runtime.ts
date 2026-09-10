@@ -9,7 +9,10 @@ import {
   openDatabaseCustomerQueries,
   type RuntimeCustomerQueries,
 } from "./customer-database";
-import { DatabaseHistoryQueryAdapter } from "@velyq/database";
+import {
+  DatabaseHistoryQueryAdapter,
+  type HistoricalDecisionRow,
+} from "@velyq/database";
 import { customerFixtureMode } from "./api/auth";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import { diffSnapshots, edgePersistence, type Snapshot } from "@velyq/analytics";
@@ -211,19 +214,20 @@ export type PostMatchAutopsyDto = Readonly<{
 }>;
 
 /**
- * A retrospective view of this fixture's own real decisions -- never
- * generated commentary, only the stored reason codes, snapshot numbers and
- * settlement outcome VELYQ already computed. Null whenever nothing has
- * settled yet (a live/pre-match fixture), which is the honest, unremarkable
- * common case, not an error.
+ * Fetches this event's full decision history exactly once. Post-Match
+ * Autopsy, Opportunity Lifecycle and What Changed all read the same
+ * underlying `listDecisionsForEvent` result -- three separate database
+ * round trips for the identical query on one page load was the actual
+ * first-cut shape of this (each `loadX` opened its own session), caught in
+ * a performance pass. Callers now fetch once here and pass the rows to the
+ * three pure `deriveX` functions below, none of which touch the database.
  *
- * Demo mode has no settlement history to autopsy -- the demo corpus is a
- * fixed handful of live-looking matches, never a settled result -- so this
- * mirrors History's own live-only gate rather than inventing one.
+ * Null whenever there is nothing to read: demo mode (the demo corpus has no
+ * settlement history to autopsy), or no database session available.
  */
-export async function loadPostMatchAutopsy(
+export async function loadEventDecisionHistory(
   eventId: string,
-): Promise<PostMatchAutopsyDto | null> {
+): Promise<readonly HistoricalDecisionRow[] | null> {
   if (customerFixtureMode()) return null;
   const session = await openRuntimeDatabaseSession();
   if (!session) return null;
@@ -234,39 +238,51 @@ export async function loadPostMatchAutopsy(
      * SYNTHETIC_DEMO event id (or the reverse), even by a bare id passed
      * from elsewhere with no prior corpus check of its own.
      */
-    const rows = await new DatabaseHistoryQueryAdapter(
+    return await new DatabaseHistoryQueryAdapter(
       session.database,
     ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
-    const settled = rows.filter(
-      (row) => row.settlement && row.settlement.outcome !== "UNSETTLED",
-    );
-    if (settled.length === 0) return null;
-    const withResult = settled.find((row) => row.result);
-    const result = withResult?.result;
-    const finalScore =
-      result?.homeScore == null || result.awayScore == null
-        ? "—"
-        : `${result.homeScore}–${result.awayScore}`;
-    return {
-      finalScore,
-      rows: settled.map((row) => ({
-        marketLabelKey: row.marketDefinition.labelKey,
-        lineValue: null,
-        selection: row.decision.selection,
-        decisionStatus: row.decision.status,
-        whyNotCodes: row.decision.whyNotCodes,
-        modelProbability: row.forecast.probability,
-        fairOdds: row.decision.fairOdds,
-        offeredOdds: row.decision.offeredOdds,
-        outcome: (row.settlement?.outcome ??
-          "UNSETTLED") as PostMatchAutopsyRow["outcome"],
-        closingOdds: row.settlement?.closingOdds ?? null,
-        clv: row.settlement?.clv ?? null,
-      })),
-    };
   } finally {
     await session.close();
   }
+}
+
+/**
+ * A retrospective view of this fixture's own real decisions -- never
+ * generated commentary, only the stored reason codes, snapshot numbers and
+ * settlement outcome VELYQ already computed. Null whenever nothing has
+ * settled yet (a live/pre-match fixture), which is the honest, unremarkable
+ * common case, not an error.
+ */
+export function derivePostMatchAutopsy(
+  rows: readonly HistoricalDecisionRow[],
+): PostMatchAutopsyDto | null {
+  const settled = rows.filter(
+    (row) => row.settlement && row.settlement.outcome !== "UNSETTLED",
+  );
+  if (settled.length === 0) return null;
+  const withResult = settled.find((row) => row.result);
+  const result = withResult?.result;
+  const finalScore =
+    result?.homeScore == null || result.awayScore == null
+      ? "—"
+      : `${result.homeScore}–${result.awayScore}`;
+  return {
+    finalScore,
+    rows: settled.map((row) => ({
+      marketLabelKey: row.marketDefinition.labelKey,
+      lineValue: null,
+      selection: row.decision.selection,
+      decisionStatus: row.decision.status,
+      whyNotCodes: row.decision.whyNotCodes,
+      modelProbability: row.forecast.probability,
+      fairOdds: row.decision.fairOdds,
+      offeredOdds: row.decision.offeredOdds,
+      outcome: (row.settlement?.outcome ??
+        "UNSETTLED") as PostMatchAutopsyRow["outcome"],
+      closingOdds: row.settlement?.closingOdds ?? null,
+      clv: row.settlement?.clv ?? null,
+    })),
+  };
 }
 
 export type OpportunityLifecycleDto = Readonly<{
@@ -292,41 +308,31 @@ export type OpportunityLifecycleDto = Readonly<{
  * the honest state for a fixture the forecast cycle has not reached yet,
  * not an error.
  */
-export async function loadOpportunityLifecycle(
-  eventId: string,
+export function deriveOpportunityLifecycle(
+  rows: readonly HistoricalDecisionRow[],
   selection: string,
   asOf: Date,
-): Promise<OpportunityLifecycleDto | null> {
-  if (customerFixtureMode()) return null;
+): OpportunityLifecycleDto | null {
   if (!selection) return null;
-  const session = await openRuntimeDatabaseSession();
-  if (!session) return null;
-  try {
-    const rows = await new DatabaseHistoryQueryAdapter(
-      session.database,
-    ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
-    const relevant = rows.filter(
-      (row) =>
-        row.marketDefinition.code ===
-          canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
-        row.decision.selection === selection,
-    );
-    if (relevant.length === 0) return null;
-    const observations = relevant.map((row) => ({
-      at: row.decision.createdAt.toISOString(),
-      active: row.decision.status === "STRONG_EDGE",
-    }));
-    const result = edgePersistence(observations, asOf.toISOString());
-    return {
-      state: result.state,
-      firstAppeared: result.firstAppeared,
-      durationMs: result.durationMs,
-      observationCount: result.observationCount,
-      thresholdCrossings: result.thresholdCrossings,
-    };
-  } finally {
-    await session.close();
-  }
+  const relevant = rows.filter(
+    (row) =>
+      row.marketDefinition.code ===
+        canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
+      row.decision.selection === selection,
+  );
+  if (relevant.length === 0) return null;
+  const observations = relevant.map((row) => ({
+    at: row.decision.createdAt.toISOString(),
+    active: row.decision.status === "STRONG_EDGE",
+  }));
+  const result = edgePersistence(observations, asOf.toISOString());
+  return {
+    state: result.state,
+    firstAppeared: result.firstAppeared,
+    durationMs: result.durationMs,
+    observationCount: result.observationCount,
+    thresholdCrossings: result.thresholdCrossings,
+  };
 }
 
 export type WhatChangedDto = Readonly<{
@@ -366,54 +372,44 @@ export type WhatChangedDto = Readonly<{
  * Null when fewer than two decisions exist for this selection -- nothing
  * has had the chance to change yet.
  */
-export async function loadWhatChanged(
-  eventId: string,
+export function deriveWhatChanged(
+  rows: readonly HistoricalDecisionRow[],
   selection: string,
-): Promise<WhatChangedDto | null> {
-  if (customerFixtureMode()) return null;
+): WhatChangedDto | null {
   if (!selection) return null;
-  const session = await openRuntimeDatabaseSession();
-  if (!session) return null;
-  try {
-    const rows = await new DatabaseHistoryQueryAdapter(
-      session.database,
-    ).listDecisionsForEvent(eventId, configuredDataMode() === "SYNTHETIC_DEMO");
-    const relevant = rows
-      .filter(
-        (row) =>
-          row.marketDefinition.code ===
-            canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
-          row.decision.selection === selection,
-      )
-      .sort(
-        (a, b) => a.decision.createdAt.getTime() - b.decision.createdAt.getTime(),
-      );
-    if (relevant.length < 2) return null;
-    const first = relevant[0]!;
-    const last = relevant.at(-1)!;
-    const toSnapshot = (row: (typeof relevant)[number]): Snapshot => ({
-      at: row.decision.createdAt.toISOString(),
-      price: row.decision.offeredOdds,
-      modelProbability: row.forecast.probability,
-      lineup: "unknown",
-      quality: "unknown",
-      decision: row.decision.status,
-      edge: row.decision.expectedValue,
-      market: row.marketDefinition.code,
-    });
-    const changes = diffSnapshots(toSnapshot(first), toSnapshot(last));
-    return {
-      firstEvaluatedAt: first.decision.createdAt.toISOString(),
-      lastEvaluatedAt: last.decision.createdAt.toISOString(),
-      changes: changes.map((change) => ({
-        kind: change.kind,
-        before: change.before,
-        after: change.after,
-      })),
-    };
-  } finally {
-    await session.close();
-  }
+  const relevant = rows
+    .filter(
+      (row) =>
+        row.marketDefinition.code ===
+          canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.code &&
+        row.decision.selection === selection,
+    )
+    .sort(
+      (a, b) => a.decision.createdAt.getTime() - b.decision.createdAt.getTime(),
+    );
+  if (relevant.length < 2) return null;
+  const first = relevant[0]!;
+  const last = relevant.at(-1)!;
+  const toSnapshot = (row: (typeof relevant)[number]): Snapshot => ({
+    at: row.decision.createdAt.toISOString(),
+    price: row.decision.offeredOdds,
+    modelProbability: row.forecast.probability,
+    lineup: "unknown",
+    quality: "unknown",
+    decision: row.decision.status,
+    edge: row.decision.expectedValue,
+    market: row.marketDefinition.code,
+  });
+  const changes = diffSnapshots(toSnapshot(first), toSnapshot(last));
+  return {
+    firstEvaluatedAt: first.decision.createdAt.toISOString(),
+    lastEvaluatedAt: last.decision.createdAt.toISOString(),
+    changes: changes.map((change) => ({
+      kind: change.kind,
+      before: change.before,
+      after: change.after,
+    })),
+  };
 }
 
 /**
