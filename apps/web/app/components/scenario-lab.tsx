@@ -70,7 +70,7 @@ export function ScenarioLab({
           }
         />
       </label>
-      <dl className="scenario-lab__figures">
+      <dl className="scenario-lab__figures" aria-live="polite">
         <div>
           <dt>{t("priceValidityCurrent")}</dt>
           <dd>

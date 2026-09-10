@@ -2483,6 +2483,7 @@ a.row:hover {
 
 .scenario-lab__field input {
   width: 6rem;
+  min-height: 2.75rem;
   padding: var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
