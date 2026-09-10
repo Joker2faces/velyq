@@ -1085,6 +1085,7 @@ export async function createProviderIngestionAdapter(
         duplicate: summary.duplicate,
         official: summary.official,
         skippedByReason: summary.skippedByReason,
+        eventIdsWithNewObservations: summary.eventIdsWithNewObservations,
       };
     },
 

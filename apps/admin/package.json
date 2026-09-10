@@ -11,6 +11,7 @@
     "@velyq/auth": "workspace:*",
     "@velyq/contracts": "workspace:*",
     "@velyq/database": "workspace:*",
+    "@velyq/research": "workspace:*",
     "@velyq/ui": "workspace:*",
     "drizzle-orm": "0.45.2",
     "next": "16.3.4",

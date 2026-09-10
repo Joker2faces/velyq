@@ -421,4 +421,22 @@ describe("runForecastCycle", () => {
       secondRun.prediction.decisionStatus,
     );
   });
+
+  /*
+   * A lineup landing needs a way to reprice just its own fixture without
+   * waiting for the daily scan -- `eventIds` is that door. It must reach
+   * `loadEligibleFixtures` unchanged so a caller narrowing to one fixture
+   * isn't silently widened back to the whole window.
+   */
+  it("passes eventIds through to loadEligibleFixtures for a demand-triggered recompute", async () => {
+    const deps = testDeps();
+    await runForecastCycle(deps, {
+      ...WINDOW,
+      eventIds: ["event-42"],
+    });
+
+    expect(deps.loadEligibleFixtures).toHaveBeenCalledWith(
+      expect.objectContaining({ eventIds: ["event-42"] }),
+    );
+  });
 });

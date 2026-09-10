@@ -52,6 +52,14 @@ export type LineupIngestionSummary = Readonly<{
    * complete would stop us asking for the first.
    */
   statusByProviderFixtureId: Readonly<Record<string, string>>;
+  /**
+   * Internal event ids that received a genuinely new lineup observation this
+   * call (not a duplicate, not skipped). This is the only signal a caller has
+   * that a forecast might now be worth recomputing before the next scheduled
+   * cycle -- the writer is the one place that already knows "new sheet just
+   * landed" versus "same sheet reported again."
+   */
+  eventIdsWithNewObservations: readonly string[];
 }>;
 
 function bump(counter: Record<string, number>, key: string): void {
@@ -86,6 +94,7 @@ export async function ingestFootballLineups(
       official: 0,
       skippedByReason,
       statusByProviderFixtureId,
+      eventIdsWithNewObservations: [],
     };
   }
 
@@ -115,6 +124,7 @@ export async function ingestFootballLineups(
    * answered only when every team's sheet is complete.
    */
   const weakestByFixture = new Map<string, string>();
+  const eventIdsWithNewObservations = new Set<string>();
 
   for (const lineup of input.lineups) {
     const existing = weakestByFixture.get(lineup.providerEventId);
@@ -211,9 +221,22 @@ export async function ingestFootballLineups(
 
         const source = inserted[0];
         if (source === undefined) {
-          return { reason: null, duplicate: true };
+          return { reason: null, duplicate: true, eventId: identity.eventId };
         }
 
+        /*
+         * `CHANGED` is NOT written here. `lineup_observations_status_check`
+         * (packages/database/src/schema/intelligence.ts) restricts this
+         * column to 'EXPECTED' | 'OFFICIAL' | 'UNAVAILABLE' at the database
+         * level -- writing "CHANGED" would fail that constraint on every
+         * insert, silently dropping the row into LINEUP_WRITE_FAILED. Making
+         * CHANGED a real, storable status needs a migration widening that
+         * check constraint, which needs the production database credential
+         * P0-F is already blocked on. Detecting "this replaces an OFFICIAL
+         * sheet" is left to a reader (e.g. `deriveLineupState`, once it wants
+         * that distinction) by comparing this row's `receivedAt` against the
+         * previous OFFICIAL row for the same event+team, not to the writer.
+         */
         await transaction
           .insert(lineupObservations)
           .values({
@@ -242,7 +265,7 @@ export async function ingestFootballLineups(
             ],
           });
 
-        return { reason: null, duplicate: false };
+        return { reason: null, duplicate: false, eventId: identity.eventId };
       });
 
       if (outcome.reason) {
@@ -254,6 +277,7 @@ export async function ingestFootballLineups(
         continue;
       }
       written += 1;
+      eventIdsWithNewObservations.add(outcome.eventId);
     } catch (error) {
       /* One team's sheet failing must not discard the other's. */
       bump(
@@ -283,6 +307,7 @@ export async function ingestFootballLineups(
     ).length,
     skippedByReason,
     statusByProviderFixtureId,
+    eventIdsWithNewObservations: [...eventIdsWithNewObservations],
   };
 }
 

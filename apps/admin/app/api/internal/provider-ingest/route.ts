@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
 import { createPrivilegedDatabaseClient } from "@velyq/database/client";
 import { createProviderIngestionAdapter } from "@velyq/database/repositories/provider-ingestion-adapter";
+import { createForecastCycleDbAdapter } from "@velyq/database/repositories/forecast-cycle-adapter";
 import { runProviderIngestion } from "@velyq/application/provider-ingestion";
+import { runForecastCycle } from "@velyq/application/forecast-cycle";
 
 import { checkSchedulerAuth } from "../../../scheduler-auth";
+import { loadProductionModelArtifact } from "../../../forecast-cycle/model-artifact";
+
+const PROVIDER_CODE = "API_SPORTS";
+/**
+ * How far past "now" a recompute window reaches for a fixture whose lineup
+ * just landed. Lineups publish roughly 90 minutes before kickoff (see
+ * `packages/application/src/lineup-freshness.ts`), so a few hours covers the
+ * whole pre-kickoff window with room for clock skew -- the `eventIds` filter
+ * below is what actually keeps this scoped to only the fixtures that just
+ * received a sheet, not this window.
+ */
+const RECOMPUTE_WINDOW_HOURS = 6;
 
 /**
  * The scheduler-driven entry point for real provider ingestion.
@@ -89,15 +103,66 @@ export async function POST(request: Request) {
     await adapter.recordRun(result);
 
     /*
+     * A lineup just landed for these fixtures -- recompute their forecast
+     * now, in the same request, rather than wait for the forecast cycle's
+     * own once-daily cron. That cadence exists to bound cost across the
+     * whole corpus; it was never meant to be the only path a fixture whose
+     * evidence just changed has back to a fresh decision. A failure here is
+     * caught and logged, never allowed to turn a successful ingestion pass
+     * into a failed response -- the daily cycle still covers this fixture
+     * as a fallback if the recompute itself fails.
+     */
+    let lineupRecompute: {
+      attempted: boolean;
+      eventIds: readonly string[];
+      forecastsCreated?: number;
+      error?: string;
+    } = { attempted: false, eventIds: [] };
+    if (result.lineupEventIdsWithNewObservations.length > 0) {
+      lineupRecompute = {
+        attempted: true,
+        eventIds: result.lineupEventIdsWithNewObservations,
+      };
+      try {
+        const modelArtifact = loadProductionModelArtifact();
+        const forecastAdapter = await createForecastCycleDbAdapter(
+          client.database,
+          {
+            modelArtifact,
+            providerCode: PROVIDER_CODE,
+            dataOrigin: "LIVE",
+          },
+        );
+        const now = new Date();
+        const recomputeResult = await runForecastCycle(forecastAdapter, {
+          from: new Date(now.getTime() - 60 * 60_000),
+          to: new Date(now.getTime() + RECOMPUTE_WINDOW_HOURS * 3_600_000),
+          eventIds: result.lineupEventIdsWithNewObservations,
+        });
+        lineupRecompute.forecastsCreated = recomputeResult.forecastsCreated;
+      } catch (error) {
+        lineupRecompute.error =
+          error instanceof Error ? error.message : "UNKNOWN_ERROR";
+        console.error("lineup-triggered forecast recompute failed", {
+          message: lineupRecompute.error,
+          eventCount: lineupRecompute.eventIds.length,
+        });
+      }
+    }
+
+    /*
      * The full run summary is returned, not just a status. Supabase Cron
      * keeps its own history of the response, so this is the record an
      * operator reads first when asking why Today is empty -- and it contains
      * no provider credential, no club names and no customer data.
      */
-    return NextResponse.json(result, {
-      status: 200,
-      headers: { "cache-control": "no-store" },
-    });
+    return NextResponse.json(
+      { ...result, lineupRecompute },
+      {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      },
+    );
   } catch (error) {
     /*
      * Redacted before anything reaches a log or a response body. A connection

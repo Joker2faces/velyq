@@ -1,6 +1,6 @@
 import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, gte, isNull, lt, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, ne } from "drizzle-orm";
 import {
   assessDataQuality,
   DEFAULT_DATA_QUALITY_POLICY,
@@ -446,6 +446,7 @@ export async function createForecastCycleDbAdapter(
             ne(events.status, "FINAL"),
             ne(events.status, "CANCELLED"),
             ne(events.status, "ABANDONED"),
+            ...(window.eventIds ? [inArray(events.id, window.eventIds)] : []),
           ),
         )
         .orderBy(asc(events.startsAt), asc(events.id));

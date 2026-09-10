@@ -62,6 +62,12 @@ export type LineupPersistSummary = Readonly<{
   /** Fixtures whose sheet is now complete, so the gate can clear. */
   official: number;
   skippedByReason: Readonly<Record<string, number>>;
+  /**
+   * Internal event ids that received a genuinely new lineup observation this
+   * pass. The one signal the forecast cycle needs to reprice promptly rather
+   * than wait for its next scheduled window.
+   */
+  eventIdsWithNewObservations: readonly string[];
 }>;
 
 export type ResultCandidate = Readonly<{
@@ -251,6 +257,12 @@ export type ProviderIngestionResult = Readonly<{
   lineupDuplicates: number;
   /** Fixtures whose sheet became complete on this pass. */
   lineupsOfficial: number;
+  /**
+   * Internal event ids that received a genuinely new lineup observation this
+   * pass -- the caller's cue to recompute those fixtures' forecasts promptly
+   * rather than wait for the next scheduled forecast cycle.
+   */
+  lineupEventIdsWithNewObservations: readonly string[];
   resultCandidates: number;
   resultRequestsAttempted: number;
   resultFixturesRequested: readonly string[];
@@ -632,6 +644,7 @@ export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
           duplicate: 0,
           official: 0,
           skippedByReason: {},
+          eventIdsWithNewObservations: [],
         };
   timings.lineupPersistMs = since(lineupPersistStartedAt);
   mergeSkips(skippedByReason, lineups.skippedByReason);
@@ -924,6 +937,7 @@ export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
     lineupsWritten: lineups.written,
     lineupDuplicates: lineups.duplicate,
     lineupsOfficial: lineups.official,
+    lineupEventIdsWithNewObservations: lineups.eventIdsWithNewObservations,
     resultCandidates: resultQueue.length,
     resultRequestsAttempted,
     resultFixturesRequested,

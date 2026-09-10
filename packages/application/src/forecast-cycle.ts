@@ -87,7 +87,20 @@ export type PersistedDecisionRef = Readonly<{ id: string }>;
 export type ForecastCycleDeps = Readonly<{
   clock: () => Date;
   loadEligibleFixtures: (
-    window: Readonly<{ from: Date; to: Date }>,
+    window: Readonly<{
+      from: Date;
+      to: Date;
+      /**
+       * Restricts the scan to these internal event ids, when given. The
+       * time window still applies -- it is the safety bound against an
+       * unbounded scan, not something a caller with specific event ids gets
+       * to skip -- so callers driving a demand-triggered recompute (a
+       * lineup just landed) still pass a from/to wide enough to cover the
+       * fixture's own kickoff, narrowed to exactly those fixtures rather
+       * than to whatever else kicks off in the same window.
+       */
+      eventIds?: readonly string[];
+    }>,
   ) => Promise<readonly ForecastCycleFixture[]>;
   /**
    * Provider identity -> internal competition -> model competition code.
@@ -180,7 +193,12 @@ export type ForecastCycleDeps = Readonly<{
   triggerJobId?: string;
 }>;
 
-export type ForecastCycleInput = Readonly<{ from: Date; to: Date }>;
+export type ForecastCycleInput = Readonly<{
+  from: Date;
+  to: Date;
+  /** See `ForecastCycleDeps.loadEligibleFixtures`. */
+  eventIds?: readonly string[];
+}>;
 
 export type ForecastCycleResult = Readonly<{
   runId: string;
