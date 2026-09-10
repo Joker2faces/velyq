@@ -827,6 +827,9 @@ export const messages = {
   /* Rendered inline as "Fair 7.35 · EV 3.1%", alongside "Model 55% · 2.10",
      so the English label is deliberately the single word. */
   historyFairPrice: "Fair",
+  historyLoadOlder: "Load older decisions",
+  historyLoadingOlder: "Loading…",
+  historyNoOlder: "No older decisions.",
 } as const;
 
 export type MessageKey = keyof typeof messages;
@@ -1562,6 +1565,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   historyAllQualifying: "Όλες οι επιλέξιμες αποφάσεις",
   historyModel: "Μοντέλο",
   historyFairPrice: "Δίκαιη τιμή",
+  historyLoadOlder: "Φόρτωση παλαιότερων αποφάσεων",
+  historyLoadingOlder: "Φόρτωση…",
+  historyNoOlder: "Δεν υπάρχουν παλαιότερες αποφάσεις.",
 };
 
 export const translations: Readonly<

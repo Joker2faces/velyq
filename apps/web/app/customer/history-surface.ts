@@ -33,4 +33,8 @@ export type HistorySurfaceDto = Readonly<{
   period: string;
   modelVersion: string;
   decisions: readonly DecisionHistoryItem[];
+  /** Whether an older page exists beyond this one. */
+  hasMore: boolean;
+  /** Opaque keyset cursor for the next page; null when `hasMore` is false. */
+  nextCursor: string | null;
 }>;

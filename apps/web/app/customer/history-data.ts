@@ -7,6 +7,8 @@ export function buildDemoHistory(now: Date): HistorySurfaceDto {
     asOf: now.toISOString(),
     period: "Demo sample · all qualifying actionable decisions",
     modelVersion: "phase-1-experimental.v1",
+    hasMore: false,
+    nextCursor: null,
     decisions: [
       {
         id: "demo-1",

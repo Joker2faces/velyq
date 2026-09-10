@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { customerFixtureMode, requireCustomerSession } from "../../auth";
 import { buildDemoHistory } from "../../../customer/history-data";
+import {
+  decodeHistoryCursor,
+  encodeHistoryCursor,
+} from "../../../customer/history-cursor";
 import { DatabaseHistoryQueryAdapter } from "@velyq/database";
 import { openRuntimeDatabaseSession } from "../../../runtime-database/runtime-database";
+
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 200;
 
 /** Temporary demo read model; live history is enabled only after migration verification. */
 export async function GET(request: Request) {
   const denied = await requireCustomerSession(request, "today.view");
   if (denied) return denied;
+  const url = new URL(request.url);
+  const requestedLimit = Number(url.searchParams.get("limit"));
+  const limit =
+    Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, MAX_PAGE_SIZE)
+      : DEFAULT_PAGE_SIZE;
+  const cursor = decodeHistoryCursor(url.searchParams.get("cursor"));
   const liveMode =
     !customerFixtureMode() &&
     process.env["VELYQ_CUSTOMER_INTELLIGENCE_MODE"] !== "SYNTHETIC_DEMO";
@@ -25,9 +39,24 @@ export async function GET(request: Request) {
         { status: 503, headers: { "cache-control": "private, no-store" } },
       );
     try {
-      const rows = await new DatabaseHistoryQueryAdapter(
+      /*
+       * One extra row fetched, never returned: it is the only cheap way to
+       * know a next page exists without a separate COUNT query, and it costs
+       * nothing the keyset scan wasn't already going to touch.
+       */
+      const fetched = await new DatabaseHistoryQueryAdapter(
         session.database,
-      ).listDecisions();
+      ).listDecisions(limit + 1, cursor);
+      const hasMore = fetched.length > limit;
+      const rows = hasMore ? fetched.slice(0, limit) : fetched;
+      const lastRow = rows.at(-1);
+      const nextCursor =
+        hasMore && lastRow
+          ? encodeHistoryCursor({
+              createdAt: lastRow.decision.createdAt,
+              id: lastRow.decision.id,
+            })
+          : null;
       const modelVersions = [
         ...new Set(rows.map((row) => row.forecast.modelVersion)),
       ];
@@ -40,6 +69,8 @@ export async function GET(request: Request) {
             modelVersions.length === 1
               ? modelVersions[0]
               : "Multiple model versions",
+          hasMore,
+          nextCursor,
           decisions: rows.map((row) => ({
             id: row.decision.id,
             decidedAt: row.decision.createdAt.toISOString(),

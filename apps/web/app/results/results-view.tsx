@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import {
   competitionLabel,
   formatOdds,
@@ -9,7 +11,10 @@ import {
   translator,
   type Locale,
 } from "@velyq/ui";
-import type { HistorySurfaceDto } from "../customer/history-surface";
+import type {
+  DecisionHistoryItem,
+  HistorySurfaceDto,
+} from "../customer/history-surface";
 import { Badge, Card, CardHead, Stat } from "../components/ui";
 
 /**
@@ -35,6 +40,9 @@ const copy = (locale: Locale) => {
     all: t("historyAllQualifying"),
     model: t("historyModel"),
     fair: t("historyFairPrice"),
+    loadOlder: t("historyLoadOlder"),
+    loadingOlder: t("historyLoadingOlder"),
+    noOlder: t("historyNoOlder"),
   };
 };
 
@@ -46,7 +54,37 @@ export function ResultsView({
   locale: Locale;
 }) {
   const t = copy(locale);
-  const settled = data.decisions.filter(
+  /*
+   * Appended locally rather than re-fetched wholesale: History only ever
+   * grows from the front (new decisions insert above old ones), so a page
+   * already shown never needs re-validating -- only the next, older one.
+   */
+  const [decisions, setDecisions] = useState<readonly DecisionHistoryItem[]>(
+    data.decisions,
+  );
+  const [cursor, setCursor] = useState(data.nextCursor);
+  const [hasMore, setHasMore] = useState(data.hasMore);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
+  async function loadOlder() {
+    if (!cursor || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const response = await fetch(
+        `/api/v1/history?cursor=${encodeURIComponent(cursor)}`,
+        { cache: "no-store", headers: { accept: "application/json" } },
+      );
+      if (!response.ok) return;
+      const page = (await response.json()) as HistorySurfaceDto;
+      setDecisions((existing) => [...existing, ...page.decisions]);
+      setCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  const settled = decisions.filter(
     (item) => item.settlement !== "UNSETTLED",
   );
   const wins = settled.filter((item) => item.settlement === "WIN").length;
@@ -113,7 +151,7 @@ export function ResultsView({
           hint={`${data.modelVersion} · ${data.period}`}
         />{" "}
         <div className="results-list">
-          {data.decisions.map((item) => (
+          {decisions.map((item) => (
             <article className="results-row" key={item.id}>
               <div>
                 <p className="eyebrow">
@@ -158,6 +196,18 @@ export function ResultsView({
             </article>
           ))}
         </div>
+        {hasMore ? (
+          <button
+            type="button"
+            className="results-load-older"
+            onClick={loadOlder}
+            disabled={loadingOlder}
+          >
+            {loadingOlder ? t.loadingOlder : t.loadOlder}
+          </button>
+        ) : decisions.length > 0 ? (
+          <p className="results-load-older__done">{t.noOlder}</p>
+        ) : null}
       </Card>
     </div>
   );

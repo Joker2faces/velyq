@@ -1729,6 +1729,25 @@ a.row:hover {
 .results-outcome--loss {
   color: var(--negative);
 }
+.results-load-older {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.results-load-older:disabled {
+  color: var(--ink-muted);
+  cursor: default;
+}
+.results-load-older__done {
+  margin: var(--space-4) 0 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
 .forecast-list {
   display: grid;
   gap: var(--space-3);

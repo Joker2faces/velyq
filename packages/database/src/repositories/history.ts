@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or } from "drizzle-orm";
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
   competitions,
@@ -32,10 +32,34 @@ export type HistoricalDecisionRow = Readonly<{
   awayTeam: string;
 }>;
 
+/** A page's own cursor: the last row's ordering key, to ask for what comes after it. */
+export type HistoryCursor = Readonly<{ createdAt: Date; id: string }>;
+
 /** All immutable decisions, ordered newest-first; filtering winners is impossible at this boundary. */
 export class DatabaseHistoryQueryAdapter {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
-  async listDecisions(limit = 500): Promise<readonly HistoricalDecisionRow[]> {
+  async listDecisions(
+    limit = 500,
+    before?: HistoryCursor,
+  ): Promise<readonly HistoricalDecisionRow[]> {
+    /*
+     * Keyset pagination on the same (createdAt, id) pair the query already
+     * orders by, not OFFSET: an offset re-scans and re-sorts everything
+     * before the requested page on every request, and a decision inserted
+     * between two page loads would shift every later page by one row --
+     * silently duplicating or skipping a row the customer had already seen.
+     * The compound "strictly before this row" comparison has neither
+     * problem.
+     */
+    const cursorClause = before
+      ? or(
+          lt(decisions.createdAt, before.createdAt),
+          and(
+            eq(decisions.createdAt, before.createdAt),
+            lt(decisions.id, before.id),
+          ),
+        )
+      : undefined;
     const rows = await this.database
       .select({
         decision: decisions,
@@ -75,7 +99,11 @@ export class DatabaseHistoryQueryAdapter {
         eventResults,
         eq(marketSettlements.eventResultId, eventResults.id),
       )
-      .where(eq(decisions.status, "STRONG_EDGE"))
+      .where(
+        cursorClause
+          ? and(eq(decisions.status, "STRONG_EDGE"), cursorClause)
+          : eq(decisions.status, "STRONG_EDGE"),
+      )
       .orderBy(
         desc(decisions.createdAt),
         desc(decisions.id),
