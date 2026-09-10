@@ -263,37 +263,53 @@ export class DatabaseCustomerQueryAdapter {
 
     const outcomes = await Promise.all(
       marketRows.map(async (row): Promise<CustomerRawOutcome> => {
-        const [predictionRow] = await this.database
-          .select({ prediction: predictions, run: predictionRuns })
-          .from(predictions)
-          .innerJoin(
-            predictionRuns,
-            eq(predictions.predictionRunId, predictionRuns.id),
-          )
-          .where(
-            and(
-              eq(predictions.eventMarketOutcomeId, row.outcome.id),
-              lte(predictions.createdAt, asOf),
-              lte(predictionRuns.featureCutoff, asOf),
-            ),
-          )
-          .orderBy(desc(predictions.createdAt), desc(predictions.id))
-          .limit(1);
+        /*
+         * The four queries below have no data dependency on each other (only
+         * predictionInputs depends on predictionRow, and radarEvidence on
+         * score, each its own short chain) -- they used to run six fully
+         * serial awaits per outcome, which is six round-trip latencies for
+         * every outcome of every fixture on a page. Running the independent
+         * chains concurrently does not change which rows are read or their
+         * filters, only when the driver is asked for them.
+         */
+        const predictionChain = (async () => {
+          const [predictionRow] = await this.database
+            .select({ prediction: predictions, run: predictionRuns })
+            .from(predictions)
+            .innerJoin(
+              predictionRuns,
+              eq(predictions.predictionRunId, predictionRuns.id),
+            )
+            .where(
+              and(
+                eq(predictions.eventMarketOutcomeId, row.outcome.id),
+                lte(predictions.createdAt, asOf),
+                lte(predictionRuns.featureCutoff, asOf),
+              ),
+            )
+            .orderBy(desc(predictions.createdAt), desc(predictions.id))
+            .limit(1);
 
-        const predictionInputRows = predictionRow
-          ? await this.database
-              .select()
-              .from(predictionInputs)
-              .where(
-                eq(predictionInputs.predictionId, predictionRow.prediction.id),
-              )
-              .orderBy(
-                asc(predictionInputs.createdAt),
-                asc(predictionInputs.sourceObservationId),
-              )
-          : [];
+          const predictionInputRows = predictionRow
+            ? await this.database
+                .select()
+                .from(predictionInputs)
+                .where(
+                  eq(
+                    predictionInputs.predictionId,
+                    predictionRow.prediction.id,
+                  ),
+                )
+                .orderBy(
+                  asc(predictionInputs.createdAt),
+                  asc(predictionInputs.sourceObservationId),
+                )
+            : [];
 
-        const [quality] = await this.database
+          return { predictionRow, predictionInputRows };
+        })();
+
+        const qualityChain = this.database
           .select()
           .from(dataQualityAssessments)
           .where(
@@ -307,33 +323,38 @@ export class DatabaseCustomerQueryAdapter {
             desc(dataQualityAssessments.asOf),
             desc(dataQualityAssessments.id),
           )
-          .limit(1);
+          .limit(1)
+          .then((rows) => rows[0]);
 
-        const [score] = await this.database
-          .select()
-          .from(scoreResults)
-          .where(
-            and(
-              eq(scoreResults.eventMarketOutcomeId, row.outcome.id),
-              lte(scoreResults.asOf, asOf),
-            ),
-          )
-          .orderBy(
-            desc(scoreResults.asOf),
-            desc(scoreResults.createdAt),
-            desc(scoreResults.id),
-          )
-          .limit(1);
+        const scoreChain = (async () => {
+          const [score] = await this.database
+            .select()
+            .from(scoreResults)
+            .where(
+              and(
+                eq(scoreResults.eventMarketOutcomeId, row.outcome.id),
+                lte(scoreResults.asOf, asOf),
+              ),
+            )
+            .orderBy(
+              desc(scoreResults.asOf),
+              desc(scoreResults.createdAt),
+              desc(scoreResults.id),
+            )
+            .limit(1);
 
-        const evidence = score
-          ? ((
-              await this.database
-                .select()
-                .from(radarEvidence)
-                .where(eq(radarEvidence.scoreResultId, score.id))
-                .limit(1)
-            )[0] ?? null)
-          : null;
+          const evidence = score
+            ? ((
+                await this.database
+                  .select()
+                  .from(radarEvidence)
+                  .where(eq(radarEvidence.scoreResultId, score.id))
+                  .limit(1)
+              )[0] ?? null)
+            : null;
+
+          return { score, evidence };
+        })();
 
         /*
          * Newest first, then reversed back into chronological order.
@@ -347,7 +368,7 @@ export class DatabaseCustomerQueryAdapter {
          * from distinct instants downstream and expects ascending order, so
          * the window is reversed rather than the ordering being left to it.
          */
-        const odds = await this.database
+        const oddsChain = this.database
           .select()
           .from(oddsObservations)
           .innerJoin(
@@ -367,6 +388,18 @@ export class DatabaseCustomerQueryAdapter {
           )
           .limit(MAX_ODDS_HISTORY)
           .then((rows) => rows.reverse());
+
+        const [
+          { predictionRow, predictionInputRows },
+          quality,
+          { score, evidence },
+          odds,
+        ] = await Promise.all([
+          predictionChain,
+          qualityChain,
+          scoreChain,
+          oddsChain,
+        ]);
 
         return {
           ...row,
