@@ -1,4 +1,4 @@
-import type { CustomerMatchDto } from "@velyq/contracts";
+import type { CustomerMatchDto, CustomerTodayAggregateDto } from "@velyq/contracts";
 
 /**
  * What `/api/v1/today` returns to a customer surface.
@@ -14,6 +14,12 @@ export type TodaySurfaceDto = {
   readonly syntheticLabel: string;
   readonly asOf: string;
   readonly matches: readonly CustomerMatchDto[];
+  /**
+   * Real counts over the WHOLE day's fixtures (before the preview slice
+   * above), so "no match clears the threshold" is checkable even on a
+   * preview account that only sees a handful of `matches`.
+   */
+  readonly summary: CustomerTodayAggregateDto;
   readonly withheld: number;
   readonly surface: "today" | "edge" | "radar";
   readonly full: boolean;

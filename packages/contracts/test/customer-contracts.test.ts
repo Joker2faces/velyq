@@ -54,6 +54,19 @@ const validMatch = {
   },
 } as const;
 
+const validTodaySummary = {
+  totalFixtures: 1,
+  byRecommendation: {
+    STRONG_EDGE: 0,
+    NO_BET: 1,
+    WAIT: 0,
+    WAIT_FOR_LINEUP: 0,
+    INSUFFICIENT_DATA: 0,
+    EDGE_DISAPPEARED: 0,
+  },
+  lineupGated: 0,
+} as const;
+
 describe("customer API contracts", () => {
   it("keeps customer match metrics nullable for refusal states", () => {
     const match: Pick<
@@ -138,12 +151,57 @@ describe("customer API contracts", () => {
       syntheticLabel: "Synthetic data",
       asOf: "2026-09-04T10:00:00.000Z",
       matches: [validMatch, { ...validMatch, currentOdds: "not-a-decimal" }],
+      summary: validTodaySummary,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok)
       expect(result.errors).toContain(
         "matches[1].currentOdds must be a valid canonical decimal string",
+      );
+  });
+
+  it("accepts a today DTO with a real aggregate summary", () => {
+    const result = validateCustomerTodayDto({
+      syntheticLabel: "Live market data",
+      asOf: "2026-09-04T10:00:00.000Z",
+      matches: [validMatch],
+      summary: validTodaySummary,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it.each([
+    ["totalFixtures", -1],
+    ["lineupGated", "3"],
+  ] as const)("rejects an invalid summary.%s", (field, value) => {
+    const result = validateCustomerTodayDto({
+      syntheticLabel: "Live market data",
+      asOf: "2026-09-04T10:00:00.000Z",
+      matches: [validMatch],
+      summary: { ...validTodaySummary, [field]: value },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain(`summary.${field} is invalid`);
+  });
+
+  it("rejects a summary missing a recommendation count", () => {
+    const { STRONG_EDGE: _omitted, ...incomplete } =
+      validTodaySummary.byRecommendation;
+    const result = validateCustomerTodayDto({
+      syntheticLabel: "Live market data",
+      asOf: "2026-09-04T10:00:00.000Z",
+      matches: [validMatch],
+      summary: { ...validTodaySummary, byRecommendation: incomplete },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain(
+        "summary.byRecommendation.STRONG_EDGE is invalid",
       );
   });
 });

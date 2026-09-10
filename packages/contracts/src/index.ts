@@ -802,10 +802,27 @@ export type CustomerScenarioDto = Readonly<{
   state: ScenarioState;
   label: string;
 }>;
+/**
+ * Real counts behind an empty or sparse Today, so "no match clears the
+ * threshold" is a claim a customer can check rather than take on faith.
+ *
+ * Computed from the SAME unsliced fixture list Today already loaded to build
+ * `matches` -- not a second query, and not the internal funnel-diagnostic
+ * route's ops-only numbers. `totalFixtures` counts every fixture for the day
+ * regardless of any preview/entitlement slicing, so the sentence stays true
+ * even for a free-tier view that only shows a handful of `matches`.
+ */
+export type CustomerTodayAggregateDto = Readonly<{
+  totalFixtures: number;
+  byRecommendation: Readonly<Record<RecommendationStatus, number>>;
+  lineupGated: number;
+}>;
+
 export type CustomerTodayDto = Readonly<{
   syntheticLabel: CustomerDataLabel;
   asOf: string;
   matches: readonly CustomerMatchDto[];
+  summary: CustomerTodayAggregateDto;
 }>;
 
 export type CustomerDtoValidation<T> =
@@ -1197,6 +1214,33 @@ export function validateCustomerTodayDto(
       for (const error of validateCustomerMatchInput(match))
         errors.push(`matches[${index}].${error}`);
     });
+  }
+  const summary = input["summary"];
+  if (!isObject(summary)) {
+    errors.push("summary must be an object");
+  } else {
+    if (
+      !Number.isInteger(summary["totalFixtures"]) ||
+      (summary["totalFixtures"] as number) < 0
+    )
+      errors.push("summary.totalFixtures is invalid");
+    if (
+      !Number.isInteger(summary["lineupGated"]) ||
+      (summary["lineupGated"] as number) < 0
+    )
+      errors.push("summary.lineupGated is invalid");
+    const byRecommendation = summary["byRecommendation"];
+    if (!isObject(byRecommendation)) {
+      errors.push("summary.byRecommendation must be an object");
+    } else {
+      for (const status of customerRecommendationStatuses) {
+        if (
+          !Number.isInteger(byRecommendation[status]) ||
+          (byRecommendation[status] as number) < 0
+        )
+          errors.push(`summary.byRecommendation.${status} is invalid`);
+      }
+    }
   }
   return errors.length
     ? { ok: false, errors }

@@ -3,6 +3,7 @@ import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
 import type { DecimalString } from "@velyq/decimal";
 import { offsetHours, resolveDemoClock } from "./demo-clock";
+import { summariseTodayAggregate } from "./customer-today-aggregate";
 
 const d = (value: string) => value as DecimalString;
 
@@ -389,35 +390,37 @@ function priceValidityFor(
 
 export function buildCustomerTodayData(now: Date): CustomerTodayDto {
   const asOf = now.toISOString();
+  const matches = matchTemplates().map(
+    ({ startsAtOffsetHours, trace, ...match }) => ({
+      ...match,
+      startsAt: offsetHours(now, startsAtOffsetHours),
+      /*
+       * Derived here rather than restated in every template, and derived
+       * the same way the live mapper derives them -- a demo corpus whose
+       * movement or price-validity semantics differed from production
+       * would be a fixture that cannot catch a production defect.
+       */
+      movementState:
+        match.movementPercent === null
+          ? ("INSUFFICIENT_HISTORY" as const)
+          : Number(match.movementPercent) === 0
+            ? ("UNCHANGED" as const)
+            : ("MOVED" as const),
+      /*
+       * Evidence depth, kept consistent with the state above: a movement
+       * figure requires at least two distinct observation instants, and
+       * INSUFFICIENT_HISTORY means exactly one was ever seen.
+       */
+      observationTimes: match.movementPercent === null ? 1 : 2,
+      priceValidity: priceValidityFor(match),
+      trace: { ...trace, featureCutoff: asOf },
+    }),
+  );
   return {
     syntheticLabel: "Synthetic data",
     asOf,
-    matches: matchTemplates().map(
-      ({ startsAtOffsetHours, trace, ...match }) => ({
-        ...match,
-        startsAt: offsetHours(now, startsAtOffsetHours),
-        /*
-         * Derived here rather than restated in every template, and derived
-         * the same way the live mapper derives them -- a demo corpus whose
-         * movement or price-validity semantics differed from production
-         * would be a fixture that cannot catch a production defect.
-         */
-        movementState:
-          match.movementPercent === null
-            ? ("INSUFFICIENT_HISTORY" as const)
-            : Number(match.movementPercent) === 0
-              ? ("UNCHANGED" as const)
-              : ("MOVED" as const),
-        /*
-         * Evidence depth, kept consistent with the state above: a movement
-         * figure requires at least two distinct observation instants, and
-         * INSUFFICIENT_HISTORY means exactly one was ever seen.
-         */
-        observationTimes: match.movementPercent === null ? 1 : 2,
-        priceValidity: priceValidityFor(match),
-        trace: { ...trace, featureCutoff: asOf },
-      }),
-    ),
+    matches,
+    summary: summariseTodayAggregate(matches),
   };
 }
 

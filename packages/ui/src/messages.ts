@@ -373,6 +373,9 @@ export const messages = {
   todayQualityPanel: "Quality warnings",
   todayQualityEmpty: "Every tracked match passed its quality gate.",
   todayNoEdge: "No match currently clears the EDGE threshold.",
+  todayNoEdgeCounts:
+    "{total} fixtures today, {priced} priced, {clearedEdge} cleared the EDGE threshold.",
+  todayNoEdgeLineupGated: "{count} still waiting on a starting lineup.",
   todayNoMovement: "No price movement has been observed yet.",
   todayFullTime1x2: "Full-time 1X2",
   todayKickoffs: "Upcoming kick-offs",
@@ -1166,6 +1169,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   todayQualityPanel: "Προειδοποιήσεις ποιότητας",
   todayQualityEmpty: "Όλοι οι αγώνες πέρασαν τον έλεγχο ποιότητας.",
   todayNoEdge: "Κανένας αγώνας δεν περνά το όριο EDGE τώρα.",
+  todayNoEdgeCounts:
+    "{total} αγώνες σήμερα, {priced} με τιμή, {clearedEdge} πέρασαν το όριο EDGE.",
+  todayNoEdgeLineupGated: "{count} περιμένουν ακόμα ενδεκάδα.",
   todayNoMovement: "Δεν έχει καταγραφεί κίνηση ακόμα.",
   todayFullTime1x2: "Τελικό αποτέλεσμα 1X2",
   todayKickoffs: "Επόμενες σέντρες",

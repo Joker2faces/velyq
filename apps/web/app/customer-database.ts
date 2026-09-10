@@ -9,6 +9,7 @@ import type {
   CustomerSecondaryMarketDto,
   CustomerTodayDto,
 } from "@velyq/contracts";
+import { summariseTodayAggregate } from "./customer-today-aggregate";
 import {
   LIVE_DATA_LABEL,
   MARKET_DATA_UNAVAILABLE_LABEL,
@@ -337,6 +338,12 @@ export function deriveLineupState(
 
 export const customerDatabaseMapper = {
   mapToday(raw: CustomerRawToday): CustomerTodayDto {
+    /*
+     * Mapped once, then reused for both `matches` and the aggregate below --
+     * the fixture the customer sees and the count it is measured against
+     * must be the same list, not two independently derived ones.
+     */
+    const matches = raw.matches.map(mapMatch);
     return {
       /*
        * Synthetic wins if any single match on the page is synthetic. A page
@@ -353,7 +360,8 @@ export const customerDatabaseMapper = {
           ? MARKET_DATA_UNAVAILABLE_LABEL
           : LIVE_DATA_LABEL,
       asOf: raw.asOf.toISOString(),
-      matches: raw.matches.map(mapMatch),
+      matches,
+      summary: summariseTodayAggregate(matches),
     };
   },
   mapMatch,

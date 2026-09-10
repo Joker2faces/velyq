@@ -25,7 +25,7 @@ import {
   translator,
   type Locale,
 } from "@velyq/ui";
-import type { CustomerMatchDto } from "@velyq/contracts";
+import type { CustomerMatchDto, CustomerTodayAggregateDto } from "@velyq/contracts";
 import { MatchCard } from "../components/match";
 import {
   ArrowLink,
@@ -339,7 +339,10 @@ export function TodayView({
               aside={<ArrowLink href="/edge">{t("todayViewEdge")}</ArrowLink>}
             />
             {actionable.length === 0 ? (
-              <EmptyState title={t("todayNoEdge")} body={t("recNoBetBody")} />
+              <EmptyState
+                title={t("todayNoEdge")}
+                body={todayNoEdgeBody(data.summary, t)}
+              />
             ) : (
               actionable.map((match) => (
                 <MatchRow key={match.eventId} match={match} locale={locale} />
@@ -564,4 +567,29 @@ function numeric(value: string | null) {
   if (value === null) return 0;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * "No match clears the threshold" backed by real counts, so it reads as a
+ * fact about today rather than a stock sentence indistinguishable from a
+ * day with zero fixtures at all. `summary` is computed over the WHOLE day
+ * server-side (`summariseTodayAggregate`), before any preview slicing, so
+ * the sentence stays true even on an account that only sees a few `matches`.
+ */
+function todayNoEdgeBody(
+  summary: CustomerTodayAggregateDto,
+  t: ReturnType<typeof translator>,
+): string {
+  if (summary.totalFixtures === 0) return t("recNoBetBody");
+  const priced = summary.totalFixtures - summary.byRecommendation.INSUFFICIENT_DATA;
+  const counts = t("todayNoEdgeCounts", {
+    total: String(summary.totalFixtures),
+    priced: String(priced),
+    clearedEdge: String(summary.byRecommendation.STRONG_EDGE),
+  });
+  const lineupNote =
+    summary.lineupGated > 0
+      ? ` ${t("todayNoEdgeLineupGated", { count: String(summary.lineupGated) })}`
+      : "";
+  return `${t("recNoBetBody")} ${counts}${lineupNote}`;
 }

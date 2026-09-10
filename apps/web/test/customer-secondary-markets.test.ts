@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { CustomerRawMatch, CustomerRawOutcome } from "@velyq/database";
-import { mapMatch, secondaryMarketsFor } from "../app/customer-database";
+import type {
+  CustomerRawMatch,
+  CustomerRawOutcome,
+  CustomerRawToday,
+} from "@velyq/database";
+import {
+  customerDatabaseMapper,
+  mapMatch,
+  secondaryMarketsFor,
+} from "../app/customer-database";
 
 /**
  * The FT Over/Under 2.5 pipeline now produces real predictions and
@@ -237,5 +245,46 @@ describe("secondaryMarketsFor", () => {
     ]);
     const dto = mapMatch(raw);
     expect(dto.bookmakerCount).toBeUndefined();
+  });
+});
+
+describe("customerDatabaseMapper.mapToday", () => {
+  it("carries a real aggregate summary computed from the same mapped matches", () => {
+    const raw: CustomerRawToday = {
+      asOf: ASOF,
+      windowStart: ASOF,
+      windowEnd: ASOF,
+      matches: [
+        match([
+          outcome({
+            marketCode: "FOOTBALL_FULL_TIME_1X2",
+            decisionStatus: "STRONG_EDGE",
+          }),
+        ]),
+        match([
+          outcome({
+            marketCode: "FOOTBALL_FULL_TIME_1X2",
+            decisionStatus: "NO_BET",
+          }),
+        ]),
+      ],
+    };
+
+    const today = customerDatabaseMapper.mapToday(raw);
+
+    expect(today.matches).toHaveLength(2);
+    expect(today.summary).toEqual({
+      totalFixtures: 2,
+      byRecommendation: {
+        STRONG_EDGE: 1,
+        NO_BET: 1,
+        WAIT: 0,
+        WAIT_FOR_LINEUP: 0,
+        INSUFFICIENT_DATA: 0,
+        EDGE_DISAPPEARED: 0,
+      },
+      /* The fixture builder's `lineups: []` maps to MISSING for both rows. */
+      lineupGated: 2,
+    });
   });
 });
