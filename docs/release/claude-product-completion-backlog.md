@@ -15,8 +15,9 @@ health `LIVE`/`DATABASE`, all ten routes 200 with `/api/v1/today` 401, seven
 security headers, Greek on both the prefixed public route and the cookie
 locale, `/el/today` 404 as designed, zero synthetic markers on `/today`.
 
-`edcf62e` (result ingestion and settlement) and `164d28f` (catalog-sourced
-customer copy) are committed and pushed but **not yet deployed**.
+`f2ece99` — result ingestion and settlement, plus catalog-sourced customer
+copy — is live as `dpl_AdFxgRiWsFg29UQCnhGHyaKPWU6X`, verified after deploy.
+Rollback target `dpl_6jgtVJEcQkvkmZiGZYMGauaNejJe`.
 
 Baseline at the start of this mandate: `043342b`, deployed code `9e28cf9`,
 production `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` on

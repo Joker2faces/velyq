@@ -85,8 +85,9 @@ Known-good deployments:
 
 | Deployment | Note |
 | --- | --- |
-| `dpl_6jgtVJEcQkvkmZiGZYMGauaNejJe` | **Current.** Match Intelligence price-validity + decision-reasoning increment (code `568496c`). Deployed 2026-09-10 07:51 EEST by `vercel redeploy dpl_5CsYcBdXwykrEStnBBSke9Q5LSmW --target production`. Verified after deploy: health `LIVE`/`DATABASE`, all 10 routes 200 with `/api/v1/today` 401, seven security headers present, `/el` 4367 Greek words and cookie-locale `/today` 489, `/el/today` 404 as designed, zero synthetic markers on `/today`, and `match-card` / `validity__scale` / `reasoning__list` present in the served stylesheet |
-| `dpl_CTjZTQuridUZMtytpgxP7gAJFW3V` | Customer redesign increment (code `4d04fbf`) — match cards, Today restructure, EDGE segmentation, RADAR evidence depth. **Rollback target.** |
+| `dpl_AdFxgRiWsFg29UQCnhGHyaKPWU6X` | **Current.** Result ingestion and settlement, plus catalog-sourced customer copy (code `f2ece99`). Deployed 2026-09-10 10:04 EEST from preview `dpl_J81XywiAGsD7nx2KmCzz93EHKD2E`. Verified after deploy: health `LIVE`/`DATABASE`, ten routes 200 with `/api/v1/today` 401, all seven security headers, `/el` 4382 Greek words and the cookie locale 494 on the shell, the new catalog-sourced Greek nav label present, `/el/today` 404 as designed, zero synthetic markers on `/today`, and no `"Fair price"` regression on History |
+| `dpl_6jgtVJEcQkvkmZiGZYMGauaNejJe` | Match Intelligence price-validity increment (code `568496c`). **Rollback target.** Match Intelligence price-validity + decision-reasoning increment (code `568496c`). Deployed 2026-09-10 07:51 EEST by `vercel redeploy dpl_5CsYcBdXwykrEStnBBSke9Q5LSmW --target production`. Verified after deploy: health `LIVE`/`DATABASE`, all 10 routes 200 with `/api/v1/today` 401, seven security headers present, `/el` 4367 Greek words and cookie-locale `/today` 489, `/el/today` 404 as designed, zero synthetic markers on `/today`, and `match-card` / `validity__scale` / `reasoning__list` present in the served stylesheet |
+| `dpl_CTjZTQuridUZMtytpgxP7gAJFW3V` | Customer redesign increment (code `4d04fbf`) — match cards, Today restructure, EDGE segmentation, RADAR evidence depth |
 | `dpl_DN5NhB2vPUxs9RA6bZZAJtfDAeTD` | Release of the honesty/quota fixes (code `9e28cf9`) |
 | `dpl_9BdZ2QWLABcSQRfkxxe4yVeWDUvy` | Predecessor; predates every fix in that release |
 
