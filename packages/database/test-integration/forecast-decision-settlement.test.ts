@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { orchestrateResultSettlement } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import type { NormalizedEvent } from "@velyq/providers";
-import { teamAliasLookupFor } from "@velyq/providers";
+import { normalizeFootballResult, teamAliasLookupFor } from "@velyq/providers";
 
 import { createPrivilegedDatabaseClient } from "../src/client.js";
 import {
@@ -12,13 +12,16 @@ import {
 } from "../src/repositories/fixture-ingestion.js";
 import { ensureFootballReferenceData } from "../src/repositories/odds-ingestion.js";
 import { DatabaseResultSettlementRepository } from "../src/repositories/result-settlement.js";
+import { ingestFootballResults } from "../src/repositories/result-ingestion.js";
 import { DatabaseHistoryQueryAdapter } from "../src/repositories/history.js";
 import {
   calibrationVersions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
   decisions,
+  eventResults,
   forecasts,
+  marketSettlements,
   modelDefinitions,
   modelVersions,
   predictionRuns,
@@ -926,5 +929,267 @@ describe("forecast, decision and settlement, against a real database", () => {
       contentHash: "sha256:unsettled-test-missing-scores",
     });
     expect(settlement.settlements[0]?.outcome).toBe("UNSETTLED");
+  });
+
+  /* --------------------------------------------------------- result pass */
+
+  /*
+   * The unit tests prove the orchestrator's budgeting and the normalizer's
+   * status mapping. What only a real database can prove is the part in
+   * between: that a provider payload becomes a stored result, that the
+   * settlement candidates are actually recovered from `decisions` by joining
+   * out to the market definition (which is the only way to learn a decision's
+   * market, since the table has no market column), and that replaying the
+   * same payload writes nothing the second time.
+   */
+  describe("ingestFootballResults", () => {
+    function providerRecord(
+      overrides: Record<string, unknown> = {},
+      goals: Record<string, unknown> = {},
+    ) {
+      return {
+        fixture: {
+          id: 950001,
+          date: "2026-09-20T18:00:00.000Z",
+          timestamp: 1_789_237_800,
+          status: { short: "FT" },
+          ...overrides,
+        },
+        goals: { home: 2, away: 0, ...goals },
+      };
+    }
+
+    it("stores a result and settles the decisions it answers", async () => {
+      const decision = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.55",
+        offeredOdds: "2.10",
+        selection: "HOME",
+        eventMarketOutcomeId: outcomeIdBySelection.HOME,
+      });
+
+      const summary = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [normalizeFootballResult(providerRecord())],
+        policyVersionId: referenceData.policyVersionId,
+      });
+
+      expect(summary.received).toBe(1);
+      expect(summary.written).toBe(1);
+      expect(summary.duplicate).toBe(0);
+      expect(summary.settlementsWritten).toBeGreaterThanOrEqual(1);
+      expect(summary.statusByProviderFixtureId["950001"]).toBe("FINAL");
+
+      const settled = await database
+        .select({
+          outcome: marketSettlements.outcome,
+          ruleVersion: marketSettlements.settlementRuleVersion,
+        })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, decision.id));
+
+      /* Home won 2-0 and the decision selected HOME, so this is a WIN --
+         and the rule version is the canonical one, not an ad-hoc string. */
+      expect(settled[0]?.outcome).toBe("WIN");
+      expect(settled[0]?.ruleVersion).toBe(
+        canonicalMarketDefinitions.FOOTBALL_FULL_TIME_1X2.settlementRuleVersion,
+      );
+    });
+
+    /*
+     * Idempotency is what makes the pass safe to re-run, and it comes from
+     * the source observation's content hash rather than from any
+     * already-settled filter. A provider that reports the same result twice
+     * must not double-write.
+     */
+    it("writes nothing when the identical result is reported again", async () => {
+      const results = [normalizeFootballResult(providerRecord())];
+      const first = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results,
+        policyVersionId: referenceData.policyVersionId,
+      });
+      const second = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results,
+        policyVersionId: referenceData.policyVersionId,
+      });
+
+      expect(second.written).toBe(0);
+      expect(second.duplicate).toBe(1);
+      expect(second.settlementsWritten).toBe(0);
+      /* The marker still learns the status, even from a duplicate: that is
+         what stops the fixture being asked about again. */
+      expect(second.statusByProviderFixtureId["950001"]).toBe("FINAL");
+      expect(first.written + second.written).toBe(first.written);
+    });
+
+    /*
+     * A stored IN_PROGRESS result is how the scheduler knows to ask again.
+     * Running the settlement rules over a half-time score would post real
+     * outcomes for matches that are not over.
+     */
+    it("stores a match still in progress without settling anything", async () => {
+      const decision = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.55",
+        offeredOdds: "2.10",
+        selection: "DRAW",
+        eventMarketOutcomeId: outcomeIdBySelection.DRAW,
+      });
+
+      const summary = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord(
+              { status: { short: "HT" }, timestamp: 1_789_240_000 },
+              { home: 1, away: 0 },
+            ),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+
+      expect(summary.written).toBe(1);
+      expect(summary.settlementsWritten).toBe(0);
+      expect(summary.statusByProviderFixtureId["950001"]).toBe("IN_PROGRESS");
+
+      const settled = await database
+        .select({ id: marketSettlements.id })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, decision.id));
+      expect(settled).toEqual([]);
+    });
+
+    /*
+     * One unresolvable fixture must not discard the rest of a batch of
+     * twenty, and it must be named rather than silently dropped.
+     */
+    it("skips a fixture with no event identity and keeps the rest of the batch", async () => {
+      const summary = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord({ id: 999999, timestamp: 1_789_250_000 }),
+          ),
+          normalizeFootballResult(
+            providerRecord({ timestamp: 1_789_251_000 }, { home: 3, away: 1 }),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+
+      expect(summary.received).toBe(2);
+      expect(summary.written).toBe(1);
+      expect(summary.skippedByReason["RESULT_EVENT_IDENTITY_NOT_FOUND"]).toBe(
+        1,
+      );
+      /* The unresolvable fixture still reports its status, so the scheduler
+         does not re-ask about it every fifteen minutes for three days. */
+      expect(summary.statusByProviderFixtureId["999999"]).toBe("FINAL");
+    });
+
+    /*
+     * A corrected score is a new observation, never an update: the original
+     * result row stays exactly as reported, which is what makes the audit
+     * trail meaningful.
+     */
+    it("records a corrected score as a new observation, leaving the first intact", async () => {
+      await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord({ timestamp: 1_789_260_000 }, { home: 1, away: 1 }),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+      const corrected = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord({ timestamp: 1_789_261_000 }, { home: 1, away: 2 }),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+
+      expect(corrected.written).toBe(1);
+      expect(corrected.duplicate).toBe(0);
+
+      const stored = await database
+        .select({
+          homeScore: eventResults.homeScore,
+          awayScore: eventResults.awayScore,
+        })
+        .from(eventResults)
+        .where(eq(eventResults.eventId, eventId));
+
+      /* Both observations survive. Nothing was rewritten. */
+      const scores = stored.map((row) => `${row.homeScore}-${row.awayScore}`);
+      expect(scores).toContain("1-1");
+      expect(scores).toContain("1-2");
+    });
+
+    /*
+     * A refused decision has no position to win or lose, so settling it
+     * would fabricate a performance record.
+     */
+    it("does not settle a decision the engine refused", async () => {
+      /*
+       * Built by copying a real decision row and changing only its status, so
+       * the refused decision is identical to a settleable one in every other
+       * respect -- same event, same market, same selection. Anything that
+       * settles it is selecting on something other than the status.
+       */
+      const settleable = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.55",
+        offeredOdds: "2.10",
+        selection: "AWAY",
+        eventMarketOutcomeId: outcomeIdBySelection.AWAY,
+      });
+      const [refused] = await database
+        .insert(decisions)
+        .values({
+          forecastId: settleable.forecastId,
+          eventMarketOutcomeId: outcomeIdBySelection.AWAY,
+          status: "NO_BET",
+          selection: "AWAY",
+          offeredOdds: settleable.offeredOdds,
+          fairOdds: settleable.fairOdds,
+          expectedValue: settleable.expectedValue,
+          whyNotCodes: ["EDGE_TOO_SMALL"],
+          decisionSnapshot: { refused: true },
+        })
+        .returning({ id: decisions.id });
+
+      const summary = await ingestFootballResults(database, {
+        providerId: referenceData.providerId,
+        results: [
+          normalizeFootballResult(
+            providerRecord({ timestamp: 1_789_270_000 }, { home: 0, away: 2 }),
+          ),
+        ],
+        policyVersionId: referenceData.policyVersionId,
+      });
+      expect(summary.written).toBe(1);
+
+      /* AWAY won 0-2, so the settleable decision is a WIN -- which proves
+         the result really did reach the settlement path on this event. */
+      const settledWin = await database
+        .select({ outcome: marketSettlements.outcome })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, settleable.id));
+      expect(settledWin[0]?.outcome).toBe("WIN");
+
+      /* The refused decision, on the same winning selection, gets nothing. */
+      const settledRefused = await database
+        .select({ id: marketSettlements.id })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, refused!.id));
+      expect(settledRefused).toEqual([]);
+    });
   });
 });

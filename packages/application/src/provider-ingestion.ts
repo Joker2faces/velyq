@@ -1,3 +1,4 @@
+import { prioritizeResultCandidates } from "./result-freshness.js";
 import {
   PROVIDER_QUOTA_POLICY_VERSION,
   providerQuotaState,
@@ -45,6 +46,23 @@ export type OddsCandidate = Readonly<{
   competitionMapped: boolean;
 }>;
 
+export type ResultCandidate = Readonly<{
+  providerFixtureId: string;
+  /** Scheduled kickoff. Results are never asked for before a match starts. */
+  kickoffAt: Date;
+}>;
+
+export type ResultPersistSummary = Readonly<{
+  received: number;
+  /** Result rows written to `intelligence.event_results`. */
+  written: number;
+  /** Results the provider had already reported identically. */
+  duplicate: number;
+  /** `intelligence.market_settlements` rows written as a consequence. */
+  settlementsWritten: number;
+  skippedByReason: Readonly<Record<string, number>>;
+}>;
+
 export type ProviderCallOutcome<T> =
   | Readonly<{ ok: true; value: T; quota: ObservedQuota }>
   | Readonly<{
@@ -74,7 +92,7 @@ export type OddsPersistSummary = Readonly<{
   skippedByReason: Readonly<Record<string, number>>;
 }>;
 
-export type ProviderIngestionDeps<TFixture, TOdds> = Readonly<{
+export type ProviderIngestionDeps<TFixture, TOdds, TResult> = Readonly<{
   clock: () => Date;
 
   loadQuotaSnapshot: () => Promise<ProviderQuotaSnapshot>;
@@ -115,6 +133,12 @@ export type ProviderIngestionDeps<TFixture, TOdds> = Readonly<{
   discoveryDueDates: () => Promise<readonly string[]>;
   /** Fixtures whose prices are missing or old enough to be worth refreshing. */
   oddsCandidates: () => Promise<readonly OddsCandidate[]>;
+  /**
+   * Fixtures that have plausibly finished and whose lifecycle is not yet
+   * terminal. Bounded by `resultRequestDue`, so an answered fixture never
+   * reappears.
+   */
+  resultCandidates: () => Promise<readonly ResultCandidate[]>;
 
   discoverFixtures: (
     date: string,
@@ -125,11 +149,34 @@ export type ProviderIngestionDeps<TFixture, TOdds> = Readonly<{
   /** The provider's own quota endpoint. Called at most once, and only when
       no useful work is planned and the quota is genuinely unknown. */
   probeQuotaStatus: () => Promise<ProviderCallOutcome<null>>;
+  /**
+   * Fetches results for several fixtures in ONE provider request.
+   *
+   * Unlike odds -- where a request is per fixture because each returns a
+   * different bookmaker cross-section -- the provider's fixture endpoint
+   * accepts a list of ids. That is what makes a 10-request daily budget
+   * sufficient: one request settles a whole afternoon's card.
+   */
+  fetchResults: (
+    providerFixtureIds: readonly string[],
+  ) => Promise<ProviderCallOutcome<readonly TResult[]>>;
 
   persistFixtures: (
     fixtures: readonly DiscoveredFixture<TFixture>[],
   ) => Promise<FixturePersistSummary>;
   persistOdds: (observations: readonly TOdds[]) => Promise<OddsPersistSummary>;
+  /**
+   * Writes results and settles the decisions they answer.
+   *
+   * One port rather than two because a result row and the settlements it
+   * implies belong in one transaction: a result written without its
+   * settlements leaves decisions permanently unsettled with nothing to
+   * re-trigger them, since the fixture is now terminal and will never be
+   * asked about again.
+   */
+  persistResults: (
+    results: readonly TResult[],
+  ) => Promise<ResultPersistSummary>;
 }>;
 
 export type ProviderIngestionTrigger = "SCHEDULER" | "MANUAL";
@@ -156,6 +203,13 @@ export type ProviderIngestionResult = Readonly<{
   oddsObservationsReceived: number;
   oddsObservationsWritten: number;
   oddsDuplicates: number;
+  resultCandidates: number;
+  resultRequestsAttempted: number;
+  resultFixturesRequested: readonly string[];
+  resultsReceived: number;
+  resultsWritten: number;
+  resultDuplicates: number;
+  settlementsWritten: number;
   skippedByReason: Readonly<Record<string, number>>;
   errorsByReason: Readonly<Record<string, number>>;
   /**
@@ -173,6 +227,9 @@ export type ProviderIngestionResult = Readonly<{
     candidatesMs: number;
     oddsFetchMs: number;
     oddsPersistMs: number;
+    resultCandidatesMs: number;
+    resultFetchMs: number;
+    resultPersistMs: number;
   }>;
 }>;
 
@@ -250,8 +307,28 @@ const DEFAULT_MAX_ODDS_REQUESTS_PER_RUN = 1;
  */
 const MAX_DISCOVERY_REQUESTS_PER_RUN = 1;
 
-export async function runProviderIngestion<TFixture, TOdds>(
-  deps: ProviderIngestionDeps<TFixture, TOdds>,
+/**
+ * At most one result request per invocation.
+ *
+ * Same reasoning as the other two ceilings -- bound the run, not the day --
+ * but here it costs nothing at all, because a single request covers a batch
+ * of fixtures.
+ */
+const MAX_RESULT_REQUESTS_PER_RUN = 1;
+
+/**
+ * Fixtures per result request.
+ *
+ * The provider's fixture endpoint accepts a list of ids. Twenty is its
+ * documented ceiling for that parameter, and it is also roughly a full
+ * European matchday evening -- so in practice one request per evening
+ * settles it. This is what makes a 10-request daily RESULT budget generous
+ * rather than tight.
+ */
+export const MAX_FIXTURES_PER_RESULT_REQUEST = 20;
+
+export async function runProviderIngestion<TFixture, TOdds, TResult>(
+  deps: ProviderIngestionDeps<TFixture, TOdds, TResult>,
   input: Readonly<{
     trigger: ProviderIngestionTrigger;
     maxOddsRequestsPerRun?: number;
@@ -275,6 +352,9 @@ export async function runProviderIngestion<TFixture, TOdds>(
     candidatesMs: 0,
     oddsFetchMs: 0,
     oddsPersistMs: 0,
+    resultCandidatesMs: 0,
+    resultFetchMs: 0,
+    resultPersistMs: 0,
   };
   const since = (start: number) => deps.clock().getTime() - start;
 
@@ -490,6 +570,115 @@ export async function runProviderIngestion<TFixture, TOdds>(
   timings.oddsPersistMs = since(oddsPersistStartedAt);
   mergeSkips(skippedByReason, odds.skippedByReason);
 
+  /* ----------------------------------------------------------------- results */
+
+  /*
+   * Results yield to both other phases, and that ordering is deliberate.
+   *
+   * A price is only actionable for 45 minutes, so odds work has a deadline
+   * that results do not: History is not a live scoreboard, and a match that
+   * finished this evening is just as settleable tomorrow morning. So the
+   * priority is discovery, then odds, then results.
+   *
+   * Results cannot starve under that ordering. The quota policy caps
+   * discovery at 8 requests a day and odds at 60; a fifteen-minute cadence gives 96
+   * wake-ups, leaving at least 28 on which neither phase spends anything.
+   * The RESULT budget is 10, and one request covers up to twenty fixtures.
+   */
+  const oddsRan = oddsRequestsAttempted > 0;
+  if (discoveryRan || oddsRan) {
+    bump(
+      skippedByReason,
+      discoveryRan
+        ? "RESULTS_DEFERRED_AFTER_DISCOVERY"
+        : "RESULTS_DEFERRED_AFTER_ODDS",
+    );
+  }
+
+  const resultCandidatesStartedAt = deps.clock().getTime();
+  const resultQueue =
+    discoveryRan || oddsRan ? [] : await deps.resultCandidates();
+  timings.resultCandidatesMs = since(resultCandidatesStartedAt);
+
+  const resultBudget = purposeRequestBudget({
+    purpose: "RESULT",
+    snapshot,
+    spentToday: spent.RESULT,
+    candidates: resultQueue.length,
+    now: startedAt,
+  });
+  if (resultBudget.limitedBy)
+    bump(skippedByReason, `RESULT_${resultBudget.limitedBy}`);
+
+  const resultAllowedThisRun = Math.min(
+    resultBudget.allowed,
+    MAX_RESULT_REQUESTS_PER_RUN,
+  );
+
+  /*
+   * Oldest kickoff first, then take a batch. A fixture that finished three
+   * hours ago is likelier to come back FINAL than one that finished twenty
+   * minutes ago, so this maximises the share of one request that produces a
+   * settlement rather than another IN_PROGRESS to re-ask about.
+   */
+  const resultFixturesRequested =
+    resultAllowedThisRun > 0
+      ? prioritizeResultCandidates(resultQueue)
+          .slice(0, MAX_FIXTURES_PER_RESULT_REQUEST)
+          .map((candidate) => candidate.providerFixtureId)
+      : [];
+  if (
+    resultQueue.length > resultFixturesRequested.length &&
+    resultAllowedThisRun > 0
+  ) {
+    bump(skippedByReason, "RESULT_BATCH_CEILING");
+  }
+
+  const collectedResults: TResult[] = [];
+  let resultRequestsAttempted = 0;
+  const resultFetchStartedAt = deps.clock().getTime();
+  if (resultFixturesRequested.length > 0) {
+    const state = providerQuotaState(snapshot, deps.clock());
+    if (state === "EXHAUSTED" || state === "CRITICAL") {
+      bump(skippedByReason, `RESULT_QUOTA_${state}`);
+    } else {
+      const outcome = await deps.fetchResults(resultFixturesRequested);
+      providerCallsUsed += 1;
+      resultRequestsAttempted += 1;
+      await absorb(outcome.quota, "RESULT");
+      if (outcome.ok) {
+        collectedResults.push(...outcome.value);
+      } else {
+        bump(errorsByReason, `RESULT_${outcome.reason}`);
+        if (outcome.reason === "RATE_LIMITED") {
+          await absorb(
+            {
+              remaining: 0,
+              dailyLimit: snapshot.dailyLimit,
+              observedAt: deps.clock(),
+            },
+            "RESULT",
+          );
+        }
+      }
+    }
+  }
+  timings.resultFetchMs = since(resultFetchStartedAt);
+
+  const resultPersistStartedAt = deps.clock().getTime();
+  const results =
+    collectedResults.length > 0
+      ? await deps.persistResults(collectedResults)
+      : {
+          received: 0,
+          written: 0,
+          duplicate: 0,
+          settlementsWritten: 0,
+          skippedByReason: {},
+        };
+  timings.resultPersistMs = since(resultPersistStartedAt);
+  mergeSkips(skippedByReason, results.skippedByReason);
+
   /* ------------------------------------------------------------- quota probe */
 
   /*
@@ -553,6 +742,13 @@ export async function runProviderIngestion<TFixture, TOdds>(
     oddsObservationsReceived: odds.received,
     oddsObservationsWritten: odds.written,
     oddsDuplicates: odds.duplicate,
+    resultCandidates: resultQueue.length,
+    resultRequestsAttempted,
+    resultFixturesRequested,
+    resultsReceived: results.received,
+    resultsWritten: results.written,
+    resultDuplicates: results.duplicate,
+    settlementsWritten: results.settlementsWritten,
     skippedByReason,
     errorsByReason,
     timings,

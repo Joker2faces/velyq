@@ -299,3 +299,39 @@ export function syntheticColumnToDataOrigin(synthetic: boolean): DataOrigin {
 export function requiresProviderProvenance(origin: DataOrigin): boolean {
   return origin === "LIVE";
 }
+
+/**
+ * The lifecycle a fixture can be in, as far as settlement is concerned.
+ *
+ * Declared here rather than in the provider or application layer because both
+ * need it and neither may depend on the other: the provider normalizer maps
+ * API-Sports' status codes onto this union, the scheduler decides from it
+ * whether a fixture is still worth asking about, and
+ * `intelligence.event_results` accepts exactly these six values and no others.
+ * A seventh state added in one layer and not the others would surface as a
+ * database constraint violation mid-transaction.
+ */
+export type EventLifecycleStatus =
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "FINAL"
+  | "POSTPONED"
+  | "CANCELLED"
+  | "ABANDONED";
+
+/**
+ * Lifecycle states that answer a fixture permanently.
+ *
+ * `POSTPONED` is deliberately absent. A postponed match is usually replayed,
+ * and the provider reports the replay under the same fixture id with a new
+ * kickoff -- so treating it as terminal would leave every decision on that
+ * fixture unsettled forever. It is bounded by a give-up window instead.
+ */
+export const TERMINAL_EVENT_LIFECYCLE_STATUSES: readonly EventLifecycleStatus[] =
+  Object.freeze(["FINAL", "CANCELLED", "ABANDONED"] as const);
+
+export function isTerminalEventLifecycleStatus(
+  status: EventLifecycleStatus,
+): boolean {
+  return TERMINAL_EVENT_LIFECYCLE_STATUSES.includes(status);
+}

@@ -306,6 +306,14 @@ export const providerIngestionRuns = operationsSchema.table(
       .notNull()
       .default(0),
     oddsDuplicates: integer("odds_duplicates").notNull().default(0),
+    resultCandidates: integer("result_candidates").notNull().default(0),
+    resultRequestsAttempted: integer("result_requests_attempted")
+      .notNull()
+      .default(0),
+    resultsReceived: integer("results_received").notNull().default(0),
+    resultsWritten: integer("results_written").notNull().default(0),
+    resultDuplicates: integer("result_duplicates").notNull().default(0),
+    settlementsWritten: integer("settlements_written").notNull().default(0),
     skippedByReason: jsonb("skipped_by_reason")
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -377,5 +385,56 @@ export const providerOddsRequests = operationsSchema.table(
       table.lastRequestedAt.desc(),
     ),
     check("provider_odds_requests_count_check", sql`${table.requestCount} > 0`),
+  ],
+);
+
+/**
+ * When we last asked the provider about a fixture's result.
+ *
+ * The same marker discipline as `provider_odds_requests`, and for the same
+ * reason: the only timestamp that correctly gates spending another request is
+ * the one that advances when *we* act. Scheduling on the provider's own
+ * observation instant instead is what made the odds pass re-buy identical
+ * prices on four consecutive runs.
+ *
+ * `lastKnownStatus` is cached here rather than re-derived from
+ * `intelligence.event_results` on every pass. That is deliberate: a fixture
+ * the provider refused, or one whose event identity we could not resolve, has
+ * no `event_results` row at all, so a status read from there alone cannot
+ * distinguish "not finished" from "we asked and could not use the answer" --
+ * and the second case must not re-ask every fifteen minutes.
+ */
+export const providerResultRequests = operationsSchema.table(
+  "provider_result_requests",
+  {
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    providerFixtureId: text("provider_fixture_id").notNull(),
+    lastRequestedAt: timestamp("last_requested_at", {
+      withTimezone: true,
+    }).notNull(),
+    requestCount: integer("request_count").notNull().default(1),
+    /** The lifecycle state the provider last reported, if it reported one. */
+    lastKnownStatus: text("last_known_status"),
+  },
+  (table) => [
+    primaryKey({
+      name: "provider_result_requests_pkey",
+      columns: [table.providerId, table.providerFixtureId],
+    }),
+    index("provider_result_requests_last_requested_idx").on(
+      table.providerId,
+      table.lastRequestedAt.desc(),
+    ),
+    check(
+      "provider_result_requests_count_check",
+      sql`${table.requestCount} > 0`,
+    ),
+    check(
+      "provider_result_requests_status_check",
+      sql`${table.lastKnownStatus} is null or ${table.lastKnownStatus} in
+          ('SCHEDULED', 'IN_PROGRESS', 'FINAL', 'POSTPONED', 'CANCELLED', 'ABANDONED')`,
+    ),
   ],
 );

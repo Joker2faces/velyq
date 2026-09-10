@@ -29,8 +29,10 @@ export {
   deduplicateObservations,
   normalizeBasketballGame,
   normalizeFootballFixture,
+  normalizeFootballResult,
   normalizeOdds,
   orderObservations,
+  resultLifecycleStatus,
   sanitizeProviderError,
   type ApiSport,
   type ApiSportsClient,
@@ -38,7 +40,9 @@ export {
   type IngestionRunSummary,
   type NormalizedEvent,
   type NormalizedOdds,
+  type NormalizedResult,
   type OddsObservationV3,
   type ProviderQuota,
+  type ResultLifecycleStatus,
 } from "./apisports.js";
 export { VERIFIED_TEAM_ALIASES, teamAliasLookupFor } from "./team-aliases.js";

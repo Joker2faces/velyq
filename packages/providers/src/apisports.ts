@@ -1,3 +1,4 @@
+import type { EventLifecycleStatus } from "@velyq/domain";
 import type { DecimalString } from "@velyq/decimal";
 
 export type ApiSport = "football" | "basketball";
@@ -243,6 +244,146 @@ export function normalizeFootballFixture(
     sourceReference,
   };
 }
+/**
+ * A match result as the provider reports it.
+ *
+ * Deliberately narrower than `NormalizedEvent`: this carries the score and the
+ * settlement-relevant lifecycle state, and nothing about the fixture's
+ * identity beyond the provider id. Team names never take part -- the event is
+ * resolved through `catalog.event_identities`, so a renamed club cannot
+ * silently settle the wrong match.
+ */
+export type NormalizedResult = Readonly<{
+  sport: "FOOTBALL";
+  providerEventId: string;
+  status: ResultLifecycleStatus;
+  homeScore: number | null;
+  awayScore: number | null;
+  providerObservedAt: string;
+  provider: "API_SPORTS";
+  sourceReference: string;
+}>;
+
+/**
+ * The lifecycle states the application models.
+ *
+ * Re-exported from `@velyq/domain` rather than redeclared, so the provider
+ * normalizer, the scheduler and the `intelligence.event_results` CHECK cannot
+ * drift apart. A status outside this set is rejected here rather than at the
+ * database, where the failure would surface as a constraint violation
+ * mid-transaction.
+ */
+export type ResultLifecycleStatus = EventLifecycleStatus;
+
+/**
+ * API-Sports fixture status codes, mapped to the six states above.
+ *
+ * The three finished codes are all genuinely final: `FT` full time, `AET`
+ * after extra time, `PEN` after penalties. They map to FINAL together because
+ * a 1X2 or totals market settles on the score the provider reports for the
+ * fixture, and API-Sports reports the aggregate for AET and the 90-minute
+ * score plus a separate shootout record for PEN -- which is why PEN results
+ * must still be read from `goals`, never reconstructed.
+ *
+ * `INT` (interrupted) maps to IN_PROGRESS rather than ABANDONED: an
+ * interrupted match may resume, and treating it as abandoned would VOID
+ * decisions that are still live. `SUSP` (suspended) is the same case. `AWD`
+ * (technical award) and `WO` (walkover) are NOT mapped -- their scores are
+ * administrative rather than played, and settling them silently would be a
+ * product decision made by a lookup table.
+ */
+const RESULT_STATUS_BY_PROVIDER_CODE: Readonly<
+  Record<string, ResultLifecycleStatus>
+> = {
+  TBD: "SCHEDULED",
+  NS: "SCHEDULED",
+  "1H": "IN_PROGRESS",
+  HT: "IN_PROGRESS",
+  "2H": "IN_PROGRESS",
+  ET: "IN_PROGRESS",
+  BT: "IN_PROGRESS",
+  P: "IN_PROGRESS",
+  LIVE: "IN_PROGRESS",
+  INT: "IN_PROGRESS",
+  SUSP: "IN_PROGRESS",
+  FT: "FINAL",
+  AET: "FINAL",
+  PEN: "FINAL",
+  PST: "POSTPONED",
+  CANC: "CANCELLED",
+  ABD: "ABANDONED",
+};
+
+/** Exposed so the ingestion layer can report an unmapped code as a reason. */
+export function resultLifecycleStatus(
+  providerCode: string,
+): ResultLifecycleStatus | null {
+  return (
+    RESULT_STATUS_BY_PROVIDER_CODE[providerCode.trim().toUpperCase()] ?? null
+  );
+}
+
+/** A goal count, or null. Never zero as a stand-in for "not reported". */
+function optionalScore(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+/**
+ * Normalizes one `/fixtures` element into a result.
+ *
+ * Throws on a missing fixture id, because a result that cannot be attributed
+ * to a fixture is not partially usable. An unmapped status also throws: the
+ * alternative is to invent a lifecycle state for a code we have not
+ * considered, and a wrong state settles or voids real decisions.
+ *
+ * A FINAL fixture with a missing score is returned as-is rather than
+ * corrected. `settleDecision` already answers UNSETTLED for that case, and
+ * inventing 0-0 would settle every decision on the match as a loss.
+ */
+export function normalizeFootballResult(
+  raw: unknown,
+  sourceReference = "api-sports:football:results",
+): NormalizedResult {
+  const item = valueRecord(raw);
+  const fixture = valueRecord(item["fixture"]);
+  const goals = valueRecord(item["goals"]);
+  if (typeof fixture["id"] !== "number") {
+    throw new Error("INVALID_FOOTBALL_RESULT");
+  }
+  const providerCode = valueRecord(fixture["status"])["short"];
+  if (typeof providerCode !== "string" || providerCode.trim() === "") {
+    throw new Error("RESULT_STATUS_MISSING");
+  }
+  const status = resultLifecycleStatus(providerCode);
+  if (status === null) {
+    throw new Error(`RESULT_STATUS_UNMAPPED:${providerCode}`);
+  }
+  /* The provider's own timestamp for the fixture record. Unlike odds, a
+     fixture element always carries `date`; falling back to our fetch time
+     would make a result's age unknowable. */
+  const observedAt = fixture["timestamp"];
+  return {
+    sport: "FOOTBALL",
+    providerEventId: String(fixture["id"]),
+    status,
+    homeScore: optionalScore(goals["home"]),
+    awayScore: optionalScore(goals["away"]),
+    providerObservedAt:
+      typeof observedAt === "number" && Number.isFinite(observedAt)
+        ? new Date(observedAt * 1000).toISOString()
+        : typeof fixture["date"] === "string"
+          ? new Date(fixture["date"]).toISOString()
+          : (() => {
+              throw new Error("RESULT_OBSERVED_AT_MISSING");
+            })(),
+    provider: "API_SPORTS",
+    sourceReference,
+  };
+}
+
 export function normalizeBasketballGame(
   raw: unknown,
   sourceReference = "api-sports:basketball:games",

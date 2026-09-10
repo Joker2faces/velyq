@@ -20,6 +20,10 @@
       "types": "./src/provider-quota.ts",
       "default": "./dist/provider-quota.js"
     },
+    "./result-freshness": {
+      "types": "./src/result-freshness.ts",
+      "default": "./dist/result-freshness.js"
+    },
     "./odds-freshness": {
       "types": "./src/odds-freshness.ts",
       "default": "./dist/odds-freshness.js"

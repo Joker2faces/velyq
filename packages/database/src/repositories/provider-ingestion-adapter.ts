@@ -12,11 +12,14 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import {
   createApiSportsClient,
   normalizeFootballFixture,
+  normalizeFootballResult,
   normalizeOdds,
   type ApiSportsClient,
   type NormalizedEvent,
   type NormalizedOdds,
+  type NormalizedResult,
 } from "@velyq/providers/apisports";
+import type { EventLifecycleStatus } from "@velyq/domain";
 import { teamAliasLookupFor } from "@velyq/providers/team-aliases";
 import {
   PROVIDER_QUOTA_POLICY_VERSION,
@@ -26,6 +29,7 @@ import {
   type ProviderQuotaSnapshot,
 } from "@velyq/application/provider-quota";
 import { oddsRefreshDue } from "@velyq/application/odds-freshness";
+import { resultRequestDue } from "@velyq/application/result-freshness";
 import type {
   DiscoveredFixture,
   ObservedQuota,
@@ -33,6 +37,7 @@ import type {
   ProviderCallOutcome,
   ProviderIngestionDeps,
   ProviderIngestionResult,
+  ResultCandidate,
 } from "@velyq/application/provider-ingestion";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
@@ -45,6 +50,7 @@ import {
   ensureFootballReferenceData,
   ingestFootballOdds,
 } from "./odds-ingestion.js";
+import { ingestFootballResults } from "./result-ingestion.js";
 import { competitionIdentities, events } from "../schema/catalog.js";
 import {
   eventMarketOutcomes,
@@ -54,6 +60,7 @@ import {
 import {
   providerIngestionRuns,
   providerOddsRequests,
+  providerResultRequests,
   providerQuotaState as quotaStateTable,
 } from "../schema/operations.js";
 
@@ -97,6 +104,16 @@ const HORIZON_DAYS = 2;
 
 /** Only fixtures this close to kickoff are worth spending an odds request on. */
 const ODDS_INTEREST_WINDOW_HOURS = 36;
+
+/**
+ * How far back to look for fixtures whose result is still missing.
+ *
+ * Matches the give-up window in `result-freshness.ts`: after three days an
+ * absent result is a data problem rather than a timing one, and a query that
+ * kept returning the fixture would turn one broken row into a standing daily
+ * charge against a ten-request budget.
+ */
+const RESULT_INTEREST_WINDOW_HOURS = 72;
 
 /**
  * How many bookmakers per fixture are followed.
@@ -167,7 +184,11 @@ function observedQuotaFrom(
 }
 
 export type ProviderIngestionAdapter = Readonly<{
-  deps: ProviderIngestionDeps<NormalizedEvent, NormalizedOdds>;
+  deps: ProviderIngestionDeps<
+    NormalizedEvent,
+    NormalizedOdds,
+    NormalizedResult
+  >;
   /** Records the completed run for §18 observability. */
   recordRun: (result: ProviderIngestionResult) => Promise<void>;
   providerId: string;
@@ -227,7 +248,11 @@ export async function createProviderIngestionAdapter(
     ).map((row) => row.id),
   );
 
-  const deps: ProviderIngestionDeps<NormalizedEvent, NormalizedOdds> = {
+  const deps: ProviderIngestionDeps<
+    NormalizedEvent,
+    NormalizedOdds,
+    NormalizedResult
+  > = {
     clock,
 
     async loadQuotaSnapshot(): Promise<ProviderQuotaSnapshot> {
@@ -524,6 +549,81 @@ export async function createProviderIngestionAdapter(
       });
     },
 
+    /**
+     * Fixtures that have plausibly finished and are not yet answered.
+     *
+     * Bounded by `resultRequestDue`, whose contract is that a terminal
+     * fixture is never returned again -- which is what makes the cost of the
+     * result pass per fixture rather than per wake-up.
+     */
+    async resultCandidates(): Promise<readonly ResultCandidate[]> {
+      const now = clock();
+
+      /*
+       * Loaded as a plain keyed read and joined in memory, for the same
+       * reason `oddsCandidates` does it that way: expressed as a correlated
+       * subquery alongside the raw `sql` identity joins, the marker came back
+       * empty in the application while returning correctly in psql, and a
+       * silently null guard is worse than no guard. The give-up window bounds
+       * this to three days of fixtures.
+       */
+      const requestLog = new Map(
+        (
+          await database
+            .select({
+              providerFixtureId: providerResultRequests.providerFixtureId,
+              lastRequestedAt: providerResultRequests.lastRequestedAt,
+              lastKnownStatus: providerResultRequests.lastKnownStatus,
+            })
+            .from(providerResultRequests)
+            .where(eq(providerResultRequests.providerId, providerId))
+        ).map((row) => [row.providerFixtureId, row] as const),
+      );
+
+      const earliest = new Date(
+        now.getTime() - RESULT_INTEREST_WINDOW_HOURS * 3_600_000,
+      );
+
+      const rows = await database
+        .select({
+          providerFixtureId: sql<string>`identity.provider_fixture_id`,
+          kickoffAt: sql<Date | string>`${events.startsAt}`,
+        })
+        .from(events)
+        .innerJoin(
+          sql`catalog.event_identities as identity`,
+          sql`identity.event_id = ${events.id} and identity.provider_id = ${providerId}`,
+        )
+        .where(
+          and(
+            eq(events.synthetic, false),
+            gte(events.startsAt, earliest),
+            lt(events.startsAt, now),
+          ),
+        );
+
+      /* Same coercion as the odds path: the raw `sql` joins sidestep
+         Drizzle's column mapping, so a timestamp arrives as the driver's own
+         representation -- a string, in practice. */
+      const asDate = (value: Date | string | null): Date | null =>
+        value === null ? null : value instanceof Date ? value : new Date(value);
+
+      return rows.flatMap((row) => {
+        const kickoffAt = asDate(row.kickoffAt);
+        if (!kickoffAt) return [];
+        const marker = requestLog.get(row.providerFixtureId);
+        const verdict = resultRequestDue({
+          kickoffAt,
+          asOf: now,
+          knownStatus:
+            (marker?.lastKnownStatus as EventLifecycleStatus | null) ?? null,
+          lastRequestedAt: asDate(marker?.lastRequestedAt ?? null),
+        });
+        if (!verdict.due) return [];
+        return [{ providerFixtureId: row.providerFixtureId, kickoffAt }];
+      });
+    },
+
     async discoverFixtures(
       date: string,
     ): Promise<
@@ -615,6 +715,92 @@ export async function createProviderIngestionAdapter(
       }
     },
 
+    /**
+     * One provider request covering a batch of fixtures.
+     *
+     * `/fixtures?ids=` is the endpoint that makes the whole pass affordable.
+     * Unlike odds -- where each fixture needs its own request because each
+     * returns a different bookmaker cross-section -- a single call answers up
+     * to twenty matches, which is why a ten-request daily budget is generous.
+     */
+    async fetchResults(
+      providerFixtureIds: readonly string[],
+    ): Promise<ProviderCallOutcome<readonly NormalizedResult[]>> {
+      /*
+       * Advanced before the response is inspected, as with odds. The marker
+       * records that we spent a request, which is true regardless of what
+       * came back -- and re-asking immediately is the worst possible response
+       * to a provider that is unwell.
+       */
+      const markRequested = async (
+        statusByFixtureId: Readonly<Record<string, string>> = {},
+      ): Promise<void> => {
+        const at = clock();
+        for (const providerFixtureId of providerFixtureIds) {
+          await database
+            .insert(providerResultRequests)
+            .values({
+              providerId,
+              providerFixtureId,
+              lastRequestedAt: at,
+              requestCount: 1,
+              lastKnownStatus: statusByFixtureId[providerFixtureId] ?? null,
+            })
+            .onConflictDoUpdate({
+              target: [
+                providerResultRequests.providerId,
+                providerResultRequests.providerFixtureId,
+              ],
+              set: {
+                lastRequestedAt: sql`excluded.last_requested_at`,
+                requestCount: sql`${providerResultRequests.requestCount} + 1`,
+                /* A response that said nothing about this fixture must not
+                   erase what an earlier one did say. */
+                lastKnownStatus: sql`coalesce(excluded.last_known_status, ${providerResultRequests.lastKnownStatus})`,
+              },
+            });
+        }
+      };
+
+      try {
+        const response = await client.get("/fixtures", {
+          ids: providerFixtureIds.join("-"),
+        });
+        const quota = observedQuotaFrom(response.quota, null, clock());
+        const rejection = classifyProviderResponse(
+          response.status,
+          response.body.errors,
+        );
+        if (rejection) {
+          await markRequested();
+          return { ok: false, reason: rejection, quota };
+        }
+        const value: NormalizedResult[] = [];
+        const statusByFixtureId: Record<string, string> = {};
+        for (const record of response.body.response ?? []) {
+          /*
+           * Normalized one record at a time, guarded individually. A single
+           * fixture carrying a status code we have not mapped must not
+           * discard the other nineteen results in the batch -- and that
+           * fixture still gets its marker advanced below, so it does not
+           * become a permanent re-ask.
+           */
+          try {
+            const normalized = normalizeFootballResult(record);
+            value.push(normalized);
+            statusByFixtureId[normalized.providerEventId] = normalized.status;
+          } catch {
+            continue;
+          }
+        }
+        await markRequested(statusByFixtureId);
+        return { ok: true, value, quota };
+      } catch (error) {
+        await markRequested().catch(() => {});
+        return { ok: false, reason: classifyProviderError(error), quota: null };
+      }
+    },
+
     async probeQuotaStatus(): Promise<ProviderCallOutcome<null>> {
       try {
         const response = await client.get("/status", {});
@@ -637,6 +823,45 @@ export async function createProviderIngestionAdapter(
       } catch (error) {
         return { ok: false, reason: classifyProviderError(error), quota: null };
       }
+    },
+
+    async persistResults(results) {
+      const summary = await ingestFootballResults(database, {
+        providerId,
+        results,
+        policyVersionId: reference.policyVersionId,
+      });
+
+      /*
+       * The lifecycle state the provider reported is written back to the ask
+       * marker here rather than in `fetchResults`, because only now is it
+       * known whether the result could be attributed to an event at all. A
+       * fixture whose identity we cannot resolve keeps its reported status
+       * anyway -- it is still the answer to "has this match finished", and
+       * without it the fixture would be re-asked every fifteen minutes for
+       * three days.
+       */
+      for (const [providerFixtureId, status] of Object.entries(
+        summary.statusByProviderFixtureId,
+      )) {
+        await database
+          .update(providerResultRequests)
+          .set({ lastKnownStatus: status })
+          .where(
+            and(
+              eq(providerResultRequests.providerId, providerId),
+              eq(providerResultRequests.providerFixtureId, providerFixtureId),
+            ),
+          );
+      }
+
+      return {
+        received: summary.received,
+        written: summary.written,
+        duplicate: summary.duplicate,
+        settlementsWritten: summary.settlementsWritten,
+        skippedByReason: summary.skippedByReason,
+      };
     },
 
     async persistFixtures(fixtures) {
@@ -813,6 +1038,12 @@ export async function createProviderIngestionAdapter(
         oddsObservationsReceived: result.oddsObservationsReceived,
         oddsObservationsWritten: result.oddsObservationsWritten,
         oddsDuplicates: result.oddsDuplicates,
+        resultCandidates: result.resultCandidates,
+        resultRequestsAttempted: result.resultRequestsAttempted,
+        resultsReceived: result.resultsReceived,
+        resultsWritten: result.resultsWritten,
+        resultDuplicates: result.resultDuplicates,
+        settlementsWritten: result.settlementsWritten,
         skippedByReason: result.skippedByReason,
         errorsByReason: result.errorsByReason,
       });
