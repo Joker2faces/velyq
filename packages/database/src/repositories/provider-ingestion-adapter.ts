@@ -12,14 +12,16 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import {
   createApiSportsClient,
   normalizeFootballFixture,
+  normalizeFootballLineup,
   normalizeFootballResult,
   normalizeOdds,
   type ApiSportsClient,
   type NormalizedEvent,
   type NormalizedOdds,
+  type NormalizedLineup,
   type NormalizedResult,
 } from "@velyq/providers/apisports";
-import type { EventLifecycleStatus } from "@velyq/domain";
+import type { EventLifecycleStatus, LineupStatus } from "@velyq/domain";
 import { teamAliasLookupFor } from "@velyq/providers/team-aliases";
 import {
   PROVIDER_QUOTA_POLICY_VERSION,
@@ -29,6 +31,7 @@ import {
   type ProviderQuotaSnapshot,
 } from "@velyq/application/provider-quota";
 import { oddsRefreshDue } from "@velyq/application/odds-freshness";
+import { lineupRequestDue } from "@velyq/application/lineup-freshness";
 import { resultRequestDue } from "@velyq/application/result-freshness";
 import type {
   DiscoveredFixture,
@@ -37,6 +40,7 @@ import type {
   ProviderCallOutcome,
   ProviderIngestionDeps,
   ProviderIngestionResult,
+  LineupCandidate,
   ResultCandidate,
 } from "@velyq/application/provider-ingestion";
 
@@ -50,6 +54,7 @@ import {
   ingestFootballOdds,
   isWiredOddsMarket,
 } from "./odds-ingestion.js";
+import { ingestFootballLineups } from "./lineup-ingestion.js";
 import { ingestFootballResults } from "./result-ingestion.js";
 import { competitionIdentities, events } from "../schema/catalog.js";
 import {
@@ -60,6 +65,7 @@ import {
 import {
   providerIngestionRuns,
   providerOddsRequests,
+  providerLineupRequests,
   providerResultRequests,
   providerQuotaState as quotaStateTable,
 } from "../schema/operations.js";
@@ -114,6 +120,15 @@ const ODDS_INTEREST_WINDOW_HOURS = 36;
  * charge against a ten-request budget.
  */
 const RESULT_INTEREST_WINDOW_HOURS = 72;
+
+/**
+ * How far ahead to look for fixtures whose lineup might be publishable.
+ *
+ * Slightly wider than the policy's own ninety-minute window so the query does
+ * not sit exactly on the boundary it is about to evaluate; `lineupRequestDue`
+ * makes the actual decision.
+ */
+const LINEUP_INTEREST_WINDOW_HOURS = 3;
 
 /**
  * How many bookmakers per fixture are followed.
@@ -197,7 +212,8 @@ export type ProviderIngestionAdapter = Readonly<{
   deps: ProviderIngestionDeps<
     NormalizedEvent,
     NormalizedOdds,
-    NormalizedResult
+    NormalizedResult,
+    NormalizedLineup
   >;
   /** Records the completed run for §18 observability. */
   recordRun: (result: ProviderIngestionResult) => Promise<void>;
@@ -261,7 +277,8 @@ export async function createProviderIngestionAdapter(
   const deps: ProviderIngestionDeps<
     NormalizedEvent,
     NormalizedOdds,
-    NormalizedResult
+    NormalizedResult,
+    NormalizedLineup
   > = {
     clock,
 
@@ -634,6 +651,82 @@ export async function createProviderIngestionAdapter(
       });
     },
 
+    /**
+     * Fixtures whose lineup is worth asking for.
+     *
+     * Unlike the odds and result queues this one also needs to know whether
+     * the model can price the fixture at all: a lineup for an unmapped
+     * competition cannot change any decision, because there is no decision,
+     * and the lineup budget is a quarter of the odds budget.
+     */
+    async lineupCandidates(): Promise<readonly LineupCandidate[]> {
+      const now = clock();
+      const until = new Date(
+        now.getTime() + LINEUP_INTEREST_WINDOW_HOURS * 3_600_000,
+      );
+      const from = new Date(now.getTime() - 60 * 60_000);
+
+      const requestLog = new Map(
+        (
+          await database
+            .select({
+              providerFixtureId: providerLineupRequests.providerFixtureId,
+              lastRequestedAt: providerLineupRequests.lastRequestedAt,
+              lastKnownStatus: providerLineupRequests.lastKnownStatus,
+            })
+            .from(providerLineupRequests)
+            .where(eq(providerLineupRequests.providerId, providerId))
+        ).map((row) => [row.providerFixtureId, row] as const),
+      );
+
+      const rows = await database
+        .select({
+          providerFixtureId: sql<string>`identity.provider_fixture_id`,
+          kickoffAt: sql<Date | string>`${events.startsAt}`,
+          providerCompetitionId: sql<
+            string | null
+          >`identity_competition.provider_competition_id`,
+        })
+        .from(events)
+        .innerJoin(
+          sql`catalog.event_identities as identity`,
+          sql`identity.event_id = ${events.id} and identity.provider_id = ${providerId}`,
+        )
+        .leftJoin(
+          sql`catalog.competition_identities as identity_competition`,
+          sql`identity_competition.competition_id = ${events.competitionId}
+              and identity_competition.provider_id = ${providerId}
+              and identity_competition.mapping_status = 'CONFIRMED'`,
+        )
+        .where(
+          and(
+            eq(events.synthetic, false),
+            gte(events.startsAt, from),
+            lt(events.startsAt, until),
+          ),
+        );
+
+      const asDate = (value: Date | string | null): Date | null =>
+        value === null ? null : value instanceof Date ? value : new Date(value);
+
+      return rows.flatMap((row) => {
+        const kickoffAt = asDate(row.kickoffAt);
+        if (!kickoffAt) return [];
+        const marker = requestLog.get(row.providerFixtureId);
+        const verdict = lineupRequestDue({
+          kickoffAt,
+          asOf: now,
+          knownStatus: (marker?.lastKnownStatus as LineupStatus | null) ?? null,
+          competitionSupported:
+            row.providerCompetitionId !== null &&
+            mappedProviderCompetitionIds.has(row.providerCompetitionId),
+          lastRequestedAt: asDate(marker?.lastRequestedAt ?? null),
+        });
+        if (!verdict.due) return [];
+        return [{ providerFixtureId: row.providerFixtureId, kickoffAt }];
+      });
+    },
+
     async discoverFixtures(
       date: string,
     ): Promise<
@@ -811,6 +904,91 @@ export async function createProviderIngestionAdapter(
       }
     },
 
+    async fetchLineups(
+      providerFixtureId: string,
+    ): Promise<ProviderCallOutcome<readonly NormalizedLineup[]>> {
+      /* Advanced before the response is inspected, as with odds and results. */
+      const markRequested = async (status: string | null): Promise<void> => {
+        await database
+          .insert(providerLineupRequests)
+          .values({
+            providerId,
+            providerFixtureId,
+            lastRequestedAt: clock(),
+            requestCount: 1,
+            lastKnownStatus: status,
+          })
+          .onConflictDoUpdate({
+            target: [
+              providerLineupRequests.providerId,
+              providerLineupRequests.providerFixtureId,
+            ],
+            set: {
+              lastRequestedAt: sql`excluded.last_requested_at`,
+              requestCount: sql`${providerLineupRequests.requestCount} + 1`,
+              lastKnownStatus: sql`coalesce(excluded.last_known_status, ${providerLineupRequests.lastKnownStatus})`,
+            },
+          });
+      };
+
+      try {
+        const observedAt = clock();
+        const response = await client.get("/fixtures/lineups", {
+          fixture: providerFixtureId,
+        });
+        const quota = observedQuotaFrom(response.quota, null, observedAt);
+        const rejection = classifyProviderResponse(
+          response.status,
+          response.body.errors,
+        );
+        if (rejection) {
+          await markRequested(null);
+          return { ok: false, reason: rejection, quota };
+        }
+        const value: NormalizedLineup[] = [];
+        for (const record of response.body.response ?? []) {
+          /*
+           * Per-record guard: one team's malformed entry must not discard the
+           * other's sheet, and the marker still advances either way so the
+           * fixture does not become a permanent re-ask.
+           */
+          try {
+            value.push(
+              normalizeFootballLineup(
+                record,
+                providerFixtureId,
+                observedAt.toISOString(),
+              ),
+            );
+          } catch {
+            continue;
+          }
+        }
+        /*
+         * The fixture's status is its WEAKEST sheet, not its best. With one
+         * team confirmed and the other provisional the fixture is not
+         * answered, and recording OFFICIAL would stop us asking for the half
+         * that is still missing.
+         *
+         * An empty response is UNAVAILABLE, which is the normal state before
+         * the sheet is published and is deliberately not terminal.
+         */
+        const status =
+          value.length === 0
+            ? "UNAVAILABLE"
+            : value.every((lineup) => lineup.status === "OFFICIAL")
+              ? "OFFICIAL"
+              : value.some((lineup) => lineup.status === "EXPECTED")
+                ? "EXPECTED"
+                : "UNAVAILABLE";
+        await markRequested(status);
+        return { ok: true, value, quota };
+      } catch (error) {
+        await markRequested(null).catch(() => {});
+        return { ok: false, reason: classifyProviderError(error), quota: null };
+      }
+    },
+
     async probeQuotaStatus(): Promise<ProviderCallOutcome<null>> {
       try {
         const response = await client.get("/status", {});
@@ -870,6 +1048,42 @@ export async function createProviderIngestionAdapter(
         written: summary.written,
         duplicate: summary.duplicate,
         settlementsWritten: summary.settlementsWritten,
+        skippedByReason: summary.skippedByReason,
+      };
+    },
+
+    async persistLineups(lineups) {
+      const summary = await ingestFootballLineups(database, {
+        providerId,
+        lineups,
+        policyVersionId: reference.policyVersionId,
+      });
+
+      /*
+       * The marker is corrected from what was actually WRITTEN, not from what
+       * was received. A sheet whose team could not be matched to the fixture
+       * has not answered anything, and leaving the marker on the optimistic
+       * status read at fetch time would stop us asking again.
+       */
+      for (const [providerFixtureId, status] of Object.entries(
+        summary.statusByProviderFixtureId,
+      )) {
+        await database
+          .update(providerLineupRequests)
+          .set({ lastKnownStatus: status })
+          .where(
+            and(
+              eq(providerLineupRequests.providerId, providerId),
+              eq(providerLineupRequests.providerFixtureId, providerFixtureId),
+            ),
+          );
+      }
+
+      return {
+        received: summary.received,
+        written: summary.written,
+        duplicate: summary.duplicate,
+        official: summary.official,
         skippedByReason: summary.skippedByReason,
       };
     },
@@ -1048,6 +1262,12 @@ export async function createProviderIngestionAdapter(
         oddsObservationsReceived: result.oddsObservationsReceived,
         oddsObservationsWritten: result.oddsObservationsWritten,
         oddsDuplicates: result.oddsDuplicates,
+        lineupCandidates: result.lineupCandidates,
+        lineupRequestsAttempted: result.lineupRequestsAttempted,
+        lineupsReceived: result.lineupsReceived,
+        lineupsWritten: result.lineupsWritten,
+        lineupDuplicates: result.lineupDuplicates,
+        lineupsOfficial: result.lineupsOfficial,
         resultCandidates: result.resultCandidates,
         resultRequestsAttempted: result.resultRequestsAttempted,
         resultsReceived: result.resultsReceived,

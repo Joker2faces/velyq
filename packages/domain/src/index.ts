@@ -354,3 +354,13 @@ export type LineupStatus = "EXPECTED" | "OFFICIAL" | "UNAVAILABLE";
 export function isTerminalLineupStatus(status: LineupStatus): boolean {
   return status === "OFFICIAL";
 }
+
+/**
+ * A complete starting eleven.
+ *
+ * In `@velyq/domain` because it is a product rule, not a parsing detail: it is
+ * the threshold at which a sheet counts as confirmed and the
+ * `WAIT_FOR_LINEUP` gate is allowed to clear. The provider normalizer applies
+ * it, and the writer reports against it.
+ */
+export const STARTING_ELEVEN = 11;

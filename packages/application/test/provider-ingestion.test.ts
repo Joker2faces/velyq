@@ -8,6 +8,7 @@ import {
   type ObservedQuota,
   type ProviderCallOutcome,
   type ProviderIngestionDeps,
+  type LineupCandidate,
   type ResultCandidate,
 } from "../src/provider-ingestion.js";
 import type { ProviderQuotaSnapshot } from "../src/provider-quota.js";
@@ -18,6 +19,7 @@ const TODAY = "2026-09-09";
 type Fixture = { id: string };
 type Odds = { fixtureId: string; price: string };
 type Result = { fixtureId: string; status: string };
+type Lineup = { fixtureId: string; team: string; status: string };
 
 function quota(remaining: number | null): ObservedQuota {
   return { remaining, dailyLimit: 100, observedAt: NOW };
@@ -41,6 +43,17 @@ function fixture(id: string, league = "39"): DiscoveredFixture<Fixture> {
     competitionProviderId: league,
     scheduledAt: "2026-09-09T18:00:00.000Z",
     payload: { id },
+  };
+}
+
+function lineupCandidate(
+  providerFixtureId: string,
+  overrides: Partial<LineupCandidate> = {},
+): LineupCandidate {
+  return {
+    providerFixtureId,
+    kickoffAt: new Date("2026-09-09T12:30:00.000Z"),
+    ...overrides,
   };
 }
 
@@ -69,7 +82,7 @@ function candidate(
 
 /** Records every provider call so a test can assert the budget actually spent. */
 type Harness = {
-  deps: ProviderIngestionDeps<Fixture, Odds, Result>;
+  deps: ProviderIngestionDeps<Fixture, Odds, Result, Lineup>;
   calls: string[];
   recordedQuota: ObservedQuota[];
   recordedPurposes: string[];
@@ -78,12 +91,13 @@ type Harness = {
 };
 
 function harness(
-  overrides: Partial<ProviderIngestionDeps<Fixture, Odds, Result>> = {},
+  overrides: Partial<ProviderIngestionDeps<Fixture, Odds, Result, Lineup>> = {},
   options: Readonly<{
     snapshot?: ProviderQuotaSnapshot;
     dueDates?: readonly string[];
     candidates?: readonly OddsCandidate[];
     resultCandidates?: readonly ResultCandidate[];
+    lineupCandidates?: readonly LineupCandidate[];
     spent?: Readonly<
       Record<"DISCOVERY" | "ODDS" | "LINEUP" | "RESULT", number>
     >;
@@ -94,7 +108,7 @@ function harness(
   const recordedPurposes: string[] = [];
   const attemptedPurposes: string[] = [];
 
-  const deps: ProviderIngestionDeps<Fixture, Odds, Result> = {
+  const deps: ProviderIngestionDeps<Fixture, Odds, Result, Lineup> = {
     clock: () => NOW,
     loadQuotaSnapshot: async () => options.snapshot ?? healthySnapshot(),
     recordQuotaObservation: async (observed, purpose) => {
@@ -114,6 +128,7 @@ function harness(
     discoveryDueDates: async () => options.dueDates ?? [],
     oddsCandidates: async () => options.candidates ?? [],
     resultCandidates: async () => options.resultCandidates ?? [],
+    lineupCandidates: async () => options.lineupCandidates ?? [],
     discoverFixtures: async (date) => {
       calls.push(`discover:${date}`);
       return { ok: true, value: [fixture("100")], quota: quota(80) };
@@ -124,6 +139,17 @@ function harness(
         ok: true,
         value: [{ fixtureId: id, price: "1.85" }],
         quota: quota(79),
+      };
+    },
+    fetchLineups: async (id) => {
+      calls.push(`lineups:${id}`);
+      return {
+        ok: true,
+        value: [
+          { fixtureId: id, team: "home", status: "OFFICIAL" },
+          { fixtureId: id, team: "away", status: "OFFICIAL" },
+        ],
+        quota: quota(77),
       };
     },
     fetchResults: async (ids) => {
@@ -147,6 +173,13 @@ function harness(
       received: observations.length,
       written: observations.length,
       duplicate: 0,
+      skippedByReason: {},
+    }),
+    persistLineups: async (lineups) => ({
+      received: lineups.length,
+      written: lineups.length,
+      duplicate: 0,
+      official: 1,
       skippedByReason: {},
     }),
     persistResults: async (results) => ({
@@ -897,6 +930,246 @@ describe("runProviderIngestion discovery freshness", () => {
       const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
       expect(result.resultDuplicates).toBe(1);
       expect(result.skippedByReason["RESULT_EVENT_IDENTITY_NOT_FOUND"]).toBe(1);
+    });
+  });
+
+  /* ------------------------------------------------------------- lineup pass */
+
+  describe("the lineup pass", () => {
+    it("makes no request when no fixture is in the window", async () => {
+      const { deps, calls } = harness();
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual([]);
+      expect(result.lineupRequestsAttempted).toBe(0);
+    });
+
+    it("asks for one fixture's lineup and records both sheets", async () => {
+      const { deps, calls } = harness(
+        {},
+        { lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual(["lineups:100"]);
+      expect(result.lineupRequestsAttempted).toBe(1);
+      expect(result.lineupsReceived).toBe(2);
+      expect(result.lineupsWritten).toBe(2);
+      expect(result.lineupsOfficial).toBe(1);
+    });
+
+    /*
+     * The ordering that matters most. Odds' refresh band tightens to fifteen
+     * minutes near kickoff, so if lineups yielded to odds they would starve
+     * during exactly the window in which a sheet is publishable -- and
+     * WAIT_FOR_LINEUP cannot clear without one.
+     */
+    it("takes priority over odds", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          candidates: [candidate("200")],
+          lineupCandidates: [lineupCandidate("100")],
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual(["lineups:100"]);
+      expect(result.oddsRequestsAttempted).toBe(0);
+      expect(result.skippedByReason["ODDS_DEFERRED_AFTER_LINEUP"]).toBe(1);
+    });
+
+    it("takes priority over results", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          lineupCandidates: [lineupCandidate("100")],
+          resultCandidates: [resultCandidate("300")],
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual(["lineups:100"]);
+      expect(result.resultRequestsAttempted).toBe(0);
+      expect(result.skippedByReason["RESULTS_DEFERRED_AFTER_LINEUP"]).toBe(1);
+    });
+
+    /* Discovery still outranks everything: a fixture list is the prerequisite
+       for there being anything to price or to field a lineup for. */
+    it("yields to discovery", async () => {
+      const { deps, calls } = harness(
+        {},
+        { dueDates: [TODAY], lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual([`discover:${TODAY}`]);
+      expect(result.lineupRequestsAttempted).toBe(0);
+      expect(result.lineupCandidates).toBe(0);
+      expect(result.skippedByReason["LINEUPS_DEFERRED_AFTER_DISCOVERY"]).toBe(
+        1,
+      );
+    });
+
+    it("does not query the lineup queue when it will not be used", async () => {
+      let queried = 0;
+      const { deps } = harness(
+        {
+          lineupCandidates: async () => {
+            queried += 1;
+            return [lineupCandidate("100")];
+          },
+        },
+        { dueDates: [TODAY] },
+      );
+      await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(queried).toBe(0);
+    });
+
+    /*
+     * One request per run, nearest kickoff first. On a busy evening several
+     * fixtures are inside the window at once, and the one closest to starting
+     * is both likeliest to have a sheet and nearest to running out of time.
+     */
+    it("serves the nearest kickoff first and reports the run ceiling", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          lineupCandidates: [
+            lineupCandidate("late", {
+              kickoffAt: new Date("2026-09-09T20:00:00.000Z"),
+            }),
+            lineupCandidate("soon", {
+              kickoffAt: new Date("2026-09-09T12:30:00.000Z"),
+            }),
+          ],
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual(["lineups:soon"]);
+      expect(result.skippedByReason["LINEUP_RUN_CEILING"]).toBe(1);
+    });
+
+    it("stops when the lineup purpose budget is spent", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          lineupCandidates: [lineupCandidate("100")],
+          spent: { DISCOVERY: 0, ODDS: 0, LINEUP: 15, RESULT: 0 },
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual([]);
+      expect(result.lineupRequestsAttempted).toBe(0);
+      expect(
+        Object.keys(result.skippedByReason).some((key) =>
+          key.startsWith("LINEUP_"),
+        ),
+      ).toBe(true);
+    });
+
+    it("treats a 429 as an exhausted budget", async () => {
+      const { deps } = harness(
+        {
+          fetchLineups: async () => ({
+            ok: false,
+            reason: "RATE_LIMITED",
+            quota: null,
+          }),
+        },
+        { lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(result.errorsByReason["LINEUP_RATE_LIMITED"]).toBe(1);
+      expect(result.quotaRemainingAtEnd).toBe(0);
+      expect(result.lineupsWritten).toBe(0);
+    });
+
+    it("charges a request whose response never arrived", async () => {
+      const { deps, attemptedPurposes } = harness(
+        {
+          fetchLineups: async () => ({
+            ok: false,
+            reason: "RETRYABLE",
+            quota: null,
+          }),
+        },
+        { lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(attemptedPurposes).toEqual(["LINEUP"]);
+      expect(result.providerCallsUsed).toBe(1);
+      expect(result.errorsByReason["LINEUP_RETRYABLE"]).toBe(1);
+    });
+
+    it("does not spend the recovery reserve on lineups", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          lineupCandidates: [lineupCandidate("100")],
+          snapshot: healthySnapshot({ remaining: 3 }),
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual([]);
+      expect(result.lineupRequestsAttempted).toBe(0);
+    });
+
+    /* An empty response is the normal pre-publication state, and must not be
+       persisted as though it were a sheet. */
+    it("does not persist when the provider had no sheet yet", async () => {
+      let persisted = 0;
+      const { deps } = harness(
+        {
+          fetchLineups: async () => ({ ok: true, value: [], quota: quota(77) }),
+          persistLineups: async () => {
+            persisted += 1;
+            return {
+              received: 0,
+              written: 0,
+              duplicate: 0,
+              official: 0,
+              skippedByReason: {},
+            };
+          },
+        },
+        { lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(persisted).toBe(0);
+      expect(result.lineupsReceived).toBe(0);
+    });
+
+    it("reports skips raised by the lineup writer", async () => {
+      const { deps } = harness(
+        {
+          persistLineups: async () => ({
+            received: 2,
+            written: 1,
+            duplicate: 0,
+            official: 0,
+            skippedByReason: { LINEUP_TEAM_NOT_ON_FIXTURE: 1 },
+          }),
+        },
+        { lineupCandidates: [lineupCandidate("100")] },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(result.skippedByReason["LINEUP_TEAM_NOT_ON_FIXTURE"]).toBe(1);
+      expect(result.lineupsOfficial).toBe(0);
+    });
+
+    /*
+     * The whole point of the ceiling: one provider call per wake-up, whatever
+     * is due. Four phases with work available must still spend exactly one.
+     */
+    it("still spends at most one provider call per wake-up", async () => {
+      const { deps, calls } = harness(
+        {},
+        {
+          dueDates: [TODAY],
+          candidates: [candidate("200")],
+          lineupCandidates: [lineupCandidate("100")],
+          resultCandidates: [resultCandidate("300")],
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toHaveLength(1);
+      expect(result.providerCallsUsed).toBe(1);
     });
   });
 });

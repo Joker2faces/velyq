@@ -1,3 +1,4 @@
+import { prioritizeLineupCandidates } from "./lineup-freshness.js";
 import { prioritizeResultCandidates } from "./result-freshness.js";
 import {
   PROVIDER_QUOTA_POLICY_VERSION,
@@ -46,6 +47,23 @@ export type OddsCandidate = Readonly<{
   competitionMapped: boolean;
 }>;
 
+export type LineupCandidate = Readonly<{
+  providerFixtureId: string;
+  /** Scheduled kickoff. The window opens 90 minutes before it. */
+  kickoffAt: Date;
+}>;
+
+export type LineupPersistSummary = Readonly<{
+  received: number;
+  /** Lineup rows written to `intelligence.lineup_observations`. */
+  written: number;
+  /** Sheets the provider had already reported identically. */
+  duplicate: number;
+  /** Fixtures whose sheet is now complete, so the gate can clear. */
+  official: number;
+  skippedByReason: Readonly<Record<string, number>>;
+}>;
+
 export type ResultCandidate = Readonly<{
   providerFixtureId: string;
   /** Scheduled kickoff. Results are never asked for before a match starts. */
@@ -92,92 +110,115 @@ export type OddsPersistSummary = Readonly<{
   skippedByReason: Readonly<Record<string, number>>;
 }>;
 
-export type ProviderIngestionDeps<TFixture, TOdds, TResult> = Readonly<{
-  clock: () => Date;
+export type ProviderIngestionDeps<TFixture, TOdds, TResult, TLineup> =
+  Readonly<{
+    clock: () => Date;
 
-  loadQuotaSnapshot: () => Promise<ProviderQuotaSnapshot>;
-  /**
-   * Persists an observation immediately after the call that produced it, and
-   * counts it against `purpose`.
-   *
-   * Purpose-tagged and written per call rather than summarised per run,
-   * because a run can be killed after its requests have been made: the first
-   * live pass was, and five spent requests left no trace in the per-purpose
-   * budgets. A request that was made must be a request that is counted.
-   */
-  recordQuotaObservation: (
-    observed: ObservedQuota,
-    purpose: IngestionPurpose,
-  ) => Promise<void>;
-  /**
-   * Counts a provider request whose response never arrived.
-   *
-   * A timeout or a network fault is not evidence the provider declined to
-   * serve the request -- only evidence we did not read the answer. It was
-   * very likely charged to the plan, so it has to be charged to ours too.
-   * Without this, a failing provider left every budget untouched and the
-   * only remaining bound was the scheduler cadence.
-   *
-   * Distinct from `recordQuotaObservation` because there is no observation
-   * to record: the last known remaining figure must be preserved (decayed
-   * by the assumed spend), never overwritten with "unknown".
-   */
-  recordRequestAttempt: (purpose: IngestionPurpose, at: Date) => Promise<void>;
-  /** Requests already spent per purpose during the current quota day. */
-  spentToday: () => Promise<Readonly<Record<IngestionPurpose, number>>>;
+    loadQuotaSnapshot: () => Promise<ProviderQuotaSnapshot>;
+    /**
+     * Persists an observation immediately after the call that produced it, and
+     * counts it against `purpose`.
+     *
+     * Purpose-tagged and written per call rather than summarised per run,
+     * because a run can be killed after its requests have been made: the first
+     * live pass was, and five spent requests left no trace in the per-purpose
+     * budgets. A request that was made must be a request that is counted.
+     */
+    recordQuotaObservation: (
+      observed: ObservedQuota,
+      purpose: IngestionPurpose,
+    ) => Promise<void>;
+    /**
+     * Counts a provider request whose response never arrived.
+     *
+     * A timeout or a network fault is not evidence the provider declined to
+     * serve the request -- only evidence we did not read the answer. It was
+     * very likely charged to the plan, so it has to be charged to ours too.
+     * Without this, a failing provider left every budget untouched and the
+     * only remaining bound was the scheduler cadence.
+     *
+     * Distinct from `recordQuotaObservation` because there is no observation
+     * to record: the last known remaining figure must be preserved (decayed
+     * by the assumed spend), never overwritten with "unknown".
+     */
+    recordRequestAttempt: (
+      purpose: IngestionPurpose,
+      at: Date,
+    ) => Promise<void>;
+    /** Requests already spent per purpose during the current quota day. */
+    spentToday: () => Promise<Readonly<Record<IngestionPurpose, number>>>;
 
-  /**
-   * Which dates genuinely need a fixture list, decided from stored catalog
-   * state -- not from a timer. A date already discovered recently is not due.
-   */
-  discoveryDueDates: () => Promise<readonly string[]>;
-  /** Fixtures whose prices are missing or old enough to be worth refreshing. */
-  oddsCandidates: () => Promise<readonly OddsCandidate[]>;
-  /**
-   * Fixtures that have plausibly finished and whose lifecycle is not yet
-   * terminal. Bounded by `resultRequestDue`, so an answered fixture never
-   * reappears.
-   */
-  resultCandidates: () => Promise<readonly ResultCandidate[]>;
+    /**
+     * Which dates genuinely need a fixture list, decided from stored catalog
+     * state -- not from a timer. A date already discovered recently is not due.
+     */
+    discoveryDueDates: () => Promise<readonly string[]>;
+    /** Fixtures whose prices are missing or old enough to be worth refreshing. */
+    oddsCandidates: () => Promise<readonly OddsCandidate[]>;
+    /**
+     * Fixtures that have plausibly finished and whose lifecycle is not yet
+     * terminal. Bounded by `resultRequestDue`, so an answered fixture never
+     * reappears.
+     */
+    resultCandidates: () => Promise<readonly ResultCandidate[]>;
+    /**
+     * Fixtures inside the lineup window whose sheet is not yet confirmed, and
+     * whose competition the model can actually price.
+     */
+    lineupCandidates: () => Promise<readonly LineupCandidate[]>;
 
-  discoverFixtures: (
-    date: string,
-  ) => Promise<ProviderCallOutcome<readonly DiscoveredFixture<TFixture>[]>>;
-  fetchOdds: (
-    providerFixtureId: string,
-  ) => Promise<ProviderCallOutcome<readonly TOdds[]>>;
-  /** The provider's own quota endpoint. Called at most once, and only when
+    discoverFixtures: (
+      date: string,
+    ) => Promise<ProviderCallOutcome<readonly DiscoveredFixture<TFixture>[]>>;
+    fetchOdds: (
+      providerFixtureId: string,
+    ) => Promise<ProviderCallOutcome<readonly TOdds[]>>;
+    /** The provider's own quota endpoint. Called at most once, and only when
       no useful work is planned and the quota is genuinely unknown. */
-  probeQuotaStatus: () => Promise<ProviderCallOutcome<null>>;
-  /**
-   * Fetches results for several fixtures in ONE provider request.
-   *
-   * Unlike odds -- where a request is per fixture because each returns a
-   * different bookmaker cross-section -- the provider's fixture endpoint
-   * accepts a list of ids. That is what makes a 10-request daily budget
-   * sufficient: one request settles a whole afternoon's card.
-   */
-  fetchResults: (
-    providerFixtureIds: readonly string[],
-  ) => Promise<ProviderCallOutcome<readonly TResult[]>>;
+    probeQuotaStatus: () => Promise<ProviderCallOutcome<null>>;
+    /**
+     * Fetches results for several fixtures in ONE provider request.
+     *
+     * Unlike odds -- where a request is per fixture because each returns a
+     * different bookmaker cross-section -- the provider's fixture endpoint
+     * accepts a list of ids. That is what makes a 10-request daily budget
+     * sufficient: one request settles a whole afternoon's card.
+     */
+    fetchResults: (
+      providerFixtureIds: readonly string[],
+    ) => Promise<ProviderCallOutcome<readonly TResult[]>>;
+    /**
+     * Fetches one fixture's lineups.
+     *
+     * Per fixture, unlike results: the provider's lineup endpoint takes a single
+     * fixture id, so there is no batch to exploit here.
+     */
+    fetchLineups: (
+      providerFixtureId: string,
+    ) => Promise<ProviderCallOutcome<readonly TLineup[]>>;
 
-  persistFixtures: (
-    fixtures: readonly DiscoveredFixture<TFixture>[],
-  ) => Promise<FixturePersistSummary>;
-  persistOdds: (observations: readonly TOdds[]) => Promise<OddsPersistSummary>;
-  /**
-   * Writes results and settles the decisions they answer.
-   *
-   * One port rather than two because a result row and the settlements it
-   * implies belong in one transaction: a result written without its
-   * settlements leaves decisions permanently unsettled with nothing to
-   * re-trigger them, since the fixture is now terminal and will never be
-   * asked about again.
-   */
-  persistResults: (
-    results: readonly TResult[],
-  ) => Promise<ResultPersistSummary>;
-}>;
+    persistFixtures: (
+      fixtures: readonly DiscoveredFixture<TFixture>[],
+    ) => Promise<FixturePersistSummary>;
+    persistOdds: (
+      observations: readonly TOdds[],
+    ) => Promise<OddsPersistSummary>;
+    /**
+     * Writes results and settles the decisions they answer.
+     *
+     * One port rather than two because a result row and the settlements it
+     * implies belong in one transaction: a result written without its
+     * settlements leaves decisions permanently unsettled with nothing to
+     * re-trigger them, since the fixture is now terminal and will never be
+     * asked about again.
+     */
+    persistResults: (
+      results: readonly TResult[],
+    ) => Promise<ResultPersistSummary>;
+    persistLineups: (
+      lineups: readonly TLineup[],
+    ) => Promise<LineupPersistSummary>;
+  }>;
 
 export type ProviderIngestionTrigger = "SCHEDULER" | "MANUAL";
 
@@ -203,6 +244,13 @@ export type ProviderIngestionResult = Readonly<{
   oddsObservationsReceived: number;
   oddsObservationsWritten: number;
   oddsDuplicates: number;
+  lineupCandidates: number;
+  lineupRequestsAttempted: number;
+  lineupsReceived: number;
+  lineupsWritten: number;
+  lineupDuplicates: number;
+  /** Fixtures whose sheet became complete on this pass. */
+  lineupsOfficial: number;
   resultCandidates: number;
   resultRequestsAttempted: number;
   resultFixturesRequested: readonly string[];
@@ -227,6 +275,9 @@ export type ProviderIngestionResult = Readonly<{
     candidatesMs: number;
     oddsFetchMs: number;
     oddsPersistMs: number;
+    lineupCandidatesMs: number;
+    lineupFetchMs: number;
+    lineupPersistMs: number;
     resultCandidatesMs: number;
     resultFetchMs: number;
     resultPersistMs: number;
@@ -317,6 +368,18 @@ const MAX_DISCOVERY_REQUESTS_PER_RUN = 1;
 const MAX_RESULT_REQUESTS_PER_RUN = 1;
 
 /**
+ * At most one lineup request per invocation.
+ *
+ * The same bound-the-run reasoning as the other phases. It does cost
+ * throughput here, unlike the result ceiling: on a busy evening several
+ * fixtures are inside the lineup window at once and only one is served per
+ * wake-up. That is acceptable because the window is ninety minutes wide
+ * against a fifteen-minute cadence, so a fixture has roughly six chances, and
+ * nearest kickoff is served first.
+ */
+const MAX_LINEUP_REQUESTS_PER_RUN = 1;
+
+/**
  * Fixtures per result request.
  *
  * The provider's fixture endpoint accepts a list of ids. Twenty is its
@@ -327,8 +390,8 @@ const MAX_RESULT_REQUESTS_PER_RUN = 1;
  */
 export const MAX_FIXTURES_PER_RESULT_REQUEST = 20;
 
-export async function runProviderIngestion<TFixture, TOdds, TResult>(
-  deps: ProviderIngestionDeps<TFixture, TOdds, TResult>,
+export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
+  deps: ProviderIngestionDeps<TFixture, TOdds, TResult, TLineup>,
   input: Readonly<{
     trigger: ProviderIngestionTrigger;
     maxOddsRequestsPerRun?: number;
@@ -352,6 +415,9 @@ export async function runProviderIngestion<TFixture, TOdds, TResult>(
     candidatesMs: 0,
     oddsFetchMs: 0,
     oddsPersistMs: 0,
+    lineupCandidatesMs: 0,
+    lineupFetchMs: 0,
+    lineupPersistMs: 0,
     resultCandidatesMs: 0,
     resultFetchMs: 0,
     resultPersistMs: 0,
@@ -468,6 +534,108 @@ export async function runProviderIngestion<TFixture, TOdds, TResult>(
   timings.fixturePersistMs = since(fixturePersistStartedAt);
   mergeSkips(skippedByReason, fixtures.skippedByReason);
 
+  /* ----------------------------------------------------------------- lineups */
+
+  /*
+   * Lineups run before odds, and that ordering is the opposite of what the
+   * budgets alone would suggest.
+   *
+   * Both are time-critical, but they expire differently. A lineup is
+   * publishable only in the ninety minutes before kickoff and is worthless
+   * afterwards -- the window closes permanently. A price stays useful and can
+   * be re-fetched on the next pass, and its own cadence bands already tolerate
+   * being late.
+   *
+   * If lineups yielded to odds they would starve exactly when they matter: the
+   * odds refresh band tightens to fifteen minutes near kickoff, so on a busy
+   * evening odds is due on every wake-up and would take every one of them --
+   * during precisely the window in which lineups are publishable. Since
+   * `WAIT_FOR_LINEUP` cannot clear without a confirmed sheet, that would leave
+   * the gate shut on every fixture the pass exists to unblock.
+   *
+   * The cost is bounded and small: the LINEUP budget is 15 requests a day
+   * against ODDS's 60, so lineups can displace at most 15 odds opportunities.
+   */
+  const discoveryRan = discoveryRequestsAttempted > 0;
+  if (discoveryRan) {
+    bump(skippedByReason, "LINEUPS_DEFERRED_AFTER_DISCOVERY");
+  }
+
+  const lineupCandidatesStartedAt = deps.clock().getTime();
+  const lineupQueue = discoveryRan ? [] : await deps.lineupCandidates();
+  timings.lineupCandidatesMs = since(lineupCandidatesStartedAt);
+
+  const lineupBudget = purposeRequestBudget({
+    purpose: "LINEUP",
+    snapshot,
+    spentToday: spent.LINEUP,
+    candidates: lineupQueue.length,
+    now: startedAt,
+  });
+  if (lineupBudget.limitedBy)
+    bump(skippedByReason, `LINEUP_${lineupBudget.limitedBy}`);
+
+  const lineupAllowedThisRun = Math.min(
+    lineupBudget.allowed,
+    MAX_LINEUP_REQUESTS_PER_RUN,
+  );
+  if (
+    lineupAllowedThisRun < lineupBudget.allowed ||
+    (lineupAllowedThisRun < lineupQueue.length && !lineupBudget.limitedBy)
+  ) {
+    bump(skippedByReason, "LINEUP_RUN_CEILING");
+  }
+
+  /* Nearest kickoff first: a lineup's value expires at kickoff, so the match
+     closest to starting is both likeliest to have a sheet published and
+     nearest to running out of time for it to matter. */
+  const lineupPrioritized = prioritizeLineupCandidates(lineupQueue);
+  const collectedLineups: TLineup[] = [];
+  let lineupRequestsAttempted = 0;
+  const lineupFetchStartedAt = deps.clock().getTime();
+  for (const candidate of lineupPrioritized.slice(0, lineupAllowedThisRun)) {
+    const state = providerQuotaState(snapshot, deps.clock());
+    if (state === "EXHAUSTED" || state === "CRITICAL") {
+      bump(skippedByReason, `LINEUP_QUOTA_${state}`);
+      break;
+    }
+    const outcome = await deps.fetchLineups(candidate.providerFixtureId);
+    providerCallsUsed += 1;
+    lineupRequestsAttempted += 1;
+    await absorb(outcome.quota, "LINEUP");
+    if (!outcome.ok) {
+      bump(errorsByReason, `LINEUP_${outcome.reason}`);
+      if (outcome.reason === "RATE_LIMITED") {
+        await absorb(
+          {
+            remaining: 0,
+            dailyLimit: snapshot.dailyLimit,
+            observedAt: deps.clock(),
+          },
+          "LINEUP",
+        );
+        break;
+      }
+      continue;
+    }
+    collectedLineups.push(...outcome.value);
+  }
+  timings.lineupFetchMs = since(lineupFetchStartedAt);
+
+  const lineupPersistStartedAt = deps.clock().getTime();
+  const lineups =
+    collectedLineups.length > 0
+      ? await deps.persistLineups(collectedLineups)
+      : {
+          received: 0,
+          written: 0,
+          duplicate: 0,
+          official: 0,
+          skippedByReason: {},
+        };
+  timings.lineupPersistMs = since(lineupPersistStartedAt);
+  mergeSkips(skippedByReason, lineups.skippedByReason);
+
   /* -------------------------------------------------------------------- odds */
 
   /*
@@ -480,13 +648,19 @@ export async function runProviderIngestion<TFixture, TOdds, TResult>(
    * invocation to a single purpose is also what makes a killed run cheap --
    * there is only ever one kind of work in flight to lose.
    */
-  const discoveryRan = discoveryRequestsAttempted > 0;
-  if (discoveryRan) {
-    bump(skippedByReason, "ODDS_DEFERRED_AFTER_DISCOVERY");
+  const lineupRan = lineupRequestsAttempted > 0;
+  if (discoveryRan || lineupRan) {
+    bump(
+      skippedByReason,
+      discoveryRan
+        ? "ODDS_DEFERRED_AFTER_DISCOVERY"
+        : "ODDS_DEFERRED_AFTER_LINEUP",
+    );
   }
 
   const candidatesStartedAt = deps.clock().getTime();
-  const candidates = discoveryRan ? [] : await deps.oddsCandidates();
+  const candidates =
+    discoveryRan || lineupRan ? [] : await deps.oddsCandidates();
   timings.candidatesMs = since(candidatesStartedAt);
   const oddsBudget = purposeRequestBudget({
     purpose: "ODDS",
@@ -586,18 +760,20 @@ export async function runProviderIngestion<TFixture, TOdds, TResult>(
    * The RESULT budget is 10, and one request covers up to twenty fixtures.
    */
   const oddsRan = oddsRequestsAttempted > 0;
-  if (discoveryRan || oddsRan) {
+  if (discoveryRan || lineupRan || oddsRan) {
     bump(
       skippedByReason,
       discoveryRan
         ? "RESULTS_DEFERRED_AFTER_DISCOVERY"
-        : "RESULTS_DEFERRED_AFTER_ODDS",
+        : lineupRan
+          ? "RESULTS_DEFERRED_AFTER_LINEUP"
+          : "RESULTS_DEFERRED_AFTER_ODDS",
     );
   }
 
   const resultCandidatesStartedAt = deps.clock().getTime();
   const resultQueue =
-    discoveryRan || oddsRan ? [] : await deps.resultCandidates();
+    discoveryRan || lineupRan || oddsRan ? [] : await deps.resultCandidates();
   timings.resultCandidatesMs = since(resultCandidatesStartedAt);
 
   const resultBudget = purposeRequestBudget({
@@ -742,6 +918,12 @@ export async function runProviderIngestion<TFixture, TOdds, TResult>(
     oddsObservationsReceived: odds.received,
     oddsObservationsWritten: odds.written,
     oddsDuplicates: odds.duplicate,
+    lineupCandidates: lineupQueue.length,
+    lineupRequestsAttempted,
+    lineupsReceived: lineups.received,
+    lineupsWritten: lineups.written,
+    lineupDuplicates: lineups.duplicate,
+    lineupsOfficial: lineups.official,
     resultCandidates: resultQueue.length,
     resultRequestsAttempted,
     resultFixturesRequested,

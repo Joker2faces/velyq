@@ -1,6 +1,7 @@
-import type {
-  EventLifecycleStatus,
-  LineupStatus as DomainLineupStatus,
+import {
+  STARTING_ELEVEN,
+  type EventLifecycleStatus,
+  type LineupStatus as DomainLineupStatus,
 } from "@velyq/domain";
 import type { DecimalString } from "@velyq/decimal";
 
@@ -512,14 +513,8 @@ export function normalizeFootballLineup(
   };
 }
 
-/**
- * A complete starting eleven.
- *
- * Named rather than inlined because it is the threshold at which
- * `WAIT_FOR_LINEUP` is allowed to clear, which makes it a product rule and
- * not an implementation detail.
- */
-export const STARTING_ELEVEN = 11;
+/** Re-exported from `@velyq/domain`, where the product rule lives. */
+export { STARTING_ELEVEN };
 
 export function normalizeBasketballGame(
   raw: unknown,

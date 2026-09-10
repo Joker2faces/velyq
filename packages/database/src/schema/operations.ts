@@ -306,6 +306,14 @@ export const providerIngestionRuns = operationsSchema.table(
       .notNull()
       .default(0),
     oddsDuplicates: integer("odds_duplicates").notNull().default(0),
+    lineupCandidates: integer("lineup_candidates").notNull().default(0),
+    lineupRequestsAttempted: integer("lineup_requests_attempted")
+      .notNull()
+      .default(0),
+    lineupsReceived: integer("lineups_received").notNull().default(0),
+    lineupsWritten: integer("lineups_written").notNull().default(0),
+    lineupDuplicates: integer("lineup_duplicates").notNull().default(0),
+    lineupsOfficial: integer("lineups_official").notNull().default(0),
     resultCandidates: integer("result_candidates").notNull().default(0),
     resultRequestsAttempted: integer("result_requests_attempted")
       .notNull()
@@ -435,6 +443,54 @@ export const providerResultRequests = operationsSchema.table(
       "provider_result_requests_status_check",
       sql`${table.lastKnownStatus} is null or ${table.lastKnownStatus} in
           ('SCHEDULED', 'IN_PROGRESS', 'FINAL', 'POSTPONED', 'CANCELLED', 'ABANDONED')`,
+    ),
+  ],
+);
+
+/**
+ * When we last asked the provider about a fixture's lineup.
+ *
+ * The third marker table, and for the third time the same reason: the only
+ * timestamp that correctly gates spending another request is the one that
+ * advances when *we* act.
+ *
+ * `lastKnownStatus` matters more here than for results, because the terminal
+ * state is narrower. Only OFFICIAL ends a fixture's cost; EXPECTED and
+ * UNAVAILABLE both mean keep asking, since a provisional sheet is exactly
+ * what must be replaced and is also the state in which `WAIT_FOR_LINEUP`
+ * stays closed.
+ */
+export const providerLineupRequests = operationsSchema.table(
+  "provider_lineup_requests",
+  {
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "restrict" }),
+    providerFixtureId: text("provider_fixture_id").notNull(),
+    lastRequestedAt: timestamp("last_requested_at", {
+      withTimezone: true,
+    }).notNull(),
+    requestCount: integer("request_count").notNull().default(1),
+    /** The best lineup state the provider has reported, if any. */
+    lastKnownStatus: text("last_known_status"),
+  },
+  (table) => [
+    primaryKey({
+      name: "provider_lineup_requests_pkey",
+      columns: [table.providerId, table.providerFixtureId],
+    }),
+    index("provider_lineup_requests_last_requested_idx").on(
+      table.providerId,
+      table.lastRequestedAt.desc(),
+    ),
+    check(
+      "provider_lineup_requests_count_check",
+      sql`${table.requestCount} > 0`,
+    ),
+    check(
+      "provider_lineup_requests_status_check",
+      sql`${table.lastKnownStatus} is null or ${table.lastKnownStatus} in
+          ('EXPECTED', 'OFFICIAL', 'UNAVAILABLE')`,
     ),
   ],
 );
