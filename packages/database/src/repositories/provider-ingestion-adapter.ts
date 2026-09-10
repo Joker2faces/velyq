@@ -118,16 +118,26 @@ const RESULT_INTEREST_WINDOW_HOURS = 72;
 /**
  * How many bookmakers per fixture are followed.
  *
- * Consensus, best price and dispersion need several bookmakers, not every
- * bookmaker the provider lists, and persisting the full panel does not fit
- * the executor's wall-clock limit (see `persistOdds`). Six keeps a real
- * spread while bounding one fixture to roughly eighteen observations.
+ * Was six, because persisting the panel cost seven to ten database round
+ * trips per observation and one fixture took about twelve seconds -- the
+ * binding constraint on an invocation with a hard wall-clock limit. The
+ * writer now batches: measured against real PostgreSQL, eighteen observations
+ * fell from 208 round trips and 168 ms to 24 and 25 ms, and the cost is now
+ * bounded by distinct bookmakers and markets rather than by observations
+ * (`test-benchmark/odds-writer-batching.test.ts` holds the measurement).
  *
- * Raise this once odds persistence writes in batches rather than per
- * observation, or if the executor gains a longer limit -- the provider
- * response already contains the rest, so nothing extra needs to be bought.
+ * Raised to sixteen, which is above the ten to thirteen bookmakers the
+ * provider actually returns for a football fixture -- so in practice the cap
+ * no longer discards anything, and a bookmaker appearing or disappearing does
+ * not silently change which panel the consensus is computed over. It remains
+ * a cap rather than being removed: an unexpectedly large response should be
+ * bounded rather than trusted.
+ *
+ * This costs no additional provider quota. The full panel is already in the
+ * response we have paid for; the cap only ever governed how much of it was
+ * written.
  */
-const MAX_BOOKMAKERS_PER_FIXTURE = 6;
+const MAX_BOOKMAKERS_PER_FIXTURE = 16;
 
 function utcDate(at: Date, dayOffset = 0): string {
   const shifted = new Date(at);
