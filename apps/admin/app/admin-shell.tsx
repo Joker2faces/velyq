@@ -64,8 +64,20 @@ function navigation(locale: Locale): readonly NavGroup[] {
       heading: t("adminNavGroupOperations"),
       items: [
         {
+          href: "/provider-ingestion-runs",
+          label: "Live ingestion",
+          icon: icon(
+            <>
+              <path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" />
+              <circle cx="5.2" cy="4.2" r="1.2" fill="currentColor" />
+              <circle cx="10.4" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="6.6" cy="11.8" r="1.2" fill="currentColor" />
+            </>,
+          ),
+        },
+        {
           href: "/provider-runs",
-          label: t("adminNavProviderRuns"),
+          label: "Replay provenance",
           icon: icon(
             <>
               <path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" />

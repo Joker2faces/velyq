@@ -92,6 +92,56 @@ export type AdminPage<T> = Readonly<{
   items: readonly T[];
   nextCursor: string | null;
 }>;
+
+export type AdminProviderIngestionRunDto = Readonly<{
+  id: string;
+  providerCode: string;
+  trigger: "SCHEDULER" | "MANUAL";
+  quotaDay: string;
+  quotaPolicyVersion: string;
+  status: "RUNNING" | "COMPLETED" | "FAILED";
+  runHealth:
+    | "RUNNING"
+    | "HEALTHY_IDLE"
+    | "HEALTHY_ACTIVE"
+    | "COMPLETED_WITH_ERRORS"
+    | "FAILED";
+  resultOutcome: "NOT_ATTEMPTED" | "SUCCEEDED" | "FAILED";
+  providerCallsUsed: number;
+  quotaStateAtStart: string | null;
+  quotaStateAtEnd: string | null;
+  quotaRemainingAtEnd: number | null;
+  discoveryDatesRequested: readonly string[];
+  fixtures: Readonly<{ received: number; written: number }>;
+  odds: Readonly<{
+    candidates: number;
+    requestsAttempted: number;
+    received: number;
+    written: number;
+    duplicates: number;
+  }>;
+  lineups: Readonly<{
+    candidates: number;
+    requestsAttempted: number;
+    received: number;
+    written: number;
+    duplicates: number;
+    official: number;
+  }>;
+  results: Readonly<{
+    candidates: number;
+    requestsAttempted: number;
+    received: number;
+    written: number;
+    duplicates: number;
+    settlementsWritten: number;
+  }>;
+  skippedByReason: Readonly<Record<string, number>>;
+  errorsByReason: Readonly<Record<string, number>>;
+  startedAt: string;
+  finishedAt: string | null;
+}>;
+
 export type AdminIntelligenceOverviewDto = Readonly<{
   fixturesDiscovered: number;
   competitionMapped: number;
@@ -254,6 +304,10 @@ export type AdminQueries = Readonly<{
     input: Readonly<{ limit: number; cursor: string | null }>,
   ): Promise<AdminPage<ProviderRun>>;
   getProviderRun(runId: string): Promise<ProviderRun>;
+  listProviderIngestionRuns(
+    input: Readonly<{ limit: number; cursor: string | null }>,
+  ): Promise<AdminPage<AdminProviderIngestionRunDto>>;
+  getProviderIngestionRun(runId: string): Promise<AdminProviderIngestionRunDto>;
   getPredictionTrace(predictionId: string): Promise<AdminPredictionTraceDto>;
   getScore(scoreId: string): Promise<AdminScoreDto>;
   getQuality(assessmentId: string): Promise<AdminQualityDto>;
@@ -276,6 +330,9 @@ export type AdminDependencies = Readonly<{
 }>;
 
 const PROBLEM_BASE = "https://velyq.dev/problems/";
+export const ADMIN_PRIVATE_RESPONSE_HEADERS = Object.freeze({
+  "cache-control": "private, no-store",
+});
 const permissionByOperation = {
   providerRunsRead: "provider_runs.read",
   predictionTrace: "predictions.trace",
@@ -302,7 +359,10 @@ function problem(
 export function adminProblemResponse(details: AdminProblemDetails) {
   return NextResponse.json(details, {
     status: details.status,
-    headers: { "content-type": "application/problem+json" },
+    headers: {
+      ...ADMIN_PRIVATE_RESPONSE_HEADERS,
+      "content-type": "application/problem+json",
+    },
   });
 }
 
@@ -446,7 +506,10 @@ export function createAdminApi(dependencies: AdminDependencies) {
     if ("status" in access) return adminProblemResponse(access);
     try {
       return NextResponse.json(await query(access, requestId), {
-        headers: { "x-request-id": requestId },
+        headers: {
+          ...ADMIN_PRIVATE_RESPONSE_HEADERS,
+          "x-request-id": requestId,
+        },
       });
     } catch (error) {
       return adminProblemResponse(mapQueryError(error, requestId));
@@ -470,6 +533,24 @@ export function createAdminApi(dependencies: AdminDependencies) {
         const id = idFromParams(params, "runId");
         if (!id) throw new AdminRequestError("Invalid provider run id");
         return dependencies.queries.getProviderRun(id);
+      }),
+    listProviderIngestionRuns: (request: Request) =>
+      run(request, permissionByOperation.providerRunsRead, async () => {
+        const requestId = adminRequestId(request);
+        const input = pageInput(request, requestId);
+        if ("problem" in input)
+          throw new AdminRequestError(input.problem.title);
+        return dependencies.queries.listProviderIngestionRuns(input);
+      }),
+    getProviderIngestionRun: (
+      request: Request,
+      params: Readonly<Record<string, string | undefined>>,
+    ) =>
+      run(request, permissionByOperation.providerRunsRead, async () => {
+        const id = idFromParams(params, "runId");
+        if (!id)
+          throw new AdminRequestError("Invalid provider ingestion run id");
+        return dependencies.queries.getProviderIngestionRun(id);
       }),
     getPredictionTrace: (
       request: Request,
@@ -520,6 +601,12 @@ const unavailableQueries: AdminQueries = Object.freeze({
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
   async getProviderRun() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
+  async listProviderIngestionRuns() {
+    throw new Error("QUERY_ADAPTER_UNAVAILABLE");
+  },
+  async getProviderIngestionRun() {
     throw new Error("QUERY_ADAPTER_UNAVAILABLE");
   },
   async getPredictionTrace() {

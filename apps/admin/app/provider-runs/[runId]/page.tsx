@@ -31,7 +31,7 @@ export default async function ProviderRunDetail({
     return (
       <AdminShell>
         <section className="page-heading">
-          <p className="eyebrow">TRACE / PROVIDER RUN</p>
+          <p className="eyebrow">TRACE / REPLAY PROVENANCE</p>
           <h1>{run.sequenceName}</h1>
           <p>
             {run.providerCode} · {run.status}
@@ -57,7 +57,7 @@ export default async function ProviderRunDetail({
             </article>
           ))}
         </section>
-        <Link href="/provider-runs">← All provider runs</Link>
+        <Link href="/provider-runs">← All replay provenance</Link>
       </AdminShell>
     );
   } finally {

@@ -182,7 +182,7 @@ export default async function IntelligencePage() {
               ))}
             </div>
             <p>
-              Last successful result sync:{" "}
+              Last successful live result request:{" "}
               {data.lastSuccessfulResultSync ?? "Never"} · Last settlement:{" "}
               {data.lastSettlementRun ?? "Never"}
             </p>

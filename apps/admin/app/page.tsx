@@ -74,7 +74,7 @@ export default async function Page() {
   }
 
   try {
-    const runs = await runtime.queries.listProviderRuns({
+    const runs = await runtime.queries.listProviderIngestionRuns({
       limit: 8,
       cursor: null,
     });
@@ -98,9 +98,7 @@ export default async function Page() {
               fabricated to fill a card. */}
           <div className="ops-metrics">
             <div className="ops-metric">
-              <span className="ops-metric__label">
-                {t("adminNavProviderRuns")}
-              </span>
+              <span className="ops-metric__label">Live ingestion runs</span>
               <span className="ops-metric__value">
                 {formatCount(runs.items.length)}
               </span>
@@ -124,8 +122,8 @@ export default async function Page() {
 
           <section className="panel">
             <div className="panel-heading">
-              <h2>{t("adminRecentRuns")}</h2>
-              <Link href="/audit">{t("adminOpenAudit")} →</Link>
+              <h2>Recent live ingestion runs</h2>
+              <Link href="/provider-ingestion-runs">Open operations →</Link>
             </div>
 
             {runs.items.length === 0 ? (
@@ -136,42 +134,38 @@ export default async function Page() {
             ) : (
               <div className="ops-table-wrap">
                 <table className="ops-table">
-                  <caption className="sr-only">{t("adminRecentRuns")}</caption>
+                  <caption className="sr-only">
+                    Recent live ingestion runs
+                  </caption>
                   <thead>
                     <tr>
-                      <th>{t("adminColumnSequence")}</th>
-                      <th>{t("adminColumnStatus")}</th>
-                      <th>{t("adminColumnAccepted")}</th>
-                      <th>{t("adminColumnRejected")}</th>
-                      <th>{t("adminColumnStarted")}</th>
-                      <th>{t("adminColumnTrace")}</th>
+                      <th>Provider / trigger</th>
+                      <th>Health</th>
+                      <th>Calls</th>
+                      <th>Result</th>
+                      <th>Started</th>
+                      <th>Trace</th>
                     </tr>
                   </thead>
                   <tbody>
                     {runs.items.map((run) => (
                       <tr key={run.id}>
-                        <td data-label={t("adminColumnSequence")}>
-                          <strong>{run.sequenceName}</strong>
-                          <small>{run.providerCode}</small>
+                        <td data-label="Provider / trigger">
+                          <strong>{run.providerCode}</strong>
+                          <small>{run.trigger}</small>
                         </td>
                         <td data-label={t("adminColumnStatus")}>
                           <span
                             className={`ops-status ops-status--${run.status.toLowerCase()}`}
                           >
-                            {run.status}
+                            {run.runHealth.replaceAll("_", " ")}
                           </span>
                         </td>
-                        <td
-                          className="ops-num"
-                          data-label={t("adminColumnAccepted")}
-                        >
-                          {run.acceptedCount}
+                        <td className="ops-num" data-label="Calls">
+                          {run.providerCallsUsed}
                         </td>
-                        <td
-                          className="ops-num"
-                          data-label={t("adminColumnRejected")}
-                        >
-                          {run.rejectedCount}
+                        <td className="ops-num" data-label="Result">
+                          {run.resultOutcome.replaceAll("_", " ")}
                         </td>
                         <td
                           className="ops-num"
@@ -180,7 +174,7 @@ export default async function Page() {
                           {run.startedAt}
                         </td>
                         <td data-label={t("adminColumnTrace")}>
-                          <Link href={`/provider-runs/${run.id}`}>
+                          <Link href={`/provider-ingestion-runs/${run.id}`}>
                             {t("adminInspect")} →
                           </Link>
                         </td>
@@ -193,9 +187,13 @@ export default async function Page() {
           </section>
 
           <div className="ops-tiles" style={{ marginBottom: "var(--space-6)" }}>
+            <Link className="ops-tile" href="/provider-ingestion-runs">
+              <strong>Live ingestion</strong>
+              <span>Scheduler health and provider work</span>
+            </Link>
             <Link className="ops-tile" href="/provider-runs">
-              <strong>{t("adminNavProviderRuns")}</strong>
-              <span>{t("adminDataPolicyValue")}</span>
+              <strong>Replay provenance</strong>
+              <span>Deterministic fixture and normalization traces</span>
             </Link>
             <Link className="ops-tile" href="/predictions">
               <strong>{t("adminNavPredictions")}</strong>

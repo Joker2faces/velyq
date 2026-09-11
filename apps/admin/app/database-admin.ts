@@ -29,6 +29,7 @@ import {
   outcomeDefinitions,
 } from "@velyq/database/schema/market";
 import {
+  providerIngestionRuns,
   providers,
   providerQuotaState as quotaStateTable,
   providerSyncRuns,
@@ -41,6 +42,7 @@ import { canonicalizeNumeric } from "@velyq/decimal";
 import type { ProviderRun } from "@velyq/contracts";
 import type {
   AdminPage,
+  AdminProviderIngestionRunDto,
   AdminPredictionTraceDto,
   AdminQualityDto,
   AdminQueries,
@@ -84,6 +86,91 @@ function providerRun(
   };
 }
 
+function reasonCounts(value: unknown): Readonly<Record<string, number>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([reason, count]) =>
+      typeof count === "number" && Number.isFinite(count)
+        ? [[reason, count]]
+        : [],
+    ),
+  );
+}
+
+function providerIngestionRun(
+  row: typeof providerIngestionRuns.$inferSelect,
+  providerCode = row.providerId,
+): AdminProviderIngestionRunDto {
+  const errorsByReason = reasonCounts(row.errorsByReason);
+  const hasErrors = Object.values(errorsByReason).some((count) => count > 0);
+  const hasResultErrors = Object.entries(errorsByReason).some(
+    ([reason, count]) => reason.startsWith("RESULT_") && count > 0,
+  );
+  const runHealth =
+    row.status === "FAILED"
+      ? "FAILED"
+      : row.status === "RUNNING"
+        ? "RUNNING"
+        : hasErrors
+          ? "COMPLETED_WITH_ERRORS"
+          : row.providerCallsUsed === 0
+            ? "HEALTHY_IDLE"
+            : "HEALTHY_ACTIVE";
+  const resultOutcome =
+    row.resultRequestsAttempted === 0
+      ? "NOT_ATTEMPTED"
+      : row.status === "FAILED" || hasResultErrors
+        ? "FAILED"
+        : "SUCCEEDED";
+
+  return {
+    id: row.id,
+    providerCode,
+    trigger: row.trigger as AdminProviderIngestionRunDto["trigger"],
+    quotaDay: row.quotaDay,
+    quotaPolicyVersion: row.quotaPolicyVersion,
+    status: row.status as AdminProviderIngestionRunDto["status"],
+    runHealth,
+    resultOutcome,
+    providerCallsUsed: row.providerCallsUsed,
+    quotaStateAtStart: row.quotaStateAtStart,
+    quotaStateAtEnd: row.quotaStateAtEnd,
+    quotaRemainingAtEnd: row.quotaRemainingAtEnd,
+    discoveryDatesRequested: row.discoveryDatesRequested,
+    fixtures: {
+      received: row.fixturesReceived,
+      written: row.fixturesWritten,
+    },
+    odds: {
+      candidates: row.oddsCandidates,
+      requestsAttempted: row.oddsRequestsAttempted,
+      received: row.oddsObservationsReceived,
+      written: row.oddsObservationsWritten,
+      duplicates: row.oddsDuplicates,
+    },
+    lineups: {
+      candidates: row.lineupCandidates,
+      requestsAttempted: row.lineupRequestsAttempted,
+      received: row.lineupsReceived,
+      written: row.lineupsWritten,
+      duplicates: row.lineupDuplicates,
+      official: row.lineupsOfficial,
+    },
+    results: {
+      candidates: row.resultCandidates,
+      requestsAttempted: row.resultRequestsAttempted,
+      received: row.resultsReceived,
+      written: row.resultsWritten,
+      duplicates: row.resultDuplicates,
+      settlementsWritten: row.settlementsWritten,
+    },
+    skippedByReason: reasonCounts(row.skippedByReason),
+    errorsByReason,
+    startedAt: row.startedAt.toISOString(),
+    finishedAt: row.finishedAt?.toISOString() ?? null,
+  };
+}
+
 export class DatabaseAdminQueries implements AdminQueries {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
 
@@ -102,6 +189,29 @@ export class DatabaseAdminQueries implements AdminQueries {
       ),
       nextCursor: nextCursor(offset, input.limit, rows.length),
     } satisfies AdminPage<ProviderRun>;
+  }
+
+  async listProviderIngestionRuns(input: {
+    limit: number;
+    cursor: string | null;
+  }) {
+    const offset = cursorOffset(input.cursor);
+    const rows = await this.database
+      .select({ run: providerIngestionRuns, providerCode: providers.code })
+      .from(providerIngestionRuns)
+      .innerJoin(providers, eq(providerIngestionRuns.providerId, providers.id))
+      .orderBy(
+        desc(providerIngestionRuns.startedAt),
+        desc(providerIngestionRuns.id),
+      )
+      .limit(input.limit)
+      .offset(offset);
+    return {
+      items: rows.map(({ run, providerCode }) =>
+        providerIngestionRun(run, providerCode),
+      ),
+      nextCursor: nextCursor(offset, input.limit, rows.length),
+    } satisfies AdminPage<AdminProviderIngestionRunDto>;
   }
 
   async getIntelligenceOverview(): Promise<AdminIntelligenceOverviewDto> {
@@ -126,9 +236,9 @@ export class DatabaseAdminQueries implements AdminQueries {
         (select count(*) from intelligence.event_results where status='FINAL')::int final_results_received,
         (select count(*) from intelligence.decisions d where d.status='STRONG_EDGE' and not exists(select 1 from intelligence.market_settlements ms where ms.decision_id=d.id))::int settlements_pending,
         (select count(*) from intelligence.market_settlements where outcome<>'UNSETTLED')::int settlements_completed,
-        (select count(*) from operations.provider_sync_runs where status='FAILED' and replay_sequence ilike '%result%')::int result_ingestion_failures,
+        (select count(*) from operations.provider_ingestion_runs pir where pir.result_requests_attempted > 0 and (pir.status='FAILED' or exists(select 1 from jsonb_each_text(pir.errors_by_reason) error where left(error.key, 7)='RESULT_' and error.value::int > 0)))::int result_ingestion_failures,
         (select count(*) from intelligence.decisions d left join intelligence.market_settlements ms on ms.decision_id=d.id where d.status='STRONG_EDGE' and (ms.id is null or ms.outcome='UNSETTLED'))::int unsettled_actionable_decisions,
-        (select max(completed_at) from operations.provider_sync_runs where status='COMPLETED' and replay_sequence ilike '%result%') last_successful_result_sync,
+        (select max(pir.finished_at) from operations.provider_ingestion_runs pir where pir.status='COMPLETED' and pir.result_requests_attempted > 0 and not exists(select 1 from jsonb_each_text(pir.errors_by_reason) error where left(error.key, 7)='RESULT_' and error.value::int > 0)) last_successful_result_sync,
         (select max(settled_at) from intelligence.market_settlements) last_settlement_run
     `);
     const row = result.rows[0] as Record<string, unknown>;
@@ -626,6 +736,17 @@ export class DatabaseAdminQueries implements AdminQueries {
       .limit(1);
     if (!row) throw new Error("NOT_FOUND");
     return providerRun(row.run, row.providerCode);
+  }
+
+  async getProviderIngestionRun(runId: string) {
+    const [row] = await this.database
+      .select({ run: providerIngestionRuns, providerCode: providers.code })
+      .from(providerIngestionRuns)
+      .innerJoin(providers, eq(providerIngestionRuns.providerId, providers.id))
+      .where(eq(providerIngestionRuns.id, runId))
+      .limit(1);
+    if (!row) throw new Error("NOT_FOUND");
+    return providerIngestionRun(row.run, row.providerCode);
   }
 
   async getPredictionTrace(

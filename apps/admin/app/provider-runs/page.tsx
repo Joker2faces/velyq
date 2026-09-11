@@ -23,14 +23,17 @@ export default async function ProviderRunsPage() {
     return (
       <AdminShell active="/provider-runs">
         <section className="page-heading">
-          <p className="eyebrow">TRACE / PROVIDER</p>
-          <h1>Provider runs</h1>
-          <p>Replay identity, provenance, counts and downstream health.</p>
+          <p className="eyebrow">TRACE / REPLAY</p>
+          <h1>Replay provenance</h1>
+          <p>
+            Deterministic fixture replay identity, hashes, and normalization
+            counts. These records do not represent live scheduler health.
+          </p>
         </section>
         <section className="panel">
           <div className="table-wrap">
             <table>
-              <caption className="sr-only">Provider runs</caption>
+              <caption className="sr-only">Replay provenance runs</caption>
               <thead>
                 <tr>
                   <th>Sequence</th>
