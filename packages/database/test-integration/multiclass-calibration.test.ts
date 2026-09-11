@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import {
+  orchestrateResultSettlement,
+  type ProviderFinalResult,
+} from "@velyq/application";
 
 // This real-Postgres contract intentionally exercises the admin consumer too.
 // eslint-disable-next-line velyq/no-cross-package-relative-import
@@ -6,11 +11,18 @@ import { DatabaseAdminQueries } from "../../../apps/admin/app/database-admin.js"
 import { createPrivilegedDatabaseClient } from "../src/client.js";
 import { ensureFootballReferenceData } from "../src/repositories/odds-ingestion.js";
 import { queryMultiClassCalibrationRows } from "../src/repositories/multiclass-calibration.js";
-import { competitions, events } from "../src/schema/catalog.js";
+import { DatabaseHistoryQueryAdapter } from "../src/repositories/history.js";
+import { DatabaseResultSettlementRepository } from "../src/repositories/result-settlement.js";
+import {
+  competitions,
+  eventIdentities,
+  events,
+} from "../src/schema/catalog.js";
 import {
   calibrationVersions,
   dataQualityAssessments,
   dataQualityPolicyVersions,
+  decisions,
   eventResults,
   forecasts,
   modelDefinitions,
@@ -49,6 +61,12 @@ describe("multi-class calibration rows, against a real database", () => {
   let coherentEventMarketId = "";
   let homeEventMarketId = "";
   let awayEventMarketId = "";
+  const voidedEvents: {
+    status: "CANCELLED" | "ABANDONED";
+    eventId: string;
+    eventMarketId: string;
+    decisionId: string;
+  }[] = [];
 
   beforeAll(async () => {
     const referenceData = await ensureFootballReferenceData(
@@ -551,6 +569,90 @@ describe("multi-class calibration rows, against a real database", () => {
       completedAt: new Date(KICKOFF.getTime() - 1_799_000),
     });
 
+    for (const [index, status] of (
+      ["CANCELLED", "ABANDONED"] as const
+    ).entries()) {
+      const kickoff = new Date(KICKOFF.getTime() + (32 + index) * 86_400_000);
+      const event = await persistSettledEvent({
+        suffix: `later-${status}`,
+        kickoff,
+        score: [2, 0],
+        probabilities: ["0.60", "0.25", "0.15"],
+        odds: ["2", "4", "4"],
+      });
+      const providerFixtureId = `multiclass-later-${status}`;
+      await database.insert(eventIdentities).values({
+        eventId: event.eventId,
+        providerId: referenceData.providerId,
+        providerFixtureId,
+      });
+      const [forecast] = await database
+        .select({ id: forecasts.id })
+        .from(forecasts)
+        .where(eq(forecasts.eventMarketOutcomeId, event.outcomeIds.HOME));
+      const [decision] = await database
+        .insert(decisions)
+        .values({
+          forecastId: forecast!.id,
+          eventMarketOutcomeId: event.outcomeIds.HOME,
+          status: "STRONG_EDGE",
+          selection: "HOME",
+          offeredOdds: "2",
+          whyNotCodes: [],
+          decisionSnapshot: { modelProbability: "0.60", offeredOdds: "2" },
+        })
+        .returning({ id: decisions.id });
+      const repository = new DatabaseResultSettlementRepository(database);
+      const initial: ProviderFinalResult = {
+        provider: "MULTICLASS_CALIBRATION_TEST",
+        providerFixtureId,
+        status: "FINAL",
+        homeScore: 2,
+        awayScore: 0,
+        observedAt: new Date(kickoff.getTime() + 7_200_000).toISOString(),
+      };
+      const candidates = [
+        {
+          decisionId: decision!.id,
+          market: "1X2" as const,
+          selection: "HOME" as const,
+        },
+      ];
+      const first = await repository.append({
+        providerId: referenceData.providerId,
+        sourceObservationId: resultSourceId,
+        result: initial,
+        settlements: orchestrateResultSettlement(initial, candidates),
+        settlementRuleVersion: "football.fulltime.1x2.v1",
+      });
+      expect(first.settlements[0]?.outcome).toBe("WIN");
+      const sourceId = await makeSource("RESULT", `terminal-${status}`, {
+        observedAt: null,
+        receivedAt: new Date(kickoff.getTime() + 10_800_000),
+      });
+      const correction: ProviderFinalResult = {
+        ...initial,
+        status,
+        homeScore: null,
+        awayScore: null,
+        observedAt: null,
+      };
+      const corrected = await repository.append({
+        providerId: referenceData.providerId,
+        sourceObservationId: sourceId,
+        result: correction,
+        settlements: orchestrateResultSettlement(correction, candidates),
+        settlementRuleVersion: "football.fulltime.1x2.v1",
+      });
+      expect(corrected.settlements[0]?.outcome).toBe("VOID");
+      voidedEvents.push({
+        status,
+        eventId: event.eventId,
+        eventMarketId: event.eventMarketId,
+        decisionId: decision!.id,
+      });
+    }
+
     // A settled event with only post-kickoff forecasts must contribute no
     // row at all, not a leaky row merely because it is the latest run.
     await persistSettledEvent({
@@ -630,6 +732,26 @@ describe("multi-class calibration rows, against a real database", () => {
     expect(coherent!.seasonLabel).toBe(SEASON_LABEL);
   });
 
+  it.each(["CANCELLED", "ABANDONED"] as const)(
+    "removes a FINAL-to-%s correction from calibration while History shows VOID",
+    async (status) => {
+      const event = voidedEvents.find((row) => row.status === status)!;
+      const history = await new DatabaseHistoryQueryAdapter(
+        database,
+      ).listDecisionsForEvent(event.eventId, true);
+      expect(
+        history.find((row) => row.decision.id === event.decisionId),
+      ).toMatchObject({
+        result: { status },
+        settlement: { outcome: "VOID" },
+      });
+      const rows = await queryMultiClassCalibrationRows(database);
+      expect(
+        rows.some((row) => row.eventMarketId === event.eventMarketId),
+      ).toBe(false);
+    },
+  );
+
   it("feeds admin calibration and both market baselines from that same coherent row set", async () => {
     const rows = (await queryMultiClassCalibrationRows(database)).filter(
       (row) => row.modelVersion === MODEL_VERSION,
@@ -642,6 +764,9 @@ describe("multi-class calibration rows, against a real database", () => {
       (entry) => entry.modelVersion === MODEL_VERSION,
     );
     expect(calibration).toBeDefined();
+    expect(calibration!.sampleCount).toBe(30);
+    expect(calibration!.noVigConsensus.sampleCount).toBe(30);
+    expect(calibration!.impliedMarket.sampleCount).toBe(30);
     expect(calibration!.sampleCount).toBe(rows.length);
     expect(calibration!.status).toBe("AVAILABLE");
     expect(calibration!.brierScore).toBeCloseTo(0.6228333333333332, 12);
