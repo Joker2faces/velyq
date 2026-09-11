@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { orchestrateResultSettlement } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import type { NormalizedEvent } from "@velyq/providers";
@@ -340,9 +341,10 @@ describe("forecast, decision and settlement, against a real database", () => {
     decisionStatus: "STRONG_EDGE";
     modelProbability: string;
     offeredOdds: string;
-    createdAt?: Date;
+    createdAt?: Date | SQL;
     eventId?: string;
     eventMarketOutcomeId?: string;
+    id?: string;
     selection?: "HOME" | "DRAW" | "AWAY" | "OVER" | "UNDER";
   }) {
     const decisionEventId = input.eventId ?? eventId;
@@ -497,6 +499,7 @@ describe("forecast, decision and settlement, against a real database", () => {
     const [decision] = await database
       .insert(decisions)
       .values({
+        id: input.id,
         forecastId: forecast!.id,
         eventMarketOutcomeId,
         status: input.decisionStatus,
@@ -747,6 +750,29 @@ describe("forecast, decision and settlement, against a real database", () => {
     expect(correctedRow?.result?.homeScore).toBe(1);
     expect(correctedRow?.result?.awayScore).toBe(1);
 
+    // Equal provider observation timestamps use persisted result identity as
+    // a deterministic tie-breaker. This later persisted row intentionally
+    // disagrees with the prior LOSS while carrying the same 21:00 authority.
+    const equalObservationTie = await settleWith(
+      4,
+      0,
+      "sha256:correction-test-equal-observation-tie-4-0",
+      "2026-09-20T21:00:00.000Z",
+      "2026-09-20T21:30:00.000Z",
+    );
+    expect(equalObservationTie.result.providerObservedAt).toEqual(
+      corrected.result.providerObservedAt,
+    );
+    const historyAfterEqualObservation = await adapter.listDecisionsForEvent(
+      eventId,
+      false,
+    );
+    const equalObservationRow = historyAfterEqualObservation.find(
+      (row) => row.decision.id === decision.id,
+    );
+    expect(equalObservationRow?.result?.id).toBe(equalObservationTie.result.id);
+    expect(equalObservationRow?.settlement?.outcome).toBe("WIN");
+
     // A late-arriving payload with an older provider observation must not
     // supersede the 21:00 correction merely because its rows were persisted
     // afterward.
@@ -758,10 +784,6 @@ describe("forecast, decision and settlement, against a real database", () => {
       "2026-09-20T22:00:00.000Z",
     );
     expect(delayedOlder.settlements[0]?.outcome).toBe("WIN");
-    await database
-      .update(marketSettlements)
-      .set({ settledAt: new Date("2026-09-20T22:00:00.000Z") })
-      .where(eq(marketSettlements.id, delayedOlder.settlements[0]!.id));
 
     const historyAfterDelayedOlder = await adapter.listDecisionsForEvent(
       eventId,
@@ -770,18 +792,16 @@ describe("forecast, decision and settlement, against a real database", () => {
     const authoritativeRow = historyAfterDelayedOlder.find(
       (row) => row.decision.id === decision.id,
     );
-    expect(authoritativeRow?.settlement?.outcome).toBe("LOSS");
-    expect(authoritativeRow?.result?.providerObservedAt).toEqual(
-      new Date("2026-09-20T21:00:00.000Z"),
-    );
+    expect(authoritativeRow?.result?.id).toBe(equalObservationTie.result.id);
+    expect(authoritativeRow?.settlement?.outcome).toBe("WIN");
     const customerHistory = await adapter.listDecisions(500, undefined, false);
     const authoritativeCustomerRow = customerHistory.find(
       (row) => row.decision.id === decision.id,
     );
-    expect(authoritativeCustomerRow?.settlement?.outcome).toBe("LOSS");
-    expect(authoritativeCustomerRow?.result?.providerObservedAt).toEqual(
-      new Date("2026-09-20T21:00:00.000Z"),
+    expect(authoritativeCustomerRow?.result?.id).toBe(
+      equalObservationTie.result.id,
     );
+    expect(authoritativeCustomerRow?.settlement?.outcome).toBe("WIN");
 
     const settlementsAfterDelayedOlder = await database
       .select({ outcome: marketSettlements.outcome })
@@ -789,7 +809,7 @@ describe("forecast, decision and settlement, against a real database", () => {
       .where(eq(marketSettlements.decisionId, decision.id));
     expect(
       settlementsAfterDelayedOlder.map((row) => row.outcome).sort(),
-    ).toEqual(["LOSS", "WIN", "WIN"]);
+    ).toEqual(["LOSS", "WIN", "WIN", "WIN"]);
 
     // The decision snapshot itself never changed.
     const [decisionRow] = await database
@@ -866,6 +886,54 @@ describe("forecast, decision and settlement, against a real database", () => {
     expect(new Set(traversedLiveIds).size).toBe(traversedLiveIds.length);
     expect(finalHasMore).toBe(false);
     expect(finalCursor).toBeUndefined();
+  });
+
+  it("traverses same-millisecond PostgreSQL decision timestamps exactly once by id", async () => {
+    const expectedIds = [
+      "11111111-1111-4111-8111-111111111193",
+      "11111111-1111-4111-8111-111111111192",
+      "11111111-1111-4111-8111-111111111191",
+    ];
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.58",
+      offeredOdds: "1.9",
+      id: expectedIds[2],
+      createdAt: sql`'2098-01-01T00:00:00.123900+00'::timestamptz`,
+    });
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.57",
+      offeredOdds: "1.91",
+      id: expectedIds[0],
+      createdAt: sql`'2098-01-01T00:00:00.123800+00'::timestamptz`,
+    });
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.56",
+      offeredOdds: "1.92",
+      id: expectedIds[1],
+      createdAt: sql`'2098-01-01T00:00:00.123700+00'::timestamptz`,
+    });
+
+    const adapter = new DatabaseHistoryQueryAdapter(database);
+    const traversedIds: string[] = [];
+    let cursor: { createdAt: Date; id: string } | undefined;
+    for (let page = 0; page < expectedIds.length; page += 1) {
+      const [row] = await adapter.listDecisions(1, cursor, false);
+      if (!row) break;
+      expect(row.decision.createdAt.toISOString()).toBe(
+        "2098-01-01T00:00:00.123Z",
+      );
+      traversedIds.push(row.decision.id);
+      cursor = {
+        createdAt: row.decision.createdAt,
+        id: row.decision.id,
+      };
+    }
+
+    expect(traversedIds).toEqual(expectedIds);
+    expect(new Set(traversedIds).size).toBe(expectedIds.length);
   });
 
   it("isolates LIVE and SYNTHETIC_DEMO across page 1 and a cursor-following page", async () => {

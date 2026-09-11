@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import {
   competitions,
@@ -32,8 +32,16 @@ export type HistoricalDecisionRow = Readonly<{
   awayTeam: string;
 }>;
 
-/** A page's own cursor: the last row's ordering key, to ask for what comes after it. */
+/**
+ * A page's own cursor: the last row's millisecond timestamp and id ordering
+ * key, to ask for what comes after it.
+ */
 export type HistoryCursor = Readonly<{ createdAt: Date; id: string }>;
+
+/* node-postgres materializes timestamptz as a millisecond-precision Date.
+   Use that exact precision in SQL too, so ordering and the next request's
+   comparison describe the same equivalence class. */
+const decisionCreatedAtMillis = sql<Date>`date_trunc('milliseconds', ${decisions.createdAt})`;
 
 /**
  * One correction-safe settlement key per decision. Provider observation time
@@ -74,19 +82,18 @@ export class DatabaseHistoryQueryAdapter {
     synthetic: boolean,
   ): Promise<readonly HistoricalDecisionRow[]> {
     /*
-     * Keyset pagination on the same (createdAt, id) pair the query already
-     * orders by, not OFFSET: an offset re-scans and re-sorts everything
-     * before the requested page on every request, and a decision inserted
-     * between two page loads would shift every later page by one row --
-     * silently duplicating or skipping a row the customer had already seen.
-     * The compound "strictly before this row" comparison has neither
-     * problem.
+     * Keyset pagination on the same (millisecond createdAt, id) pair the query
+     * orders by, not OFFSET: an offset re-scans and re-sorts everything before
+     * the requested page on every request, and a decision inserted between two
+     * page loads would shift every later page by one row -- silently
+     * duplicating or skipping a row the customer had already seen. The
+     * compound "strictly before this row" comparison has neither problem.
      */
     const cursorClause = before
       ? or(
-          lt(decisions.createdAt, before.createdAt),
+          lt(decisionCreatedAtMillis, before.createdAt),
           and(
-            eq(decisions.createdAt, before.createdAt),
+            eq(decisionCreatedAtMillis, before.createdAt),
             lt(decisions.id, before.id),
           ),
         )
@@ -142,7 +149,7 @@ export class DatabaseHistoryQueryAdapter {
           cursorClause,
         ),
       )
-      .orderBy(desc(decisions.createdAt), desc(decisions.id))
+      .orderBy(desc(decisionCreatedAtMillis), desc(decisions.id))
       .limit(limit);
     return Promise.all(
       rows.map(async (row) => {
