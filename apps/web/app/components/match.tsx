@@ -5,6 +5,7 @@ import type {
   CustomerSecondaryMarketDto,
 } from "@velyq/contracts";
 import Link from "next/link";
+import type { HistoricalQualityDto } from "../customer/historical-quality";
 import {
   formatDateTime,
   formatOdds,
@@ -19,6 +20,7 @@ import {
   marketLabel,
   priceValidityLabel,
   priceValidityTone,
+  qualityTone,
   recommendationLabel,
   recommendationTone,
   reasonLabel,
@@ -40,6 +42,7 @@ import { Badge, Explain } from "./ui";
  * -- never has even a type-only edge into server-only code.
  */
 type PostMatchAutopsyRow = Readonly<{
+  qualityAtDecision: HistoricalQualityDto | null;
   marketLabelKey: string;
   lineValue: string | null;
   selection: string;
@@ -636,6 +639,56 @@ export function PostMatchAutopsy({
                 </dd>
               </div>
             </dl>
+            {row.qualityAtDecision ? (
+              <details className="autopsy-quality">
+                <summary>
+                  {t("matchAutopsyQuality")}{" "}
+                  <Badge tone={qualityTone(row.qualityAtDecision.grade)}>
+                    {row.qualityAtDecision.grade}
+                  </Badge>
+                  {" · "}
+                  {row.qualityAtDecision.score}
+                </summary>
+                <dl className="autopsy-rows__figures">
+                  <div>
+                    <dt>{t("matchAutopsyQualityAssessedAt")}</dt>
+                    <dd>
+                      <time dateTime={row.qualityAtDecision.assessedAt}>
+                        {formatDateTime(
+                          row.qualityAtDecision.assessedAt,
+                          locale,
+                        )}
+                      </time>
+                    </dd>
+                  </div>
+                  {row.qualityAtDecision.policy ? (
+                    <div>
+                      <dt>{t("matchAutopsyQualityPolicy")}</dt>
+                      <dd>
+                        {row.qualityAtDecision.policy.code}
+                        {" · "}
+                        {row.qualityAtDecision.policy.version}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {row.qualityAtDecision.reasonCodes.length > 0 ? (
+                    <div>
+                      <dt>{t("matchAutopsyQualityReasons")}</dt>
+                      <dd>
+                        {reasonLabels(
+                          row.qualityAtDecision.reasonCodes,
+                          locale,
+                        ).join(" · ")}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </details>
+            ) : (
+              <p className="autopsy-quality autopsy-quality--absent">
+                {t("matchAutopsyQuality")}: {t("matchAutopsyQualityAbsent")}
+              </p>
+            )}
             {row.whyNotCodes.length > 0 ? (
               <div className="reasons">
                 {reasonLabels(row.whyNotCodes, locale).map((reason) => (

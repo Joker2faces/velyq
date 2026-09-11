@@ -545,6 +545,57 @@ describe("forecast, decision and settlement, against a real database", () => {
     });
   });
 
+  it("[historical quality] keeps the prediction-linked assessment and policy after later quality arrives", async () => {
+    const decision = await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.6",
+      offeredOdds: "1.85",
+    });
+    const [linked] = await database
+      .select({ assessment: dataQualityAssessments })
+      .from(forecasts)
+      .innerJoin(predictions, eq(forecasts.predictionId, predictions.id))
+      .innerJoin(
+        dataQualityAssessments,
+        eq(predictions.dataQualityAssessmentId, dataQualityAssessments.id),
+      )
+      .where(eq(forecasts.id, decision.forecastId));
+    const [laterPolicy] = await database
+      .insert(dataQualityPolicyVersions)
+      .values({
+        code: "TEST_QUALITY_LATER",
+        version: "v99",
+        validationStatus: "UNVALIDATED",
+        definition: {},
+        effectiveFrom: new Date("2026-09-20T00:00:00Z"),
+      })
+      .returning();
+    await database.insert(dataQualityAssessments).values({
+      policyVersionId: laterPolicy!.id,
+      eventId,
+      marketOutcomeId: eventMarketOutcomeId,
+      asOf: new Date("2026-09-20T00:00:00Z"),
+      grade: "F",
+      numericScore: "0",
+      components: { lineupStatus: "OFFICIAL" },
+      reasonCodes: ["LATER_ONLY"],
+    });
+    const adapter = new DatabaseHistoryQueryAdapter(database);
+    for (const rows of [
+      await adapter.listDecisionsForEvent(eventId, false),
+      await adapter.listDecisions(500, undefined, false),
+    ]) {
+      const historical = rows.find((row) => row.decision.id === decision.id);
+      expect(historical?.qualityAssessment).toEqual(linked!.assessment);
+      expect(historical?.qualityPolicy).toMatchObject({
+        code: "TEST_QUALITY",
+        version: "v1",
+      });
+      expect(historical?.qualityAssessment?.components).toEqual({});
+      expect(historical?.qualityAssessment?.reasonCodes).toEqual([]);
+    }
+  });
+
   it("[result + settlement] a provider FINAL result settles a real persisted decision", async () => {
     const decision = await persistDecision({
       decisionStatus: "STRONG_EDGE",

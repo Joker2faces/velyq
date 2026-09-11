@@ -7,10 +7,13 @@ import {
   participants,
 } from "../schema/catalog.js";
 import {
+  dataQualityAssessments,
+  dataQualityPolicyVersions,
   decisions,
   eventResults,
   forecasts,
   marketSettlements,
+  predictions,
 } from "../schema/intelligence.js";
 import {
   eventMarketOutcomes,
@@ -23,6 +26,8 @@ import { sourceObservations } from "../schema/operations.js";
 export type HistoricalDecisionRow = Readonly<{
   decision: typeof decisions.$inferSelect;
   forecast: typeof forecasts.$inferSelect;
+  qualityAssessment: typeof dataQualityAssessments.$inferSelect | null;
+  qualityPolicy: Readonly<{ code: string; version: string }> | null;
   event: typeof events.$inferSelect;
   competition: typeof competitions.$inferSelect;
   marketDefinition: typeof marketDefinitions.$inferSelect;
@@ -111,6 +116,11 @@ export class DatabaseHistoryQueryAdapter {
       .select({
         decision: decisions,
         forecast: forecasts,
+        qualityAssessment: dataQualityAssessments,
+        qualityPolicy: {
+          code: dataQualityPolicyVersions.code,
+          version: dataQualityPolicyVersions.version,
+        },
         event: events,
         competition: competitions,
         marketDefinition: marketDefinitions,
@@ -120,6 +130,18 @@ export class DatabaseHistoryQueryAdapter {
       })
       .from(decisions)
       .innerJoin(forecasts, eq(decisions.forecastId, forecasts.id))
+      .leftJoin(predictions, eq(forecasts.predictionId, predictions.id))
+      .leftJoin(
+        dataQualityAssessments,
+        eq(predictions.dataQualityAssessmentId, dataQualityAssessments.id),
+      )
+      .leftJoin(
+        dataQualityPolicyVersions,
+        eq(
+          dataQualityAssessments.policyVersionId,
+          dataQualityPolicyVersions.id,
+        ),
+      )
       .innerJoin(
         eventMarketOutcomes,
         eq(decisions.eventMarketOutcomeId, eventMarketOutcomes.id),
@@ -207,6 +229,11 @@ export class DatabaseHistoryQueryAdapter {
       .select({
         decision: decisions,
         forecast: forecasts,
+        qualityAssessment: dataQualityAssessments,
+        qualityPolicy: {
+          code: dataQualityPolicyVersions.code,
+          version: dataQualityPolicyVersions.version,
+        },
         event: events,
         competition: competitions,
         marketDefinition: marketDefinitions,
@@ -216,6 +243,18 @@ export class DatabaseHistoryQueryAdapter {
       })
       .from(decisions)
       .innerJoin(forecasts, eq(decisions.forecastId, forecasts.id))
+      .leftJoin(predictions, eq(forecasts.predictionId, predictions.id))
+      .leftJoin(
+        dataQualityAssessments,
+        eq(predictions.dataQualityAssessmentId, dataQualityAssessments.id),
+      )
+      .leftJoin(
+        dataQualityPolicyVersions,
+        eq(
+          dataQualityAssessments.policyVersionId,
+          dataQualityPolicyVersions.id,
+        ),
+      )
       .innerJoin(
         eventMarketOutcomes,
         eq(decisions.eventMarketOutcomeId, eventMarketOutcomes.id),

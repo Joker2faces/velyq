@@ -3,6 +3,7 @@ import {
   type CustomerReadResult,
 } from "@velyq/application";
 import type { CustomerMatchDto, CustomerTodayDto } from "@velyq/contracts";
+import type { HistoricalQualityDto } from "./customer/historical-quality";
 import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
 import {
   customerDatabaseMapper,
@@ -200,6 +201,7 @@ export async function loadCustomerMatch(eventId: string) {
 }
 
 export type PostMatchAutopsyRow = Readonly<{
+  qualityAtDecision: HistoricalQualityDto | null;
   marketLabelKey: string;
   lineValue: string | null;
   selection: string;
@@ -291,6 +293,15 @@ export function derivePostMatchAutopsy(
       });
       return {
         marketLabelKey: row.marketDefinition.labelKey,
+        qualityAtDecision: row.qualityAssessment
+          ? {
+              grade: row.qualityAssessment.grade,
+              score: row.qualityAssessment.numericScore,
+              assessedAt: row.qualityAssessment.asOf.toISOString(),
+              reasonCodes: row.qualityAssessment.reasonCodes,
+              policy: row.qualityPolicy,
+            }
+          : null,
         lineValue: null,
         selection: row.decision.selection,
         decisionStatus: row.decision.status,

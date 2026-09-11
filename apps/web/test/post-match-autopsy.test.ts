@@ -29,6 +29,8 @@ function row(
     forecast: {
       probability: "0.5",
     } as unknown as HistoricalDecisionRow["forecast"],
+    qualityAssessment: null,
+    qualityPolicy: null,
     event: {} as HistoricalDecisionRow["event"],
     competition: {} as HistoricalDecisionRow["competition"],
     marketDefinition: {
@@ -51,6 +53,43 @@ function row(
 }
 
 describe("derivePostMatchAutopsy", () => {
+  it("keeps historical quality absent when no linked assessment is supplied", () => {
+    expect(
+      derivePostMatchAutopsy([row()])!.rows[0]!.qualityAtDecision,
+    ).toBeNull();
+  });
+
+  it("carries only recorded quality and the linked policy, without inventing missing reasons or lineup evidence", () => {
+    const historical = row({
+      qualityAssessment: {
+        id: "quality-1",
+        policyVersionId: "policy-1",
+        eventId: "event-1",
+        marketOutcomeId: null,
+        asOf: new Date("2026-09-19T11:00:00Z"),
+        grade: "C",
+        numericScore: "61.2500",
+        components: {},
+        reasonCodes: [],
+        createdAt: new Date("2026-09-19T11:00:01Z"),
+      },
+      qualityPolicy: { code: "HISTORICAL_QUALITY", version: "v0" },
+    });
+    expect(
+      derivePostMatchAutopsy([historical])!.rows[0]!.qualityAtDecision,
+    ).toEqual({
+      grade: "C",
+      score: "61.2500",
+      assessedAt: "2026-09-19T11:00:00.000Z",
+      reasonCodes: [],
+      policy: { code: "HISTORICAL_QUALITY", version: "v0" },
+    });
+    expect(
+      derivePostMatchAutopsy([row({ ...historical, qualityPolicy: null })])!
+        .rows[0]!.qualityAtDecision?.policy,
+    ).toBeNull();
+  });
+
   it("is null with no settled decisions", () => {
     expect(derivePostMatchAutopsy([row({ settlement: null })])).toBeNull();
   });

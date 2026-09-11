@@ -536,6 +536,11 @@ export const messages = {
   matchOtherMarketsLead:
     "Every other market with a real decision for this fixture.",
   matchAutopsyTitle: "Post-match autopsy",
+  matchAutopsyQuality: "Quality at decision",
+  matchAutopsyQualityAssessedAt: "Recorded assessment",
+  matchAutopsyQualityPolicy: "Policy",
+  matchAutopsyQualityReasons: "Quality reasons",
+  matchAutopsyQualityAbsent: "Not recorded",
   matchAutopsyLead: "This fixture's own real decisions and how they settled.",
   matchAutopsyFinalScore: "Final score",
   matchAutopsyDecisionOdds: "Price at decision",
@@ -1481,6 +1486,11 @@ const greek: Readonly<Record<MessageKey, string>> = {
   matchOtherMarketsLead:
     "Κάθε άλλη αγορά με πραγματική απόφαση για αυτόν τον αγώνα.",
   matchAutopsyTitle: "Ανάλυση μετά τον αγώνα",
+  matchAutopsyQuality: "Ποιότητα κατά την απόφαση",
+  matchAutopsyQualityAssessedAt: "Καταγεγραμμένη αξιολόγηση",
+  matchAutopsyQualityPolicy: "Πολιτική",
+  matchAutopsyQualityReasons: "Αιτίες ποιότητας",
+  matchAutopsyQualityAbsent: "Δεν καταγράφηκε",
   matchAutopsyLead:
     "Οι πραγματικές αποφάσεις αυτού του αγώνα και πώς εξελίχθηκαν.",
   matchAutopsyFinalScore: "Τελικό σκορ",

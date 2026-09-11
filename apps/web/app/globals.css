@@ -2583,6 +2583,28 @@ a.row:hover {
   color: var(--primary);
 }
 
+.autopsy-quality {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+}
+
+.autopsy-quality summary {
+  min-height: 44px;
+  padding-block: var(--space-3);
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.autopsy-quality[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.autopsy-quality--absent {
+  padding-block: var(--space-3);
+}
+
 .market-map__meta {
   display: flex;
   align-items: center;
