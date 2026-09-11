@@ -478,7 +478,7 @@ describe("fixture and odds ingestion, against a real database", () => {
 
     const baseInstant = Date.parse("2026-09-19T00:00:00.000Z");
     const openingInstant = new Date(baseInstant).toISOString();
-    const latestEligibleInstant = baseInstant + 500 * 60_000;
+    const latestEligibleInstant = baseInstant + 505 * 60_000;
     const asOf = new Date(latestEligibleInstant + 30 * 60_000);
     const quote = (
       bookmaker: string,
@@ -505,7 +505,7 @@ describe("fixture and odds ingestion, against a real database", () => {
       [
         quote("Opening Book A", "Home", "1.90", openingInstant),
         quote("Opening Book B", "Home", "2.00", openingInstant),
-        ...Array.from({ length: 500 }, (_, index) => {
+        ...Array.from({ length: 505 }, (_, index) => {
           const observedAt = new Date(
             baseInstant + (index + 1) * 60_000,
           ).toISOString();
@@ -516,8 +516,16 @@ describe("fixture and odds ingestion, against a real database", () => {
           "Tail Book",
           "Home",
           "9.10",
-          new Date(baseInstant + 501 * 60_000).toISOString(),
+          new Date(baseInstant + 506 * 60_000).toISOString(),
           new Date(asOf.getTime() + 60_000).toISOString(),
+        ),
+        /* Received before the cutoff but provider-dated one minute after it. */
+        quote(
+          "Provider Future Book",
+          "Home",
+          "9.15",
+          new Date(asOf.getTime() + 60_000).toISOString(),
+          new Date(asOf.getTime() - 60_000).toISOString(),
         ),
         /* A later quote for another outcome must not enter HOME history. */
         quote(
@@ -551,9 +559,10 @@ describe("fixture and odds ingestion, against a real database", () => {
     expect(outcome).toBeDefined();
 
     /*
-     * With 502 eligible HOME rows, the newest-500 tail drops both quotes at
-     * the tied opening instant. The true 2.00 opening is therefore absent
-     * from the old query regardless of generated UUID order.
+     * With 507 eligible HOME rows, the newest-500 tail drops both quotes at
+     * the tied opening instant plus the next five rows. The true 2.00 opening
+     * is therefore absent from the old query regardless of generated UUID
+     * order, while the gap below proves the tail itself stays capped.
      */
     const openingRows = await database
       .select({
@@ -597,9 +606,9 @@ describe("fixture and odds ingestion, against a real database", () => {
         eventMarketOutcomeId: outcome!.id,
         bookmakerId: distractionBookId.get("Suspended Tail Book")!,
         decimalOdds: "9.20000000",
-        providerObservedAt: new Date(baseInstant + 502 * 60_000),
-        receivedAt: new Date(baseInstant + 502 * 60_000),
-        normalizedAt: new Date(baseInstant + 502 * 60_000),
+        providerObservedAt: new Date(baseInstant + 507 * 60_000),
+        receivedAt: new Date(baseInstant + 507 * 60_000),
+        normalizedAt: new Date(baseInstant + 507 * 60_000),
         status: "SUSPENDED",
         isSynthetic: false,
       },
@@ -608,9 +617,9 @@ describe("fixture and odds ingestion, against a real database", () => {
         eventMarketOutcomeId: outcome!.id,
         bookmakerId: distractionBookId.get("Synthetic Tail Book")!,
         decimalOdds: "9.30000000",
-        providerObservedAt: new Date(baseInstant + 503 * 60_000),
-        receivedAt: new Date(baseInstant + 503 * 60_000),
-        normalizedAt: new Date(baseInstant + 503 * 60_000),
+        providerObservedAt: new Date(baseInstant + 508 * 60_000),
+        receivedAt: new Date(baseInstant + 508 * 60_000),
+        normalizedAt: new Date(baseInstant + 508 * 60_000),
         status: "ACTIVE",
         isSynthetic: true,
       },
@@ -622,6 +631,16 @@ describe("fixture and odds ingestion, against a real database", () => {
     const history = await adapter.getOddsHistory(eventId, outcome!.id, asOf);
     expect(history).not.toBeNull();
     expect(history!.observations).toHaveLength(502);
+    expect(
+      history!.observations.every(
+        (row) =>
+          row.providerObservedAt.getTime() <= asOf.getTime() &&
+          row.receivedAt.getTime() <= asOf.getTime(),
+      ),
+    ).toBe(true);
+    expect(history!.observations.map((row) => row.decimalOdds)).not.toContain(
+      "9.15000000",
+    );
 
     /*
      * The overlap between the opening query and tail is de-duplicated. Equal
@@ -631,13 +650,19 @@ describe("fixture and odds ingestion, against a real database", () => {
     const observedTimes = history!.observations.map((observation) =>
       observation.providerObservedAt.getTime(),
     );
-    expect(observedTimes).toEqual([...observedTimes].sort((a, b) => a - b));
+    const expectedObservedTimes = [
+      baseInstant,
+      baseInstant,
+      ...Array.from(
+        { length: 500 },
+        (_, index) => baseInstant + (index + 6) * 60_000,
+      ),
+    ];
+    expect(observedTimes).toEqual(expectedObservedTimes);
     expect(history!.observations.slice(0, 2).map((row) => row.id)).toEqual(
       openingRows.map((row) => row.id),
     );
     expect(new Set(history!.observations.map((row) => row.id)).size).toBe(502);
-    expect(observedTimes[0]).toBe(baseInstant);
-    expect(observedTimes.at(-1)).toBe(latestEligibleInstant);
 
     const repeated = await adapter.getOddsHistory(eventId, outcome!.id, asOf);
     expect(repeated!.observations.map((row) => row.id)).toEqual(
