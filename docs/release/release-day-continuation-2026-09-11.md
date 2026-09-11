@@ -11,15 +11,18 @@ manifest and readiness record describe a different branch and deployment.
 | Item | State |
 | --- | --- |
 | Starting SHA | `11731e3d17a327730420e19b7111bec2678ca36b` |
-| Final corrected source candidate | `1109307`; reviewed snapshot reconciliation is `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
-| Remote before the final evidence push | `a4082097d25b5412f0e62766801efe703dc517e3`; snapshot and documentation commits remain local until final review |
+| Final corrected source candidate | `1109307`; reviewed snapshot reconciliation is `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430`; deployed documentation-inclusive source is `10cf0ed8db980d17a4e3eeffee2f6ccc4b76906d` |
+| Authoritative branch before deployment | Local and `origin/codex/velyq-final-product-v1` were clean and identical at `10cf0ed8db980d17a4e3eeffee2f6ccc4b76906d` |
 | Final integrated local release gate | **PASS** at corrected source `1109307`; final independent re-review approved with 0 Critical / 0 Important / 0 Minor findings |
 | Production database migration | Not performed |
-| Continuation deployment | Not performed |
-| Last documented customer production | `2ab1cfb` on `dpl_7t7yewrjKTWtFGSdeqcag2aazQFB`; this continuation has not moved the alias |
+| Customer continuation deployment | **READY**: `dpl_DYHpgooSqLcjfqeh2SDozGC1g6M4`, built from `10cf0ed8db980d17a4e3eeffee2f6ccc4b76906d` |
+| Customer production alias | `https://project-cf8ty.vercel.app` resolves to `dpl_DYHpgooSqLcjfqeh2SDozGC1g6M4` |
+| Admin continuation deployment | Final source preview `dpl_CHfBtDepT53bLiahgkyq6YoyX6iE` is READY but remains Preview-only behind deployment protection; it was intentionally not promoted before the production migration |
 
-Production therefore remains on the prior deployment until the release
-controller records a successful migration, deployment, and live verification.
+The customer application is live on the continuation source. The Admin/provider
+writer remains on the safe side of the migration boundary: preview built, not
+promoted. Applying the production migration and promoting/verifying Admin are
+owner-only release steps.
 
 ## Exact continuation commits
 
@@ -116,9 +119,41 @@ The following task-scoped evidence provides additional depth:
   resolves `sharp 0.35.4`; this is a deferred, Cloudflare-tooling-only P2, not a
   reason to modify the protected Cloudflare POC during this continuation.
 
-Production migration, deployment, and live QA are not claimed complete in this
-document. Clean local/remote identity checks must also complete before any
-production action.
+## Production deployment and live verification
+
+The customer-only production redeploy completed after the clean local/remote
+identity check. Vercel deployment `dpl_DYHpgooSqLcjfqeh2SDozGC1g6M4` is READY,
+and an independent inspection of `https://project-cf8ty.vercel.app` resolved to
+that exact deployment. GitHub's `Vercel – velyq` status for source
+`10cf0ed8db980d17a4e3eeffee2f6ccc4b76906d` also points to the same deployment.
+
+Public live verification against the stable production alias passed:
+
+- `/`, `/today`, `/edge`, `/radar`, `/results`, `/account`, `/pricing`, and
+  `/sign-in` returned 200. `/el`, `/el/pricing`, and `/el/sign-in` returned 200;
+  the deliberately unsupported `/el/today` returned 404.
+- `/api/health` returned 200 with production, configured/effective LIVE,
+  DATABASE source, database available, synthetic fallback disabled, and
+  `syntheticOnly: false`. `/api/ready` returned 200 with auth and database
+  configured. Unauthenticated `/api/v1/today` returned the expected 401.
+- `/today`, `/edge`, `/radar`, and `/results` contained no synthetic/demo-data
+  marker. The locale cookie round trip set `velyq-locale=el` with Secure and
+  SameSite=Lax and preserved a successful `/today` response.
+- `/today` returned the release security policy: restrictive CSP, one-year HSTS
+  with subdomains, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  strict-origin referrer policy, camera/microphone/geolocation disabled, and
+  private no-store/no-cache behavior.
+- No route in the release smoke set returned an unexpected 5xx.
+
+Authenticated production QA used only the existing Brave profile, as required.
+A fresh production Today tab initially rendered the authenticated shell, then
+the server rejected the stored session and redirected to `/sign-in`; the
+resulting sign-in page reported no console warnings/errors. No credential was
+requested or entered, so authenticated fixture/page verification remains
+owner-only and no real match ID is claimed without evidence. The Admin
+final-source preview is READY but protected by Vercel authentication; it was
+not promoted because production migration `20260928110000` has not been
+applied.
 
 ## Benchmark
 
@@ -155,8 +190,9 @@ UPDATE, DELETE, or repair.
    verify the production alias moved, and run the runbook's live checks.
 
 **Migration `20260928110000` must be applied before deploying the nullable
-result writer.** Neither that migration nor a continuation deployment has
-occurred as of this pre-deploy record.
+result writer.** The customer application has been deployed because its bundle
+does not import the provider/result writer. The Admin/provider writer remains
+Preview-only until the migration is applied and verified.
 
 ## Remaining owner-only release blockers
 
