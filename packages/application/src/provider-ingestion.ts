@@ -391,6 +391,9 @@ const MAX_RESULT_REQUESTS_PER_RUN = 1;
  */
 const MAX_LINEUP_REQUESTS_PER_RUN = 1;
 
+/** Scheduler cadence used to alternate odds and lineup work when both are due. */
+const CONTESTED_EVIDENCE_SLOT_MINUTES = 15;
+
 /**
  * Fixtures per result request.
  *
@@ -577,6 +580,36 @@ export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
   const lineupQueue = discoveryRan ? [] : await deps.lineupCandidates();
   timings.lineupCandidatesMs = since(lineupCandidatesStartedAt);
 
+  /*
+   * When both short-lived evidence streams are due, alternate contested
+   * wake-ups instead of allowing the lineup queue to monopolise every pass.
+   * A busy ninety-minute window can always contain another lineup candidate;
+   * without this turn-taking, stale odds never get refreshed and no lineup
+   * can unlock an actionable decision anyway.
+   */
+  const pendingOddsStartedAt = deps.clock().getTime();
+  const pendingOddsCandidates = discoveryRan ? [] : await deps.oddsCandidates();
+  timings.candidatesMs = since(pendingOddsStartedAt);
+  const pendingOddsBudget = purposeRequestBudget({
+    purpose: "ODDS",
+    snapshot,
+    spentToday: spent.ODDS,
+    candidates: pendingOddsCandidates.length,
+    now: startedAt,
+  });
+  const oddsOwnContestedWakeUp =
+    lineupQueue.length > 0 &&
+    pendingOddsCandidates.length > 0 &&
+    pendingOddsBudget.allowed > 0 &&
+    Math.floor(
+      startedAt.getTime() / (CONTESTED_EVIDENCE_SLOT_MINUTES * 60_000),
+    ) %
+      2 ===
+      1;
+  if (oddsOwnContestedWakeUp) {
+    bump(skippedByReason, "LINEUPS_DEFERRED_AFTER_ODDS");
+  }
+
   const lineupBudget = purposeRequestBudget({
     purpose: "LINEUP",
     snapshot,
@@ -588,7 +621,7 @@ export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
     bump(skippedByReason, `LINEUP_${lineupBudget.limitedBy}`);
 
   const lineupAllowedThisRun = Math.min(
-    lineupBudget.allowed,
+    oddsOwnContestedWakeUp ? 0 : lineupBudget.allowed,
     MAX_LINEUP_REQUESTS_PER_RUN,
   );
   if (
@@ -671,10 +704,8 @@ export async function runProviderIngestion<TFixture, TOdds, TResult, TLineup>(
     );
   }
 
-  const candidatesStartedAt = deps.clock().getTime();
   const candidates =
-    discoveryRan || lineupRan ? [] : await deps.oddsCandidates();
-  timings.candidatesMs = since(candidatesStartedAt);
+    discoveryRan || lineupRan ? [] : pendingOddsCandidates;
   const oddsBudget = purposeRequestBudget({
     purpose: "ODDS",
     snapshot,

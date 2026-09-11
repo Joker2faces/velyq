@@ -976,6 +976,21 @@ describe("runProviderIngestion discovery freshness", () => {
       expect(result.skippedByReason["ODDS_DEFERRED_AFTER_LINEUP"]).toBe(1);
     });
 
+    it("gives the next contested wake-up to odds after a lineup request", async () => {
+      const { deps, calls } = harness(
+        { clock: () => new Date("2026-09-09T12:15:00.000Z") },
+        {
+          candidates: [candidate("200")],
+          lineupCandidates: [lineupCandidate("100")],
+        },
+      );
+      const result = await runProviderIngestion(deps, { trigger: "SCHEDULER" });
+      expect(calls).toEqual(["odds:200"]);
+      expect(result.lineupRequestsAttempted).toBe(0);
+      expect(result.oddsRequestsAttempted).toBe(1);
+      expect(result.skippedByReason["LINEUPS_DEFERRED_AFTER_ODDS"]).toBe(1);
+    });
+
     it("takes priority over results", async () => {
       const { deps, calls } = harness(
         {},

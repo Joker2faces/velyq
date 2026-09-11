@@ -15,6 +15,7 @@ import {
   normalizeFootballLineup,
   normalizeFootballResult,
   normalizeOdds,
+  sanitizeProviderError,
   type ApiSportsClient,
   type NormalizedEvent,
   type NormalizedOdds,
@@ -198,6 +199,20 @@ function classifyProviderResponse(
   )
     return "REJECTED";
   return status >= 400 ? "REJECTED" : null;
+}
+
+function logRejectedProviderResponse(
+  endpoint: "odds" | "lineups",
+  status: number,
+  errors: unknown,
+): void {
+  const serialized =
+    typeof errors === "string" ? errors : JSON.stringify(errors ?? {});
+  console.warn("provider response rejected", {
+    endpoint,
+    status,
+    errors: sanitizeProviderError(serialized).slice(0, 500),
+  });
 }
 
 function observedQuotaFrom(
@@ -807,7 +822,14 @@ export async function createProviderIngestionAdapter(
           response.status,
           response.body.errors,
         );
-        if (rejection) return { ok: false, reason: rejection, quota };
+        if (rejection) {
+          logRejectedProviderResponse(
+            "odds",
+            response.status,
+            response.body.errors,
+          );
+          return { ok: false, reason: rejection, quota };
+        }
         const value = (response.body.response ?? []).flatMap((record) =>
           normalizeOdds(record, "FOOTBALL", observedAt.toISOString()),
         );
@@ -943,6 +965,11 @@ export async function createProviderIngestionAdapter(
           response.body.errors,
         );
         if (rejection) {
+          logRejectedProviderResponse(
+            "lineups",
+            response.status,
+            response.body.errors,
+          );
           await markRequested(null);
           return { ok: false, reason: rejection, quota };
         }
