@@ -156,6 +156,84 @@ export class DatabaseCustomerQueryAdapter {
     return eq(events.synthetic, this.options.dataOrigin === "SYNTHETIC_DEMO");
   }
 
+  /**
+   * The bounded price history needed by customer opening/current semantics.
+   *
+   * The latest tail alone cannot define "opening": once more than
+   * `MAX_ODDS_HISTORY` eligible rows exist, it becomes a rolling window. Read
+   * the complete first provider instant separately, combine it with the
+   * newest bounded tail, and de-duplicate the overlap for shorter histories.
+   * Both component reads use the same exact outcome, corpus and two-clock
+   * cutoff so neither side can admit evidence the other would reject.
+   */
+  private async getBoundedOddsHistory(
+    eventMarketOutcomeId: string,
+    asOf: Date,
+  ): Promise<(typeof oddsObservations.$inferSelect)[]> {
+    const observationCorpus = eq(
+      oddsObservations.isSynthetic,
+      this.options.dataOrigin === "SYNTHETIC_DEMO",
+    );
+    const eligible = and(
+      eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomeId),
+      eq(oddsObservations.status, "ACTIVE"),
+      observationCorpus,
+      lte(oddsObservations.providerObservedAt, asOf),
+      lte(oddsObservations.receivedAt, asOf),
+    );
+    const earliestEligible = this.database
+      .select({ providerObservedAt: oddsObservations.providerObservedAt })
+      .from(oddsObservations)
+      .where(eligible)
+      .orderBy(
+        asc(oddsObservations.providerObservedAt),
+        asc(oddsObservations.id),
+      )
+      .limit(1)
+      .as("earliest_eligible_odds");
+
+    const [openingRows, latestTail] = await Promise.all([
+      this.database
+        .select({ observation: oddsObservations })
+        .from(oddsObservations)
+        .innerJoin(
+          earliestEligible,
+          eq(
+            oddsObservations.providerObservedAt,
+            earliestEligible.providerObservedAt,
+          ),
+        )
+        .where(eligible)
+        .orderBy(
+          asc(oddsObservations.providerObservedAt),
+          asc(oddsObservations.id),
+        ),
+      this.database
+        .select()
+        .from(oddsObservations)
+        .where(eligible)
+        .orderBy(
+          desc(oddsObservations.providerObservedAt),
+          desc(oddsObservations.id),
+        )
+        .limit(MAX_ODDS_HISTORY),
+    ]);
+
+    const byId = new Map<string, typeof oddsObservations.$inferSelect>();
+    for (const observation of [
+      ...openingRows.map((row) => row.observation),
+      ...latestTail,
+    ]) {
+      byId.set(observation.id, observation);
+    }
+    return [...byId.values()].sort((left, right) => {
+      const instant =
+        left.providerObservedAt.getTime() - right.providerObservedAt.getTime();
+      if (instant !== 0) return instant;
+      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+    });
+  }
+
   async getToday(asOf: Date): Promise<CustomerRawToday> {
     const { start, end } = utcDayWindow(asOf);
     const rows = await this.database
@@ -356,38 +434,9 @@ export class DatabaseCustomerQueryAdapter {
           return { score, evidence };
         })();
 
-        /*
-         * Newest first, then reversed back into chronological order.
-         *
-         * This was ascending with the same LIMIT, which keeps the *oldest*
-         * 500 rows -- and one provider response yields a row per bookmaker,
-         * so a widely-quoted outcome on the near-kickoff refresh cadence can
-         * pass 500. Beyond that point the "latest" observation was not the
-         * latest, so `currentOdds` presented an old price as current and the
-         * freshness assessment measured the wrong row. Movement is computed
-         * from distinct instants downstream and expects ascending order, so
-         * the window is reversed rather than the ordering being left to it.
-         */
-        const oddsChain = this.database
-          .select()
-          .from(oddsObservations)
-          .innerJoin(
-            eventMarketOutcomes,
-            eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomes.id),
-          )
-          .where(
-            and(
-              eq(eventMarketOutcomes.id, row.outcome.id),
-              lte(oddsObservations.providerObservedAt, asOf),
-              lte(oddsObservations.receivedAt, asOf),
-            ),
-          )
-          .orderBy(
-            desc(oddsObservations.providerObservedAt),
-            desc(oddsObservations.id),
-          )
-          .limit(MAX_ODDS_HISTORY)
-          .then((rows) => rows.reverse());
+        /* Opening plus the bounded latest tail; the helper restores the
+           stable chronological order expected by movement and freshness. */
+        const oddsChain = this.getBoundedOddsHistory(row.outcome.id, asOf);
 
         const [
           { predictionRow, predictionInputRows },
@@ -407,7 +456,7 @@ export class DatabaseCustomerQueryAdapter {
           predictionInputs: predictionInputRows,
           quality: quality ?? null,
           score: score ? { result: score, radarEvidence: evidence } : null,
-          odds: odds.map(({ odds_observations: observation }) => observation),
+          odds,
         };
       }),
     );
@@ -436,8 +485,10 @@ export class DatabaseCustomerQueryAdapter {
         eventMarkets,
         eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
       )
+      .innerJoin(events, eq(eventMarkets.eventId, events.id))
       .where(
         and(
+          this.corpus,
           eq(eventMarkets.eventId, eventId),
           eq(eventMarketOutcomes.id, eventMarketOutcomeId),
         ),
@@ -445,31 +496,8 @@ export class DatabaseCustomerQueryAdapter {
       .limit(1);
     if (!ownership) return null;
 
-    /*
-     * Same discipline as `getMatch`'s `oddsChain` (see the comment above
-     * it): unbounded here would let a widely-quoted, long-open outcome
-     * return thousands of rows -- one per bookmaker per refresh instant
-     * over a multi-month pre-match window. Newest `MAX_ODDS_HISTORY` first,
-     * then reversed back into the chronological order this endpoint is
-     * documented to return, so a cap keeps the *latest* observations, not
-     * whichever happened to be written first.
-     */
-    const rows = await this.database
-      .select()
-      .from(oddsObservations)
-      .where(
-        and(
-          eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomeId),
-          lte(oddsObservations.providerObservedAt, asOf),
-          lte(oddsObservations.receivedAt, asOf),
-        ),
-      )
-      .orderBy(
-        desc(oddsObservations.providerObservedAt),
-        desc(oddsObservations.id),
-      )
-      .limit(MAX_ODDS_HISTORY)
-      .then((result) => result.reverse());
+    /* Same opening-plus-tail discipline as the match read. */
+    const rows = await this.getBoundedOddsHistory(eventMarketOutcomeId, asOf);
     return {
       eventId: ownership.eventId,
       eventMarketOutcomeId: ownership.outcomeId,

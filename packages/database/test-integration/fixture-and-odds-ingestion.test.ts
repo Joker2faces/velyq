@@ -1,10 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
+import { assessOddsFreshness } from "@velyq/application/odds-freshness";
+import { summariseOddsMovement } from "@velyq/application/odds-movement";
 import { deterministicEventId } from "@velyq/domain";
 import type { NormalizedEvent, NormalizedOdds } from "@velyq/providers";
 import { teamAliasLookupFor } from "@velyq/providers";
 
 import { createPrivilegedDatabaseClient } from "../src/client.js";
+import { DatabaseCustomerQueryAdapter } from "../src/repositories/customer-queries.js";
 import {
   ingestFootballFixture,
   loadCompetitionBridge,
@@ -461,44 +464,72 @@ describe("fixture and odds ingestion, against a real database", () => {
   });
 
   /*
-   * Pagination/growth audit finding (mandate section 15): getOddsHistory
-   * had no LIMIT at all, unlike its sibling oddsChain in getMatch, which
-   * already caps at MAX_ODDS_HISTORY (500) after a documented past bug from
-   * exactly this pattern -- a widely-quoted outcome's price refresh cadence
-   * exceeding 500 rows made the "latest" observation not actually the
-   * latest. Proves the fix keeps the newest observations (never the
-   * oldest) and respects the cap against a real database, not just the
-   * unit-level query-builder assertion.
+   * The production change this catches is dropping any bookmaker at the
+   * first eligible provider instant when it falls before the bounded newest
+   * tail. That turns the tail's first retained price into the claimed
+   * opening. Expectations below are
+   * hand-derived from 2.00 at the first instant and 1.80 at the last:
+   * (1.80 - 2.00) / 2.00 = -0.1.
    */
-  it("[getOddsHistory] caps at the newest 500 observations, never the oldest", async () => {
-    await ingest(fixture({ providerEventId: "900010" }));
-    const eventId = deterministicEventId(PROVIDER_CODE, "900010");
+  it("preserves the complete true opening instant alongside the bounded latest tail", async () => {
+    const providerEventId = "900010";
+    await ingest(fixture({ providerEventId }));
+    const eventId = deterministicEventId(PROVIDER_CODE, providerEventId);
 
-    const TOTAL_OBSERVATIONS = 505;
     const baseInstant = Date.parse("2026-09-19T00:00:00.000Z");
-    for (let index = 0; index < TOTAL_OBSERVATIONS; index += 1) {
-      const observedAt = new Date(baseInstant + index * 60_000).toISOString();
-      await ingestFootballOdds(
-        database,
-        [
-          {
-            sport: "FOOTBALL",
-            providerEventId: "900010",
-            bookmaker: "Cap Test Book",
-            providerMarket: "1",
-            canonicalMarket: "MATCH_WINNER_1X2",
-            selection: "Home",
-            decimalOdds:
-              `${(1.5 + index / 1000).toFixed(3)}` as NormalizedOdds["decimalOdds"],
-            providerObservedAt: observedAt,
-            ingestedAt: observedAt,
-            provider: "API_SPORTS",
-            sourceReference: "test",
-          },
-        ],
-        referenceData,
-      );
-    }
+    const openingInstant = new Date(baseInstant).toISOString();
+    const latestEligibleInstant = baseInstant + 500 * 60_000;
+    const asOf = new Date(latestEligibleInstant + 30 * 60_000);
+    const quote = (
+      bookmaker: string,
+      selection: string,
+      decimalOdds: string,
+      providerObservedAt: string,
+      ingestedAt = providerObservedAt,
+    ): NormalizedOdds => ({
+      sport: "FOOTBALL",
+      providerEventId,
+      bookmaker,
+      providerMarket: "1",
+      canonicalMarket: "MATCH_WINNER_1X2",
+      selection,
+      decimalOdds: decimalOdds as NormalizedOdds["decimalOdds"],
+      providerObservedAt,
+      ingestedAt,
+      provider: "API_SPORTS",
+      sourceReference: "task-13-opening-tail-test",
+    });
+
+    const written = await ingestFootballOdds(
+      database,
+      [
+        quote("Opening Book A", "Home", "1.90", openingInstant),
+        quote("Opening Book B", "Home", "2.00", openingInstant),
+        ...Array.from({ length: 500 }, (_, index) => {
+          const observedAt = new Date(
+            baseInstant + (index + 1) * 60_000,
+          ).toISOString();
+          return quote("Tail Book", "Home", "1.80", observedAt);
+        }),
+        /* Provider-known by the cutoff but received one minute afterwards. */
+        quote(
+          "Tail Book",
+          "Home",
+          "9.10",
+          new Date(baseInstant + 501 * 60_000).toISOString(),
+          new Date(asOf.getTime() + 60_000).toISOString(),
+        ),
+        /* A later quote for another outcome must not enter HOME history. */
+        quote(
+          "Wrong Outcome Book",
+          "Away",
+          "9.40",
+          new Date(baseInstant + 504 * 60_000).toISOString(),
+        ),
+      ],
+      referenceData,
+    );
+    expect(written.every((result) => result.ok)).toBe(true);
 
     const [outcome] = await database
       .select({ id: eventMarketOutcomes.id })
@@ -519,32 +550,187 @@ describe("fixture and odds ingestion, against a real database", () => {
       );
     expect(outcome).toBeDefined();
 
-    const { DatabaseCustomerQueryAdapter } =
-      await import("../src/repositories/customer-queries.js");
+    /*
+     * With 502 eligible HOME rows, the newest-500 tail drops both quotes at
+     * the tied opening instant. The true 2.00 opening is therefore absent
+     * from the old query regardless of generated UUID order.
+     */
+    const openingRows = await database
+      .select({
+        id: oddsObservations.id,
+        bookmakerId: oddsObservations.bookmakerId,
+        sourceObservationId: oddsObservations.sourceObservationId,
+      })
+      .from(oddsObservations)
+      .where(
+        and(
+          eq(oddsObservations.eventMarketOutcomeId, outcome!.id),
+          eq(oddsObservations.providerObservedAt, new Date(openingInstant)),
+        ),
+      )
+      .orderBy(oddsObservations.id);
+    expect(openingRows).toHaveLength(2);
+    const insertedDistractionBooks = await database
+      .insert(bookmakers)
+      .values([
+        {
+          code: "Suspended Tail Book",
+          displayName: "Suspended Tail Book",
+          synthetic: false,
+        },
+        {
+          code: "Synthetic Tail Book",
+          displayName: "Synthetic Tail Book",
+          synthetic: true,
+        },
+      ])
+      .returning({ id: bookmakers.id, code: bookmakers.code });
+    const distractionBookId = new Map(
+      insertedDistractionBooks.map((bookmaker) => [
+        bookmaker.code,
+        bookmaker.id,
+      ]),
+    );
+    await database.insert(oddsObservations).values([
+      {
+        sourceObservationId: openingRows[0]!.sourceObservationId,
+        eventMarketOutcomeId: outcome!.id,
+        bookmakerId: distractionBookId.get("Suspended Tail Book")!,
+        decimalOdds: "9.20000000",
+        providerObservedAt: new Date(baseInstant + 502 * 60_000),
+        receivedAt: new Date(baseInstant + 502 * 60_000),
+        normalizedAt: new Date(baseInstant + 502 * 60_000),
+        status: "SUSPENDED",
+        isSynthetic: false,
+      },
+      {
+        sourceObservationId: openingRows[0]!.sourceObservationId,
+        eventMarketOutcomeId: outcome!.id,
+        bookmakerId: distractionBookId.get("Synthetic Tail Book")!,
+        decimalOdds: "9.30000000",
+        providerObservedAt: new Date(baseInstant + 503 * 60_000),
+        receivedAt: new Date(baseInstant + 503 * 60_000),
+        normalizedAt: new Date(baseInstant + 503 * 60_000),
+        status: "ACTIVE",
+        isSynthetic: true,
+      },
+    ]);
+
     const adapter = new DatabaseCustomerQueryAdapter(database, {
       dataOrigin: "LIVE",
     });
-    const history = await adapter.getOddsHistory(
-      eventId,
-      outcome!.id,
-      new Date(baseInstant + TOTAL_OBSERVATIONS * 60_000),
-    );
+    const history = await adapter.getOddsHistory(eventId, outcome!.id, asOf);
     expect(history).not.toBeNull();
-    expect(history!.observations).toHaveLength(500);
+    expect(history!.observations).toHaveLength(502);
 
     /*
-     * Ascending chronological order, and the retained window is the newest
-     * 500 -- observations 5..504 (0-indexed), never 0..499. The oldest 5
-     * (indices 0-4) must be gone.
+     * The overlap between the opening query and tail is de-duplicated. Equal
+     * instants use ascending UUID as a stable tie-break, matching the prior
+     * reverse-of-descending contract.
      */
     const observedTimes = history!.observations.map((observation) =>
       observation.providerObservedAt.getTime(),
     );
     expect(observedTimes).toEqual([...observedTimes].sort((a, b) => a - b));
-    expect(observedTimes[0]).toBe(baseInstant + 5 * 60_000);
-    expect(observedTimes.at(-1)).toBe(
-      baseInstant + (TOTAL_OBSERVATIONS - 1) * 60_000,
+    expect(history!.observations.slice(0, 2).map((row) => row.id)).toEqual(
+      openingRows.map((row) => row.id),
     );
+    expect(new Set(history!.observations.map((row) => row.id)).size).toBe(502);
+    expect(observedTimes[0]).toBe(baseInstant);
+    expect(observedTimes.at(-1)).toBe(latestEligibleInstant);
+
+    const repeated = await adapter.getOddsHistory(eventId, outcome!.id, asOf);
+    expect(repeated!.observations.map((row) => row.id)).toEqual(
+      history!.observations.map((row) => row.id),
+    );
+
+    const rawMatch = await adapter.getMatch(eventId, asOf);
+    expect(rawMatch).not.toBeNull();
+    const home = rawMatch!.outcomes.find(
+      (candidate) => candidate.outcome.id === outcome!.id,
+    );
+    expect(home).toBeDefined();
+    expect(home!.odds.map((row) => row.id)).toEqual(
+      history!.observations.map((row) => row.id),
+    );
+    const movement = summariseOddsMovement(home!.odds);
+    expect(movement).toMatchObject({
+      openingOdds: "2",
+      currentOdds: "1.8",
+      movementPercent: "-0.1",
+      state: "MOVED",
+      observationTimes: 501,
+      bookmakerCount: 1,
+    });
+    expect(
+      assessOddsFreshness(home!.odds.at(-1)!.providerObservedAt, rawMatch!.asOf)
+        .freshness,
+    ).toBe("CURRENT");
+
+    /* The opening/tail scope remains ACTIVE, non-synthetic and exact HOME. */
+    expect(home!.odds.every((row) => row.status === "ACTIVE")).toBe(true);
+    expect(home!.odds.every((row) => !row.isSynthetic)).toBe(true);
+    expect(
+      home!.odds.every((row) => row.eventMarketOutcomeId === outcome!.id),
+    ).toBe(true);
+
+    const away = rawMatch!.outcomes.find(
+      (candidate) => candidate.outcomeDefinition.code === "AWAY",
+    );
+    expect(away).toBeDefined();
+    const awayHistory = await adapter.getOddsHistory(
+      eventId,
+      away!.outcome.id,
+      asOf,
+    );
+    expect(awayHistory!.observations).toHaveLength(1);
+
+    /* The outcome exists but belongs to the synthetic event corpus. */
+    const syntheticProviderEventId = "900014";
+    const syntheticIngest = await ingest(
+      fixture({ providerEventId: syntheticProviderEventId }),
+    );
+    expect(syntheticIngest.ok).toBe(true);
+    if (!syntheticIngest.ok) return;
+    await ingestFootballOdds(
+      database,
+      [
+        {
+          ...quote("Synthetic Corpus Book", "Home", "2.20", openingInstant),
+          providerEventId: syntheticProviderEventId,
+        },
+      ],
+      referenceData,
+    );
+    await database
+      .update(events)
+      .set({ synthetic: true })
+      .where(eq(events.id, syntheticIngest.eventId));
+    const [syntheticOutcome] = await database
+      .select({ id: eventMarketOutcomes.id })
+      .from(eventMarketOutcomes)
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        outcomeDefinitions,
+        eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+      )
+      .where(
+        and(
+          eq(eventMarkets.eventId, syntheticIngest.eventId),
+          eq(outcomeDefinitions.code, "HOME"),
+        ),
+      );
+    expect(syntheticOutcome).toBeDefined();
+    expect(
+      await adapter.getOddsHistory(
+        syntheticIngest.eventId,
+        syntheticOutcome!.id,
+        asOf,
+      ),
+    ).toBeNull();
   }, 60_000);
 
   /* ------------------------------------------------- over/under 2.5 goals */
