@@ -116,7 +116,7 @@ export const sourceObservations = operationsSchema.table(
     providerExternalId: text("provider_external_id").notNull(),
     providerObservedAt: timestamp("provider_observed_at", {
       withTimezone: true,
-    }).notNull(),
+    }),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
     normalizedAt: timestamp("normalized_at", { withTimezone: true }).notNull(),
     normalizationVersion: text("normalization_version").notNull(),

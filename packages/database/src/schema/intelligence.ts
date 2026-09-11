@@ -452,7 +452,7 @@ export const eventResults = intelligenceSchema.table(
     awayScore: integer("away_score"),
     providerObservedAt: timestamp("provider_observed_at", {
       withTimezone: true,
-    }).notNull(),
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -301,6 +301,7 @@ export async function ingestFootballResults(
     results: readonly NormalizedResult[];
     /** Provider policy version in force, required by `provider_sync_runs`. */
     policyVersionId: string;
+    clock?: () => Date;
   }>,
 ): Promise<ResultIngestionSummary> {
   const skippedByReason: Record<string, number> = {};
@@ -354,6 +355,16 @@ export async function ingestFootballResults(
     statusByProviderFixtureId[result.providerEventId] = result.status;
 
     try {
+      const receivedAt = new Date(result.receivedAt);
+      if (!Number.isFinite(receivedAt.getTime())) {
+        throw new Error("RESULT_RECEIVED_AT_INVALID");
+      }
+      const normalizedAt = new Date(
+        Math.max(
+          (input.clock?.() ?? new Date()).getTime(),
+          receivedAt.getTime(),
+        ),
+      );
       const outcome: FixtureOutcome = await database.transaction(
         async (transaction) => {
           const scoped = transaction as unknown as PrivilegedVelyqDatabase;
@@ -402,9 +413,12 @@ export async function ingestFootballResults(
               syncRunId: syncRun.id,
               observationType: "RESULT",
               providerExternalId: result.providerEventId,
-              providerObservedAt: new Date(result.providerObservedAt),
-              receivedAt: new Date(result.providerObservedAt),
-              normalizedAt: new Date(result.providerObservedAt),
+              providerObservedAt:
+                result.providerObservedAt === null
+                  ? null
+                  : new Date(result.providerObservedAt),
+              receivedAt,
+              normalizedAt,
               normalizationVersion: "api-sports.v1",
               mappingVersion: "api-sports.v1",
               contentHash,
@@ -431,7 +445,10 @@ export async function ingestFootballResults(
               status: result.status,
               homeScore: result.homeScore,
               awayScore: result.awayScore,
-              providerObservedAt: new Date(result.providerObservedAt),
+              providerObservedAt:
+                result.providerObservedAt === null
+                  ? null
+                  : new Date(result.providerObservedAt),
             })
             .onConflictDoNothing({
               target: [eventResults.sourceObservationId, eventResults.eventId],
@@ -513,7 +530,12 @@ export async function ingestFootballResults(
                 eventResultId: storedResult.id,
                 outcome: instruction.outcome,
                 settlementRuleVersion: ruleVersion,
-                settledAt: new Date(instruction.observedAt),
+                settledAt: new Date(
+                  Math.max(
+                    (input.clock?.() ?? new Date()).getTime(),
+                    normalizedAt.getTime(),
+                  ),
+                ),
                 closingOdds: closing?.closingOdds ?? null,
                 clv: closing?.clv ?? null,
               })

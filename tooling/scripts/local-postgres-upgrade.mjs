@@ -134,6 +134,7 @@ psql -t -A -F',' -c "
 " > /tmp/velyq-upgrade-before.csv
 psql -t -A -c "select id, sport_id, competition_id, starts_at, status, synthetic from catalog.events order by id" \\
   > /tmp/velyq-upgrade-events-before.txt
+psql -t -A -c "select row_to_json(s) from operations.source_observations s order by id" > /tmp/velyq-upgrade-sources-before.txt
 
 echo '--- NEW MIGRATIONS: applying the remaining migration chain ---'
 past_boundary=0
@@ -148,6 +149,7 @@ for migration in $(find '${wslWorkspace}/supabase/migrations' -maxdepth 1 -type 
 done
 
 echo '--- verifying current schema is fully present ---'
+psql -t -A -c "select count(*) = 2 from information_schema.columns where (table_schema, table_name) in (('operations', 'source_observations'), ('intelligence', 'event_results')) and column_name = 'provider_observed_at' and is_nullable = 'YES'" | grep -qx t
 psql -t -A -c "select to_regclass('catalog.competition_identities') is not null" | grep -qx t
 psql -t -A -c "select to_regclass('catalog.event_identities') is not null" | grep -qx t
 psql -t -A -c "select to_regclass('intelligence.forecasts') is not null" | grep -qx t
@@ -176,6 +178,8 @@ diff /tmp/velyq-upgrade-before.csv /tmp/velyq-upgrade-after.csv
 psql -t -A -c "select id, sport_id, competition_id, starts_at, status, synthetic from catalog.events order by id" \\
   > /tmp/velyq-upgrade-events-after.txt
 diff /tmp/velyq-upgrade-events-before.txt /tmp/velyq-upgrade-events-after.txt
+psql -t -A -c "select row_to_json(s) from operations.source_observations s order by id" > /tmp/velyq-upgrade-sources-after.txt
+diff /tmp/velyq-upgrade-sources-before.txt /tmp/velyq-upgrade-sources-after.txt
 
 echo '--- verifying no duplicate provider identities were introduced ---'
 psql -t -A -c "

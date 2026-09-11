@@ -869,7 +869,8 @@ export async function createProviderIngestionAdapter(
         const response = await client.get("/fixtures", {
           ids: providerFixtureIds.join("-"),
         });
-        const quota = observedQuotaFrom(response.quota, null, clock());
+        const receivedAt = clock();
+        const quota = observedQuotaFrom(response.quota, null, receivedAt);
         const rejection = classifyProviderResponse(
           response.status,
           response.body.errors,
@@ -889,7 +890,7 @@ export async function createProviderIngestionAdapter(
            * become a permanent re-ask.
            */
           try {
-            const normalized = normalizeFootballResult(record);
+            const normalized = normalizeFootballResult(record, receivedAt);
             value.push(normalized);
             statusByFixtureId[normalized.providerEventId] = normalized.status;
           } catch {
@@ -1018,6 +1019,7 @@ export async function createProviderIngestionAdapter(
         providerId,
         results,
         policyVersionId: reference.policyVersionId,
+        clock,
       });
 
       /*

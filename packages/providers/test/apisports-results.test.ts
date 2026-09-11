@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  normalizeFootballResult,
+  normalizeFootballResult as normalizeResult,
   resultLifecycleStatus,
 } from "../src/apisports.js";
+
+const receivedAt = new Date("2026-09-10T20:45:00.000Z");
+const normalizeFootballResult = (raw: unknown, at = receivedAt) =>
+  normalizeResult(raw, at);
 
 /**
  * Result normalization is the boundary where a provider's fixture-status
@@ -32,7 +36,7 @@ function fixture(
 }
 
 describe("normalizeFootballResult", () => {
-  it("reads the score and the provider's own observation instant", () => {
+  it("records acquisition separately from kickoff without inventing a provider update", () => {
     const result = normalizeFootballResult(fixture());
     expect(result).toEqual({
       sport: "FOOTBALL",
@@ -40,27 +44,31 @@ describe("normalizeFootballResult", () => {
       status: "FINAL",
       homeScore: 2,
       awayScore: 1,
-      providerObservedAt: new Date(1_789_065_000 * 1000).toISOString(),
+      providerObservedAt: null,
+      receivedAt: "2026-09-10T20:45:00.000Z",
       provider: "API_SPORTS",
       sourceReference: "api-sports:football:results",
     });
   });
 
-  it("falls back to the fixture date when no unix timestamp is present", () => {
+  it("does not mistake the fixture date for a provider update", () => {
     const result = normalizeFootballResult(fixture({ timestamp: undefined }));
-    expect(result.providerObservedAt).toBe(
-      new Date("2026-09-10T18:30:00+00:00").toISOString(),
-    );
+    expect(result.providerObservedAt).toBeNull();
+    expect(result.receivedAt).toBe("2026-09-10T20:45:00.000Z");
   });
 
-  /*
-   * A result with no attributable instant is not partially usable: freshness,
-   * ordering and idempotency all key off it.
-   */
-  it("refuses a result with no observation instant at all", () => {
+  it("accepts an acquired result even when the kickoff timestamp is missing", () => {
+    const result = normalizeFootballResult(
+      fixture({ timestamp: undefined, date: null }),
+    );
+    expect(result.providerObservedAt).toBeNull();
+    expect(result.receivedAt).toBe("2026-09-10T20:45:00.000Z");
+  });
+
+  it("rejects an invalid acquisition instant", () => {
     expect(() =>
-      normalizeFootballResult(fixture({ timestamp: undefined, date: null })),
-    ).toThrow("RESULT_OBSERVED_AT_MISSING");
+      normalizeFootballResult(fixture(), new Date("invalid")),
+    ).toThrow("RESULT_RECEIVED_AT_INVALID");
   });
 
   it("refuses a result with no fixture identity", () => {

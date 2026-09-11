@@ -18,6 +18,7 @@ import {
   marketDefinitions,
   outcomeDefinitions,
 } from "../schema/market.js";
+import { sourceObservations } from "../schema/operations.js";
 
 export type HistoricalDecisionRow = Readonly<{
   decision: typeof decisions.$inferSelect;
@@ -45,7 +46,8 @@ const decisionCreatedAtMillis = sql<Date>`date_trunc('milliseconds', ${decisions
 
 /**
  * One correction-safe settlement key per decision. Provider observation time
- * is the authority; persisted timestamps and UUIDs make equal observations
+ * is the authority when known; otherwise acquisition orders the responses.
+ * Persisted timestamps and UUIDs make equal observations
  * deterministic without rewriting any audit row.
  */
 function authoritativeSettlementIds(database: PrivilegedVelyqDatabase) {
@@ -59,9 +61,15 @@ function authoritativeSettlementIds(database: PrivilegedVelyqDatabase) {
       eventResults,
       eq(marketSettlements.eventResultId, eventResults.id),
     )
+    .innerJoin(
+      sourceObservations,
+      eq(eventResults.sourceObservationId, sourceObservations.id),
+    )
     .orderBy(
       asc(marketSettlements.decisionId),
-      desc(eventResults.providerObservedAt),
+      desc(
+        sql`coalesce(${eventResults.providerObservedAt}, ${sourceObservations.receivedAt})`,
+      ),
       desc(eventResults.createdAt),
       desc(eventResults.id),
       desc(marketSettlements.createdAt),

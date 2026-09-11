@@ -6,6 +6,7 @@ import type {
 import type { PrivilegedVelyqDatabase } from "../client.js";
 import { eventIdentities } from "../schema/catalog.js";
 import { eventResults, marketSettlements } from "../schema/intelligence.js";
+import { sourceObservations } from "../schema/operations.js";
 
 export class DatabaseResultSettlementRepository {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
@@ -41,6 +42,20 @@ export class DatabaseResultSettlementRepository {
         )
         .limit(1);
       if (!identity) throw new Error("RESULT_EVENT_IDENTITY_NOT_FOUND");
+      const [source] = await transaction
+        .select({
+          receivedAt: sourceObservations.receivedAt,
+          normalizedAt: sourceObservations.normalizedAt,
+        })
+        .from(sourceObservations)
+        .where(
+          and(
+            eq(sourceObservations.id, input.sourceObservationId),
+            eq(sourceObservations.providerId, input.providerId),
+          ),
+        )
+        .limit(1);
+      if (!source) throw new Error("RESULT_SOURCE_OBSERVATION_NOT_FOUND");
       const [storedResult] = await transaction
         .insert(eventResults)
         .values({
@@ -49,7 +64,10 @@ export class DatabaseResultSettlementRepository {
           status: input.result.status,
           homeScore: input.result.homeScore,
           awayScore: input.result.awayScore,
-          providerObservedAt: new Date(input.result.observedAt),
+          providerObservedAt:
+            input.result.observedAt === null
+              ? null
+              : new Date(input.result.observedAt),
         })
         .onConflictDoNothing({
           target: [eventResults.sourceObservationId, eventResults.eventId],
@@ -82,7 +100,13 @@ export class DatabaseResultSettlementRepository {
             settlementRuleVersion: input.settlementRuleVersion,
             closingOdds: closing?.odds ?? null,
             clv: closing?.clv ?? null,
-            settledAt: new Date(settlement.observedAt),
+            settledAt: new Date(
+              Math.max(
+                Date.now(),
+                source.receivedAt.getTime(),
+                source.normalizedAt.getTime(),
+              ),
+            ),
           })
           .onConflictDoNothing({
             target: [

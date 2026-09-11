@@ -289,7 +289,9 @@ export type NormalizedResult = Readonly<{
   status: ResultLifecycleStatus;
   homeScore: number | null;
   awayScore: number | null;
-  providerObservedAt: string;
+  /** Unknown: the fixtures endpoint supplies kickoff, not a result update time. */
+  providerObservedAt: string | null;
+  receivedAt: string;
   provider: "API_SPORTS";
   sourceReference: string;
 }>;
@@ -373,8 +375,12 @@ function optionalScore(value: unknown): number | null {
  */
 export function normalizeFootballResult(
   raw: unknown,
+  receivedAt: Date,
   sourceReference = "api-sports:football:results",
 ): NormalizedResult {
+  if (!(receivedAt instanceof Date) || !Number.isFinite(receivedAt.getTime())) {
+    throw new Error("RESULT_RECEIVED_AT_INVALID");
+  }
   const item = valueRecord(raw);
   const fixture = valueRecord(item["fixture"]);
   const goals = valueRecord(item["goals"]);
@@ -395,24 +401,17 @@ export function normalizeFootballResult(
     providerCodeNormalized === "AET" || providerCodeNormalized === "PEN"
       ? fulltime
       : goals;
-  /* The provider's own timestamp for the fixture record. Unlike odds, a
-     fixture element always carries `date`; falling back to our fetch time
-     would make a result's age unknowable. */
-  const observedAt = fixture["timestamp"];
+  /* `fixture.timestamp` and `fixture.date` describe kickoff. This endpoint
+     supplies no genuine result-update timestamp; receipt is measured by the
+     caller after acquiring the response, independently of the fixture. */
   return {
     sport: "FOOTBALL",
     providerEventId: String(fixture["id"]),
     status,
     homeScore: optionalScore(regulationScore["home"]),
     awayScore: optionalScore(regulationScore["away"]),
-    providerObservedAt:
-      typeof observedAt === "number" && Number.isFinite(observedAt)
-        ? new Date(observedAt * 1000).toISOString()
-        : typeof fixture["date"] === "string"
-          ? new Date(fixture["date"]).toISOString()
-          : (() => {
-              throw new Error("RESULT_OBSERVED_AT_MISSING");
-            })(),
+    providerObservedAt: null,
+    receivedAt: receivedAt.toISOString(),
     provider: "API_SPORTS",
     sourceReference,
   };

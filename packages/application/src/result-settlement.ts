@@ -6,7 +6,7 @@ export type ProviderFinalResult = Readonly<{
   status: "FINAL" | "IN_PROGRESS" | "CANCELLED" | "ABANDONED";
   homeScore: number | null;
   awayScore: number | null;
-  observedAt: string;
+  observedAt: string | null;
 }>;
 export type SettlementCandidate = Readonly<{
   decisionId: string;
@@ -17,7 +17,7 @@ export type SettlementInstruction = Readonly<{
   decisionId: string;
   providerFixtureId: string;
   outcome: SettlementOutcome;
-  observedAt: string;
+  observedAt: string | null;
 }>;
 
 /** Provider-neutral boundary: fixture identity, never team-name matching. */

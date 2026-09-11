@@ -36,7 +36,8 @@ import { join } from "node:path";
  *     -> dash) that 20260925110000_legacy_identity_compatibility.sql
  *     relies on to link competition_id without guessing.
  *
- * Applies ONLY the three reconciliation migrations on top of this fixture
+ * Applies the reconciliation migrations and subsequent additive release
+ * migrations on top of this fixture
  * -- 20260925110000 (legacy compatibility), 20260922090000 (idempotent
  * score_results, verified to no-op), 20260925100000 (forecast history) --
  * not the full chain, since replaying this branch's disputed
@@ -257,6 +258,34 @@ psql -c "
   where id = '99000000-0000-4000-8000-000000000002'
 "
 psql -f '${wslWorkspace}/supabase/migrations/20260926120000_enforce_identity_invariants.sql'
+
+echo '--- applying subsequent provider ingestion migrations ---'
+psql -f '${wslWorkspace}/supabase/migrations/20260927090000_provider_quota_and_ingestion_runs.sql'
+psql -f '${wslWorkspace}/supabase/migrations/20260927100000_provider_quota_purpose_counters.sql'
+psql -f '${wslWorkspace}/supabase/migrations/20260927110000_provider_odds_request_log.sql'
+psql -f '${wslWorkspace}/supabase/migrations/20260928090000_provider_result_requests_and_run_counters.sql'
+psql -f '${wslWorkspace}/supabase/migrations/20260928100000_provider_lineup_requests_and_run_counters.sql'
+
+echo '--- preserving historical source evidence through nullable observation migration ---'
+psql -c "
+  insert into operations.source_observations
+    (id, provider_id, sync_run_id, observation_type, provider_external_id, provider_observed_at, received_at, normalized_at, normalization_version, mapping_version, content_hash)
+  select '99000000-0000-4000-8000-000000000015', provider_id, sync_run_id, 'RESULT', 'legacy-result-15', '2026-09-10T18:30:00Z', '2026-09-10T18:30:00Z', '2026-09-10T18:30:00Z', normalization_version, mapping_version, 'sha256:legacy-result-15'
+  from operations.source_observations order by id limit 1;
+  insert into intelligence.event_results
+    (id, event_id, source_observation_id, status, home_score, away_score, provider_observed_at)
+  select '99000000-0000-4000-8000-000000000015', id, '99000000-0000-4000-8000-000000000015', 'FINAL', 2, 1, '2026-09-10T18:30:00Z'
+  from catalog.events order by id limit 1;
+"
+psql -t -A -c "select count(*) = 1 from intelligence.event_results where id = '99000000-0000-4000-8000-000000000015'" | grep -qx t
+psql -t -A -c "select row_to_json(s) from operations.source_observations s order by id" > /tmp/velyq-production-upgrade-sources-before.txt
+psql -t -A -c "select row_to_json(r) from intelligence.event_results r order by id" > /tmp/velyq-production-upgrade-results-before.txt
+psql -f '${wslWorkspace}/supabase/migrations/20260928110000_result_observation_time_nullable.sql'
+psql -t -A -c "select row_to_json(s) from operations.source_observations s order by id" > /tmp/velyq-production-upgrade-sources-after.txt
+psql -t -A -c "select row_to_json(r) from intelligence.event_results r order by id" > /tmp/velyq-production-upgrade-results-after.txt
+diff /tmp/velyq-production-upgrade-sources-before.txt /tmp/velyq-production-upgrade-sources-after.txt
+diff /tmp/velyq-production-upgrade-results-before.txt /tmp/velyq-production-upgrade-results-after.txt
+psql -t -A -c "select count(*) = 2 from information_schema.columns where (table_schema, table_name) in (('operations', 'source_observations'), ('intelligence', 'event_results')) and column_name = 'provider_observed_at' and is_nullable = 'YES'" | grep -qx t
 
 echo '--- verifying the release tables now exist ---'
 psql -t -A -c "select to_regclass('intelligence.forecasts') is not null" | grep -qx t

@@ -1,10 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lte, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { orchestrateResultSettlement } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import type { NormalizedEvent } from "@velyq/providers";
-import { normalizeFootballResult, teamAliasLookupFor } from "@velyq/providers";
+import {
+  normalizeFootballResult as normalizeResult,
+  teamAliasLookupFor,
+} from "@velyq/providers";
+
+const normalizeFootballResult = (
+  raw: unknown,
+  receivedAt = new Date("2026-09-20T20:45:00.000Z"),
+) => normalizeResult(raw, receivedAt);
 
 import { createPrivilegedDatabaseClient } from "../src/client.js";
 import {
@@ -14,6 +22,7 @@ import {
 import { ensureFootballReferenceData } from "../src/repositories/odds-ingestion.js";
 import { DatabaseResultSettlementRepository } from "../src/repositories/result-settlement.js";
 import { ingestFootballResults } from "../src/repositories/result-ingestion.js";
+import { createProviderIngestionAdapter } from "../src/repositories/provider-ingestion-adapter.js";
 import { DatabaseHistoryQueryAdapter } from "../src/repositories/history.js";
 import {
   calibrationVersions,
@@ -610,6 +619,9 @@ describe("forecast, decision and settlement, against a real database", () => {
     expect(settlements).toHaveLength(1);
     expect(settlements[0]?.outcome).toBe("WIN");
     expect(settlements[0]?.decisionId).toBe(decision.id);
+    expect(settlements[0]!.settledAt.getTime()).toBeGreaterThanOrEqual(
+      new Date("2026-09-20T20:00:01.000Z").getTime(),
+    );
 
     const history = await new DatabaseHistoryQueryAdapter(
       database,
@@ -1288,6 +1300,158 @@ describe("forecast, decision and settlement, against a real database", () => {
       };
     }
 
+    it("makes a late result available only after receipt and preserves receipt across replay and correction", async () => {
+      const decision = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.55",
+        offeredOdds: "2.1",
+        selection: "HOME",
+        eventMarketOutcomeId: outcomeIdBySelection.HOME,
+      });
+      const raw = providerRecord(
+        {
+          date: "2026-09-20T18:30:00.000Z",
+          timestamp: Date.parse("2026-09-20T18:30:00.000Z") / 1000,
+        },
+        { home: 7, away: 2 },
+      );
+      const ingest = (payload: unknown, receipt: string) =>
+        ingestFootballResults(database, {
+          providerId: referenceData.providerId,
+          policyVersionId: referenceData.policyVersionId,
+          results: [normalizeFootballResult(payload, new Date(receipt))],
+          clock: () => new Date(receipt),
+        });
+      expect((await ingest(raw, "2026-09-20T20:45:00.000Z")).written).toBe(1);
+      const visible = (asOf: string) =>
+        database
+          .select({ outcome: marketSettlements.outcome })
+          .from(marketSettlements)
+          .where(
+            and(
+              eq(marketSettlements.decisionId, decision.id),
+              lte(marketSettlements.settledAt, new Date(asOf)),
+            ),
+          );
+      expect(await visible("2026-09-20T19:00:00.000Z")).toEqual([]);
+      expect(await visible("2026-09-20T20:45:01.000Z")).toEqual([
+        { outcome: "WIN" },
+      ]);
+      expect(await ingest(raw, "2026-09-20T21:00:00.000Z")).toMatchObject({
+        written: 0,
+        duplicate: 1,
+        settlementsWritten: 0,
+      });
+      const correctedRaw = { ...raw, goals: { home: 2, away: 7 } };
+      expect(
+        (await ingest(correctedRaw, "2026-09-20T21:15:00.000Z")).written,
+      ).toBe(1);
+      const stored = await database
+        .select({
+          receipt: sourceObservations.receivedAt,
+          normalized: sourceObservations.normalizedAt,
+          providerObservedAt: sourceObservations.providerObservedAt,
+          resultObservedAt: eventResults.providerObservedAt,
+          outcome: marketSettlements.outcome,
+          settledAt: marketSettlements.settledAt,
+        })
+        .from(marketSettlements)
+        .innerJoin(
+          eventResults,
+          eq(eventResults.id, marketSettlements.eventResultId),
+        )
+        .innerJoin(
+          sourceObservations,
+          eq(sourceObservations.id, eventResults.sourceObservationId),
+        )
+        .where(eq(marketSettlements.decisionId, decision.id))
+        .orderBy(sourceObservations.receivedAt);
+      expect(stored).toEqual([
+        {
+          receipt: new Date("2026-09-20T20:45:00.000Z"),
+          normalized: new Date("2026-09-20T20:45:00.000Z"),
+          providerObservedAt: null,
+          resultObservedAt: null,
+          outcome: "WIN",
+          settledAt: new Date("2026-09-20T20:45:00.000Z"),
+        },
+        {
+          receipt: new Date("2026-09-20T21:15:00.000Z"),
+          normalized: new Date("2026-09-20T21:15:00.000Z"),
+          providerObservedAt: null,
+          resultObservedAt: null,
+          outcome: "LOSS",
+          settledAt: new Date("2026-09-20T21:15:00.000Z"),
+        },
+      ]);
+      expect(await visible("2026-09-20T20:45:01.000Z")).toEqual([
+        { outcome: "WIN" },
+      ]);
+      // An older acquired response processed later must not replace the correction.
+      expect(
+        (
+          await ingest(
+            { ...raw, goals: { home: 6, away: 2 } },
+            "2026-09-20T20:30:00.000Z",
+          )
+        ).written,
+      ).toBe(1);
+      const history = await new DatabaseHistoryQueryAdapter(
+        database,
+      ).listDecisionsForEvent(eventId, false);
+      expect(
+        history.find((row) => row.decision.id === decision.id)?.settlement
+          ?.outcome,
+      ).toBe("LOSS");
+    });
+
+    it("carries the post-response acquisition clock through provider fetch and persistence", async () => {
+      let now = new Date("2026-09-20T20:44:00.000Z");
+      const adapter = await createProviderIngestionAdapter(database, {
+        clock: () => now,
+        client: {
+          async get(path, query) {
+            expect(path).toBe("/fixtures");
+            expect(query).toEqual({ ids: "950001" });
+            now = new Date("2026-09-20T20:45:00.000Z");
+            return {
+              status: 200,
+              body: { response: [providerRecord({}, { home: 8, away: 3 })] },
+              quota: { state: "HEALTHY", requestsRemaining: 100 },
+            };
+          },
+        },
+      });
+      const response = await adapter.deps.fetchResults(["950001"]);
+      expect(response.ok).toBe(true);
+      if (!response.ok) throw new Error(response.reason);
+      expect(response.value[0]).toMatchObject({
+        receivedAt: "2026-09-20T20:45:00.000Z",
+        providerObservedAt: null,
+      });
+      now = new Date("2026-09-20T20:47:00.000Z");
+      expect((await adapter.deps.persistResults(response.value)).written).toBe(
+        1,
+      );
+      const [stored] = await database
+        .select({
+          receivedAt: sourceObservations.receivedAt,
+          normalizedAt: sourceObservations.normalizedAt,
+        })
+        .from(eventResults)
+        .innerJoin(
+          sourceObservations,
+          eq(sourceObservations.id, eventResults.sourceObservationId),
+        )
+        .where(
+          and(eq(eventResults.eventId, eventId), eq(eventResults.homeScore, 8)),
+        );
+      expect(stored).toEqual({
+        receivedAt: new Date("2026-09-20T20:45:00.000Z"),
+        normalizedAt: new Date("2026-09-20T20:47:00.000Z"),
+      });
+    });
+
     it("stores a result and settles the decisions it answers", async () => {
       const decision = await persistDecision({
         decisionStatus: "STRONG_EDGE",
@@ -1396,9 +1560,11 @@ describe("forecast, decision and settlement, against a real database", () => {
           awayScore: eventResults.awayScore,
         })
         .from(eventResults)
-        .where(
-          eq(eventResults.providerObservedAt, new Date(observedAt * 1000)),
-        );
+        .innerJoin(
+          marketSettlements,
+          eq(marketSettlements.eventResultId, eventResults.id),
+        )
+        .where(eq(marketSettlements.decisionId, draw.id));
       expect(stored).toEqual({ homeScore: 1, awayScore: 1 });
 
       const drawSettlements = await database
