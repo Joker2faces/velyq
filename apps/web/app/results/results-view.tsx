@@ -41,6 +41,19 @@ const copy = (locale: Locale) => {
     live: t("historyLiveData"),
     all: t("historyAllQualifying"),
     model: t("historyModel"),
+    periodDemo: t("historyPeriodDemo"),
+    periodAll: t("historyPeriodAll"),
+    settlement: {
+      WIN: t("historySettlementWin"),
+      LOSS: t("historySettlementLoss"),
+      VOID: t("historySettlementVoid"),
+      UNSETTLED: t("historySettlementUnsettled"),
+    },
+    priceQuality: {
+      POSITIVE_CLV: t("historyPricePositive"),
+      NEGATIVE_CLV: t("historyPriceNegative"),
+      UNAVAILABLE: t("historyPriceUnavailable"),
+    },
     fair: t("historyFairPrice"),
     loadOlder: t("historyLoadOlder"),
     loadingOlder: t("historyLoadingOlder"),
@@ -56,6 +69,7 @@ export function ResultsView({
   locale: Locale;
 }) {
   const t = copy(locale);
+  const period = data.period === "DEMO_SAMPLE" ? t.periodDemo : t.periodAll;
   /*
    * Appended locally rather than re-fetched wholesale: History only ever
    * grows from the front (new decisions insert above old ones), so a page
@@ -107,29 +121,11 @@ export function ResultsView({
       clv: item.clv,
     })),
   );
-  const settlementLabel = (value: string) =>
-    ({
-      en: { WIN: "Win", LOSS: "Loss", VOID: "Void", UNSETTLED: "Unsettled" },
-      el: { WIN: "Νίκη", LOSS: "Ήττα", VOID: "Άκυρο", UNSETTLED: "Εκκρεμεί" },
-    })[locale][value as "WIN"] ?? value;
-  const priceLabel = (value: string) =>
-    ({
-      en: {
-        POSITIVE_CLV: "Good closing-line price",
-        NEGATIVE_CLV: "Below closing-line price",
-        UNAVAILABLE: "Unavailable",
-      },
-      el: {
-        POSITIVE_CLV: "Καλή τιμή έναντι κλεισίματος",
-        NEGATIVE_CLV: "Χαμηλότερη τιμή από το κλείσιμο",
-        UNAVAILABLE: "Μη διαθέσιμη",
-      },
-    })[locale][value as "POSITIVE_CLV"] ?? value;
   return (
     <div className="page">
       <div className="page__head">
         <div className="page__head-copy">
-          <p className="eyebrow">{data.period}</p>
+          <p className="eyebrow">{period}</p>
           <h1>{t.title}</h1>
           <p>{t.sub}</p>
         </div>
@@ -178,10 +174,7 @@ export function ResultsView({
         </Card>
       </div>
       <Card>
-        <CardHead
-          title={t.all}
-          hint={`${data.modelVersion} · ${data.period}`}
-        />{" "}
+        <CardHead title={t.all} hint={`${data.modelVersion} · ${period}`} />{" "}
         {/*
          * Announced politely so a screen-reader user learns older decisions
          * loaded without the page stealing focus from wherever they were --
@@ -211,7 +204,7 @@ export function ResultsView({
                 <b
                   className={`results-outcome results-outcome--${item.settlement.toLowerCase()}`}
                 >
-                  {settlementLabel(item.settlement)}
+                  {t.settlement[item.settlement]}
                 </b>
                 <span>
                   {t.outcome}: {item.finalScore}
@@ -225,7 +218,7 @@ export function ResultsView({
                   {formatPercent(item.expectedValue, 1, locale)}
                 </span>
                 <span>
-                  {t.price}: {priceLabel(item.priceQuality)}
+                  {t.price}: {t.priceQuality[item.priceQuality]}
                   {item.clv
                     ? ` · CLV ${formatPercent(item.clv, 1, locale)}`
                     : ""}

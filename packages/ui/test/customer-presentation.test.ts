@@ -4,7 +4,9 @@ import {
   classifyCustomerMatch,
   freshnessLabel,
   freshnessTone,
+  marketLabel,
   movementLabel,
+  recommendationLabel,
   selectionLabel,
   summariseCustomerMatches,
   type SummarisableMatch,
@@ -57,8 +59,17 @@ describe("selection labels", () => {
   });
 
   it("still passes through a real market line the provider states", () => {
-    /* "Over 2.5" is what Greek betting markets print; not an identifier. */
+    /* The English provider label remains English on the English surface. */
     expect(selectionLabel("Over 2.5", "en")).toBe("Over 2.5");
+  });
+
+  it("localizes legacy provider display labels on the Greek surface", () => {
+    expect(selectionLabel("Over 2.5", "el")).toBe("Πάνω 2.5");
+    expect(selectionLabel("Under 2.5", "el")).toBe("Κάτω 2.5");
+    expect(marketLabel("Full-time 1X2", "el")).toBe("Τελικό αποτέλεσμα 1Χ2");
+    expect(marketLabel("Over/Under 2.5", "el")).toBe(
+      "Σύνολο γκολ κανονικής διάρκειας",
+    );
   });
 
   /*
@@ -83,6 +94,18 @@ describe("selection labels", () => {
       expect(selectionLabel("outcome.over", locale)).not.toContain("outcome.");
       expect(selectionLabel("outcome.under", locale)).not.toContain("outcome.");
     }
+  });
+});
+
+describe("recommendation labels", () => {
+  it("localizes every actionable and watch status used by History", () => {
+    expect(recommendationLabel("EDGE", "el")).toBe("Αξία");
+    expect(recommendationLabel("WATCH", "el")).toBe("Παρακολούθηση");
+  });
+
+  it("preserves the English recommendation vocabulary", () => {
+    expect(recommendationLabel("EDGE", "en")).toBe("Edge");
+    expect(recommendationLabel("WATCH", "en")).toBe("Watch");
   });
 });
 

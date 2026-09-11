@@ -32,6 +32,8 @@ function lookup(
 
 const RECOMMENDATION_LABELS: Readonly<Record<string, MessageKey>> = {
   STRONG_EDGE: "recStrongEdge",
+  EDGE: "recEdge",
+  WATCH: "recWatch",
   WAIT: "recWait",
   WAIT_FOR_LINEUP: "recWaitForLineup",
   NO_BET: "recNoBet",
@@ -138,6 +140,9 @@ const SELECTION_LABELS: Readonly<Record<string, MessageKey>> = {
   UNDER: "selectionUnder",
   "outcome.over": "selectionOver",
   "outcome.under": "selectionUnder",
+  /* Older synthetic payloads supplied display labels instead of codes. */
+  "Over 2.5": "selectionOver",
+  "Under 2.5": "selectionUnder",
 };
 
 /**
@@ -156,6 +161,9 @@ function looksInternal(value: string): boolean {
 const MARKET_LABELS: Readonly<Record<string, MessageKey>> = {
   "market.football_full_time_1x2": "marketFullTime1x2",
   "market.football_full_time_total": "marketFullTimeTotal",
+  /* Older synthetic payloads supplied display labels instead of keys. */
+  "Full-time 1X2": "marketFullTime1x2",
+  "Over/Under 2.5": "marketFullTimeTotal",
 };
 
 /**
@@ -202,9 +210,9 @@ export function competitionLabel(value: string) {
 /**
  * Human label for a market selection.
  *
- * 1X2 outcomes are translated. Over/under lines are deliberately left as the
- * provider states them — "Over 2.5" is what Greek betting markets actually
- * print, and localising it would read as an invention.
+ * 1X2 outcomes and over/under lines are translated. Legacy provider display
+ * labels are accepted as input, but still pass through the typed catalog so
+ * English demo data cannot leak into the Greek surface.
  *
  * An unmapped value that looks like an internal identifier is replaced with a
  * neutral dash rather than printed. Showing nothing is a small loss; showing

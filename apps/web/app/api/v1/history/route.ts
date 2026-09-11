@@ -64,7 +64,7 @@ export async function GET(request: Request) {
         {
           syntheticLabel: "Live data",
           asOf: new Date().toISOString(),
-          period: "All persisted qualifying decisions",
+          period: "ALL_PERSISTED",
           modelVersion:
             modelVersions.length === 1
               ? modelVersions[0]

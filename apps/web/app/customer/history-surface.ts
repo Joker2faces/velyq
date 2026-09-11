@@ -30,7 +30,7 @@ export type DecisionHistoryItem = Readonly<{
 export type HistorySurfaceDto = Readonly<{
   syntheticLabel: "Synthetic data" | "Live data";
   asOf: string;
-  period: string;
+  period: "DEMO_SAMPLE" | "ALL_PERSISTED";
   modelVersion: string;
   decisions: readonly DecisionHistoryItem[];
   /** Whether an older page exists beyond this one. */

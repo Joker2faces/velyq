@@ -844,6 +844,8 @@ export const messages = {
 
   // ------------------------------------------------------ recommendations
   recStrongEdge: "Strong edge",
+  recEdge: "Edge",
+  recWatch: "Watch",
   recStrongEdgeBody:
     "The model's probability is meaningfully above the probability implied by the current price, and the quality gate passed.",
   recWait: "Wait",
@@ -989,6 +991,15 @@ export const messages = {
   historyLiveData: "Live data",
   historyAllQualifying: "All qualifying decisions",
   historyModel: "Model",
+  historyPeriodDemo: "Demo sample · all qualifying actionable decisions",
+  historyPeriodAll: "All persisted qualifying decisions",
+  historySettlementWin: "Win",
+  historySettlementLoss: "Loss",
+  historySettlementVoid: "Void",
+  historySettlementUnsettled: "Unsettled",
+  historyPricePositive: "Good closing-line price",
+  historyPriceNegative: "Below closing-line price",
+  historyPriceUnavailable: "Unavailable",
   /* Rendered inline as "Fair 7.35 · EV 3.1%", alongside "Model 55% · 2.10",
      so the English label is deliberately the single word. */
   historyFairPrice: "Fair",
@@ -1760,6 +1771,8 @@ const greek: Readonly<Record<MessageKey, string>> = {
     "Δείχνει πότε καταγράφηκε τελευταία φορά η απόδοση. Μια παλιά καταγραφή μπορεί να μη δείχνει πια την αγορά.",
 
   recStrongEdge: "Ισχυρή αξία",
+  recEdge: "Αξία",
+  recWatch: "Παρακολούθηση",
   recStrongEdgeBody:
     "Η πιθανότητα του μοντέλου είναι αισθητά πάνω από την πιθανότητα αγοράς και ο έλεγχος ποιότητας πέρασε.",
   recWait: "Αναμονή",
@@ -1898,6 +1911,15 @@ const greek: Readonly<Record<MessageKey, string>> = {
   historyLiveData: "Ζωντανά δεδομένα",
   historyAllQualifying: "Όλες οι επιλέξιμες αποφάσεις",
   historyModel: "Μοντέλο",
+  historyPeriodDemo: "Δείγμα επίδειξης · όλες οι επιλέξιμες ενεργές αποφάσεις",
+  historyPeriodAll: "Όλες οι αποθηκευμένες επιλέξιμες αποφάσεις",
+  historySettlementWin: "Νίκη",
+  historySettlementLoss: "Ήττα",
+  historySettlementVoid: "Άκυρο",
+  historySettlementUnsettled: "Εκκρεμεί",
+  historyPricePositive: "Καλή τιμή έναντι κλεισίματος",
+  historyPriceNegative: "Χαμηλότερη τιμή από το κλείσιμο",
+  historyPriceUnavailable: "Μη διαθέσιμη",
   historyFairPrice: "Δίκαιη τιμή",
   historyLoadOlder: "Φόρτωση παλαιότερων αποφάσεων",
   historyLoadingOlder: "Φόρτωση…",

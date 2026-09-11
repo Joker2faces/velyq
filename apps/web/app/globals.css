@@ -819,6 +819,13 @@
   gap: var(--space-2);
 }
 
+/* Authenticated mobile chrome always uses the compact VELYQ lockup. The
+   shared public-brand breakpoint reveals the translated tagline at 416px,
+   which competes with the language and sign-out touch targets at 430px. */
+.app__mobile-brand .brand__tag {
+  display: none;
+}
+
 /* Bottom navigation is the primary mobile navigation. */
 .app__bottomnav {
   backdrop-filter: blur(14px);
