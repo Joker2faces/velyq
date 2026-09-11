@@ -47,6 +47,8 @@ const KICKOFF = new Date("2026-10-18T16:30:45.678Z");
 
 describe("multi-class calibration rows, against a real database", () => {
   let coherentEventMarketId = "";
+  let homeEventMarketId = "";
+  let awayEventMarketId = "";
 
   beforeAll(async () => {
     const referenceData = await ensureFootballReferenceData(
@@ -134,7 +136,11 @@ describe("multi-class calibration rows, against a real database", () => {
       })
       .returning({ id: providerSyncRuns.id });
 
-    const makeSource = async (type: "ODDS" | "RESULT", suffix: string) => {
+    const makeSource = async (
+      type: "ODDS" | "RESULT",
+      suffix: string,
+      timing?: { observedAt: Date | null; receivedAt: Date },
+    ) => {
       const [source] = await database
         .insert(sourceObservations)
         .values({
@@ -142,15 +148,44 @@ describe("multi-class calibration rows, against a real database", () => {
           syncRunId: syncRun!.id,
           observationType: type,
           providerExternalId: `multiclass-${suffix}`,
-          providerObservedAt: new Date("2026-10-18T15:00:00.000Z"),
-          receivedAt: new Date("2026-10-18T15:00:01.000Z"),
-          normalizedAt: new Date("2026-10-18T15:00:01.000Z"),
+          providerObservedAt: timing
+            ? timing.observedAt
+            : new Date("2026-10-18T15:00:00.000Z"),
+          receivedAt:
+            timing?.receivedAt ?? new Date("2026-10-18T15:00:01.000Z"),
+          normalizedAt:
+            timing?.receivedAt ?? new Date("2026-10-18T15:00:01.000Z"),
           normalizationVersion: "test.v1",
           mappingVersion: "test.v1",
           contentHash: `sha256:multiclass-${suffix}`,
         })
         .returning({ id: sourceObservations.id });
       return source!.id;
+    };
+
+    const appendResult = async (input: {
+      eventId: string;
+      suffix: string;
+      score: readonly [number, number];
+      observedAt: string | null;
+      receivedAt: string;
+      createdAt: string;
+    }) => {
+      const observedAt =
+        input.observedAt === null ? null : new Date(input.observedAt);
+      const sourceId = await makeSource("RESULT", input.suffix, {
+        observedAt,
+        receivedAt: new Date(input.receivedAt),
+      });
+      await database.insert(eventResults).values({
+        eventId: input.eventId,
+        sourceObservationId: sourceId,
+        status: "FINAL",
+        homeScore: input.score[0],
+        awayScore: input.score[1],
+        providerObservedAt: observedAt,
+        createdAt: new Date(input.createdAt),
+      });
     };
 
     const resultSourceId = await makeSource("RESULT", "results");
@@ -341,6 +376,25 @@ describe("multi-class calibration rows, against a real database", () => {
       providerObservedAt: new Date(KICKOFF.getTime() + 3_600_000),
     });
 
+    await appendResult({
+      eventId: coherent.eventId,
+      suffix: "newer-null-correction",
+      score: [3, 3],
+      observedAt: null,
+      receivedAt: "2026-10-18T20:45:00.000Z",
+      createdAt: "2026-10-18T20:46:00.000Z",
+    });
+    // Persisted later, but acquired before the draw correction. DESC NULLS
+    // FIRST followed by created_at incorrectly makes this HOME the truth.
+    await appendResult({
+      eventId: coherent.eventId,
+      suffix: "delayed-older-null",
+      score: [4, 0],
+      observedAt: null,
+      receivedAt: "2026-10-18T19:00:00.000Z",
+      createdAt: "2026-10-18T21:00:00.000Z",
+    });
+
     // A later valid recomputation must win as one whole vector. Restoring
     // the former independent MAX() aggregation makes this [0.70, 0.35, 0.40]
     // instead of the real second forecast [0.25, 0.35, 0.40].
@@ -382,19 +436,48 @@ describe("multi-class calibration rows, against a real database", () => {
       completedAt: new Date(KICKOFF.getTime() + 3_601_000),
     });
 
-    await persistSettledEvent({
+    const home = await persistSettledEvent({
       suffix: "home-truth",
       kickoff: new Date(KICKOFF.getTime() + 86_400_000),
       score: [3, 1],
       probabilities: ["0.60", "0.25", "0.15"],
       odds: ["2", "4", "4"],
     });
-    await persistSettledEvent({
+    homeEventMarketId = home.eventMarketId;
+    // The genuine 18:30:45 provider update beats this unknown update acquired
+    // at 18:00. Null does not mean newer than every known observation.
+    await appendResult({
+      eventId: home.eventId,
+      suffix: "older-null-than-known",
+      score: [0, 2],
+      observedAt: null,
+      receivedAt: "2026-10-19T18:00:00.000Z",
+      createdAt: "2026-10-19T21:00:00.000Z",
+    });
+    const away = await persistSettledEvent({
       suffix: "away-truth",
       kickoff: new Date(KICKOFF.getTime() + 172_800_000),
       score: [0, 1],
       probabilities: ["0.20", "0.30", "0.50"],
       odds: ["4", "4", "2"],
+    });
+    awayEventMarketId = away.eventMarketId;
+    await appendResult({
+      eventId: away.eventId,
+      suffix: "newer-null-than-known",
+      score: [0, 3],
+      observedAt: null,
+      receivedAt: "2026-10-20T20:45:00.000Z",
+      createdAt: "2026-10-20T20:46:00.000Z",
+    });
+    // Receipt alone must not replace a genuine provider update timestamp.
+    await appendResult({
+      eventId: away.eventId,
+      suffix: "delayed-known-update",
+      score: [3, 0],
+      observedAt: "2026-10-20T19:00:00.000Z",
+      receivedAt: "2026-10-20T22:00:00.000Z",
+      createdAt: "2026-10-20T22:01:00.000Z",
     });
     for (let index = 0; index < 27; index += 1) {
       await persistSettledEvent({
@@ -496,6 +579,29 @@ describe("multi-class calibration rows, against a real database", () => {
       Number(coherent!.probabilityDraw),
       Number(coherent!.probabilityAway),
     ]).toEqual([0.25, 0.35, 0.4]);
+  });
+
+  it("orders unknown provider updates by acquisition rather than delayed persistence", async () => {
+    const rows = await queryMultiClassCalibrationRows(database);
+    expect(
+      rows.find((row) => row.eventMarketId === coherentEventMarketId),
+    ).toMatchObject({
+      trueOutcome: "DRAW",
+      modelVersion: MODEL_VERSION,
+      competitionCode: COMPETITION_CODE,
+      seasonLabel: SEASON_LABEL,
+      kickoff: KICKOFF,
+    });
+  });
+
+  it("compares mixed known and unknown updates by provider time or receipt respectively", async () => {
+    const rows = await queryMultiClassCalibrationRows(database);
+    expect(
+      rows.find((row) => row.eventMarketId === homeEventMarketId)?.trueOutcome,
+    ).toBe("HOME");
+    expect(
+      rows.find((row) => row.eventMarketId === awayEventMarketId)?.trueOutcome,
+    ).toBe("AWAY");
   });
 
   it("uses only settled 1X2 pre-kickoff rows with correct truth and grouping fields", async () => {
