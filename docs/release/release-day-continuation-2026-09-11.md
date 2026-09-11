@@ -232,6 +232,65 @@ Preview-only until the migration is applied and verified.
   notifications remain explicitly deferred. The complete historical backlog
   remains in [claude-product-completion-backlog.md](./claude-product-completion-backlog.md).
 
+## VELYQ ONE customer release
+
+The customer application now includes `VELYQ ONE`, an evidence-gated Today
+selection rather than a promotional "best bet". It never manufactures or
+promotes a verdict: only an already persisted `STRONG_EDGE` can qualify, and
+it must still pass live-data provenance, CURRENT price freshness, OFFICIAL
+lineups, A/B evidence quality, the authoritative ATTRACTIVE price policy, the
+minimum acceptable price, a future kickoff on the same UTC day, and a fresh
+exact-decimal edge/EV calculation at the displayed current price. If nothing
+qualifies, the card explicitly reports that there is no selection right now.
+
+The customer mapper now recalculates implied probability, probability edge,
+fair odds, and expected value from the newest displayed odds. A once-strong
+decision that has repriced below the decision boundary is downgraded; a
+non-actionable persisted decision is never promoted. Within a fixture, verified
+HOME/DRAW/AWAY candidates are compared before the legacy deterministic
+fallback, preventing an actionable DRAW or AWAY outcome from being hidden
+behind the first stored prediction. Global ordering is exact and stable: edge,
+EV, evidence grade, kickoff, event ID, then selection.
+
+Release verification at source
+`fcd05c29880815d73d60c971e44a60998b43313e` passed:
+
+- format, zero-warning lint, all 18 package typechecks, all 18 production
+  builds, and 138 Vitest files / 1,266 tests;
+- PostgreSQL 17 fresh migration/seed/integration: 14 files / 88 tests;
+- representative and production-faithful upgrade reconciliation, with existing
+  data preserved;
+- worker readiness;
+- customer Playwright 51/51 across three consecutive runs, including EN/EL,
+  accessibility, visual baselines, honest empty state, selected state, and
+  containment at 360, 390, 430, 736, 768, 820, 1120, 1216, 1220, 1280, 1359,
+  1360, and 1440 pixels;
+- Admin Playwright 5/5 on each of two independently migrated and seeded local
+  PostgreSQL runs;
+- independent quantitative, UX, and final source review, with no remaining
+  release blocker or Important finding.
+
+Customer preview `dpl_486j6CmfpLBqGuJKnejtXjsaatup` reached READY and was
+redeployed customer-only. Production deployment
+`dpl_HwdhmazkRsVdMbLGrtnvfap2YV25` is READY, and the stable alias
+`https://project-cf8ty.vercel.app` resolves to that exact deployment. The
+previous customer production deployment, and rollback point, is
+`dpl_DYHpgooSqLcjfqeh2SDozGC1g6M4`.
+
+Live verification passed for `/`, `/today`, `/edge`, `/radar`, `/results`,
+`/account`, `/pricing`, `/sign-in`, `/api/health`, and `/api/ready` with 200;
+unauthenticated `/api/v1/today` correctly returned 401. Health reported
+production LIVE/DATABASE mode, database availability, and synthetic fallback
+disabled. The full CSP, HSTS, clickjacking, MIME-sniffing, referrer,
+permissions, and private no-store protections were present. Browser inspection
+showed no console warnings/errors. The stored production customer session had
+expired and safely redirected to sign-in; no credentials were requested or
+entered, so authenticated live Today content remains owner-only QA.
+
+The Admin/provider writer was not promoted. Production migration
+`20260928110000_result_observation_time_nullable.sql` remains a prerequisite
+for that separate deployment.
+
 ## Protected scope
 
 Do not modify `main`, `integration/phase-1`, PR #3,
