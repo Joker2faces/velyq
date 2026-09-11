@@ -16,6 +16,7 @@ import {
 function fixture(
   overrides: Record<string, unknown> = {},
   goals: Record<string, unknown> = {},
+  score: Record<string, unknown> = {},
 ) {
   return {
     fixture: {
@@ -26,6 +27,7 @@ function fixture(
       ...overrides,
     },
     goals: { home: 2, away: 1, ...goals },
+    score,
   };
 }
 
@@ -112,6 +114,51 @@ describe("normalizeFootballResult", () => {
     expect(
       normalizeFootballResult(fixture({}, { home: 1.5 })).homeScore,
     ).toBeNull();
+  });
+
+  it.each(["AET", "PEN"])(
+    "uses the explicit regulation score for %s instead of aggregate goals",
+    (providerCode) => {
+      const result = normalizeFootballResult(
+        fixture(
+          { status: { short: providerCode } },
+          { home: 2, away: 1 },
+          {
+            fulltime: { home: 1, away: 1 },
+            extratime: { home: 2, away: 1 },
+            penalty: { home: 5, away: 4 },
+          },
+        ),
+      );
+
+      expect(result.homeScore).toBe(1);
+      expect(result.awayScore).toBe(1);
+    },
+  );
+
+  it.each(["AET", "PEN"])(
+    "leaves %s scoring unresolved when the regulation score is unavailable",
+    (providerCode) => {
+      const result = normalizeFootballResult(
+        fixture({ status: { short: providerCode } }, { home: 3, away: 2 }),
+      );
+
+      expect(result.homeScore).toBeNull();
+      expect(result.awayScore).toBeNull();
+    },
+  );
+
+  it("preserves aggregate-goal scoring for ordinary full time", () => {
+    const result = normalizeFootballResult(
+      fixture(
+        { status: { short: "FT" } },
+        { home: 2, away: 1 },
+        { fulltime: { home: 1, away: 1 } },
+      ),
+    );
+
+    expect(result.homeScore).toBe(2);
+    expect(result.awayScore).toBe(1);
   });
 });
 

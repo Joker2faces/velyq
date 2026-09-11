@@ -440,12 +440,16 @@ export async function ingestFootballResults(
           if (!storedResult) throw new Error("RESULT_PERSISTENCE_FAILED");
 
           /*
-           * Only a terminal state settles anything. An IN_PROGRESS result is
-           * still worth storing -- it is how the scheduler knows to ask again
-           * -- but running the settlement rules over a half-time score would
-           * post real outcomes for matches that are not over.
+           * Only statuses with an executable terminal policy settle anything.
+           * FINAL uses the reported score; CANCELLED and ABANDONED use the
+           * settlement engine's existing VOID policy. An IN_PROGRESS result
+           * is still worth storing, but must not settle a half-time score.
            */
-          if (result.status !== "FINAL") {
+          if (
+            result.status !== "FINAL" &&
+            result.status !== "CANCELLED" &&
+            result.status !== "ABANDONED"
+          ) {
             return { reason: null, duplicate: false, settlements: 0 };
           }
 

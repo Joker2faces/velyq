@@ -309,11 +309,9 @@ export type ResultLifecycleStatus = EventLifecycleStatus;
  * API-Sports fixture status codes, mapped to the six states above.
  *
  * The three finished codes are all genuinely final: `FT` full time, `AET`
- * after extra time, `PEN` after penalties. They map to FINAL together because
- * a 1X2 or totals market settles on the score the provider reports for the
- * fixture, and API-Sports reports the aggregate for AET and the 90-minute
- * score plus a separate shootout record for PEN -- which is why PEN results
- * must still be read from `goals`, never reconstructed.
+ * after extra time, `PEN` after penalties. They map to FINAL together, but
+ * their aggregate `goals` include play outside regulation. Regulation-only
+ * markets therefore read their explicit `score.fulltime` breakdown.
  *
  * `INT` (interrupted) maps to IN_PROGRESS rather than ABANDONED: an
  * interrupted match may resume, and treating it as abandoned would VOID
@@ -380,6 +378,7 @@ export function normalizeFootballResult(
   const item = valueRecord(raw);
   const fixture = valueRecord(item["fixture"]);
   const goals = valueRecord(item["goals"]);
+  const fulltime = valueRecord(valueRecord(item["score"])["fulltime"]);
   if (typeof fixture["id"] !== "number") {
     throw new Error("INVALID_FOOTBALL_RESULT");
   }
@@ -391,6 +390,11 @@ export function normalizeFootballResult(
   if (status === null) {
     throw new Error(`RESULT_STATUS_UNMAPPED:${providerCode}`);
   }
+  const providerCodeNormalized = providerCode.trim().toUpperCase();
+  const regulationScore =
+    providerCodeNormalized === "AET" || providerCodeNormalized === "PEN"
+      ? fulltime
+      : goals;
   /* The provider's own timestamp for the fixture record. Unlike odds, a
      fixture element always carries `date`; falling back to our fetch time
      would make a result's age unknowable. */
@@ -399,8 +403,8 @@ export function normalizeFootballResult(
     sport: "FOOTBALL",
     providerEventId: String(fixture["id"]),
     status,
-    homeScore: optionalScore(goals["home"]),
-    awayScore: optionalScore(goals["away"]),
+    homeScore: optionalScore(regulationScore["home"]),
+    awayScore: optionalScore(regulationScore["away"]),
     providerObservedAt:
       typeof observedAt === "number" && Number.isFinite(observedAt)
         ? new Date(observedAt * 1000).toISOString()

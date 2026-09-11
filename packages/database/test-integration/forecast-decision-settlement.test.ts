@@ -951,6 +951,7 @@ describe("forecast, decision and settlement, against a real database", () => {
     function providerRecord(
       overrides: Record<string, unknown> = {},
       goals: Record<string, unknown> = {},
+      score: Record<string, unknown> = {},
     ) {
       return {
         fixture: {
@@ -961,6 +962,7 @@ describe("forecast, decision and settlement, against a real database", () => {
           ...overrides,
         },
         goals: { home: 2, away: 0, ...goals },
+        score,
       };
     }
 
@@ -1029,27 +1031,34 @@ describe("forecast, decision and settlement, against a real database", () => {
       expect(first.written + second.written).toBe(first.written);
     });
 
-    /*
-     * A stored IN_PROGRESS result is how the scheduler knows to ask again.
-     * Running the settlement rules over a half-time score would post real
-     * outcomes for matches that are not over.
-     */
-    it("stores a match still in progress without settling anything", async () => {
-      const decision = await persistDecision({
+    it("settles 1X2 and O/U 2.5 from the normalized AET regulation score", async () => {
+      const draw = await persistDecision({
         decisionStatus: "STRONG_EDGE",
-        modelProbability: "0.55",
-        offeredOdds: "2.10",
+        modelProbability: "0.3",
+        offeredOdds: "3.5",
         selection: "DRAW",
         eventMarketOutcomeId: outcomeIdBySelection.DRAW,
       });
+      const over = await persistDecision({
+        decisionStatus: "STRONG_EDGE",
+        modelProbability: "0.55",
+        offeredOdds: "1.9",
+        selection: "OVER",
+        eventMarketOutcomeId: outcomeIdBySelection.OVER,
+      });
+      const observedAt = 1_789_310_000;
 
       const summary = await ingestFootballResults(database, {
         providerId: referenceData.providerId,
         results: [
           normalizeFootballResult(
             providerRecord(
-              { status: { short: "HT" }, timestamp: 1_789_240_000 },
-              { home: 1, away: 0 },
+              { status: { short: "AET" }, timestamp: observedAt },
+              { home: 2, away: 1 },
+              {
+                fulltime: { home: 1, away: 1 },
+                extratime: { home: 2, away: 1 },
+              },
             ),
           ),
         ],
@@ -1057,15 +1066,133 @@ describe("forecast, decision and settlement, against a real database", () => {
       });
 
       expect(summary.written).toBe(1);
-      expect(summary.settlementsWritten).toBe(0);
-      expect(summary.statusByProviderFixtureId["950001"]).toBe("IN_PROGRESS");
+      expect(summary.settlementsWritten).toBeGreaterThanOrEqual(2);
 
-      const settled = await database
-        .select({ id: marketSettlements.id })
+      const [stored] = await database
+        .select({
+          homeScore: eventResults.homeScore,
+          awayScore: eventResults.awayScore,
+        })
+        .from(eventResults)
+        .where(
+          eq(eventResults.providerObservedAt, new Date(observedAt * 1000)),
+        );
+      expect(stored).toEqual({ homeScore: 1, awayScore: 1 });
+
+      const drawSettlements = await database
+        .select({ outcome: marketSettlements.outcome })
         .from(marketSettlements)
-        .where(eq(marketSettlements.decisionId, decision.id));
-      expect(settled).toEqual([]);
+        .where(eq(marketSettlements.decisionId, draw.id));
+      const overSettlements = await database
+        .select({ outcome: marketSettlements.outcome })
+        .from(marketSettlements)
+        .where(eq(marketSettlements.decisionId, over.id));
+      expect(drawSettlements).toEqual([{ outcome: "WIN" }]);
+      expect(overSettlements).toEqual([{ outcome: "LOSS" }]);
     });
+
+    it.each([
+      { providerCode: "CANC", status: "CANCELLED", timestamp: 1_789_320_000 },
+      { providerCode: "ABD", status: "ABANDONED", timestamp: 1_789_330_000 },
+    ] as const)(
+      "persists idempotent VOID settlements for $status 1X2 and O/U 2.5 decisions",
+      async ({ providerCode, status, timestamp }) => {
+        const home = await persistDecision({
+          decisionStatus: "STRONG_EDGE",
+          modelProbability: "0.55",
+          offeredOdds: "2.1",
+          selection: "HOME",
+          eventMarketOutcomeId: outcomeIdBySelection.HOME,
+        });
+        const under = await persistDecision({
+          decisionStatus: "STRONG_EDGE",
+          modelProbability: "0.55",
+          offeredOdds: "1.9",
+          selection: "UNDER",
+          eventMarketOutcomeId: outcomeIdBySelection.UNDER,
+        });
+        const results = [
+          normalizeFootballResult(
+            providerRecord({
+              status: { short: providerCode },
+              timestamp,
+            }),
+          ),
+        ];
+
+        const first = await ingestFootballResults(database, {
+          providerId: referenceData.providerId,
+          results,
+          policyVersionId: referenceData.policyVersionId,
+        });
+        const replay = await ingestFootballResults(database, {
+          providerId: referenceData.providerId,
+          results,
+          policyVersionId: referenceData.policyVersionId,
+        });
+
+        expect(first.written).toBe(1);
+        expect(first.settlementsWritten).toBeGreaterThanOrEqual(2);
+        expect(first.statusByProviderFixtureId["950001"]).toBe(status);
+        expect(replay).toMatchObject({
+          written: 0,
+          duplicate: 1,
+          settlementsWritten: 0,
+        });
+
+        for (const decisionId of [home.id, under.id]) {
+          const settlements = await database
+            .select({ outcome: marketSettlements.outcome })
+            .from(marketSettlements)
+            .where(eq(marketSettlements.decisionId, decisionId));
+          expect(settlements).toEqual([{ outcome: "VOID" }]);
+        }
+      },
+    );
+
+    /*
+     * Stored nonterminal results tell the scheduler what to ask for next.
+     * Running settlement over a half-time score would post real outcomes too
+     * early, while POSTPONED has no separate settlement policy.
+     */
+    it.each([
+      { providerCode: "HT", status: "IN_PROGRESS", timestamp: 1_789_240_000 },
+      { providerCode: "PST", status: "POSTPONED", timestamp: 1_789_241_000 },
+    ] as const)(
+      "stores a $status match without settling anything",
+      async ({ providerCode, status, timestamp }) => {
+        const decision = await persistDecision({
+          decisionStatus: "STRONG_EDGE",
+          modelProbability: "0.55",
+          offeredOdds: "2.10",
+          selection: "DRAW",
+          eventMarketOutcomeId: outcomeIdBySelection.DRAW,
+        });
+
+        const summary = await ingestFootballResults(database, {
+          providerId: referenceData.providerId,
+          results: [
+            normalizeFootballResult(
+              providerRecord(
+                { status: { short: providerCode }, timestamp },
+                { home: 1, away: 0 },
+              ),
+            ),
+          ],
+          policyVersionId: referenceData.policyVersionId,
+        });
+
+        expect(summary.written).toBe(1);
+        expect(summary.settlementsWritten).toBe(0);
+        expect(summary.statusByProviderFixtureId["950001"]).toBe(status);
+
+        const settled = await database
+          .select({ id: marketSettlements.id })
+          .from(marketSettlements)
+          .where(eq(marketSettlements.decisionId, decision.id));
+        expect(settled).toEqual([]);
+      },
+    );
 
     /*
      * One unresolvable fixture must not discard the rest of a batch of
