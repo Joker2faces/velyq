@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { orchestrateResultSettlement } from "@velyq/application";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 import type { NormalizedEvent } from "@velyq/providers";
@@ -27,7 +27,12 @@ import {
   predictionRuns,
   predictions,
 } from "../src/schema/intelligence.js";
-import { competitionIdentities, competitions } from "../src/schema/catalog.js";
+import {
+  competitionIdentities,
+  competitions,
+  eventParticipants,
+  events,
+} from "../src/schema/catalog.js";
 import {
   bookmakers,
   eventMarketOutcomes,
@@ -335,9 +340,12 @@ describe("forecast, decision and settlement, against a real database", () => {
     decisionStatus: "STRONG_EDGE";
     modelProbability: string;
     offeredOdds: string;
+    createdAt?: Date;
+    eventId?: string;
     eventMarketOutcomeId?: string;
     selection?: "HOME" | "DRAW" | "AWAY" | "OVER" | "UNDER";
   }) {
+    const decisionEventId = input.eventId ?? eventId;
     const eventMarketOutcomeId =
       input.eventMarketOutcomeId ?? outcomeIdBySelection.HOME;
     const selection = input.selection ?? "HOME";
@@ -439,7 +447,7 @@ describe("forecast, decision and settlement, against a real database", () => {
       .insert(dataQualityAssessments)
       .values({
         policyVersionId: qualityPolicyId,
-        eventId,
+        eventId: decisionEventId,
         marketOutcomeId: eventMarketOutcomeId,
         asOf: new Date("2026-09-19T00:00:00.000Z"),
         grade: "A",
@@ -454,7 +462,7 @@ describe("forecast, decision and settlement, against a real database", () => {
       .values({
         modelVersionId,
         calibrationVersionId,
-        eventId,
+        eventId: decisionEventId,
         featureCutoff: new Date("2026-09-19T00:00:00.000Z"),
         status: "COMPLETED",
         startedAt: new Date("2026-09-19T00:00:00.000Z"),
@@ -504,6 +512,7 @@ describe("forecast, decision and settlement, against a real database", () => {
           modelProbability: input.modelProbability,
           offeredOdds: input.offeredOdds,
         },
+        createdAt: input.createdAt,
       })
       .returning();
 
@@ -601,10 +610,12 @@ describe("forecast, decision and settlement, against a real database", () => {
 
     const history = await new DatabaseHistoryQueryAdapter(
       database,
-    ).listDecisions();
+    ).listDecisions(500, undefined, false);
     const historyRow = history.find((row) => row.decision.id === decision.id);
     expect(historyRow?.result?.homeScore).toBe(2);
     expect(historyRow?.settlement?.outcome).toBe("WIN");
+    expect(historyRow?.homeTeam).toBe("Juventus");
+    expect(historyRow?.awayTeam).toBe("Inter");
     /* The original decision snapshot is immutable -- settlement must never
        rewrite what the decision looked like at the moment it was made. */
     expect(historyRow?.decision.decisionSnapshot).toMatchObject({
@@ -642,6 +653,7 @@ describe("forecast, decision and settlement, against a real database", () => {
       awayScore: number,
       contentHash: string,
       observedAt: string,
+      receivedAt = observedAt,
     ) {
       const [source] = await database
         .insert(sourceObservations)
@@ -651,8 +663,8 @@ describe("forecast, decision and settlement, against a real database", () => {
           observationType: "RESULT",
           providerExternalId: "950001",
           providerObservedAt: new Date(observedAt),
-          receivedAt: new Date(observedAt),
-          normalizedAt: new Date(observedAt),
+          receivedAt: new Date(receivedAt),
+          normalizedAt: new Date(receivedAt),
           normalizationVersion: "api-sports.v1",
           mappingVersion: "api-sports.v1",
           contentHash,
@@ -723,12 +735,254 @@ describe("forecast, decision and settlement, against a real database", () => {
       "WIN",
     ]);
 
+    const adapter = new DatabaseHistoryQueryAdapter(database);
+    const correctedHistory = await adapter.listDecisionsForEvent(
+      eventId,
+      false,
+    );
+    const correctedRow = correctedHistory.find(
+      (row) => row.decision.id === decision.id,
+    );
+    expect(correctedRow?.settlement?.outcome).toBe("LOSS");
+    expect(correctedRow?.result?.homeScore).toBe(1);
+    expect(correctedRow?.result?.awayScore).toBe(1);
+
+    // A late-arriving payload with an older provider observation must not
+    // supersede the 21:00 correction merely because its rows were persisted
+    // afterward.
+    const delayedOlder = await settleWith(
+      3,
+      0,
+      "sha256:correction-test-delayed-older-3-0",
+      "2026-09-20T19:00:00.000Z",
+      "2026-09-20T22:00:00.000Z",
+    );
+    expect(delayedOlder.settlements[0]?.outcome).toBe("WIN");
+    await database
+      .update(marketSettlements)
+      .set({ settledAt: new Date("2026-09-20T22:00:00.000Z") })
+      .where(eq(marketSettlements.id, delayedOlder.settlements[0]!.id));
+
+    const historyAfterDelayedOlder = await adapter.listDecisionsForEvent(
+      eventId,
+      false,
+    );
+    const authoritativeRow = historyAfterDelayedOlder.find(
+      (row) => row.decision.id === decision.id,
+    );
+    expect(authoritativeRow?.settlement?.outcome).toBe("LOSS");
+    expect(authoritativeRow?.result?.providerObservedAt).toEqual(
+      new Date("2026-09-20T21:00:00.000Z"),
+    );
+    const customerHistory = await adapter.listDecisions(500, undefined, false);
+    const authoritativeCustomerRow = customerHistory.find(
+      (row) => row.decision.id === decision.id,
+    );
+    expect(authoritativeCustomerRow?.settlement?.outcome).toBe("LOSS");
+    expect(authoritativeCustomerRow?.result?.providerObservedAt).toEqual(
+      new Date("2026-09-20T21:00:00.000Z"),
+    );
+
+    const settlementsAfterDelayedOlder = await database
+      .select({ outcome: marketSettlements.outcome })
+      .from(marketSettlements)
+      .where(eq(marketSettlements.decisionId, decision.id));
+    expect(
+      settlementsAfterDelayedOlder.map((row) => row.outcome).sort(),
+    ).toEqual(["LOSS", "WIN", "WIN"]);
+
     // The decision snapshot itself never changed.
     const [decisionRow] = await database
       .select()
       .from(decisions)
       .where(eq(decisions.id, decision.id));
     expect(decisionRow?.decisionSnapshot).toEqual(originalSnapshot);
+  });
+
+  it("pages authoritative decisions exactly once with an honest final cursor", async () => {
+    // Two fresh LIVE rows make the multiply-settled correction above land
+    // directly on an early page boundary. The old LIMIT-before-dedup query
+    // spends its sentinel on another revision and reports a false final page.
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.51",
+      offeredOdds: "2.08",
+      createdAt: new Date("2000-01-01T00:00:00.000Z"),
+    });
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.54",
+      offeredOdds: "2.05",
+    });
+    await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.53",
+      offeredOdds: "2.06",
+    });
+
+    const expectedLive = await database
+      .select({ id: decisions.id })
+      .from(decisions)
+      .innerJoin(
+        eventMarketOutcomes,
+        eq(decisions.eventMarketOutcomeId, eventMarketOutcomes.id),
+      )
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(events, eq(eventMarkets.eventId, events.id))
+      .where(
+        and(eq(decisions.status, "STRONG_EDGE"), eq(events.synthetic, false)),
+      )
+      .orderBy(desc(decisions.createdAt), desc(decisions.id));
+
+    const adapter = new DatabaseHistoryQueryAdapter(database);
+    const pageSize = 2;
+    const traversedLiveIds: string[] = [];
+    let cursor: { readonly createdAt: Date; readonly id: string } | undefined =
+      undefined;
+    let finalHasMore = true;
+    let finalCursor: typeof cursor;
+    for (let page = 0; page < expectedLive.length + 1; page += 1) {
+      const fetched = await adapter.listDecisions(pageSize + 1, cursor, false);
+      const hasMore = fetched.length > pageSize;
+      const rows = hasMore ? fetched.slice(0, pageSize) : fetched;
+      traversedLiveIds.push(...rows.map((row) => row.decision.id));
+      const lastRow = rows.at(-1);
+      finalHasMore = hasMore;
+      finalCursor =
+        hasMore && lastRow
+          ? {
+              createdAt: lastRow.decision.createdAt,
+              id: lastRow.decision.id,
+            }
+          : undefined;
+      if (!hasMore) break;
+      cursor = finalCursor;
+    }
+
+    expect(traversedLiveIds).toEqual(expectedLive.map((row) => row.id));
+    expect(new Set(traversedLiveIds).size).toBe(traversedLiveIds.length);
+    expect(finalHasMore).toBe(false);
+    expect(finalCursor).toBeUndefined();
+  });
+
+  it("isolates LIVE and SYNTHETIC_DEMO across page 1 and a cursor-following page", async () => {
+    const liveParticipants = await database
+      .select({
+        participantId: eventParticipants.participantId,
+        role: eventParticipants.role,
+      })
+      .from(eventParticipants)
+      .where(eq(eventParticipants.eventId, eventId));
+    const [syntheticEvent] = await database
+      .insert(events)
+      .values({
+        sportId: referenceData.sportId,
+        competitionId,
+        seasonLabel: "2099",
+        startsAt: new Date("2099-01-01T18:00:00.000Z"),
+        status: "FINISHED",
+        synthetic: true,
+      })
+      .returning({ id: events.id });
+    await database.insert(eventParticipants).values(
+      liveParticipants.map((participant) => ({
+        eventId: syntheticEvent!.id,
+        participantId: participant.participantId,
+        role: participant.role,
+      })),
+    );
+    const [syntheticMarket] = await database
+      .insert(eventMarkets)
+      .values({
+        eventId: syntheticEvent!.id,
+        marketDefinitionId: referenceData.marketDefinitionId,
+        subjectParticipantId: null,
+        lineValue: null,
+        canonicalKey: `${syntheticEvent!.id}:${referenceData.marketDefinitionId}:null:null`,
+      })
+      .returning({ id: eventMarkets.id });
+    const [syntheticOutcome] = await database
+      .insert(eventMarketOutcomes)
+      .values({
+        eventMarketId: syntheticMarket!.id,
+        marketDefinitionId: referenceData.marketDefinitionId,
+        outcomeDefinitionId: referenceData.outcomeDefinitionIds.HOME,
+        canonicalKey: `${syntheticMarket!.id}:${referenceData.outcomeDefinitionIds.HOME}`,
+      })
+      .returning({ id: eventMarketOutcomes.id });
+    const syntheticDecision = await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.52",
+      offeredOdds: "2.07",
+      createdAt: new Date("2099-01-03T00:00:00.000Z"),
+      eventId: syntheticEvent!.id,
+      eventMarketOutcomeId: syntheticOutcome!.id,
+    });
+    const secondSyntheticDecision = await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.51",
+      offeredOdds: "2.08",
+      createdAt: new Date("2099-01-02T00:00:00.000Z"),
+      eventId: syntheticEvent!.id,
+      eventMarketOutcomeId: syntheticOutcome!.id,
+    });
+    const thirdSyntheticDecision = await persistDecision({
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.5",
+      offeredOdds: "2.09",
+      createdAt: new Date("2099-01-01T00:00:00.000Z"),
+      eventId: syntheticEvent!.id,
+      eventMarketOutcomeId: syntheticOutcome!.id,
+    });
+
+    const adapter = new DatabaseHistoryQueryAdapter(database);
+    const firstLivePage = await adapter.listDecisions(2, undefined, false);
+    const firstLiveCursor = firstLivePage.at(-1);
+    const secondLivePage = firstLiveCursor
+      ? await adapter.listDecisions(
+          2,
+          {
+            createdAt: firstLiveCursor.decision.createdAt,
+            id: firstLiveCursor.decision.id,
+          },
+          false,
+        )
+      : [];
+    expect(
+      [...firstLivePage, ...secondLivePage].every(
+        (row) => !row.event.synthetic,
+      ),
+    ).toBe(true);
+    expect(
+      [...firstLivePage, ...secondLivePage].map((row) => row.decision.id),
+    ).not.toContain(syntheticDecision.id);
+
+    // Prove the requested synthetic corpus is independently reachable across
+    // page 1 and a cursor-following page without any LIVE leakage.
+    const firstSyntheticPage = await adapter.listDecisions(2, undefined, true);
+    expect(firstSyntheticPage[0]?.decision.id).toBe(syntheticDecision.id);
+    expect(firstSyntheticPage[1]?.decision.id).toBe(secondSyntheticDecision.id);
+    const firstSyntheticCursor = firstSyntheticPage.at(-1);
+    const secondSyntheticPage = firstSyntheticCursor
+      ? await adapter.listDecisions(
+          2,
+          {
+            createdAt: firstSyntheticCursor.decision.createdAt,
+            id: firstSyntheticCursor.decision.id,
+          },
+          true,
+        )
+      : [];
+    expect(firstSyntheticPage).toHaveLength(2);
+    expect(secondSyntheticPage[0]?.decision.id).toBe(thirdSyntheticDecision.id);
+    expect(
+      [...firstSyntheticPage, ...secondSyntheticPage].every(
+        (row) => row.event.synthetic,
+      ),
+    ).toBe(true);
   });
 
   /**

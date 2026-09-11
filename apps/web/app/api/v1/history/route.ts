@@ -46,7 +46,7 @@ export async function GET(request: Request) {
        */
       const fetched = await new DatabaseHistoryQueryAdapter(
         session.database,
-      ).listDecisions(limit + 1, cursor);
+      ).listDecisions(limit + 1, cursor, false);
       const hasMore = fetched.length > limit;
       const rows = hasMore ? fetched.slice(0, limit) : fetched;
       const lastRow = rows.at(-1);

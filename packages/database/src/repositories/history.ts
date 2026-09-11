@@ -35,12 +35,43 @@ export type HistoricalDecisionRow = Readonly<{
 /** A page's own cursor: the last row's ordering key, to ask for what comes after it. */
 export type HistoryCursor = Readonly<{ createdAt: Date; id: string }>;
 
-/** All immutable decisions, ordered newest-first; filtering winners is impossible at this boundary. */
+/**
+ * One correction-safe settlement key per decision. Provider observation time
+ * is the authority; persisted timestamps and UUIDs make equal observations
+ * deterministic without rewriting any audit row.
+ */
+function authoritativeSettlementIds(database: PrivilegedVelyqDatabase) {
+  return database
+    .selectDistinctOn([marketSettlements.decisionId], {
+      decisionId: marketSettlements.decisionId,
+      settlementId: marketSettlements.id,
+    })
+    .from(marketSettlements)
+    .innerJoin(
+      eventResults,
+      eq(marketSettlements.eventResultId, eventResults.id),
+    )
+    .orderBy(
+      asc(marketSettlements.decisionId),
+      desc(eventResults.providerObservedAt),
+      desc(eventResults.createdAt),
+      desc(eventResults.id),
+      desc(marketSettlements.createdAt),
+      desc(marketSettlements.id),
+    )
+    .as("authoritative_settlement_ids");
+}
+
+/**
+ * All immutable decisions in the required corpus, ordered newest-first;
+ * filtering winners is impossible at this boundary.
+ */
 export class DatabaseHistoryQueryAdapter {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
   async listDecisions(
-    limit = 500,
-    before?: HistoryCursor,
+    limit: number,
+    before: HistoryCursor | undefined,
+    synthetic: boolean,
   ): Promise<readonly HistoricalDecisionRow[]> {
     /*
      * Keyset pagination on the same (createdAt, id) pair the query already
@@ -60,6 +91,7 @@ export class DatabaseHistoryQueryAdapter {
           ),
         )
       : undefined;
+    const latestSettlements = authoritativeSettlementIds(this.database);
     const rows = await this.database
       .select({
         decision: decisions,
@@ -92,32 +124,28 @@ export class DatabaseHistoryQueryAdapter {
       .innerJoin(events, eq(eventMarkets.eventId, events.id))
       .innerJoin(competitions, eq(events.competitionId, competitions.id))
       .leftJoin(
+        latestSettlements,
+        eq(latestSettlements.decisionId, decisions.id),
+      )
+      .leftJoin(
         marketSettlements,
-        eq(marketSettlements.decisionId, decisions.id),
+        eq(marketSettlements.id, latestSettlements.settlementId),
       )
       .leftJoin(
         eventResults,
         eq(marketSettlements.eventResultId, eventResults.id),
       )
       .where(
-        cursorClause
-          ? and(eq(decisions.status, "STRONG_EDGE"), cursorClause)
-          : eq(decisions.status, "STRONG_EDGE"),
+        and(
+          eq(decisions.status, "STRONG_EDGE"),
+          eq(events.synthetic, synthetic),
+          cursorClause,
+        ),
       )
-      .orderBy(
-        desc(decisions.createdAt),
-        desc(decisions.id),
-        desc(marketSettlements.settledAt),
-      )
+      .orderBy(desc(decisions.createdAt), desc(decisions.id))
       .limit(limit);
-    const latestRows = rows.filter(
-      (row, index) =>
-        rows.findIndex(
-          (candidate) => candidate.decision.id === row.decision.id,
-        ) === index,
-    );
     return Promise.all(
-      latestRows.map(async (row) => {
+      rows.map(async (row) => {
         const teams = await this.database
           .select({
             role: eventParticipants.role,
@@ -159,6 +187,7 @@ export class DatabaseHistoryQueryAdapter {
     eventId: string,
     synthetic: boolean,
   ): Promise<readonly HistoricalDecisionRow[]> {
+    const latestSettlements = authoritativeSettlementIds(this.database);
     const rows = await this.database
       .select({
         decision: decisions,
@@ -191,8 +220,12 @@ export class DatabaseHistoryQueryAdapter {
       .innerJoin(events, eq(eventMarkets.eventId, events.id))
       .innerJoin(competitions, eq(events.competitionId, competitions.id))
       .leftJoin(
+        latestSettlements,
+        eq(latestSettlements.decisionId, decisions.id),
+      )
+      .leftJoin(
         marketSettlements,
-        eq(marketSettlements.decisionId, decisions.id),
+        eq(marketSettlements.id, latestSettlements.settlementId),
       )
       .leftJoin(
         eventResults,
@@ -213,15 +246,6 @@ export class DatabaseHistoryQueryAdapter {
     const homeTeam = teams.find((team) => team.role === "HOME")?.name ?? "Home";
     const awayTeam = teams.find((team) => team.role === "AWAY")?.name ?? "Away";
 
-    /* One decision id can appear twice via the settlement/result left joins
-       only if a decision were re-settled, which the writer forbids; kept as
-       a safety filter anyway rather than assumed. */
-    const latestRows = rows.filter(
-      (row, index) =>
-        rows.findIndex(
-          (candidate) => candidate.decision.id === row.decision.id,
-        ) === index,
-    );
-    return latestRows.map((row) => ({ ...row, homeTeam, awayTeam }));
+    return rows.map((row) => ({ ...row, homeTeam, awayTeam }));
   }
 }
