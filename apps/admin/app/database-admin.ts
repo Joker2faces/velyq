@@ -9,6 +9,7 @@ import {
 } from "@velyq/research";
 import { utcDayWindow } from "@velyq/database";
 import { createForecastCycleDbAdapter } from "@velyq/database/repositories/forecast-cycle-adapter";
+import { queryMultiClassCalibrationRows } from "@velyq/database/repositories/multiclass-calibration";
 import { loadProductionModelArtifact } from "./forecast-cycle/model-artifact";
 import { DatabasePermissionResolver } from "@velyq/database/repositories/permissions";
 import type { PrivilegedVelyqDatabase } from "@velyq/database/server";
@@ -36,6 +37,7 @@ import {
   buildMarketSnapshot,
   type RawBookmakerObservation,
 } from "@velyq/market-semantics";
+import { canonicalizeNumeric } from "@velyq/decimal";
 import type { ProviderRun } from "@velyq/contracts";
 import type {
   AdminPage,
@@ -250,44 +252,7 @@ export class DatabaseAdminQueries implements AdminQueries {
      * where the decision engine never acted at all, unlike the binary
      * section above which only ever sees settled, acted-on decisions.
      */
-    const multiClassResult = await this.database.execute(sql`
-      with sibling_forecasts as (
-        select f.model_version, f.probability, od.code as outcome_code, em.id as event_market_id, em.event_id
-        from intelligence.forecasts f
-        join market.event_market_outcomes emo on emo.id = f.event_market_outcome_id
-        join market.outcome_definitions od on od.id = emo.outcome_definition_id
-        join market.event_markets em on em.id = emo.event_market_id
-        join market.market_definitions md on md.id = em.market_definition_id
-        where md.code = 'FOOTBALL_FULL_TIME_1X2'
-      ),
-      results as (
-        select event_id,
-          case when home_score > away_score then 'HOME'
-               when home_score < away_score then 'AWAY'
-               else 'DRAW' end as true_outcome
-        from intelligence.event_results
-        where status = 'FINAL' and home_score is not null and away_score is not null
-      )
-      select
-        sf.model_version,
-        sf.event_market_id,
-        e.starts_at as kickoff,
-        e.season_label,
-        c.code as competition_code,
-        r.true_outcome,
-        max(case when sf.outcome_code = 'HOME' then sf.probability end) as p_home,
-        max(case when sf.outcome_code = 'DRAW' then sf.probability end) as p_draw,
-        max(case when sf.outcome_code = 'AWAY' then sf.probability end) as p_away
-      from sibling_forecasts sf
-      join results r on r.event_id = sf.event_id
-      join catalog.events e on e.id = sf.event_id
-      join catalog.competitions c on c.id = e.competition_id
-      group by sf.model_version, sf.event_market_id, e.starts_at, e.season_label, r.true_outcome, c.code
-      having
-        max(case when sf.outcome_code = 'HOME' then sf.probability end) is not null and
-        max(case when sf.outcome_code = 'DRAW' then sf.probability end) is not null and
-        max(case when sf.outcome_code = 'AWAY' then sf.probability end) is not null
-    `);
+    const multiClassRows = await queryMultiClassCalibrationRows(this.database);
     const outcomeIndex = (code: string) =>
       code === "HOME" ? 0 : code === "DRAW" ? 1 : 2;
     const multiClassGrouped = new Map<string, ProbabilisticSample[]>();
@@ -306,19 +271,17 @@ export class DatabaseAdminQueries implements AdminQueries {
       string,
       Map<string, ProbabilisticSample[]>
     >();
-    for (const item of multiClassResult.rows) {
-      const version = String(item["model_version"]);
-      const competitionCode = String(item["competition_code"]);
-      const seasonLabel = item["season_label"]
-        ? String(item["season_label"])
-        : "UNKNOWN";
+    for (const item of multiClassRows) {
+      const version = item.modelVersion;
+      const competitionCode = item.competitionCode;
+      const seasonLabel = item.seasonLabel ?? "UNKNOWN";
       const sample: ProbabilisticSample = {
         probabilities: [
-          Number(item["p_home"]),
-          Number(item["p_draw"]),
-          Number(item["p_away"]),
+          Number(item.probabilityHome),
+          Number(item.probabilityDraw),
+          Number(item.probabilityAway),
         ],
-        observedIndex: outcomeIndex(String(item["true_outcome"])),
+        observedIndex: outcomeIndex(item.trueOutcome),
       };
       multiClassGrouped.set(version, [
         ...(multiClassGrouped.get(version) ?? []),
@@ -371,9 +334,7 @@ export class DatabaseAdminQueries implements AdminQueries {
      * fixed here too, not duplicated and left to drift.
      */
     const eventMarketIds = [
-      ...new Set(
-        multiClassResult.rows.map((item) => String(item["event_market_id"])),
-      ),
+      ...new Set(multiClassRows.map((item) => item.eventMarketId)),
     ];
     const oddsRows =
       eventMarketIds.length > 0
@@ -406,7 +367,7 @@ export class DatabaseAdminQueries implements AdminQueries {
         {
           bookmakerId: oddsRow.bookmakerId,
           outcomeCode: oddsRow.outcomeCode,
-          decimalOdds: oddsRow.decimalOdds as never,
+          decimalOdds: canonicalizeNumeric(oddsRow.decimalOdds) as never,
           providerObservedAt: oddsRow.providerObservedAt.toISOString(),
         },
       ]);
@@ -429,11 +390,11 @@ export class DatabaseAdminQueries implements AdminQueries {
     };
     const marketNoVigGrouped = new Map<string, ProbabilisticSample[]>();
     const marketImpliedGrouped = new Map<string, ProbabilisticSample[]>();
-    for (const item of multiClassResult.rows) {
-      const version = String(item["model_version"]);
-      const eventMarketId = String(item["event_market_id"]);
-      const kickoff = new Date(String(item["kickoff"]));
-      const observedIndex = outcomeIndex(String(item["true_outcome"]));
+    for (const item of multiClassRows) {
+      const version = item.modelVersion;
+      const eventMarketId = item.eventMarketId;
+      const kickoff = item.kickoff;
+      const observedIndex = outcomeIndex(item.trueOutcome);
       const snapshot = buildMarketSnapshot(
         oddsByEventMarket.get(eventMarketId) ?? [],
         ["HOME", "DRAW", "AWAY"],

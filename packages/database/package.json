@@ -29,6 +29,11 @@
       "import": "./dist/repositories/forecast-cycle-adapter.js",
       "default": "./dist/repositories/forecast-cycle-adapter.js"
     },
+    "./repositories/multiclass-calibration": {
+      "types": "./src/repositories/multiclass-calibration.ts",
+      "import": "./dist/repositories/multiclass-calibration.js",
+      "default": "./dist/repositories/multiclass-calibration.js"
+    },
     "./schema/audit": {
       "types": "./src/schema/audit.ts",
       "import": "./dist/schema/audit.js",
