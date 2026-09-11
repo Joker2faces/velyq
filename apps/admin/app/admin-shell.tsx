@@ -65,7 +65,7 @@ function navigation(locale: Locale): readonly NavGroup[] {
       items: [
         {
           href: "/provider-ingestion-runs",
-          label: "Live ingestion",
+          label: t("adminNavLiveIngestion"),
           icon: icon(
             <>
               <path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" />
@@ -77,7 +77,7 @@ function navigation(locale: Locale): readonly NavGroup[] {
         },
         {
           href: "/provider-runs",
-          label: "Replay provenance",
+          label: t("adminNavReplayProvenance"),
           icon: icon(
             <>
               <path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" />

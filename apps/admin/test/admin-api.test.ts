@@ -187,6 +187,30 @@ describe("admin BFF authorization and problem details", () => {
     });
   });
 
+  it("rejects malformed live-ingestion keyset cursors", async () => {
+    const response = await api().listProviderIngestionRuns(
+      new Request(
+        "https://admin.velyq.dev/api/v1/admin/provider-ingestion-runs?cursor=1",
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("accepts a valid live-ingestion keyset cursor", async () => {
+    const cursor = encodeURIComponent(
+      "2026-09-03T10:00:00.000Z|00000000-0000-4000-8000-000000000005",
+    );
+    const response = await api().listProviderIngestionRuns(
+      new Request(
+        `https://admin.velyq.dev/api/v1/admin/provider-ingestion-runs?cursor=${cursor}`,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it("keeps private no-store caching on admin problem responses", async () => {
     const forbidden = await api({
       role: "CUSTOMER",

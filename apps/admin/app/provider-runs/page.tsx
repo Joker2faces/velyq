@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { translator } from "@velyq/ui";
 import { AdminShell, getAdminContext } from "../admin-page";
+import { getLocale } from "../locale";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProviderRunsPage() {
+  const t = translator(await getLocale());
   const { runtime } = await getAdminContext("provider_runs.read");
   if (!runtime)
     return (
@@ -23,17 +26,14 @@ export default async function ProviderRunsPage() {
     return (
       <AdminShell active="/provider-runs">
         <section className="page-heading">
-          <p className="eyebrow">TRACE / REPLAY</p>
-          <h1>Replay provenance</h1>
-          <p>
-            Deterministic fixture replay identity, hashes, and normalization
-            counts. These records do not represent live scheduler health.
-          </p>
+          <p className="eyebrow">{t("adminReplayKicker")}</p>
+          <h1>{t("adminReplayTitle")}</h1>
+          <p>{t("adminReplayBody")}</p>
         </section>
         <section className="panel">
           <div className="table-wrap">
             <table>
-              <caption className="sr-only">Replay provenance runs</caption>
+              <caption className="sr-only">{t("adminReplayCaption")}</caption>
               <thead>
                 <tr>
                   <th>Sequence</th>

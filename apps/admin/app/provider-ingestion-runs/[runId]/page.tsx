@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { AdminShell, getAdminContext } from "../../admin-page";
+import { translator } from "@velyq/ui";
+import { AdminGate, AdminShell, getAdminContext } from "../../admin-page";
+import { getLocale } from "../../locale";
+import { runStatusLabel, runTriggerLabel } from "../../provider-ingestion-copy";
+import { loadProviderIngestionRun } from "../../provider-ingestion-run-loader";
 import { ProviderIngestionRunView } from "../../provider-ingestion-run-view";
 
 export const dynamic = "force-dynamic";
@@ -10,42 +14,37 @@ export default async function ProviderIngestionRunDetail({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
+  const t = translator(await getLocale());
   const { runtime } = await getAdminContext("provider_runs.read");
   if (!runtime)
     return (
-      <main className="auth-page">
-        <div className="auth-card">
-          <h1>Access denied.</h1>
-          <Link href="/">Return to admin</Link>
-        </div>
-      </main>
+      <AdminGate
+        kicker={t("adminSignInKicker")}
+        title={t("adminDeniedTitle")}
+        body={t("adminDeniedBody")}
+      />
     );
 
   try {
-    const run = await runtime.queries
-      .getProviderIngestionRun(runId)
-      .catch(() => null);
-    if (!run)
-      return (
-        <main className="auth-page">
-          <div className="auth-card">
-            <h1>Live ingestion run not found.</h1>
-            <Link href="/provider-ingestion-runs">Back to live runs</Link>
-          </div>
-        </main>
-      );
+    const run = await loadProviderIngestionRun(runId, (id) =>
+      runtime.queries.getProviderIngestionRun(id),
+    );
 
     return (
       <AdminShell active="/provider-ingestion-runs">
         <section className="page-heading">
-          <p className="eyebrow">OPERATIONS / LIVE PROVIDER RUN</p>
+          <p className="eyebrow">{t("adminLiveDetailKicker")}</p>
           <h1>{run.providerCode}</h1>
           <p>
-            {run.trigger} · {run.status} · {run.id}
+            {t("adminLiveDetailSubtitle", {
+              trigger: runTriggerLabel(t, run.trigger),
+              status: runStatusLabel(t, run.status),
+              id: run.id,
+            })}
           </p>
         </section>
-        <ProviderIngestionRunView run={run} />
-        <Link href="/provider-ingestion-runs">← All live ingestion runs</Link>
+        <ProviderIngestionRunView run={run} t={t} />
+        <Link href="/provider-ingestion-runs">← {t("adminAllLiveRuns")}</Link>
       </AdminShell>
     );
   } finally {

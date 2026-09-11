@@ -1,9 +1,17 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { translator } from "@velyq/ui";
 
 import type { AdminProviderIngestionRunDto } from "../app/admin-api.js";
-import { ProviderIngestionRunView } from "../app/provider-ingestion-run-view.js";
+import {
+  ProviderIngestionHealthStatus,
+  ProviderIngestionPagination,
+  ProviderIngestionRunView,
+} from "../app/provider-ingestion-run-view.js";
+
+const english = translator("en");
+const greek = translator("el");
 
 const baseRun: AdminProviderIngestionRunDto = {
   id: "00000000-0000-4000-8000-000000000005",
@@ -52,13 +60,31 @@ const baseRun: AdminProviderIngestionRunDto = {
 describe("live provider-ingestion admin view", () => {
   it("labels a completed zero-call scheduler wake-up as healthy idle", () => {
     const html = renderToStaticMarkup(
-      createElement(ProviderIngestionRunView, { run: baseRun }),
+      createElement(ProviderIngestionRunView, { run: baseRun, t: english }),
     );
 
     expect(html).toContain("Healthy idle");
     expect(html).toContain("Provider calls");
     expect(html).toContain(">0<");
     expect(html).toContain("No provider work was due");
+  });
+
+  it("does not call a zero-call run idle when due work was quota blocked", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderIngestionRunView, {
+        run: {
+          ...baseRun,
+          runHealth: "QUOTA_BLOCKED",
+          odds: { ...baseRun.odds, candidates: 2 },
+          skippedByReason: { ODDS_QUOTA_EXHAUSTED: 1 },
+        },
+        t: english,
+      }),
+    );
+
+    expect(html).toContain("Quota blocked");
+    expect(html).toContain("ODDS_QUOTA_EXHAUSTED");
+    expect(html).not.toContain("No provider work was due");
   });
 
   it("shows result attempts, writes, skips, and errors for diagnosis", () => {
@@ -80,6 +106,7 @@ describe("live provider-ingestion admin view", () => {
           skippedByReason: { RESULT_BATCH_CEILING: 1 },
           errorsByReason: { RESULT_RATE_LIMITED: 1 },
         },
+        t: english,
       }),
     );
 
@@ -90,5 +117,33 @@ describe("live provider-ingestion admin view", () => {
     expect(html).toContain("RESULT_RATE_LIMITED");
     expect(html).toContain("Attempts");
     expect(html).toContain("Settlements");
+  });
+
+  it("renders Greek operator copy and an error-toned health chip", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderIngestionHealthStatus, {
+        runHealth: "COMPLETED_WITH_ERRORS",
+        t: greek,
+      }),
+    );
+
+    expect(html).toContain("Ολοκληρώθηκε με σφάλματα");
+    expect(html).toContain("ops-status--failed");
+    expect(html).not.toContain("COMPLETED_WITH_ERRORS");
+  });
+
+  it("renders translated newest and older keyset controls", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderIngestionPagination, {
+        cursor: "2026-09-03T10:00:00.000Z|00000000-0000-4000-8000-000000000005",
+        nextCursor:
+          "2026-09-02T10:00:00.000Z|00000000-0000-4000-8000-000000000006",
+        t: greek,
+      }),
+    );
+
+    expect(html).toContain("Νεότερες εκτελέσεις");
+    expect(html).toContain("Παλαιότερες εκτελέσεις");
+    expect(html).toContain("cursor=2026-09-02T10%3A00%3A00.000Z%7C");
   });
 });

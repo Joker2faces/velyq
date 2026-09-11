@@ -1,11 +1,16 @@
+import Link from "next/link";
+import type { Translator } from "@velyq/ui";
 import type { AdminProviderIngestionRunDto } from "./admin-api";
+import {
+  quotaStateLabel,
+  resultOutcomeLabel,
+  runHealthLabel,
+  runHealthTone,
+  runStatusLabel,
+  runTriggerLabel,
+} from "./provider-ingestion-copy";
 
-function label(value: string) {
-  const words = value.toLowerCase().replaceAll("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function reasonList(reasons: Readonly<Record<string, number>>) {
+function reasonList(reasons: Readonly<Record<string, number>>, t: Translator) {
   const entries = Object.entries(reasons).sort(([left], [right]) =>
     left.localeCompare(right),
   );
@@ -18,63 +23,124 @@ function reasonList(reasons: Readonly<Record<string, number>>) {
       ))}
     </ul>
   ) : (
-    <span>None</span>
+    <span>{t("adminNone")}</span>
+  );
+}
+
+export function ProviderIngestionHealthStatus({
+  runHealth,
+  t,
+}: {
+  runHealth: AdminProviderIngestionRunDto["runHealth"];
+  t: Translator;
+}) {
+  const health = runHealthLabel(t, runHealth);
+  return (
+    <span
+      aria-label={t("adminHealthAria", { health })}
+      className={`ops-status ops-status--${runHealthTone(runHealth)}`}
+    >
+      {health}
+    </span>
+  );
+}
+
+export function ProviderIngestionPagination({
+  cursor,
+  nextCursor,
+  t,
+}: {
+  cursor: string | null;
+  nextCursor: string | null;
+  t: Translator;
+}) {
+  if (!cursor && !nextCursor) return null;
+  return (
+    <nav aria-label={t("adminPaginationLabel")}>
+      {cursor ? (
+        <Link href="/provider-ingestion-runs">← {t("adminNewestRuns")}</Link>
+      ) : null}{" "}
+      {nextCursor ? (
+        <Link
+          href={`/provider-ingestion-runs?cursor=${encodeURIComponent(nextCursor)}`}
+        >
+          {t("adminOlderRuns")} →
+        </Link>
+      ) : null}
+    </nav>
   );
 }
 
 export function ProviderIngestionRunView({
   run,
+  t,
 }: {
   run: AdminProviderIngestionRunDto;
+  t: Translator;
 }) {
   const phases = [
     {
-      name: "Odds",
+      name: t("adminOddsLabel"),
       candidates: run.odds.candidates,
       attempts: run.odds.requestsAttempted,
       received: run.odds.received,
       written: run.odds.written,
-      extra: `Duplicates ${run.odds.duplicates}`,
+      extra: t("adminDuplicatesCount", { count: run.odds.duplicates }),
     },
     {
-      name: "Lineups",
+      name: t("adminLineupsLabel"),
       candidates: run.lineups.candidates,
       attempts: run.lineups.requestsAttempted,
       received: run.lineups.received,
       written: run.lineups.written,
-      extra: `Official ${run.lineups.official} · duplicates ${run.lineups.duplicates}`,
+      extra: t("adminOfficialDuplicates", {
+        official: run.lineups.official,
+        duplicates: run.lineups.duplicates,
+      }),
     },
     {
-      name: "Results",
+      name: t("adminResultsLabel"),
       candidates: run.results.candidates,
       attempts: run.results.requestsAttempted,
       received: run.results.received,
       written: run.results.written,
-      extra: `Settlements ${run.results.settlementsWritten} · duplicates ${run.results.duplicates}`,
+      extra: t("adminSettlementsDuplicates", {
+        settlements: run.results.settlementsWritten,
+        duplicates: run.results.duplicates,
+      }),
     },
   ];
 
   return (
     <>
-      <section className="detail-grid" aria-label="Run summary">
+      <section className="detail-grid" aria-label={t("adminRunSummaryAria")}>
+        <article>
+          <span>{t("adminHealthLabel")}</span>
+          <ProviderIngestionHealthStatus runHealth={run.runHealth} t={t} />
+        </article>
         {[
-          ["Health", label(run.runHealth)],
-          ["Status", label(run.status)],
-          ["Result outcome", label(run.resultOutcome)],
-          ["Trigger", label(run.trigger)],
-          ["Provider calls", String(run.providerCallsUsed)],
-          ["Started", run.startedAt],
-          ["Finished", run.finishedAt ?? "—"],
-          ["Quota day", run.quotaDay],
-          ["Quota state at start", run.quotaStateAtStart ?? "—"],
-          ["Quota state at end", run.quotaStateAtEnd ?? "—"],
+          [t("adminStatusLabel"), runStatusLabel(t, run.status)],
           [
-            "Quota remaining",
+            t("adminResultOutcomeLabel"),
+            resultOutcomeLabel(t, run.resultOutcome),
+          ],
+          [t("adminTriggerLabel"), runTriggerLabel(t, run.trigger)],
+          [t("adminProviderCallsLabel"), String(run.providerCallsUsed)],
+          [t("adminStartedLabel"), run.startedAt],
+          [t("adminFinishedLabel"), run.finishedAt ?? "—"],
+          [t("adminQuotaDayLabel"), run.quotaDay],
+          [
+            t("adminQuotaStartLabel"),
+            quotaStateLabel(t, run.quotaStateAtStart),
+          ],
+          [t("adminQuotaEndLabel"), quotaStateLabel(t, run.quotaStateAtEnd)],
+          [
+            t("adminQuotaRemainingLabel"),
             run.quotaRemainingAtEnd === null
               ? "—"
               : String(run.quotaRemainingAtEnd),
           ],
-          ["Quota policy", run.quotaPolicyVersion],
+          [t("adminQuotaPolicyLabel"), run.quotaPolicyVersion],
         ].map(([name, value]) => (
           <article key={name}>
             <span>{name}</span>
@@ -85,54 +151,59 @@ export function ProviderIngestionRunView({
 
       {run.runHealth === "HEALTHY_IDLE" ? (
         <section className="panel">
-          <h2>No provider work was due</h2>
-          <p>
-            This completed scheduler wake-up is healthy. Zero provider calls
-            means no discovery, odds, lineup, or result request was due.
-          </p>
+          <h2>{t("adminNoWorkDueTitle")}</h2>
+          <p>{t("adminNoWorkDueBody")}</p>
         </section>
       ) : null}
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Attempts and writes</h2>
+          <h2>{t("adminAttemptsWritesTitle")}</h2>
         </div>
         <div className="ops-metrics">
           <div className="ops-metric">
-            <span className="ops-metric__label">Fixtures</span>
+            <span className="ops-metric__label">{t("adminFixturesLabel")}</span>
             <span className="ops-metric__value">
-              {run.fixtures.written} written
+              {t("adminWrittenCount", { count: run.fixtures.written })}
             </span>
             <span className="ops-metric__note">
-              {run.fixtures.received} received · dates{" "}
-              {run.discoveryDatesRequested.length
-                ? run.discoveryDatesRequested.join(", ")
-                : "none"}
+              {t("adminReceivedDates", {
+                received: run.fixtures.received,
+                dates: run.discoveryDatesRequested.length
+                  ? run.discoveryDatesRequested.join(", ")
+                  : t("adminDatesNone"),
+              })}
             </span>
           </div>
           {phases.map((phase) => (
             <div className="ops-metric" key={phase.name}>
               <span className="ops-metric__label">{phase.name}</span>
               <span className="ops-metric__value">
-                {phase.attempts} Attempts · {phase.written} written
+                {t("adminAttemptsWritten", {
+                  attempts: phase.attempts,
+                  written: phase.written,
+                })}
               </span>
               <span className="ops-metric__note">
-                {phase.candidates} candidates · {phase.received} received ·{" "}
-                {phase.extra}
+                {t("adminCandidatesReceivedExtra", {
+                  candidates: phase.candidates,
+                  received: phase.received,
+                  extra: phase.extra,
+                })}
               </span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="detail-grid" aria-label="Skips and errors">
+      <section className="detail-grid" aria-label={t("adminSkipsErrorsAria")}>
         <article>
-          <span>Skips by reason</span>
-          {reasonList(run.skippedByReason)}
+          <span>{t("adminSkipsByReason")}</span>
+          {reasonList(run.skippedByReason, t)}
         </article>
         <article>
-          <span>Errors by reason</span>
-          {reasonList(run.errorsByReason)}
+          <span>{t("adminErrorsByReason")}</span>
+          {reasonList(run.errorsByReason, t)}
         </article>
       </section>
     </>

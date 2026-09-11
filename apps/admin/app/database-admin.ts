@@ -1,4 +1,4 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import {
   brierScore,
   empiricalFrequencies,
@@ -51,6 +51,11 @@ import type {
   AdminScoreDto,
 } from "./admin-api";
 import { createSupabaseAdminAuthenticator } from "./admin-auth";
+import {
+  formatProviderIngestionCursor,
+  parseProviderIngestionCursor,
+} from "./provider-ingestion-cursor";
+import { deriveProviderIngestionHealth } from "./provider-ingestion-health";
 
 const json = (value: unknown) => value as never;
 
@@ -102,20 +107,23 @@ function providerIngestionRun(
   providerCode = row.providerId,
 ): AdminProviderIngestionRunDto {
   const errorsByReason = reasonCounts(row.errorsByReason);
-  const hasErrors = Object.values(errorsByReason).some((count) => count > 0);
+  const skippedByReason = reasonCounts(row.skippedByReason);
   const hasResultErrors = Object.entries(errorsByReason).some(
     ([reason, count]) => reason.startsWith("RESULT_") && count > 0,
   );
-  const runHealth =
-    row.status === "FAILED"
-      ? "FAILED"
-      : row.status === "RUNNING"
-        ? "RUNNING"
-        : hasErrors
-          ? "COMPLETED_WITH_ERRORS"
-          : row.providerCallsUsed === 0
-            ? "HEALTHY_IDLE"
-            : "HEALTHY_ACTIVE";
+  const runHealth = deriveProviderIngestionHealth({
+    status: row.status as AdminProviderIngestionRunDto["status"],
+    providerCallsUsed: row.providerCallsUsed,
+    discoveryDatesRequested: row.discoveryDatesRequested,
+    oddsCandidates: row.oddsCandidates,
+    oddsRequestsAttempted: row.oddsRequestsAttempted,
+    lineupCandidates: row.lineupCandidates,
+    lineupRequestsAttempted: row.lineupRequestsAttempted,
+    resultCandidates: row.resultCandidates,
+    resultRequestsAttempted: row.resultRequestsAttempted,
+    skippedByReason,
+    errorsByReason,
+  });
   const resultOutcome =
     row.resultRequestsAttempted === 0
       ? "NOT_ATTEMPTED"
@@ -164,7 +172,7 @@ function providerIngestionRun(
       duplicates: row.resultDuplicates,
       settlementsWritten: row.settlementsWritten,
     },
-    skippedByReason: reasonCounts(row.skippedByReason),
+    skippedByReason,
     errorsByReason,
     startedAt: row.startedAt.toISOString(),
     finishedAt: row.finishedAt?.toISOString() ?? null,
@@ -195,22 +203,40 @@ export class DatabaseAdminQueries implements AdminQueries {
     limit: number;
     cursor: string | null;
   }) {
-    const offset = cursorOffset(input.cursor);
+    const cursor =
+      input.cursor === null ? null : parseProviderIngestionCursor(input.cursor);
+    if (input.cursor !== null && !cursor) throw new Error("INVALID_REQUEST");
     const rows = await this.database
       .select({ run: providerIngestionRuns, providerCode: providers.code })
       .from(providerIngestionRuns)
       .innerJoin(providers, eq(providerIngestionRuns.providerId, providers.id))
+      .where(
+        cursor
+          ? or(
+              lt(providerIngestionRuns.startedAt, cursor.startedAt),
+              and(
+                eq(providerIngestionRuns.startedAt, cursor.startedAt),
+                lt(providerIngestionRuns.id, cursor.id),
+              ),
+            )
+          : undefined,
+      )
       .orderBy(
         desc(providerIngestionRuns.startedAt),
         desc(providerIngestionRuns.id),
       )
-      .limit(input.limit)
-      .offset(offset);
+      .limit(input.limit + 1);
+    const hasMore = rows.length > input.limit;
+    const pageRows = rows.slice(0, input.limit);
+    const last = pageRows.at(-1)?.run;
     return {
-      items: rows.map(({ run, providerCode }) =>
+      items: pageRows.map(({ run, providerCode }) =>
         providerIngestionRun(run, providerCode),
       ),
-      nextCursor: nextCursor(offset, input.limit, rows.length),
+      nextCursor:
+        hasMore && last
+          ? formatProviderIngestionCursor(last.startedAt, last.id)
+          : null,
     } satisfies AdminPage<AdminProviderIngestionRunDto>;
   }
 

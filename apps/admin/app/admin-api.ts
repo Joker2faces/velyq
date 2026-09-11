@@ -6,6 +6,7 @@ import {
 } from "@velyq/auth";
 import type { ProviderRun } from "@velyq/contracts";
 import { createDatabaseAdminRuntime } from "./database-admin";
+import { parseProviderIngestionCursor } from "./provider-ingestion-cursor";
 
 export type AdminJsonValue =
   | string
@@ -105,6 +106,9 @@ export type AdminProviderIngestionRunDto = Readonly<{
     | "HEALTHY_IDLE"
     | "HEALTHY_ACTIVE"
     | "COMPLETED_WITH_ERRORS"
+    | "QUOTA_BLOCKED"
+    | "BUDGET_BLOCKED"
+    | "WORK_BLOCKED"
     | "FAILED";
   resultOutcome: "NOT_ATTEMPTED" | "SUCCEEDED" | "FAILED";
   providerCallsUsed: number;
@@ -424,7 +428,11 @@ function idFromParams(
     : null;
 }
 
-function pageInput(request: Request, requestId: string) {
+function pageInput(
+  request: Request,
+  requestId: string,
+  isCursorValid: (cursor: string) => boolean = (cursor) => /^\d+$/.test(cursor),
+) {
   const url = new URL(request.url);
   const rawLimit = url.searchParams.get("limit");
   const limit = rawLimit === null ? 50 : Number(rawLimit);
@@ -441,7 +449,7 @@ function pageInput(request: Request, requestId: string) {
   const cursor = url.searchParams.get("cursor");
   if (
     cursor !== null &&
-    (cursor.length === 0 || cursor.length > 256 || !/^\d+$/.test(cursor))
+    (cursor.length === 0 || cursor.length > 256 || !isCursorValid(cursor))
   ) {
     return {
       problem: problem(
@@ -453,6 +461,14 @@ function pageInput(request: Request, requestId: string) {
     } as const;
   }
   return { limit, cursor } as const;
+}
+
+function providerIngestionPageInput(request: Request, requestId: string) {
+  return pageInput(
+    request,
+    requestId,
+    (cursor) => parseProviderIngestionCursor(cursor) !== null,
+  );
 }
 
 class AdminRequestError extends Error {
@@ -537,7 +553,7 @@ export function createAdminApi(dependencies: AdminDependencies) {
     listProviderIngestionRuns: (request: Request) =>
       run(request, permissionByOperation.providerRunsRead, async () => {
         const requestId = adminRequestId(request);
-        const input = pageInput(request, requestId);
+        const input = providerIngestionPageInput(request, requestId);
         if ("problem" in input)
           throw new AdminRequestError(input.problem.title);
         return dependencies.queries.listProviderIngestionRuns(input);

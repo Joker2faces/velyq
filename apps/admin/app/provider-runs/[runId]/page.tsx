@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { translator } from "@velyq/ui";
 import { AdminShell, getAdminContext } from "../../admin-page";
+import { getLocale } from "../../locale";
 export const dynamic = "force-dynamic";
 export default async function ProviderRunDetail({
   params,
@@ -7,6 +9,7 @@ export default async function ProviderRunDetail({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
+  const t = translator(await getLocale());
   const { runtime } = await getAdminContext("provider_runs.read");
   if (!runtime)
     return (
@@ -31,7 +34,7 @@ export default async function ProviderRunDetail({
     return (
       <AdminShell>
         <section className="page-heading">
-          <p className="eyebrow">TRACE / REPLAY PROVENANCE</p>
+          <p className="eyebrow">{t("adminReplayDetailKicker")}</p>
           <h1>{run.sequenceName}</h1>
           <p>
             {run.providerCode} · {run.status}
@@ -57,7 +60,7 @@ export default async function ProviderRunDetail({
             </article>
           ))}
         </section>
-        <Link href="/provider-runs">← All replay provenance</Link>
+        <Link href="/provider-runs">← {t("adminAllReplayRuns")}</Link>
       </AdminShell>
     );
   } finally {

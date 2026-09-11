@@ -2,6 +2,8 @@ import Link from "next/link";
 import { formatCount, translator } from "@velyq/ui";
 import { AdminGate, AdminShell, getAdminContext } from "./admin-page";
 import { getLocale } from "./locale";
+import { resultOutcomeLabel, runTriggerLabel } from "./provider-ingestion-copy";
+import { ProviderIngestionHealthStatus } from "./provider-ingestion-run-view";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +100,9 @@ export default async function Page() {
               fabricated to fill a card. */}
           <div className="ops-metrics">
             <div className="ops-metric">
-              <span className="ops-metric__label">Live ingestion runs</span>
+              <span className="ops-metric__label">
+                {t("adminLiveRunsMetric")}
+              </span>
               <span className="ops-metric__value">
                 {formatCount(runs.items.length)}
               </span>
@@ -122,8 +126,10 @@ export default async function Page() {
 
           <section className="panel">
             <div className="panel-heading">
-              <h2>Recent live ingestion runs</h2>
-              <Link href="/provider-ingestion-runs">Open operations →</Link>
+              <h2>{t("adminRecentLiveRuns")}</h2>
+              <Link href="/provider-ingestion-runs">
+                {t("adminOpenOperations")} →
+              </Link>
             </div>
 
             {runs.items.length === 0 ? (
@@ -135,37 +141,42 @@ export default async function Page() {
               <div className="ops-table-wrap">
                 <table className="ops-table">
                   <caption className="sr-only">
-                    Recent live ingestion runs
+                    {t("adminRecentLiveRuns")}
                   </caption>
                   <thead>
                     <tr>
-                      <th>Provider / trigger</th>
-                      <th>Health</th>
-                      <th>Calls</th>
-                      <th>Result</th>
-                      <th>Started</th>
-                      <th>Trace</th>
+                      <th scope="col">{t("adminColumnProviderTrigger")}</th>
+                      <th scope="col">{t("adminHealthLabel")}</th>
+                      <th scope="col">{t("adminColumnProviderCalls")}</th>
+                      <th scope="col">{t("adminResultOutcomeLabel")}</th>
+                      <th scope="col">{t("adminColumnStarted")}</th>
+                      <th scope="col">{t("adminColumnTrace")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {runs.items.map((run) => (
                       <tr key={run.id}>
-                        <td data-label="Provider / trigger">
+                        <td data-label={t("adminColumnProviderTrigger")}>
                           <strong>{run.providerCode}</strong>
-                          <small>{run.trigger}</small>
+                          <small>{runTriggerLabel(t, run.trigger)}</small>
                         </td>
-                        <td data-label={t("adminColumnStatus")}>
-                          <span
-                            className={`ops-status ops-status--${run.status.toLowerCase()}`}
-                          >
-                            {run.runHealth.replaceAll("_", " ")}
-                          </span>
+                        <td data-label={t("adminHealthLabel")}>
+                          <ProviderIngestionHealthStatus
+                            runHealth={run.runHealth}
+                            t={t}
+                          />
                         </td>
-                        <td className="ops-num" data-label="Calls">
+                        <td
+                          className="ops-num"
+                          data-label={t("adminColumnProviderCalls")}
+                        >
                           {run.providerCallsUsed}
                         </td>
-                        <td className="ops-num" data-label="Result">
-                          {run.resultOutcome.replaceAll("_", " ")}
+                        <td
+                          className="ops-num"
+                          data-label={t("adminResultOutcomeLabel")}
+                        >
+                          {resultOutcomeLabel(t, run.resultOutcome)}
                         </td>
                         <td
                           className="ops-num"
@@ -188,12 +199,12 @@ export default async function Page() {
 
           <div className="ops-tiles" style={{ marginBottom: "var(--space-6)" }}>
             <Link className="ops-tile" href="/provider-ingestion-runs">
-              <strong>Live ingestion</strong>
-              <span>Scheduler health and provider work</span>
+              <strong>{t("adminNavLiveIngestion")}</strong>
+              <span>{t("adminLiveIngestionTileBody")}</span>
             </Link>
             <Link className="ops-tile" href="/provider-runs">
-              <strong>Replay provenance</strong>
-              <span>Deterministic fixture and normalization traces</span>
+              <strong>{t("adminNavReplayProvenance")}</strong>
+              <span>{t("adminReplayProvenanceTileBody")}</span>
             </Link>
             <Link className="ops-tile" href="/predictions">
               <strong>{t("adminNavPredictions")}</strong>
