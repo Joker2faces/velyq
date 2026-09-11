@@ -7,6 +7,7 @@ import {
   runStatusLabel,
   runTriggerLabel,
 } from "../provider-ingestion-copy";
+import { parseProviderIngestionCursor } from "../provider-ingestion-cursor";
 import {
   ProviderIngestionHealthStatus,
   ProviderIngestionPagination,
@@ -25,6 +26,10 @@ export default async function ProviderIngestionRunsPage({
   const t = translator(await getLocale());
   const cursorValue = (await searchParams).cursor;
   const cursor = typeof cursorValue === "string" ? cursorValue : null;
+  const cursorIsInvalid =
+    cursorValue !== undefined &&
+    (typeof cursorValue !== "string" ||
+      parseProviderIngestionCursor(cursorValue) === null);
   const { runtime } = await getAdminContext("provider_runs.read");
   if (!runtime)
     return (
@@ -36,6 +41,26 @@ export default async function ProviderIngestionRunsPage({
     );
 
   try {
+    if (cursorIsInvalid)
+      return (
+        <AdminShell active="/provider-ingestion-runs">
+          <section className="page-heading">
+            <p className="eyebrow">{t("adminLiveKicker")}</p>
+            <h1>{t("adminLiveTitle")}</h1>
+            <p>{t("adminLiveBody")}</p>
+          </section>
+          <section className="panel">
+            <div className="state">
+              <h3>{t("adminInvalidCursorTitle")}</h3>
+              <p>{t("adminInvalidCursorBody")}</p>
+              <Link href="/provider-ingestion-runs">
+                {t("adminNewestRuns")} →
+              </Link>
+            </div>
+          </section>
+        </AdminShell>
+      );
+
     const runs = await runtime.queries.listProviderIngestionRuns({
       limit: 100,
       cursor,

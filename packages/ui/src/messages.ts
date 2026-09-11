@@ -727,6 +727,9 @@ export const messages = {
   adminOlderRuns: "Older runs",
   adminNewestRuns: "Newest runs",
   adminPaginationLabel: "Live ingestion pagination",
+  adminInvalidCursorTitle: "Invalid page link",
+  adminInvalidCursorBody:
+    "This live-run pagination link is invalid or has expired. Return to the newest runs and try again.",
   adminLiveDetailKicker: "OPERATIONS / LIVE PROVIDER RUN",
   adminLiveDetailSubtitle: "{trigger} · {status} · {id}",
   adminAllLiveRuns: "All live ingestion runs",
@@ -1643,6 +1646,9 @@ const greek: Readonly<Record<MessageKey, string>> = {
   adminOlderRuns: "Παλαιότερες εκτελέσεις",
   adminNewestRuns: "Νεότερες εκτελέσεις",
   adminPaginationLabel: "Σελιδοποίηση ζωντανής εισαγωγής",
+  adminInvalidCursorTitle: "Μη έγκυρος σύνδεσμος σελίδας",
+  adminInvalidCursorBody:
+    "Αυτός ο σύνδεσμος σελιδοποίησης εκτελέσεων δεν είναι έγκυρος ή έχει λήξει. Επιστρέψτε στις νεότερες εκτελέσεις και δοκιμάστε ξανά.",
   adminLiveDetailKicker: "ΛΕΙΤΟΥΡΓΙΑ / ΕΚΤΕΛΕΣΗ ΖΩΝΤΑΝΟΥ ΠΑΡΟΧΟΥ",
   adminLiveDetailSubtitle: "Ενεργοποίηση {trigger} · κατάσταση {status} · {id}",
   adminAllLiveRuns: "Όλες οι εκτελέσεις ζωντανής εισαγωγής",
