@@ -2,14 +2,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { buildDemoHistory } from "../app/customer/history-data";
+import type { HistorySurfaceDto } from "../app/customer/history-surface";
 import { ResultsView } from "../app/results/results-view";
 
 const demo = buildDemoHistory(new Date("2026-09-08T12:00:00.000Z"));
 
-function visibleText(locale: "en" | "el") {
-  return renderToStaticMarkup(
-    createElement(ResultsView, { data: demo, locale }),
-  )
+function visibleText(locale: "en" | "el", data: HistorySurfaceDto = demo) {
+  return renderToStaticMarkup(createElement(ResultsView, { data, locale }))
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -41,5 +40,49 @@ describe("decision History presentation", () => {
     expect(text).toContain("Edge");
     expect(text).toContain("Watch");
     expect(text).toContain("Northbridge United");
+  });
+
+  it.each([
+    ["en", "No model version"],
+    ["el", "Δεν υπάρχει έκδοση μοντέλου"],
+  ] as const)(
+    "localizes empty live History model metadata in %s",
+    (locale, expected) => {
+      const data: HistorySurfaceDto = {
+        ...demo,
+        syntheticLabel: "Live data",
+        period: "ALL_PERSISTED",
+        modelVersion: { state: "NONE" },
+        decisions: [],
+      };
+
+      const text = visibleText(locale, data);
+      expect(text).toContain(expected);
+      expect(text).not.toContain("Multiple model versions");
+    },
+  );
+
+  it.each([
+    ["en", "2 model versions"],
+    ["el", "2 εκδόσεις μοντέλου"],
+  ] as const)(
+    "localizes mixed live History model metadata in %s",
+    (locale, expected) => {
+      const data: HistorySurfaceDto = {
+        ...demo,
+        syntheticLabel: "Live data",
+        period: "ALL_PERSISTED",
+        modelVersion: { state: "MULTIPLE", count: 2 },
+      };
+
+      const text = visibleText(locale, data);
+      expect(text).toContain(expected);
+      expect(text).not.toContain("Multiple model versions");
+    },
+  );
+
+  it("preserves an exact single model version as untranslated data", () => {
+    expect(visibleText("en")).toContain("phase-1-experimental.v1");
+    expect(visibleText("el")).toContain("phase-1-experimental.v1");
   });
 });

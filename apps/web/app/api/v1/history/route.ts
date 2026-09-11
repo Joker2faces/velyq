@@ -60,15 +60,18 @@ export async function GET(request: Request) {
       const modelVersions = [
         ...new Set(rows.map((row) => row.forecast.modelVersion)),
       ];
+      const modelVersion =
+        modelVersions.length === 0
+          ? ({ state: "NONE" } as const)
+          : modelVersions.length === 1
+            ? ({ state: "SINGLE", version: modelVersions[0]! } as const)
+            : ({ state: "MULTIPLE", count: modelVersions.length } as const);
       return NextResponse.json(
         {
           syntheticLabel: "Live data",
           asOf: new Date().toISOString(),
           period: "ALL_PERSISTED",
-          modelVersion:
-            modelVersions.length === 1
-              ? modelVersions[0]
-              : "Multiple model versions",
+          modelVersion,
           hasMore,
           nextCursor,
           decisions: rows.map((row) => ({

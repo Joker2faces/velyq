@@ -14,6 +14,7 @@ import {
 } from "@velyq/ui";
 import type {
   DecisionHistoryItem,
+  HistoryModelVersion,
   HistorySurfaceDto,
 } from "../customer/history-surface";
 import { Badge, Card, CardHead, Stat } from "../components/ui";
@@ -41,6 +42,12 @@ const copy = (locale: Locale) => {
     live: t("historyLiveData"),
     all: t("historyAllQualifying"),
     model: t("historyModel"),
+    modelVersion: (value: HistoryModelVersion) => {
+      if (value.state === "NONE") return t("historyModelVersionNone");
+      if (value.state === "MULTIPLE")
+        return t("historyModelVersionMultiple", { count: value.count });
+      return value.version;
+    },
     periodDemo: t("historyPeriodDemo"),
     periodAll: t("historyPeriodAll"),
     settlement: {
@@ -174,7 +181,10 @@ export function ResultsView({
         </Card>
       </div>
       <Card>
-        <CardHead title={t.all} hint={`${data.modelVersion} · ${period}`} />{" "}
+        <CardHead
+          title={t.all}
+          hint={`${t.modelVersion(data.modelVersion)} · ${period}`}
+        />{" "}
         {/*
          * Announced politely so a screen-reader user learns older decisions
          * loaded without the page stealing focus from wherever they were --

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { buildDemoHistory } from "../../apps/web/app/customer/history-data";
 import { signInAsCustomer } from "./customer-test-helpers";
 
 async function switchToGreek(page: import("@playwright/test").Page) {
@@ -25,8 +26,19 @@ test("Greek History localizes decision, market, outcome and demo metadata", asyn
   expect(history).toContain("Αξία");
   expect(history).toContain("Παρακολούθηση");
   expect(history).toContain("Northbridge United");
+  const rows = await page.locator(".results-row").allInnerTexts();
+  expect(rows).toHaveLength(4);
+  expect(rows[1]).toContain(
+    "Σύνολο γκολ κανονικής διάρκειας · Πάνω 2.5 · Αξία",
+  );
+  expect(rows[3]).toContain(
+    "Τελικό αποτέλεσμα 1Χ2 · Νίκη γηπεδούχου · Παρακολούθηση",
+  );
+  expect(rows.join("\n")).not.toMatch(
+    /Over 2\.5|\b(?:EDGE|Edge|edge|WATCH|Watch|watch)\b/,
+  );
   expect(history).not.toMatch(
-    /Demo sample|all qualifying actionable decisions|Full-time|Over 2\.5|\bEdge\b|\bWatch\b/,
+    /Demo sample|all qualifying actionable decisions|Full-time/,
   );
 });
 
@@ -45,6 +57,52 @@ test("English History retains its customer vocabulary", async ({ page }) => {
   expect(history).toContain("Over 2.5");
   expect(history).toContain("Edge");
   expect(history).toContain("Watch");
+});
+
+test("live History localizes empty and mixed model-version states", async ({
+  page,
+}) => {
+  const demo = buildDemoHistory(new Date("2026-09-08T12:00:00.000Z"));
+  let responseBody: Record<string, unknown> = {
+    ...demo,
+    syntheticLabel: "Live data" as const,
+    period: "ALL_PERSISTED" as const,
+    modelVersion: { state: "NONE" as const },
+    decisions: [],
+  };
+  await page.route("**/api/v1/history*", async (route) => {
+    await route.fulfill({ json: responseBody });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signInAsCustomer(page);
+  await page.goto("/results");
+  await expect(page.getByText("No model version")).toBeVisible();
+
+  await switchToGreek(page);
+  await expect(page.getByText("Δεν υπάρχει έκδοση μοντέλου")).toBeVisible();
+
+  responseBody = {
+    ...demo,
+    syntheticLabel: "Live data" as const,
+    period: "ALL_PERSISTED" as const,
+    modelVersion: { state: "MULTIPLE" as const, count: 2 },
+    decisions: demo.decisions,
+  };
+  await page.reload();
+  await expect(page.getByText("2 εκδόσεις μοντέλου")).toBeVisible();
+  await expect(page.getByText("Multiple model versions")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByText("2 model versions")).toBeVisible();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload();
+  await expect(page.getByText("2 model versions")).toBeVisible();
+  expect(await page.locator("html").evaluate((node) => node.scrollWidth)).toBe(
+    1440,
+  );
 });
 
 test("Greek authenticated header keeps a compact VELYQ mark without overflow", async ({

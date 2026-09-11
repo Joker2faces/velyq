@@ -6,7 +6,10 @@ export function buildDemoHistory(now: Date): HistorySurfaceDto {
     syntheticLabel: "Synthetic data",
     asOf: now.toISOString(),
     period: "DEMO_SAMPLE",
-    modelVersion: "phase-1-experimental.v1",
+    modelVersion: {
+      state: "SINGLE",
+      version: "phase-1-experimental.v1",
+    },
     hasMore: false,
     nextCursor: null,
     decisions: [

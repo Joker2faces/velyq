@@ -27,11 +27,16 @@ export type DecisionHistoryItem = Readonly<{
   priceQuality: "POSITIVE_CLV" | "NEGATIVE_CLV" | "UNAVAILABLE";
 }>;
 
+export type HistoryModelVersion =
+  | Readonly<{ state: "NONE" }>
+  | Readonly<{ state: "SINGLE"; version: string }>
+  | Readonly<{ state: "MULTIPLE"; count: number }>;
+
 export type HistorySurfaceDto = Readonly<{
   syntheticLabel: "Synthetic data" | "Live data";
   asOf: string;
   period: "DEMO_SAMPLE" | "ALL_PERSISTED";
-  modelVersion: string;
+  modelVersion: HistoryModelVersion;
   decisions: readonly DecisionHistoryItem[];
   /** Whether an older page exists beyond this one. */
   hasMore: boolean;

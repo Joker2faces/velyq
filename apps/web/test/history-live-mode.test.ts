@@ -31,7 +31,12 @@ vi.mock("@velyq/database", () => ({
   },
 }));
 
-function historyRow(id: string, createdAt: string, synthetic = false) {
+function historyRow(
+  id: string,
+  createdAt: string,
+  synthetic = false,
+  modelVersion = "test.v1",
+) {
   return {
     decision: {
       id,
@@ -42,7 +47,7 @@ function historyRow(id: string, createdAt: string, synthetic = false) {
       fairOdds: "1.80000000",
       expectedValue: "0.100000000000",
     },
-    forecast: { modelVersion: "test.v1", probability: "0.550000000000" },
+    forecast: { modelVersion, probability: "0.550000000000" },
     event: { synthetic },
     competition: { nameKey: "competition.test" },
     marketDefinition: { labelKey: "market.match_winner" },
@@ -81,11 +86,13 @@ describe("live decision history", () => {
     );
     const body = (await response.json()) as {
       syntheticLabel: string;
+      modelVersion: unknown;
       decisions: unknown[];
     };
 
     expect(response.status).toBe(200);
     expect(body.syntheticLabel).toBe("Live data");
+    expect(body.modelVersion).toEqual({ state: "NONE" });
     expect(body.decisions).toEqual([]);
     expect(state.close).toHaveBeenCalledOnce();
   });
@@ -108,10 +115,12 @@ describe("live decision history", () => {
       syntheticLabel: string;
       hasMore: boolean;
       nextCursor: string | null;
+      modelVersion: unknown;
       decisions: { id: string }[];
     };
     expect(firstBody).toMatchObject({
       syntheticLabel: "Live data",
+      modelVersion: { state: "SINGLE", version: "test.v1" },
       hasMore: true,
       decisions: [{ id: "decision-1" }, { id: "decision-2" }],
     });
@@ -140,5 +149,25 @@ describe("live decision history", () => {
         decisions: [expect.objectContaining({ id: "decision-3" })],
       }),
     );
+  });
+
+  it("reports mixed live model versions as typed data without API prose", async () => {
+    state.pages = [
+      [
+        historyRow("decision-1", "2026-09-10T12:00:00.000Z", false, "model.v2"),
+        historyRow("decision-2", "2026-09-10T11:00:00.000Z", false, "model.v1"),
+      ],
+      [],
+      [],
+    ];
+    const { GET } = await import("../app/api/v1/history/route");
+
+    const response = await GET(
+      new Request("https://velyq.test/api/v1/history"),
+    );
+    const body = (await response.json()) as { modelVersion: unknown };
+
+    expect(body.modelVersion).toEqual({ state: "MULTIPLE", count: 2 });
+    expect(JSON.stringify(body)).not.toContain("Multiple model versions");
   });
 });
