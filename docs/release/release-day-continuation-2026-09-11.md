@@ -11,9 +11,9 @@ manifest and readiness record describe a different branch and deployment.
 | Item | State |
 | --- | --- |
 | Starting SHA | `11731e3d17a327730420e19b7111bec2678ca36b` |
-| Implementation/snapshot candidate | `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
+| Final corrected source candidate | `1109307`; reviewed snapshot reconciliation is `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
 | Remote before the final evidence push | `a4082097d25b5412f0e62766801efe703dc517e3`; snapshot and documentation commits remain local until final review |
-| Final integrated local release gate | **PASS** at the documentation-inclusive tree; independent whole-release review remains underway |
+| Final integrated local release gate | **PASS** at corrected source `1109307`; final independent re-review approved with 0 Critical / 0 Important / 0 Minor findings |
 | Production database migration | Not performed |
 | Continuation deployment | Not performed |
 | Last documented customer production | `2ab1cfb` on `dpl_7t7yewrjKTWtFGSdeqcag2aazQFB`; this continuation has not moved the alias |
@@ -30,8 +30,8 @@ controller records a successful migration, deployment, and live verification.
 | Correction-safe History and Autopsy | `71ed19403121b2474eb3ecaeb4225a9351329989`, `06a7234239bdf836c11243703ea766146db7a778` |
 | Odds receipt cutoff and exact closing median | `74356944387c1891e618cd938f9ef39ed1bc478b` |
 | True opening odds | `2142536c054288fe956649c1aadfa0c9c904914e`, `8f38956c1db971b2261e80d3cd1d3344fe42487a` |
-| Honest result acquisition/settlement time | `0dc965f3556782bd1e6dc2f353df7db6a7854eef`, `e8e4c000bae9d9ef939ca1e61c2b9c9febde0c8c` |
-| Live provider ingestion in Admin | `09870d99fd6d57e92aaf912a3b2ed4372e179834`, `6493a59a3a3a8bcd3766aae32e0e3a7da97eb08e`, `dc16c3ef17b75bf9d115f39736f508cd3b6211d1` |
+| Honest result acquisition/settlement time and terminal calibration authority | `0dc965f3556782bd1e6dc2f353df7db6a7854eef`, `e8e4c000bae9d9ef939ca1e61c2b9c9febde0c8c`, `1109307` |
+| Live provider ingestion in Admin | `09870d99fd6d57e92aaf912a3b2ed4372e179834`, `6493a59a3a3a8bcd3766aae32e0e3a7da97eb08e`, `dc16c3ef17b75bf9d115f39736f508cd3b6211d1`, `0bebe8c` |
 | Batched customer reads | `b050f492290d1f12ebfe52fa59faf59ace3f15e3`, `0913598eff3ff4e39e4a26ed5befb419e774e563` |
 | Greek History and compact header | `3ee69545b416a4c3314b997dfe3b0a2f80fdb68b`, `680a12d36e630a60698c542f8ce95311bb782320` |
 | Quality at decision in Autopsy | `a4082097d25b5412f0e62766801efe703dc517e3` |
@@ -72,17 +72,18 @@ The final Task 6 local gate passed from the clean, documentation-inclusive
 candidate tree:
 
 - `pnpm verify`: formatting and zero-warning lint passed; typecheck 18/18;
-  unit tests 136 files / 1,242 tests; build 18/18, including optimized
+  unit tests 136 files / 1,244 tests; build 18/18, including optimized
   production web and Admin bundles.
-- Fresh PostgreSQL 17 migration/seed: 13 files / 85 tests passed.
+- Fresh PostgreSQL 17 migration/seed: 14 files / 88 tests passed.
 - Representative database upgrade: passed with data preserved.
 - Production-faithful reconciliation: passed on the recorded legacy schema,
   including historical source/result preservation and the complete DB suite.
 - Worker readiness: passed.
 - Customer Playwright: 15/15 on each of three consecutive runs, including the
   full desktop/mobile screenshot sweep, EN/EL History, and Autopsy quality.
-- Admin Playwright: 5/5 on each of two independently provisioned, migrated,
-  and seeded PostgreSQL runs.
+- Admin Playwright: 5/5 on each of two initial independently provisioned,
+  migrated, and seeded PostgreSQL runs, then 5/5 again after the final Admin
+  failure-classification correction.
 - The two intentional History baselines were regenerated only after manual
   desktop/mobile inspection and then remained stable across all three runs.
 - Tracked-source secret heuristic found no matches.
@@ -102,6 +103,12 @@ The following task-scoped evidence provides additional depth:
 - Task 14 evidence: full real-PostgreSQL 13 files / 84 tests, broad customer
   19 files / 140 tests, full unit/customer 134 files / 1,224 tests, all 18
   typechecks/builds, lint, and format passed.
+- Final whole-release review found and rejected two Important integration
+  defects. `0bebe8c` now treats persisted `RESULT_WRITE_FAILED` skips as failed
+  live runs without advancing last-success time; `1109307` now selects the
+  authoritative terminal result before admitting only scored FINAL rows to
+  calibration and both baselines. Their real-PostgreSQL regressions and scoped
+  independent re-reviews passed with no remaining findings.
 - Tracked-source secret heuristic at the candidate found no matches.
 - The official npm audit reports one High advisory on `sharp < 0.35.4` only
   through development dependencies
@@ -110,8 +117,8 @@ The following task-scoped evidence provides additional depth:
   reason to modify the protected Cloudflare POC during this continuation.
 
 Production migration, deployment, and live QA are not claimed complete in this
-document. Final independent review and clean local/remote identity checks must
-also complete before any production action.
+document. Clean local/remote identity checks must also complete before any
+production action.
 
 ## Benchmark
 
