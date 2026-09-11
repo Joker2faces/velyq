@@ -80,7 +80,10 @@ export type ForecastCycleFixture = Readonly<{
   eventMarketOutcomeIds: Readonly<Record<ForecastCycleSelection, string>>;
 }>;
 
-export type PersistedPredictionRef = Readonly<{ id: string }>;
+export type PersistedPredictionRef = Readonly<{
+  id: string;
+  predictionRunId: string;
+}>;
 export type PersistedForecastRef = Readonly<{ id: string }>;
 export type PersistedDecisionRef = Readonly<{ id: string }>;
 
@@ -153,6 +156,7 @@ export type ForecastCycleDeps = Readonly<{
       eventId: string;
       featureCutoff: Date;
       status: string;
+      startedAt?: Date | null;
       triggerJobId?: string | null;
     };
     prediction: {
@@ -170,6 +174,10 @@ export type ForecastCycleDeps = Readonly<{
     };
     inputs: readonly { sourceObservationId: string; inputRole: string }[];
   }) => Promise<PersistedPredictionRef>;
+  completePredictionRun: (input: {
+    predictionRunId: string;
+    completedAt: Date;
+  }) => Promise<void>;
   persistForecast: (input: {
     predictionId: string;
     eventMarketOutcomeId: string;
@@ -367,6 +375,7 @@ export async function runForecastCycle(
 
       const asOf = deps.clock();
       const lineup = await deps.getLineupState(fixture, asOf);
+      let predictionRunId: string | null = null;
 
       for (const market of MARKETS) {
         const selections = FORECAST_CYCLE_MARKETS[market];
@@ -419,7 +428,8 @@ export async function runForecastCycle(
               calibrationVersionId: deps.calibrationVersionId,
               eventId: fixture.eventId,
               featureCutoff: asOf,
-              status: "COMPLETED",
+              status: "RUNNING",
+              startedAt: asOf,
               triggerJobId: deps.triggerJobId ?? null,
             },
             prediction: {
@@ -444,6 +454,13 @@ export async function runForecastCycle(
             },
             inputs: [],
           });
+          if (
+            predictionRunId !== null &&
+            predictionRunId !== prediction.predictionRunId
+          ) {
+            throw new Error("PREDICTION_VECTOR_RUN_MISMATCH");
+          }
+          predictionRunId = prediction.predictionRunId;
           predictionsCreated += 1;
 
           const forecast = await deps.persistForecast({
@@ -495,6 +512,12 @@ export async function runForecastCycle(
               break;
           }
         }
+      }
+      if (predictionRunId !== null) {
+        await deps.completePredictionRun({
+          predictionRunId,
+          completedAt: deps.clock(),
+        });
       }
     } catch (error) {
       increment(

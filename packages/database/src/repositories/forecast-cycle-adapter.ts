@@ -636,7 +636,7 @@ export async function createForecastCycleDbAdapter(
 
     async persistPrediction(input) {
       /*
-       * A stable run id derived from (event, outcome, feature cutoff, model
+       * A stable run id derived from (event, feature cutoff, model
        * version) is what makes two cycle runs against unchanged inputs
        * idempotent: DatabasePredictionRepository looks up an existing run
        * by this id before inserting, and predictions is itself unique on
@@ -647,14 +647,24 @@ export async function createForecastCycleDbAdapter(
        * gets its own new run/prediction.
        */
       const runId = deterministicId(
-        `prediction-run:${input.run.eventId}:${input.prediction.eventMarketOutcomeId}:${input.run.featureCutoff.toISOString()}:${input.run.modelVersionId}`,
+        `prediction-run:${input.run.eventId}:${input.run.featureCutoff.toISOString()}:${input.run.modelVersionId}`,
       );
       const persisted = await predictionRepository.append({
         run: { ...input.run, id: runId },
         prediction: { ...input.prediction },
         inputs: input.inputs,
       });
-      return { id: persisted.prediction.id };
+      return {
+        id: persisted.prediction.id,
+        predictionRunId: persisted.run.id,
+      };
+    },
+
+    async completePredictionRun(input) {
+      await predictionRepository.completeRun(
+        input.predictionRunId,
+        input.completedAt,
+      );
     },
 
     async persistForecast(input) {

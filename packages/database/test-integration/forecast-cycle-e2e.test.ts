@@ -13,10 +13,13 @@ import {
 } from "../src/repositories/fixture-ingestion.js";
 import { ensureFootballReferenceData } from "../src/repositories/odds-ingestion.js";
 import { createForecastCycleDbAdapter } from "../src/repositories/forecast-cycle-adapter.js";
+import { queryMultiClassCalibrationRows } from "../src/repositories/multiclass-calibration.js";
 import {
   predictions,
   forecasts,
   decisions,
+  eventResults,
+  predictionRuns,
 } from "../src/schema/intelligence.js";
 import { competitionIdentities, competitions } from "../src/schema/catalog.js";
 import {
@@ -26,6 +29,10 @@ import {
   outcomeDefinitions,
 } from "../src/schema/market.js";
 import { DatabaseCustomerQueryAdapter } from "../src/repositories/customer-queries.js";
+import {
+  providerSyncRuns,
+  sourceObservations,
+} from "../src/schema/operations.js";
 
 /*
  * The release-critical proof: a real fixture in a real PostgreSQL 17
@@ -231,6 +238,114 @@ describe("runForecastCycle, against a real database, end to end", () => {
     // 3 for FT 1X2 (HOME/DRAW/AWAY) + 2 for FT Over/Under 2.5 (OVER/UNDER).
     expect(result.predictionsCreated).toBeGreaterThanOrEqual(5);
     expect(Object.keys(result.errorsByReason)).toHaveLength(0);
+
+    const oneXTwoPredictionRuns = await database
+      .select({
+        runId: predictionRuns.id,
+        status: predictionRuns.status,
+        completedAt: predictionRuns.completedAt,
+        eventMarketId: eventMarkets.id,
+        outcomeCode: outcomeDefinitions.code,
+      })
+      .from(predictions)
+      .innerJoin(
+        predictionRuns,
+        eq(predictions.predictionRunId, predictionRuns.id),
+      )
+      .innerJoin(
+        eventMarketOutcomes,
+        eq(predictions.eventMarketOutcomeId, eventMarketOutcomes.id),
+      )
+      .innerJoin(
+        eventMarkets,
+        eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+      )
+      .innerJoin(
+        marketDefinitions,
+        eq(eventMarkets.marketDefinitionId, marketDefinitions.id),
+      )
+      .innerJoin(
+        outcomeDefinitions,
+        eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+      )
+      .where(
+        and(
+          eq(eventMarkets.eventId, eventId),
+          eq(marketDefinitions.code, "FOOTBALL_FULL_TIME_1X2"),
+        ),
+      );
+    expect(oneXTwoPredictionRuns.map((row) => row.outcomeCode).sort()).toEqual([
+      "AWAY",
+      "DRAW",
+      "HOME",
+    ]);
+    expect(new Set(oneXTwoPredictionRuns.map((row) => row.runId)).size).toBe(1);
+    expect(
+      oneXTwoPredictionRuns.every(
+        (row) => row.status === "COMPLETED" && row.completedAt instanceof Date,
+      ),
+    ).toBe(true);
+    expect(
+      new Set(
+        oneXTwoPredictionRuns.map((row) => row.completedAt!.toISOString()),
+      ),
+    ).toEqual(new Set(["2026-09-22T00:00:00.000Z"]));
+
+    const referenceData = await ensureFootballReferenceData(
+      database,
+      PROVIDER_CODE,
+    );
+    const [resultRun] = await database
+      .insert(providerSyncRuns)
+      .values({
+        providerId: referenceData.providerId,
+        capability: "RESULTS",
+        status: "COMPLETED",
+        providerSchemaVersion: "test.v1",
+        normalizationVersion: "test.v1",
+        mappingVersion: "test.v1",
+        policyVersionId: referenceData.policyVersionId,
+        startedAt: new Date("2026-09-22T20:00:00.000Z"),
+        completedAt: new Date("2026-09-22T20:00:01.000Z"),
+      })
+      .returning({ id: providerSyncRuns.id });
+    const [resultSource] = await database
+      .insert(sourceObservations)
+      .values({
+        providerId: referenceData.providerId,
+        syncRunId: resultRun!.id,
+        observationType: "RESULT",
+        providerExternalId: "970001",
+        providerObservedAt: new Date("2026-09-22T20:00:00.000Z"),
+        receivedAt: new Date("2026-09-22T20:00:01.000Z"),
+        normalizedAt: new Date("2026-09-22T20:00:01.000Z"),
+        normalizationVersion: "test.v1",
+        mappingVersion: "test.v1",
+        contentHash: "sha256:forecast-cycle-calibration-result",
+      })
+      .returning({ id: sourceObservations.id });
+    await database.insert(eventResults).values({
+      eventId,
+      sourceObservationId: resultSource!.id,
+      status: "FINAL",
+      homeScore: 1,
+      awayScore: 1,
+      providerObservedAt: new Date("2026-09-22T20:00:00.000Z"),
+    });
+    const [calibrationRow] = (
+      await queryMultiClassCalibrationRows(database)
+    ).filter(
+      (row) =>
+        row.modelVersion === "e2e-test-model.v1" &&
+        row.eventMarketId === oneXTwoPredictionRuns[0]!.eventMarketId,
+    );
+    expect(calibrationRow).toBeDefined();
+    expect(calibrationRow!.trueOutcome).toBe("DRAW");
+    expect(
+      Number(calibrationRow!.probabilityHome) +
+        Number(calibrationRow!.probabilityDraw) +
+        Number(calibrationRow!.probabilityAway),
+    ).toBeCloseTo(1, 10);
 
     // Real rows, not asserted by row-count alone: read them back and check
     // the actual persisted numbers are a valid probability vector.

@@ -158,6 +158,10 @@ describe("multi-class calibration rows, against a real database", () => {
       "RESULT",
       "in-progress-result",
     );
+    const supersededFinalSourceId = await makeSource(
+      "RESULT",
+      "superseded-final-result",
+    );
     const oddsSourceId = await makeSource("ODDS", "odds");
 
     const persistRun = async (input: {
@@ -224,6 +228,7 @@ describe("multi-class calibration rows, against a real database", () => {
       kickoff: Date;
       score: readonly [number, number];
       probabilities: readonly [string, string, string];
+      odds?: readonly [string, string, string];
       seasonLabel?: string;
       futureOnly?: boolean;
     }) => {
@@ -283,7 +288,7 @@ describe("multi-class calibration rows, against a real database", () => {
         ),
       });
 
-      for (const [bookmakerIndex, bookmaker] of insertedBookmakers.entries()) {
+      for (const bookmaker of insertedBookmakers) {
         for (const [outcomeIndex, outcome] of [
           "HOME",
           "DRAW",
@@ -294,10 +299,7 @@ describe("multi-class calibration rows, against a real database", () => {
             eventMarketOutcomeId:
               outcomeIds[outcome as "HOME" | "DRAW" | "AWAY"],
             bookmakerId: bookmaker.id,
-            decimalOdds: [
-              ["2.20", "3.40", "3.10"],
-              ["2.15", "3.50", "3.20"],
-            ][bookmakerIndex]![outcomeIndex]!,
+            decimalOdds: (input.odds ?? ["4", "2", "4"])[outcomeIndex]!,
             providerObservedAt: new Date(input.kickoff.getTime() - 3_600_000),
             receivedAt: new Date(input.kickoff.getTime() - 3_599_000),
             normalizedAt: new Date(input.kickoff.getTime() - 3_599_000),
@@ -319,6 +321,7 @@ describe("multi-class calibration rows, against a real database", () => {
       kickoff: KICKOFF,
       score: [2, 2],
       probabilities: ["0.70", "0.20", "0.10"],
+      odds: ["4", "2", "4"],
     });
     coherentEventMarketId = coherent.eventMarketId;
     await database.insert(eventResults).values({
@@ -328,6 +331,14 @@ describe("multi-class calibration rows, against a real database", () => {
       homeScore: 5,
       awayScore: 0,
       providerObservedAt: new Date(KICKOFF.getTime() - 1_800_000),
+    });
+    await database.insert(eventResults).values({
+      eventId: coherent.eventId,
+      sourceObservationId: supersededFinalSourceId,
+      status: "FINAL",
+      homeScore: 4,
+      awayScore: 0,
+      providerObservedAt: new Date(KICKOFF.getTime() + 3_600_000),
     });
 
     // A later valid recomputation must win as one whole vector. Restoring
@@ -351,6 +362,16 @@ describe("multi-class calibration rows, against a real database", () => {
       status: "FAILED",
     });
 
+    // Pre-kickoff features do not make a forecast available before kickoff
+    // when the run itself only finishes after the event has started.
+    await persistRun({
+      eventId: coherent.eventId,
+      eventMarketOutcomeIds: coherent.outcomeIds,
+      probabilities: ["0.05", "0.05", "0.90"],
+      featureCutoff: new Date(KICKOFF.getTime() - 600_000),
+      completedAt: new Date(KICKOFF.getTime() + 600_000),
+    });
+
     // Even when it completed later, a forecast whose feature cutoff is after
     // kickoff has future knowledge and must not enter calibration.
     await persistRun({
@@ -366,16 +387,27 @@ describe("multi-class calibration rows, against a real database", () => {
       kickoff: new Date(KICKOFF.getTime() + 86_400_000),
       score: [3, 1],
       probabilities: ["0.60", "0.25", "0.15"],
+      odds: ["2", "4", "4"],
     });
     await persistSettledEvent({
       suffix: "away-truth",
       kickoff: new Date(KICKOFF.getTime() + 172_800_000),
       score: [0, 1],
       probabilities: ["0.20", "0.30", "0.50"],
+      odds: ["4", "4", "2"],
     });
+    for (let index = 0; index < 27; index += 1) {
+      await persistSettledEvent({
+        suffix: `draw-cohort-${index}`,
+        kickoff: new Date(KICKOFF.getTime() + (index + 3) * 86_400_000),
+        score: [1, 1],
+        probabilities: ["0.25", "0.35", "0.40"],
+        odds: ["4", "2", "4"],
+      });
+    }
 
     // A separate three-way market deliberately reuses HOME/DRAW/AWAY codes.
-    // Without the exact market-definition filter it would produce a fourth
+    // Without the exact market-definition filter it would produce another
     // apparently valid row and silently contaminate full-time calibration.
     const [otherDefinition] = await database
       .insert(marketDefinitions)
@@ -440,7 +472,7 @@ describe("multi-class calibration rows, against a real database", () => {
     // row at all, not a leaky row merely because it is the latest run.
     await persistSettledEvent({
       suffix: "future-only",
-      kickoff: new Date(KICKOFF.getTime() + 259_200_000),
+      kickoff: new Date(KICKOFF.getTime() + 31 * 86_400_000),
       score: [1, 0],
       probabilities: ["0.55", "0.25", "0.20"],
       futureOnly: true,
@@ -471,12 +503,16 @@ describe("multi-class calibration rows, against a real database", () => {
       (row) => row.modelVersion === MODEL_VERSION,
     );
 
-    expect(rows).toHaveLength(3);
-    expect(rows.map((row) => row.trueOutcome).sort()).toEqual([
-      "AWAY",
-      "DRAW",
-      "HOME",
-    ]);
+    expect(rows).toHaveLength(30);
+    expect(
+      rows.reduce(
+        (counts, row) => ({
+          ...counts,
+          [row.trueOutcome]: counts[row.trueOutcome] + 1,
+        }),
+        { HOME: 0, DRAW: 0, AWAY: 0 },
+      ),
+    ).toEqual({ HOME: 1, DRAW: 28, AWAY: 1 });
     const coherent = rows.find(
       (row) => row.eventMarketId === coherentEventMarketId,
     );
@@ -501,19 +537,44 @@ describe("multi-class calibration rows, against a real database", () => {
     );
     expect(calibration).toBeDefined();
     expect(calibration!.sampleCount).toBe(rows.length);
+    expect(calibration!.status).toBe("AVAILABLE");
+    expect(calibration!.brierScore).toBeCloseTo(0.6228333333333332, 12);
+    expect(calibration!.logLoss).toBeCloseTo(1.0199664096762973, 12);
+    expect(calibration!.calibrationError).toBeCloseTo(0.4177777777777778, 12);
+    expect(calibration!.baselineFrequencies).toEqual({
+      home: 1 / 30,
+      draw: 28 / 30,
+      away: 1 / 30,
+    });
     expect(calibration!.byCompetition).toEqual([
       expect.objectContaining({
         competitionCode: COMPETITION_CODE,
         sampleCount: rows.length,
+        brierScore: expect.closeTo(0.6228333333333332, 12),
+        logLoss: expect.closeTo(1.0199664096762973, 12),
       }),
     ]);
     expect(calibration!.bySeason).toEqual([
       expect.objectContaining({
         seasonLabel: SEASON_LABEL,
         sampleCount: rows.length,
+        brierScore: expect.closeTo(0.6228333333333332, 12),
+        logLoss: expect.closeTo(1.0199664096762973, 12),
       }),
     ]);
     expect(calibration!.noVigConsensus.sampleCount).toBe(rows.length);
     expect(calibration!.impliedMarket.sampleCount).toBe(rows.length);
+    expect(calibration!.noVigConsensus.status).toBe("AVAILABLE");
+    expect(calibration!.impliedMarket.status).toBe("AVAILABLE");
+    expect(calibration!.noVigConsensus.brierScore).toBeCloseTo(0.375, 12);
+    expect(calibration!.noVigConsensus.logLoss).toBeCloseTo(
+      0.6931471805599453,
+      12,
+    );
+    expect(calibration!.impliedMarket.brierScore).toBeCloseTo(0.375, 12);
+    expect(calibration!.impliedMarket.logLoss).toBeCloseTo(
+      0.6931471805599453,
+      12,
+    );
   });
 });

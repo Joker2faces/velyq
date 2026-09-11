@@ -53,6 +53,7 @@ export async function queryMultiClassCalibrationRows(
       where pr.status = 'COMPLETED'
         and pr.completed_at is not null
         and pr.feature_cutoff <= e.starts_at
+        and pr.completed_at <= e.starts_at
       order by sf.event_market_id, sf.model_version,
         pr.completed_at desc, pr.started_at desc nulls last, pr.id desc
     ),
@@ -65,12 +66,16 @@ export async function queryMultiClassCalibrationRows(
        and lr.prediction_run_id = sf.prediction_run_id
     ),
     results as (
-      select event_id,
+      -- Result corrections are append-only. The provider observation with
+      -- the latest observation time is the authoritative settled score;
+      -- ingestion order and UUID provide deterministic tie-breakers only.
+      select distinct on (event_id) event_id,
         case when home_score > away_score then 'HOME'
              when home_score < away_score then 'AWAY'
              else 'DRAW' end as true_outcome
       from intelligence.event_results
       where status = 'FINAL' and home_score is not null and away_score is not null
+      order by event_id, provider_observed_at desc, created_at desc, id desc
     )
     select
       sf.model_version,

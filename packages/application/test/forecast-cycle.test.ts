@@ -125,6 +125,9 @@ type PersistPredictionInput = Parameters<
 >[0];
 type PersistForecastInput = Parameters<ForecastCycleDeps["persistForecast"]>[0];
 type PersistDecisionInput = Parameters<ForecastCycleDeps["persistDecision"]>[0];
+type CompletePredictionRunInput = Parameters<
+  ForecastCycleDeps["completePredictionRun"]
+>[0];
 
 /** A working set of deps with every persistence port recorded, not faked away silently. */
 function testDeps(
@@ -133,15 +136,18 @@ function testDeps(
   persistedPredictions: PersistPredictionInput[];
   persistedForecasts: PersistForecastInput[];
   persistedDecisions: PersistDecisionInput[];
+  completedPredictionRuns: CompletePredictionRunInput[];
 } {
   const persistedPredictions: PersistPredictionInput[] = [];
   const persistedForecasts: PersistForecastInput[] = [];
   const persistedDecisions: PersistDecisionInput[] = [];
+  const completedPredictionRuns: CompletePredictionRunInput[] = [];
 
   const deps: ForecastCycleDeps & {
     persistedPredictions: PersistPredictionInput[];
     persistedForecasts: PersistForecastInput[];
     persistedDecisions: PersistDecisionInput[];
+    completedPredictionRuns: CompletePredictionRunInput[];
   } = {
     clock: () => new Date("2026-09-20T00:00:00.000Z"),
     loadEligibleFixtures: vi.fn(async () => [testFixture()]),
@@ -166,7 +172,13 @@ function testDeps(
     getFreshestOdds: vi.fn(async () => null),
     persistPrediction: vi.fn(async (input) => {
       persistedPredictions.push(input);
-      return { id: nextId("prediction") };
+      return {
+        id: nextId("prediction"),
+        predictionRunId: `prediction-run-${input.run.eventId}`,
+      };
+    }),
+    completePredictionRun: vi.fn(async (input) => {
+      completedPredictionRuns.push(input);
     }),
     persistForecast: vi.fn(async (input) => {
       persistedForecasts.push(input);
@@ -182,6 +194,7 @@ function testDeps(
     persistedPredictions,
     persistedForecasts,
     persistedDecisions,
+    completedPredictionRuns,
     ...overrides,
   };
   return deps;
@@ -212,6 +225,7 @@ describe("runForecastCycle", () => {
 
     for (const prediction of deps.persistedPredictions) {
       expect(prediction.prediction.decisionStatus).toBe("WAIT");
+      expect(prediction.run.status).toBe("RUNNING");
       // WAIT (missing market data) is not a refusal-with-null-metrics state
       // -- unlike INSUFFICIENT_DATA/WAIT_FOR_LINEUP, the model's own
       // probability must stay visible here, which is the whole point of
@@ -227,6 +241,12 @@ describe("runForecastCycle", () => {
     // Both markets are genuinely represented, not just five copies of one.
     const selections = deps.persistedDecisions.map((d) => d.selection).sort();
     expect(selections).toEqual(["AWAY", "DRAW", "HOME", "OVER", "UNDER"]);
+    expect(deps.completedPredictionRuns).toEqual([
+      {
+        predictionRunId: "prediction-run-event-1",
+        completedAt: new Date("2026-09-20T00:00:00.000Z"),
+      },
+    ]);
     // The totals market's own model probability is real Dixon-Coles output
     // (via totalGoalsProbabilities), not a placeholder -- it must differ
     // from the 1X2 selections' probabilities and sum to 1 with its sibling.
@@ -345,7 +365,10 @@ describe("runForecastCycle", () => {
       persistPrediction: vi
         .fn()
         .mockRejectedValueOnce(new Error("PREDICTION_INSERT_FAILED"))
-        .mockResolvedValue({ id: nextId("prediction") }),
+        .mockResolvedValue({
+          id: nextId("prediction"),
+          predictionRunId: "prediction-run-event-b",
+        }),
     });
     const result = await runForecastCycle(deps, WINDOW);
 
@@ -353,6 +376,12 @@ describe("runForecastCycle", () => {
     expect(result.errorsByReason["PREDICTION_INSERT_FAILED"]).toBe(1);
     // The second fixture's five selections still persist.
     expect(result.predictionsCreated).toBe(SELECTIONS_PER_FIXTURE);
+    expect(deps.completedPredictionRuns).toEqual([
+      {
+        predictionRunId: "prediction-run-event-b",
+        completedAt: new Date("2026-09-20T00:00:00.000Z"),
+      },
+    ]);
   });
 
   it("never persists a fixture whose model output fails the numerical invariant check", async () => {

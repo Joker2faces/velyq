@@ -134,6 +134,35 @@ export class DatabasePredictionRepository {
     );
   }
 
+  /**
+   * Makes a fully persisted vector visible to completed-run readers. A retry
+   * of the same logical cycle is a no-op once the run is already complete;
+   * any missing or non-running/non-completed id is a persistence failure.
+   */
+  async completeRun(runId: string, completedAt: Date): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const [completed] = await transaction
+        .update(predictionRuns)
+        .set({ status: "COMPLETED", completedAt })
+        .where(
+          and(
+            eq(predictionRuns.id, runId),
+            eq(predictionRuns.status, "RUNNING"),
+          ),
+        )
+        .returning({ id: predictionRuns.id });
+      if (completed) return;
+
+      const [existing] = await transaction
+        .select({ status: predictionRuns.status })
+        .from(predictionRuns)
+        .where(eq(predictionRuns.id, runId))
+        .limit(1);
+      if (existing?.status === "COMPLETED") return;
+      throw new Error("PREDICTION_RUN_COMPLETION_FAILED");
+    });
+  }
+
   async getLatestAsOf(
     eventMarketOutcomeId: string,
     asOf: Date,
