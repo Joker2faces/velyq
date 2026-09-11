@@ -1,7 +1,10 @@
 # VELYQ — Claude Final Master Release Log
 
-Persistent work state for the final release. Updated continuously; this file,
-not chat history, is the source of truth for progress.
+Historical work state for the final release. For the 2026-09-11 release-day
+continuation and its current pre-deploy state, use
+[release-day-continuation-2026-09-11.md](./release-day-continuation-2026-09-11.md).
+That continuation record supersedes stale status and test-count claims in this
+chronological log; chat history is not a release record.
 
 ## Session context
 

@@ -3,6 +3,11 @@
 Operational reference for deploying, verifying and recovering the customer
 application. Written so the next engineer can act without this chat history.
 
+Current continuation status and exact candidate evidence:
+[release-day-continuation-2026-09-11.md](./release-day-continuation-2026-09-11.md).
+That candidate is pre-deploy: no continuation migration or production
+deployment is claimed.
+
 ---
 
 ## 1. Identity of the production system
@@ -31,6 +36,16 @@ only from the project's production branch or explicitly via the CLI.
 ---
 
 ## 2. Deploying
+
+### Required continuation migration gate
+
+Before deploying any Admin/provider writer containing commit `0dc965f` or
+later, apply pending production migrations in filename order through
+`20260928110000_result_observation_time_nullable.sql`. This migration makes
+the two result provider-observation columns nullable; the new writer depends
+on that shape. Verify the migration first, then deploy the writer. Do not
+deploy first, do not backfill unknown timestamps, and do not treat a successful
+upgrade simulation as proof that production was migrated.
 
 ### The route that works
 
@@ -375,7 +390,12 @@ Never print values. Production environment variable **names**:
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
 `NEXT_PUBLIC_VELYQ_ADMIN_URL`, `VELYQ_DATABASE_URL`,
 `VELYQ_APPLICATION_ORIGIN`, `VELYQ_CUSTOMER_INTELLIGENCE_MODE`,
-`VELYQ_INGEST_SECRET`, `APISPORTS_KEY`, `CRON_SECRET`.
+`VELYQ_SCHEDULER_SECRET`, `APISPORTS_KEY`, `CRON_SECRET`.
+
+`VELYQ_SCHEDULER_SECRET` authenticates the Admin provider-ingestion route and
+must match Supabase Vault `velyq_scheduler_secret` without either value being
+printed. `CRON_SECRET` separately authenticates the web forecast-cycle route.
+The scheduler intentionally rejects the obsolete `VELYQ_INGEST_SECRET` name.
 
 Vercel refuses to disclose Secret-typed values (`vercel env pull` writes
 `[SENSITIVE]`), so their effective values can only be confirmed by observed

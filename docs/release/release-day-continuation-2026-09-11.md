@@ -1,0 +1,181 @@
+# VELYQ release-day continuation — 2026-09-11
+
+This is the authoritative pre-deploy record for the release-day continuation on
+`codex/velyq-final-product-v1`. It supplements the historical
+[master release log](./claude-final-master-release.md) and
+[production runbook](./claude-production-runbook.md). The Cloudflare POC
+manifest and readiness record describe a different branch and deployment.
+
+## Current state
+
+| Item | State |
+| --- | --- |
+| Starting SHA | `11731e3d17a327730420e19b7111bec2678ca36b` |
+| Implementation/snapshot candidate | `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
+| Remote when this record was prepared | `a4082097d25b5412f0e62766801efe703dc517e3`; local candidate is one commit ahead |
+| Final integrated release gate | Underway; no final all-green claim is made here |
+| Production database migration | Not performed |
+| Continuation deployment | Not performed |
+| Last documented customer production | `2ab1cfb` on `dpl_7t7yewrjKTWtFGSdeqcag2aazQFB`; this continuation has not moved the alias |
+
+Production therefore remains on the prior deployment until the release
+controller records a successful migration, deployment, and live verification.
+
+## Exact continuation commits
+
+| Task | Commits |
+| --- | --- |
+| Coherent multi-class calibration | `b4246af405e9df25d75521b6ebdb99828fddc047`, `de27ac6f75c025d6ec6952489dd3ef5834dc577a` |
+| Terminal voids and regulation scores | `b5b8b917c6f3e4f5a2dfeda206fc67298b831c17` |
+| Correction-safe History and Autopsy | `71ed19403121b2474eb3ecaeb4225a9351329989`, `06a7234239bdf836c11243703ea766146db7a778` |
+| Odds receipt cutoff and exact closing median | `74356944387c1891e618cd938f9ef39ed1bc478b` |
+| True opening odds | `2142536c054288fe956649c1aadfa0c9c904914e`, `8f38956c1db971b2261e80d3cd1d3344fe42487a` |
+| Honest result acquisition/settlement time | `0dc965f3556782bd1e6dc2f353df7db6a7854eef`, `e8e4c000bae9d9ef939ca1e61c2b9c9febde0c8c` |
+| Live provider ingestion in Admin | `09870d99fd6d57e92aaf912a3b2ed4372e179834`, `6493a59a3a3a8bcd3766aae32e0e3a7da97eb08e`, `dc16c3ef17b75bf9d115f39736f508cd3b6211d1` |
+| Batched customer reads | `b050f492290d1f12ebfe52fa59faf59ace3f15e3`, `0913598eff3ff4e39e4a26ed5befb419e774e563` |
+| Greek History and compact header | `3ee69545b416a4c3314b997dfe3b0a2f80fdb68b`, `680a12d36e630a60698c542f8ce95311bb782320` |
+| Quality at decision in Autopsy | `a4082097d25b5412f0e62766801efe703dc517e3` |
+| Reviewed snapshot reconciliation | `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
+
+## Verified behavior
+
+- Calibration consumes one complete, pre-kickoff HOME/DRAW/AWAY vector from
+  one completed prediction run and one authoritative corrected FINAL result.
+- API-Sports AET/PEN uses the explicit regulation score. CANCELLED and
+  ABANDONED decisions settle VOID; nonterminal results remain unsettled and
+  replays remain idempotent.
+- History and Post-Match Autopsy collapse append-only result/settlement
+  corrections before pagination, use deterministic authority, traverse
+  same-millisecond rows exactly once, and keep LIVE and SYNTHETIC_DEMO corpora
+  separate.
+- Decision-time price and quality readers require both provider observation
+  and receipt by the cutoff. Closing-price ordering and median arithmetic are
+  exact-decimal.
+- Match and odds-history reads retain all bookmakers at the true opening
+  instant plus the newest 500 rows, with stable chronological de-duplication.
+- Result receipt, normalization, and settlement availability are no longer
+  backdated to kickoff. Unknown provider result-observation time remains null;
+  later replays do not rewrite original evidence.
+- Admin reads live scheduler health from `provider_ingestion_runs`, keeps
+  `provider_sync_runs` explicitly labelled as replay provenance, distinguishes
+  idle/blocked/error states, uses stable keyset pagination, and returns
+  `private, no-store` responses.
+- Greek History renders typed translated labels and metadata. The compact
+  authenticated header remains visible at 360/390/430 px without overflow.
+- Post-Match Autopsy joins the exact persisted
+  decision-to-forecast-to-prediction-to-assessment chain and shows recorded
+  quality/policy evidence only; missing evidence stays explicitly absent.
+
+## Verification evidence available before the final gate
+
+The following is durable task-scoped evidence. It does not substitute for the
+integrated Task 6 gate now underway.
+
+- Latest database task gate: PostgreSQL 17, fresh migrated/seeded database,
+  13 files / 85 tests passed at `a408209`.
+- Result-time schema change: fresh, representative-upgrade, and
+  production-shaped upgrade simulations passed at `e8e4c00`, including
+  preservation of historical source/result evidence.
+- Latest broad customer/UI evidence: 45 files / 363 tests, 18/18 typechecks,
+  18/18 builds, and focused EN/EL Autopsy rendering 4/4 passed at `a408209`.
+- Task 11 evidence: 135 files / 1,235 tests and History/header Playwright 4/4
+  passed; the two manually reviewed localized History baselines were accepted
+  in `d2674a4`.
+- Task 14 evidence: full real-PostgreSQL 13 files / 84 tests, broad customer
+  19 files / 140 tests, full unit/customer 134 files / 1,224 tests, all 18
+  typechecks/builds, lint, and format passed.
+- Tracked-source secret heuristic at the candidate found no matches.
+- The official npm audit reports one High advisory on `sharp < 0.35.4` only
+  through development dependencies
+  `@cloudflare/vite-plugin -> wrangler -> miniflare`. The Vercel/Next runtime
+  resolves `sharp 0.35.4`; this is a deferred, Cloudflare-tooling-only P2, not a
+  reason to modify the protected Cloudflare POC during this continuation.
+
+The final full verification, repeated customer/admin E2E, final clean-tree
+check, production migration, deployment, and live QA are not claimed complete
+in this document.
+
+## Benchmark
+
+The final Task 14 PostgreSQL 17 run compared the frozen legacy adapter with the
+shared bulk implementation over the same 100 LIVE events:
+
+| Implementation | SQL statements | Warm samples (ms) | Median |
+| --- | ---: | --- | ---: |
+| Frozen legacy `getToday` | 3,101 | 1,062.67 / 1,136.39 / 1,283.47 | 1,136.39 ms |
+| Bulk `getToday` | 11 | 122.61 / 118.50 / 112.73 | 118.50 ms |
+
+That is 99.65% fewer statements and 89.6% lower median latency. Byte-for-byte
+equivalence covers both corpora, historical cutoffs, 1X2 and O/U 2.5, evidence
+ties, 100-event batching, and 300 UUID case variants. No index or migration was
+needed for this optimization.
+
+## Mandatory migration and deployment order
+
+The new migration is
+`supabase/migrations/20260928110000_result_observation_time_nullable.sql`. It
+only drops `NOT NULL` from
+`operations.source_observations.provider_observed_at` and
+`intelligence.event_results.provider_observed_at`; it performs no historical
+UPDATE, DELETE, or repair.
+
+1. Inspect the production migration inventory without printing credentials.
+2. Apply every pending migration in filename order through
+   `20260928110000_result_observation_time_nullable.sql`. Do not cherry-pick it
+   ahead of its predecessors.
+3. Verify the two production columns are nullable and the migration completed
+   without rewriting historical rows.
+4. Only then deploy any Admin/provider writer containing `0dc965f` or later.
+5. Deploy the customer app from the same verified release SHA, wait for Ready,
+   verify the production alias moved, and run the runbook's live checks.
+
+**Migration `20260928110000` must be applied before deploying the nullable
+result writer.** Neither that migration nor a continuation deployment has
+occurred as of this pre-deploy record.
+
+## Remaining owner-only release blockers
+
+- Apply and verify the pending production migrations, including the earlier
+  identity-invariant migration where still pending and the new
+  `20260928110000` migration above.
+- Confirm—without displaying values—that the Admin production environment has
+  `VELYQ_SCHEDULER_SECRET`, that it matches Supabase Vault
+  `velyq_scheduler_secret`, and that the live `velyq-provider-ingest` cron job
+  targets the intended Admin production host. Inspect recent cron/HTTP results
+  and run one controlled scheduler smoke.
+- Confirm the required production database/provider variables on the same
+  Admin target. `VELYQ_INGEST_SECRET` is not accepted by the scheduler route.
+- Revoke the Supabase Personal Access Token previously exposed in a transcript.
+- Complete authenticated customer/Admin production QA with an owner-held
+  session; credentials must not be copied into release records or chat.
+- Resolve the GitHub Actions account billing lock before relying on hosted CI.
+  Local PostgreSQL 17 evidence remains valid, but hosted CI was not available.
+
+## Remaining P2 and deferred work
+
+- Persist fatal whole-run ingestion failures; add Admin odds-freshness and
+  next-due diagnostics; add an Admin sign-in application rate limit.
+- Make the legacy binary model-health aggregate correction-aware and clarify
+  or pair the model/market baseline cohorts when historical odds are missing.
+- Re-profile the odds-tail and History index shapes at production cardinality;
+  batch History participant labels if measured; bound scheduler marker reads
+  if multi-season growth makes them material.
+- Add real-PostgreSQL parameterization for PEN and partially missing regulation
+  scores. Unit coverage and production-path review already cover the behavior.
+- Identify the two non-blocking sign-in 404 resource requests and add
+  Safari/Firefox-specific rendering coverage when practical.
+- Remediate the dev-only `sharp` advisory through the Cloudflare toolchain when
+  an upstream-compatible update is available; do not alter the protected POC
+  merely to silence this Vercel-release audit.
+- Stripe/billing, AI/Ask VELYQ, light mode, customer search/filters, and watch
+  notifications remain explicitly deferred. The complete historical backlog
+  remains in [claude-product-completion-backlog.md](./claude-product-completion-backlog.md).
+
+## Protected scope
+
+Do not modify `main`, `integration/phase-1`, PR #3,
+`backup/home-master-unique-20260909`, or the canonical
+`cloudflare/velyq-poc` deployment/resources. No secret values belong in this
+record. This continuation does not authorize Stripe, AI/OpenAI, new Vercel
+projects, historical data rewrites, branch deletion, or deployment before the
+gates above are satisfied.
