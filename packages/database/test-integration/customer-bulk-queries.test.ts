@@ -368,6 +368,49 @@ describe("bulk customer reads against frozen legacy PostgreSQL semantics", () =>
     }
   }, 60000);
 
+  it("matches legacy for uppercase and mixed-case UUIDs before deduplication and batching", async () => {
+    const mixedCase = (id: string) =>
+      id.replace(/[a-f]/g, (letter, offset: number) =>
+        offset % 2 ? letter.toUpperCase() : letter,
+      );
+    for (const dataOrigin of ["LIVE", "SYNTHETIC_DEMO"] as const) {
+      const reader = new DatabaseCustomerQueryAdapter(db, { dataOrigin });
+      const legacy = new LegacyCustomerQueryAdapter(db, { dataOrigin });
+      const canonicalId = dataOrigin === "LIVE" ? ids[0]! : demoId;
+      for (const requestedId of [
+        canonicalId.toUpperCase(),
+        mixedCase(canonicalId),
+      ]) {
+        const expected = await legacy.getMatch(requestedId, asOf);
+        expect(expected?.event.id).toBe(canonicalId);
+        const actual = await reader.getMatch(requestedId, asOf);
+        expect(actual?.event.id).toBe(canonicalId);
+        expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+      }
+    }
+    const canonical = ids.slice(0, 100).reverse();
+    const expected = await Promise.all(
+      canonical.map((id) => oracle.getMatch(id, asOf)),
+    );
+    // Case variants straddle the old raw-string batch boundary. Deduplication
+    // must occur before batching, and the first requested occurrence wins.
+    const requested = canonical.flatMap((id) => [
+      id.toUpperCase(),
+      mixedCase(id),
+      id,
+    ]);
+    const spy = vi.spyOn(client.pool, "query");
+    try {
+      const actual = await live.getMatches(requested, asOf);
+      expect(actual.map((match) => match.event.id)).toEqual(canonical);
+      expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+      expect(spy.mock.calls.length).toBe(10);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await live.getMatch(demoId.toUpperCase(), asOf)).toBeNull();
+  }, 60000);
+
   it("bounds round trips at 1, 10, 100 and 101 requested fixtures without changing order or corpus", async () => {
     for (const size of [1, 10, 100, 101]) {
       const requested = ids.slice(0, size).reverse();

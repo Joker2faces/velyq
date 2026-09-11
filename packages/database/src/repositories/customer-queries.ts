@@ -255,7 +255,9 @@ export class DatabaseCustomerQueryAdapter {
     eventIds: readonly string[],
     asOf: Date,
   ): Promise<CustomerRawMatch[]> {
-    const ids = [...new Set(eventIds)];
+    // PostgreSQL UUID equality is case-insensitive and returns lowercase IDs.
+    // Canonicalize before both de-duplication and keyed result assembly.
+    const ids = [...new Set(eventIds.map((id) => id.toLowerCase()))];
     const matches: CustomerRawMatch[] = [];
     for (let offset = 0; offset < ids.length; offset += MAX_TODAY_EVENTS) {
       matches.push(
