@@ -59,6 +59,32 @@ describe("live provider-ingestion health derivation", () => {
       },
       expected: "COMPLETED_WITH_ERRORS",
     },
+    {
+      name: "result persistence failure emitted as a skip",
+      input: {
+        ...base,
+        providerCallsUsed: 1,
+        resultCandidates: 1,
+        resultRequestsAttempted: 1,
+        skippedByReason: { RESULT_WRITE_FAILED: 1 },
+      },
+      expected: "COMPLETED_WITH_ERRORS",
+    },
+    {
+      name: "ordinary result batch and rate-limit skips are not write failures",
+      input: {
+        ...base,
+        providerCallsUsed: 1,
+        resultCandidates: 2,
+        resultRequestsAttempted: 1,
+        skippedByReason: {
+          RESULT_BATCH_CEILING: 1,
+          RESULT_RATE_LIMITED: 1,
+          RESULTS_DEFERRED_AFTER_ODDS: 1,
+        },
+      },
+      expected: "HEALTHY_ACTIVE",
+    },
   ])("classifies $name", ({ input, expected }) => {
     expect(deriveProviderIngestionHealth(input)).toBe(expected);
   });

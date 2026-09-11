@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import {
   brierScore,
   empiricalFrequencies,
@@ -55,7 +55,10 @@ import {
   formatProviderIngestionCursor,
   parseProviderIngestionCursor,
 } from "./provider-ingestion-cursor";
-import { deriveProviderIngestionHealth } from "./provider-ingestion-health";
+import {
+  deriveProviderIngestionHealth,
+  hasProviderIngestionFailure,
+} from "./provider-ingestion-health";
 
 const json = (value: unknown) => value as never;
 
@@ -108,9 +111,11 @@ function providerIngestionRun(
 ): AdminProviderIngestionRunDto {
   const errorsByReason = reasonCounts(row.errorsByReason);
   const skippedByReason = reasonCounts(row.skippedByReason);
-  const hasResultErrors = Object.entries(errorsByReason).some(
-    ([reason, count]) => reason.startsWith("RESULT_") && count > 0,
-  );
+  const hasResultFailure = hasProviderIngestionFailure({
+    errorsByReason,
+    skippedByReason,
+    purpose: "RESULT",
+  });
   const runHealth = deriveProviderIngestionHealth({
     status: row.status as AdminProviderIngestionRunDto["status"],
     providerCallsUsed: row.providerCallsUsed,
@@ -127,7 +132,7 @@ function providerIngestionRun(
   const resultOutcome =
     row.resultRequestsAttempted === 0
       ? "NOT_ATTEMPTED"
-      : row.status === "FAILED" || hasResultErrors
+      : row.status === "FAILED" || hasResultFailure
         ? "FAILED"
         : "SUCCEEDED";
 
@@ -262,12 +267,43 @@ export class DatabaseAdminQueries implements AdminQueries {
         (select count(*) from intelligence.event_results where status='FINAL')::int final_results_received,
         (select count(*) from intelligence.decisions d where d.status='STRONG_EDGE' and not exists(select 1 from intelligence.market_settlements ms where ms.decision_id=d.id))::int settlements_pending,
         (select count(*) from intelligence.market_settlements where outcome<>'UNSETTLED')::int settlements_completed,
-        (select count(*) from operations.provider_ingestion_runs pir where pir.result_requests_attempted > 0 and (pir.status='FAILED' or exists(select 1 from jsonb_each_text(pir.errors_by_reason) error where left(error.key, 7)='RESULT_' and error.value::int > 0)))::int result_ingestion_failures,
         (select count(*) from intelligence.decisions d left join intelligence.market_settlements ms on ms.decision_id=d.id where d.status='STRONG_EDGE' and (ms.id is null or ms.outcome='UNSETTLED'))::int unsettled_actionable_decisions,
-        (select max(pir.finished_at) from operations.provider_ingestion_runs pir where pir.status='COMPLETED' and pir.result_requests_attempted > 0 and not exists(select 1 from jsonb_each_text(pir.errors_by_reason) error where left(error.key, 7)='RESULT_' and error.value::int > 0)) last_successful_result_sync,
         (select max(settled_at) from intelligence.market_settlements) last_settlement_run
     `);
     const row = result.rows[0] as Record<string, unknown>;
+    /* Keep result success/failure on the exact same classifier as list and
+       detail. Re-expressing the JSON reason rules in SQL is how the overview
+       previously drifted from the persisted producer contract. */
+    const liveResultRuns = await this.database
+      .select({
+        status: providerIngestionRuns.status,
+        finishedAt: providerIngestionRuns.finishedAt,
+        skippedByReason: providerIngestionRuns.skippedByReason,
+        errorsByReason: providerIngestionRuns.errorsByReason,
+      })
+      .from(providerIngestionRuns)
+      .where(gt(providerIngestionRuns.resultRequestsAttempted, 0));
+    let resultIngestionFailures = 0;
+    let lastSuccessfulResultSync: Date | null = null;
+    for (const liveRun of liveResultRuns) {
+      const hasResultFailure = hasProviderIngestionFailure({
+        errorsByReason: reasonCounts(liveRun.errorsByReason),
+        skippedByReason: reasonCounts(liveRun.skippedByReason),
+        purpose: "RESULT",
+      });
+      if (liveRun.status === "FAILED" || hasResultFailure) {
+        resultIngestionFailures += 1;
+        continue;
+      }
+      if (
+        liveRun.status === "COMPLETED" &&
+        liveRun.finishedAt !== null &&
+        (lastSuccessfulResultSync === null ||
+          liveRun.finishedAt > lastSuccessfulResultSync)
+      ) {
+        lastSuccessfulResultSync = liveRun.finishedAt;
+      }
+    }
     const blockerResult = await this.database.execute(
       sql`select code, count(*)::int count from intelligence.decisions d cross join lateral unnest(d.why_not_codes) code where d.created_at >= date_trunc('day', now() at time zone 'utc') group by code order by count desc, code`,
     );
@@ -621,9 +657,9 @@ export class DatabaseAdminQueries implements AdminQueries {
       finalResultsReceived: count("final_results_received"),
       settlementsPending: count("settlements_pending"),
       settlementsCompleted: count("settlements_completed"),
-      resultIngestionFailures: count("result_ingestion_failures"),
+      resultIngestionFailures,
       unsettledActionableDecisions: count("unsettled_actionable_decisions"),
-      lastSuccessfulResultSync: timestamp("last_successful_result_sync"),
+      lastSuccessfulResultSync: lastSuccessfulResultSync?.toISOString() ?? null,
       lastSettlementRun: timestamp("last_settlement_run"),
       modelHealth,
       multiClassCalibration,

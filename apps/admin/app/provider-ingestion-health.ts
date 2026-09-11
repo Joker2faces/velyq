@@ -14,13 +14,41 @@ export type ProviderIngestionHealthInput = Readonly<{
   errorsByReason: Readonly<Record<string, number>>;
 }>;
 
+type ProviderIngestionFailureInput = Readonly<{
+  errorsByReason: Readonly<Record<string, number>>;
+  skippedByReason: Readonly<Record<string, number>>;
+  purpose?: "DISCOVERY" | "ODDS" | "LINEUP" | "RESULT" | "STATUS";
+}>;
+
+/* Persistence ports report per-item write failures as skips so one bad item
+   cannot abort its batch. Only failure-shaped skip keys belong on the error
+   path; quota, rate-limit, identity, ceiling and deferral skips do not. */
+const SKIPPED_FAILURE_REASON =
+  /(?:_WRITE_FAILED|_PERSISTENCE_FAILED|_INVALID)$/;
+
+export function hasProviderIngestionFailure(
+  input: ProviderIngestionFailureInput,
+): boolean {
+  const inScope = (reason: string) =>
+    input.purpose === undefined || reason.startsWith(`${input.purpose}_`);
+  if (
+    Object.entries(input.errorsByReason).some(
+      ([reason, count]) => count > 0 && inScope(reason),
+    )
+  )
+    return true;
+  return Object.entries(input.skippedByReason).some(
+    ([reason, count]) =>
+      count > 0 && inScope(reason) && SKIPPED_FAILURE_REASON.test(reason),
+  );
+}
+
 export function deriveProviderIngestionHealth(
   input: ProviderIngestionHealthInput,
 ): AdminProviderIngestionRunDto["runHealth"] {
   if (input.status === "FAILED") return "FAILED";
   if (input.status === "RUNNING") return "RUNNING";
-  if (Object.values(input.errorsByReason).some((count) => count > 0))
-    return "COMPLETED_WITH_ERRORS";
+  if (hasProviderIngestionFailure(input)) return "COMPLETED_WITH_ERRORS";
   if (input.providerCallsUsed > 0) return "HEALTHY_ACTIVE";
 
   const meaningfulSkips = Object.entries(input.skippedByReason).filter(
