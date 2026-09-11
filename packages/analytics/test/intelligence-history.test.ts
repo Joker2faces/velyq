@@ -109,6 +109,74 @@ describe("historical intelligence policy", () => {
     expect(closing).toMatchObject({ odds: "1.95", bookmakerCount: 4 });
   });
 
+  it("orders closing prices exactly when distinct decimal odds collapse to the same Number", () => {
+    const closing = selectClosingPrice({
+      outcomeId: "home",
+      kickoff: "2026-09-08T18:00:00Z",
+      observations: [
+        {
+          id: "high",
+          outcomeId: "home",
+          bookmakerId: "high",
+          odds: "9999999999.00000003" as never,
+          observedAt: "2026-09-08T17:55:00Z",
+          status: "ACTIVE",
+        },
+        {
+          id: "low",
+          outcomeId: "home",
+          bookmakerId: "low",
+          odds: "9999999999.00000001" as never,
+          observedAt: "2026-09-08T17:55:00Z",
+          status: "ACTIVE",
+        },
+        {
+          id: "middle",
+          outcomeId: "home",
+          bookmakerId: "middle",
+          odds: "9999999999.00000002" as never,
+          observedAt: "2026-09-08T17:55:00Z",
+          status: "ACTIVE",
+        },
+      ],
+    });
+
+    expect(closing).toMatchObject({
+      odds: "9999999999.00000002",
+      observationIds: ["low", "middle", "high"],
+    });
+  });
+
+  it("averages an exact even closing median into a canonical decimal string", () => {
+    const closing = selectClosingPrice({
+      outcomeId: "home",
+      kickoff: "2026-09-08T18:00:00Z",
+      observations: [
+        {
+          id: "upper",
+          outcomeId: "home",
+          bookmakerId: "upper",
+          odds: "9999999999.00000003" as never,
+          observedAt: "2026-09-08T17:55:00Z",
+          status: "ACTIVE",
+        },
+        {
+          id: "lower",
+          outcomeId: "home",
+          bookmakerId: "lower",
+          odds: "9999999999.00000001" as never,
+          observedAt: "2026-09-08T17:55:00Z",
+          status: "ACTIVE",
+        },
+      ],
+    });
+
+    expect(closing).toMatchObject({
+      odds: "9999999999.00000002",
+      observationIds: ["lower", "upper"],
+    });
+  });
+
   it("includes a book exactly 60 minutes stale, and excludes one a moment older", () => {
     const freshest = "2026-09-08T17:55:00Z";
     const exactlySixty = {

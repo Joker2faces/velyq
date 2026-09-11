@@ -564,6 +564,64 @@ describe("forecast and decision repositories, against a real database", () => {
     expect(freshest?.decimalOdds).toBe("2.10000000");
   });
 
+  it("[freshest odds] rejects a pre-cutoff provider observation received after the cutoff", async () => {
+    const outcomeId = await freshOutcomeId("960004");
+    await ingestOddsAndGetObservationId({
+      providerEventId: "960004",
+      outcomeId,
+      bookmaker: "RECEIPT_CUTOFF_BOOK_A",
+      decimalOdds: "1.80",
+      providerObservedAt: "2026-09-16T10:00:00.000Z",
+      ingestedAt: "2026-09-16T10:01:00.000Z",
+    });
+    await ingestOddsAndGetObservationId({
+      providerEventId: "960004",
+      outcomeId,
+      bookmaker: "RECEIPT_CUTOFF_BOOK_B",
+      decimalOdds: "2.40",
+      providerObservedAt: "2026-09-16T10:05:00.000Z",
+      ingestedAt: "2026-09-16T12:00:00.000Z",
+    });
+
+    const reader = new DatabaseFreshestOddsReader(database);
+    const freshest = await reader.getFreshestValidOdds(
+      outcomeId,
+      new Date("2026-09-16T11:00:00.000Z"),
+    );
+
+    expect(freshest?.decimalOdds).toBe("1.80000000");
+  });
+
+  it("[quality observations] reject pre-cutoff provider observations received after the cutoff", async () => {
+    const outcomeId = await freshOutcomeId("960005");
+    await ingestOddsAndGetObservationId({
+      providerEventId: "960005",
+      outcomeId,
+      bookmaker: "QUALITY_RECEIPT_CUTOFF_BOOK_A",
+      decimalOdds: "1.85",
+      providerObservedAt: "2026-09-16T10:00:00.000Z",
+      ingestedAt: "2026-09-16T10:01:00.000Z",
+    });
+    await ingestOddsAndGetObservationId({
+      providerEventId: "960005",
+      outcomeId,
+      bookmaker: "QUALITY_RECEIPT_CUTOFF_BOOK_B",
+      decimalOdds: "2.45",
+      providerObservedAt: "2026-09-16T10:05:00.000Z",
+      ingestedAt: "2026-09-16T12:00:00.000Z",
+    });
+
+    const reader = new DatabaseFreshestOddsReader(database);
+    const observations = await reader.getAllValidObservations(
+      outcomeId,
+      new Date("2026-09-16T11:00:00.000Z"),
+    );
+
+    expect(observations.map((observation) => observation.decimalOdds)).toEqual([
+      "1.85000000",
+    ]);
+  });
+
   it("[freshest odds] returns null when no valid observation exists, never an error", async () => {
     const referenceData = await ensureFootballReferenceData(
       database,

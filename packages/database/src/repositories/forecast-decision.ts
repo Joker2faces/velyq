@@ -212,11 +212,11 @@ export type FreshestOddsObservation = Readonly<{
  * insertion order, so a payload that arrives late but was observed earlier
  * cannot beat a genuinely fresher one, and a same-time race is broken
  * deterministically by id rather than by whichever insert happened to run
- * last. Only `ACTIVE`, non-synthetic observations at or before the cutoff
- * are eligible -- a suspended or removed price is not a valid current price,
- * and a post-kickoff (or otherwise post-cutoff) observation must never be
- * selected, which is why the cutoff is a required parameter, not implicit
- * "now".
+ * last. Only `ACTIVE`, non-synthetic observations both observed and received
+ * at or before the cutoff are eligible -- a suspended or removed price is not
+ * a valid current price, and neither post-kickoff evidence nor evidence that
+ * was unavailable at decision time may be selected. That is why the cutoff
+ * is a required parameter, not implicit "now".
  */
 export class DatabaseFreshestOddsReader {
   constructor(private readonly database: PrivilegedVelyqDatabase) {}
@@ -240,6 +240,7 @@ export class DatabaseFreshestOddsReader {
           eq(oddsObservations.status, "ACTIVE"),
           eq(oddsObservations.isSynthetic, false),
           lte(oddsObservations.providerObservedAt, asOf),
+          lte(oddsObservations.receivedAt, asOf),
         ),
       )
       .orderBy(
@@ -272,6 +273,7 @@ export class DatabaseFreshestOddsReader {
           eq(oddsObservations.status, "ACTIVE"),
           eq(oddsObservations.isSynthetic, false),
           lte(oddsObservations.providerObservedAt, asOf),
+          lte(oddsObservations.receivedAt, asOf),
         ),
       )
       .orderBy(desc(oddsObservations.providerObservedAt));

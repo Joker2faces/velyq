@@ -1,4 +1,10 @@
-import type { DecimalString } from "@velyq/decimal";
+import {
+  addDecimalStrings,
+  compareDecimalStrings,
+  divideDecimalStrings,
+  numericColumnToDecimalString,
+  type DecimalString,
+} from "@velyq/decimal";
 import { closingLineValue } from "./performance.js";
 
 export type PricePoint = Readonly<{
@@ -30,14 +36,22 @@ export function selectClosingPrice(
   }>,
 ): ClosingPrice | null {
   const kickoff = Date.parse(input.kickoff);
-  const eligible = input.observations.filter(
-    (point) =>
-      point.outcomeId === input.outcomeId &&
-      point.status === "ACTIVE" &&
-      Number.isFinite(Date.parse(point.observedAt)) &&
-      Date.parse(point.observedAt) <= kickoff &&
-      Number(point.odds) > 1,
-  );
+  if (!Number.isFinite(kickoff)) return null;
+  const eligible = input.observations.flatMap((point) => {
+    if (
+      point.outcomeId !== input.outcomeId ||
+      point.status !== "ACTIVE" ||
+      !Number.isFinite(Date.parse(point.observedAt)) ||
+      Date.parse(point.observedAt) > kickoff
+    )
+      return [];
+    const odds = numericColumnToDecimalString(point.odds);
+    if (!odds.ok) return [];
+    const aboveOne = compareDecimalStrings(odds.value, "1" as DecimalString);
+    return aboveOne.ok && aboveOne.value > 0
+      ? [{ ...point, odds: odds.value }]
+      : [];
+  });
   const latest = new Map<string, PricePoint>();
   for (const point of eligible)
     if (
@@ -54,15 +68,25 @@ export function selectClosingPrice(
     .filter(
       (point) => freshest - Date.parse(point.observedAt) <= 60 * 60 * 1000,
     )
-    .sort((a, b) => Number(a.odds) - Number(b.odds));
+    .sort((a, b) => {
+      const comparison = compareDecimalStrings(a.odds, b.odds);
+      if (!comparison.ok)
+        throw new Error("selectClosingPrice: invalid decimal odds");
+      return comparison.value;
+    });
   if (valid.length === 0) return null;
   const middle = Math.floor(valid.length / 2);
-  const median =
-    valid.length % 2
-      ? Number(valid[middle]!.odds)
-      : (Number(valid[middle - 1]!.odds) + Number(valid[middle]!.odds)) / 2;
+  let median = valid[middle]!.odds;
+  if (valid.length % 2 === 0) {
+    const sum = addDecimalStrings(valid[middle - 1]!.odds, valid[middle]!.odds);
+    if (!sum.ok) throw new Error("selectClosingPrice: invalid decimal odds");
+    const average = divideDecimalStrings(sum.value, "2" as DecimalString);
+    if (!average.ok)
+      throw new Error("selectClosingPrice: invalid decimal odds");
+    median = average.value;
+  }
   return {
-    odds: String(median) as DecimalString,
+    odds: median,
     observationIds: valid.map((point) => point.id),
     bookmakerCount: valid.length,
     observedAt: new Date(freshest).toISOString(),
