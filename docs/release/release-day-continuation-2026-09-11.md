@@ -1,6 +1,6 @@
 # VELYQ release-day continuation — 2026-09-11
 
-This is the authoritative pre-deploy record for the release-day continuation on
+This is the authoritative release-candidate record for the release-day continuation on
 `codex/velyq-final-product-v1`. It supplements the historical
 [master release log](./claude-final-master-release.md) and
 [production runbook](./claude-production-runbook.md). The Cloudflare POC
@@ -12,8 +12,8 @@ manifest and readiness record describe a different branch and deployment.
 | --- | --- |
 | Starting SHA | `11731e3d17a327730420e19b7111bec2678ca36b` |
 | Implementation/snapshot candidate | `d2674a4fa6e9b72d7a2980d58d08a2d3fed5d430` |
-| Remote when this record was prepared | `a4082097d25b5412f0e62766801efe703dc517e3`; local candidate is one commit ahead |
-| Final integrated release gate | Underway; no final all-green claim is made here |
+| Remote before the final evidence push | `a4082097d25b5412f0e62766801efe703dc517e3`; snapshot and documentation commits remain local until final review |
+| Final integrated local release gate | **PASS** at the documentation-inclusive tree; independent whole-release review remains underway |
 | Production database migration | Not performed |
 | Continuation deployment | Not performed |
 | Last documented customer production | `2ab1cfb` on `dpl_7t7yewrjKTWtFGSdeqcag2aazQFB`; this continuation has not moved the alias |
@@ -66,10 +66,28 @@ controller records a successful migration, deployment, and live verification.
   decision-to-forecast-to-prediction-to-assessment chain and shows recorded
   quality/policy evidence only; missing evidence stays explicitly absent.
 
-## Verification evidence available before the final gate
+## Integrated release verification
 
-The following is durable task-scoped evidence. It does not substitute for the
-integrated Task 6 gate now underway.
+The final Task 6 local gate passed from the clean, documentation-inclusive
+candidate tree:
+
+- `pnpm verify`: formatting and zero-warning lint passed; typecheck 18/18;
+  unit tests 136 files / 1,242 tests; build 18/18, including optimized
+  production web and Admin bundles.
+- Fresh PostgreSQL 17 migration/seed: 13 files / 85 tests passed.
+- Representative database upgrade: passed with data preserved.
+- Production-faithful reconciliation: passed on the recorded legacy schema,
+  including historical source/result preservation and the complete DB suite.
+- Worker readiness: passed.
+- Customer Playwright: 15/15 on each of three consecutive runs, including the
+  full desktop/mobile screenshot sweep, EN/EL History, and Autopsy quality.
+- Admin Playwright: 5/5 on each of two independently provisioned, migrated,
+  and seeded PostgreSQL runs.
+- The two intentional History baselines were regenerated only after manual
+  desktop/mobile inspection and then remained stable across all three runs.
+- Tracked-source secret heuristic found no matches.
+
+The following task-scoped evidence provides additional depth:
 
 - Latest database task gate: PostgreSQL 17, fresh migrated/seeded database,
   13 files / 85 tests passed at `a408209`.
@@ -91,9 +109,9 @@ integrated Task 6 gate now underway.
   resolves `sharp 0.35.4`; this is a deferred, Cloudflare-tooling-only P2, not a
   reason to modify the protected Cloudflare POC during this continuation.
 
-The final full verification, repeated customer/admin E2E, final clean-tree
-check, production migration, deployment, and live QA are not claimed complete
-in this document.
+Production migration, deployment, and live QA are not claimed complete in this
+document. Final independent review and clean local/remote identity checks must
+also complete before any production action.
 
 ## Benchmark
 
