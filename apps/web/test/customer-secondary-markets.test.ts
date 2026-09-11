@@ -288,6 +288,80 @@ describe("secondaryMarketsFor", () => {
   });
 });
 
+describe("mapMatch 1X2 outcome selection", () => {
+  it("surfaces an actionable away outcome instead of hiding it behind the first predicted outcome", () => {
+    const dto = mapMatch(
+      match(
+        [
+          outcome({
+            outcomeCode: "HOME",
+            decisionStatus: "NO_BET",
+            modelProbability: "0.45",
+            currentOdds: "2",
+          }),
+          outcome({
+            outcomeCode: "AWAY",
+            decisionStatus: "STRONG_EDGE",
+            modelProbability: "0.6",
+            currentOdds: "1.85",
+          }),
+        ],
+        OFFICIAL_LINEUPS,
+      ),
+    );
+
+    expect(dto.selection).toBe("AWAY");
+    expect(dto.recommendation).toBe("STRONG_EDGE");
+  });
+
+  it("ignores a repriced strong decision when another current strong outcome still qualifies", () => {
+    const dto = mapMatch(
+      match(
+        [
+          outcome({
+            outcomeCode: "HOME",
+            decisionStatus: "STRONG_EDGE",
+            modelProbability: "0.6",
+            currentOdds: "1.72",
+          }),
+          outcome({
+            outcomeCode: "DRAW",
+            decisionStatus: "STRONG_EDGE",
+            modelProbability: "0.6",
+            currentOdds: "1.85",
+          }),
+        ],
+        OFFICIAL_LINEUPS,
+      ),
+    );
+
+    expect(dto.selection).toBe("DRAW");
+    expect(dto.recommendation).toBe("STRONG_EDGE");
+  });
+
+  it("chooses the strongest current outcome deterministically regardless of input order", () => {
+    const home = outcome({
+      outcomeCode: "HOME",
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.58",
+      currentOdds: "1.85",
+    });
+    const away = outcome({
+      outcomeCode: "AWAY",
+      decisionStatus: "STRONG_EDGE",
+      modelProbability: "0.62",
+      currentOdds: "1.85",
+    });
+
+    expect(mapMatch(match([home, away], OFFICIAL_LINEUPS)).selection).toBe(
+      "AWAY",
+    );
+    expect(mapMatch(match([away, home], OFFICIAL_LINEUPS)).selection).toBe(
+      "AWAY",
+    );
+  });
+});
+
 describe("customerDatabaseMapper.mapToday", () => {
   it("keeps the displayed odds, implied probability, edge and EV on one current-price observation", () => {
     const raw: CustomerRawToday = {

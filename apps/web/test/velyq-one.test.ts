@@ -80,7 +80,7 @@ describe("selectVelyqOne", () => {
     expect(selectVelyqOne([staleDecision], AS_OF)).toBeNull();
   });
 
-  it("ranks eligible selections by current edge, then EV, quality and stable identity", () => {
+  it("ranks eligible selections by current edge independent of input order", () => {
     const smallerEdge = candidate({
       eventId: "event-smaller-edge",
       modelProbability: "0.55",
@@ -96,33 +96,81 @@ describe("selectVelyqOne", () => {
       expectedValue: "0.11",
       quality: { ...base.quality, grade: "B", score: "0.75" },
     });
-    const sameEdgeHigherEv = candidate({
-      eventId: "event-a",
-      modelProbability: "0.65",
-      currentOdds: "1.69387755",
-      probabilityEdge: "0.059999999999",
-      expectedValue: "0.101020408163",
-    });
-    const sameEdgeLowerEv = candidate({
-      eventId: "event-b",
+    expect(
+      selectVelyqOne([smallerEdge, largerEdge], AS_OF)?.match.eventId,
+    ).toBe("event-z");
+    expect(
+      selectVelyqOne([largerEdge, smallerEdge], AS_OF)?.match.eventId,
+    ).toBe("event-z");
+  });
+
+  it("uses current EV when current probability edges are exactly tied", () => {
+    const lowerEv = candidate({
+      eventId: "event-lower-ev",
       modelProbability: "0.6",
-      currentOdds: "1.85185185",
-      probabilityEdge: "0.06",
-      expectedValue: "0.11111111111",
+      currentOdds: "2",
+    });
+    const higherEv = candidate({
+      eventId: "event-higher-ev",
+      modelProbability: "0.5",
+      currentOdds: "2.5",
     });
 
-    expect(
-      selectVelyqOne(
-        [smallerEdge, largerEdge, sameEdgeHigherEv, sameEdgeLowerEv],
-        AS_OF,
-      )?.match.eventId,
-    ).toBe("event-b");
-    expect(
-      selectVelyqOne(
-        [sameEdgeLowerEv, sameEdgeHigherEv, largerEdge, smallerEdge],
-        AS_OF,
-      )?.match.eventId,
-    ).toBe("event-b");
+    expect(selectVelyqOne([lowerEv, higherEv], AS_OF)?.match.eventId).toBe(
+      "event-higher-ev",
+    );
+    expect(selectVelyqOne([higherEv, lowerEv], AS_OF)?.match.eventId).toBe(
+      "event-higher-ev",
+    );
+  });
+
+  it("uses quality, kickoff, event and selection as stable tie-breakers", () => {
+    const shared = { modelProbability: "0.6", currentOdds: "2" };
+    const gradeA = candidate({
+      ...shared,
+      eventId: "grade-a",
+      quality: { ...base.quality, grade: "A" },
+    });
+    const gradeB = candidate({
+      ...shared,
+      eventId: "grade-b",
+      quality: { ...base.quality, grade: "B" },
+    });
+    expect(selectVelyqOne([gradeB, gradeA], AS_OF)?.match.eventId).toBe(
+      "grade-a",
+    );
+
+    const early = candidate({
+      ...shared,
+      eventId: "later-id",
+      startsAt: "2026-09-20T17:00:00.000Z",
+    });
+    const late = candidate({
+      ...shared,
+      eventId: "earlier-id",
+      startsAt: "2026-09-20T19:00:00.000Z",
+    });
+    expect(selectVelyqOne([late, early], AS_OF)?.match.eventId).toBe(
+      "later-id",
+    );
+
+    const eventA = candidate({ ...shared, eventId: "event-a" });
+    const eventB = candidate({ ...shared, eventId: "event-b" });
+    expect(selectVelyqOne([eventB, eventA], AS_OF)?.match.eventId).toBe(
+      "event-a",
+    );
+
+    const away = candidate({
+      ...shared,
+      eventId: "same-event",
+      selection: "AWAY",
+    });
+    const home = candidate({
+      ...shared,
+      eventId: "same-event",
+      selection: "HOME",
+    });
+    expect(selectVelyqOne([home, away], AS_OF)?.match.selection).toBe("AWAY");
   });
 
   it("returns current metrics recalculated from the displayed model and price", () => {

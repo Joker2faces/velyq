@@ -96,13 +96,22 @@ test("VELYQ ONE renders its verified selection without overflow in EN and EL", a
     one.getByRole("link", { name: "View match analysis" }),
   ).toHaveAttribute("href", "/matches/76000000-0000-4000-8000-000000000001");
 
-  for (const width of [360, 390, 430, 1440]) {
+  for (const width of [
+    360, 390, 430, 736, 768, 820, 1120, 1216, 1220, 1280, 1359, 1360, 1440,
+  ]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
     await page.reload();
     await expect(one).toBeVisible();
     expect(
       await page.locator("html").evaluate((node) => node.scrollWidth),
     ).toBe(width);
+    const cardBox = await one.boundingBox();
+    const metricsBox = await one.locator(".velyq-one__metrics").boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(metricsBox).not.toBeNull();
+    expect(metricsBox!.x + metricsBox!.width).toBeLessThanOrEqual(
+      cardBox!.x + cardBox!.width + 0.5,
+    );
   }
 
   await page.setViewportSize({ width: 390, height: 844 });

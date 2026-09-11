@@ -2,7 +2,11 @@ import {
   DatabaseCustomerQueryAdapter,
   MATCH_RESULT_MARKET_CODES,
 } from "@velyq/database";
-import type { CustomerRawMatch, CustomerRawToday } from "@velyq/database";
+import type {
+  CustomerRawMatch,
+  CustomerRawOutcome,
+  CustomerRawToday,
+} from "@velyq/database";
 import type {
   CustomerMatchDto,
   CustomerScenarioDto,
@@ -437,10 +441,103 @@ export function selectOutcome(raw: CustomerRawMatch) {
   const matchResult = raw.outcomes.filter(({ marketDefinition }) =>
     MATCH_RESULT_MARKET_CODES.includes(marketDefinition.code),
   );
+
+  const verified = matchResult
+    .map((outcome) => verifiedOutcomeCandidate(raw, outcome))
+    .filter((candidate) => candidate !== null)
+    .sort(compareVerifiedOutcomes);
+  if (verified[0]) return verified[0].outcome;
+
   return (
     matchResult.find(
       ({ prediction, score }) => prediction !== null || score !== null,
     ) ?? matchResult[0]
+  );
+}
+
+type VerifiedOutcomeCandidate = Readonly<{
+  outcome: CustomerRawOutcome;
+  value: ValueMetrics;
+  grade: "A" | "B";
+}>;
+
+function verifiedOutcomeCandidate(
+  raw: CustomerRawMatch,
+  outcome: CustomerRawOutcome,
+): VerifiedOutcomeCandidate | null {
+  const persisted = outcome.prediction?.prediction?.decisionStatus;
+  const grade = outcome.quality?.grade;
+  if (
+    persisted !== "STRONG_EDGE" ||
+    (grade !== "A" && grade !== "B") ||
+    deriveLineupState(raw) !== "OFFICIAL" ||
+    dataLabelFor(raw) !== LIVE_DATA_LABEL
+  ) {
+    return null;
+  }
+
+  const movement = summariseOddsMovement(outcome.odds);
+  const current = movement.currentOdds;
+  const modelProbability = decimal(
+    outcome.prediction?.prediction?.modelProbability,
+  );
+  if (current === null || modelProbability === null) return null;
+
+  const latestObservation =
+    outcome.odds.length === 0
+      ? null
+      : new Date(
+          Math.max(
+            ...outcome.odds.map((item) => item.providerObservedAt.getTime()),
+          ),
+        );
+  const freshness = assessOddsFreshness(latestObservation, raw.asOf).freshness;
+  const value = calculateValue(modelProbability, current);
+  if (
+    !value.ok ||
+    recommendationAtCurrentPrice(persisted, freshness, value.value) !==
+      "STRONG_EDGE"
+  ) {
+    return null;
+  }
+
+  const validity = evaluatePriceValidity({
+    modelProbability,
+    currentOdds: current,
+  });
+  if (
+    validity.status !== "ATTRACTIVE" ||
+    validity.minimumAcceptableOdds === null
+  ) {
+    return null;
+  }
+  const price = compareDecimalStrings(current, validity.minimumAcceptableOdds);
+  if (!price.ok || price.value < 0) return null;
+
+  return Object.freeze({ outcome, value: value.value, grade });
+}
+
+function compareVerifiedOutcomes(
+  left: VerifiedOutcomeCandidate,
+  right: VerifiedOutcomeCandidate,
+) {
+  const edge = compareDecimalStrings(
+    left.value.probabilityEdge,
+    right.value.probabilityEdge,
+  );
+  if (edge.ok && edge.value !== 0) return -edge.value;
+
+  const expectedValue = compareDecimalStrings(
+    left.value.expectedValue,
+    right.value.expectedValue,
+  );
+  if (expectedValue.ok && expectedValue.value !== 0)
+    return -expectedValue.value;
+
+  const grade = left.grade.localeCompare(right.grade);
+  if (grade !== 0) return grade;
+  return left.outcome.outcomeDefinition.code.localeCompare(
+    right.outcome.outcomeDefinition.code,
   );
 }
 
