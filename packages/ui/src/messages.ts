@@ -352,6 +352,19 @@ export const messages = {
   todayKicker: "Command centre",
   todayTitle: "What needs your attention?",
   todaySnapshot: "Snapshot as of {time} UTC",
+  velyqOneTitleFull: "Today’s strongest verified selection",
+  velyqOneTitlePreview: "Strongest verified selection in your access",
+  velyqOneCurrentSelection: "Current selection",
+  velyqOneSupporting:
+    "The strongest available signal that still clears our evidence, price and lineup checks.",
+  velyqOneMinimumOdds: "Minimum acceptable odds",
+  velyqOneOfficialLineup: "Official lineup",
+  velyqOneCta: "View match analysis",
+  velyqOneNoSelectionBadge: "No verified signal",
+  velyqOneEmptyTitle: "No selection right now",
+  velyqOneEmptyBody:
+    "No available selection meets the evidence and price requirements right now.",
+  velyqOneExploreEdge: "Explore EDGE",
   todayLeadStrong:
     "{match} — {selection} at {odds}. The model gives it {model}; the price implies {implied}.",
   todayLeadNone:
@@ -1334,6 +1347,19 @@ const greek: Readonly<Record<MessageKey, string>> = {
   todayKicker: "Κέντρο ελέγχου",
   todayTitle: "Τι αξίζει να προσέξεις σήμερα;",
   todaySnapshot: "Στιγμιότυπο {time} UTC",
+  velyqOneTitleFull: "Η ισχυρότερη επαληθευμένη επιλογή της ημέρας",
+  velyqOneTitlePreview: "Η ισχυρότερη επαληθευμένη επιλογή στην πρόσβασή σου",
+  velyqOneCurrentSelection: "Τρέχουσα επιλογή",
+  velyqOneSupporting:
+    "Το ισχυρότερο διαθέσιμο σήμα που περνά ακόμη τους ελέγχους δεδομένων, απόδοσης και ενδεκάδας.",
+  velyqOneMinimumOdds: "Ελάχιστη αποδεκτή απόδοση",
+  velyqOneOfficialLineup: "Επίσημες ενδεκάδες",
+  velyqOneCta: "Δες την ανάλυση αγώνα",
+  velyqOneNoSelectionBadge: "Κανένα επαληθευμένο σήμα",
+  velyqOneEmptyTitle: "Καμία επιλογή αυτή τη στιγμή",
+  velyqOneEmptyBody:
+    "Καμία διαθέσιμη επιλογή δεν πληροί αυτή τη στιγμή τα κριτήρια δεδομένων και απόδοσης.",
+  velyqOneExploreEdge: "Δες το EDGE",
   todayLeadStrong:
     "{match} — {selection} στο {odds}. Το μοντέλο δίνει {model}, η αγορά {implied}.",
   todayLeadNone:

@@ -94,7 +94,23 @@ function outcome(
   };
 }
 
-function match(outcomes: readonly CustomerRawOutcome[]): CustomerRawMatch {
+const OFFICIAL_LINEUPS = [
+  {
+    teamParticipantId: "home-participant",
+    status: "OFFICIAL",
+    providerObservedAt: OBSERVED_AT,
+  },
+  {
+    teamParticipantId: "away-participant",
+    status: "OFFICIAL",
+    providerObservedAt: OBSERVED_AT,
+  },
+] as unknown as CustomerRawMatch["lineups"];
+
+function match(
+  outcomes: readonly CustomerRawOutcome[],
+  lineups: CustomerRawMatch["lineups"] = [],
+): CustomerRawMatch {
   return {
     event: { id: "event-1", startsAt: ASOF } as CustomerRawMatch["event"],
     sport: {} as CustomerRawMatch["sport"],
@@ -111,13 +127,37 @@ function match(outcomes: readonly CustomerRawOutcome[]): CustomerRawMatch {
         eventParticipant: { role: "AWAY" },
       },
     ] as unknown as CustomerRawMatch["participants"],
-    lineups: [],
+    lineups,
     outcomes,
     asOf: ASOF,
   };
 }
 
 describe("secondaryMarketsFor", () => {
+  it("recomputes value from the displayed current price instead of the prediction-time price", () => {
+    const raw = match(
+      [
+        outcome({ marketCode: "FOOTBALL_FULL_TIME_1X2" }),
+        outcome({
+          marketCode: "FOOTBALL_FULL_TIME_TOTAL",
+          outcomeCode: "OVER",
+          decisionStatus: "STRONG_EDGE",
+          modelProbability: "0.6",
+          currentOdds: "1.72",
+          edge: "0.1",
+          expectedValue: "0.11",
+        }),
+      ],
+      OFFICIAL_LINEUPS,
+    );
+
+    const over = secondaryMarketsFor(raw)[0]!;
+
+    expect(over.probabilityEdge).toBe("0.018604651163");
+    expect(over.expectedValue).toBe("0.032");
+    expect(over.recommendation).toBe("EDGE_DISAPPEARED");
+  });
+
   it("is empty for a fixture with only the match-result market", () => {
     const raw = match([outcome({ marketCode: "FOOTBALL_FULL_TIME_1X2" })]);
     expect(secondaryMarketsFor(raw)).toEqual([]);
@@ -249,6 +289,37 @@ describe("secondaryMarketsFor", () => {
 });
 
 describe("customerDatabaseMapper.mapToday", () => {
+  it("keeps the displayed odds, implied probability, edge and EV on one current-price observation", () => {
+    const raw: CustomerRawToday = {
+      asOf: ASOF,
+      windowStart: ASOF,
+      windowEnd: ASOF,
+      matches: [
+        match(
+          [
+            outcome({
+              marketCode: "FOOTBALL_FULL_TIME_1X2",
+              decisionStatus: "STRONG_EDGE",
+              modelProbability: "0.6",
+              currentOdds: "1.72",
+              edge: "0.1",
+              expectedValue: "0.11",
+            }),
+          ],
+          OFFICIAL_LINEUPS,
+        ),
+      ],
+    };
+
+    const mapped = customerDatabaseMapper.mapToday(raw).matches[0]!;
+
+    expect(mapped.currentOdds).toBe("1.72");
+    expect(mapped.impliedProbability).toBe("0.581395348837");
+    expect(mapped.probabilityEdge).toBe("0.018604651163");
+    expect(mapped.expectedValue).toBe("0.032");
+    expect(mapped.recommendation).toBe("EDGE_DISAPPEARED");
+  });
+
   it("carries a real aggregate summary computed from the same mapped matches", () => {
     const raw: CustomerRawToday = {
       asOf: ASOF,

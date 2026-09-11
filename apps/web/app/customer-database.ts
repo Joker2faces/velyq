@@ -17,12 +17,15 @@ import {
   type CustomerDataLabel,
 } from "@velyq/contracts";
 import {
+  compareDecimalStrings,
   numericColumnToDecimalString,
   type DecimalString,
 } from "@velyq/decimal";
 import { summariseOddsMovement } from "@velyq/application/odds-movement";
 import { assessOddsFreshness } from "@velyq/application/odds-freshness";
 import { evaluatePriceValidity } from "@velyq/analytics/price-validity";
+import { calculateValue, type ValueMetrics } from "@velyq/analytics";
+import { DEFAULT_DECISION_POLICY } from "@velyq/analytics/decision-engine";
 import { configuredDataMode } from "./data-mode";
 import { openRuntimeDatabaseSession } from "./runtime-database/runtime-database";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
@@ -48,6 +51,37 @@ const decimal = (value: string | null | undefined): DecimalString | null => {
   const parsed = numericColumnToDecimalString(value);
   return parsed.ok ? parsed.value : null;
 };
+
+function recommendationAtCurrentPrice(
+  persisted: CustomerMatchDto["recommendation"],
+  freshness: CustomerMatchDto["freshness"],
+  currentValue: ValueMetrics | null,
+): CustomerMatchDto["recommendation"] {
+  if (persisted !== "STRONG_EDGE") return persisted;
+  if (freshness !== "CURRENT" || currentValue === null) return "WAIT";
+
+  const minimumEdge = String(
+    DEFAULT_DECISION_POLICY.minimumEdge,
+  ) as DecimalString;
+  const minimumExpectedValue = String(
+    DEFAULT_DECISION_POLICY.minimumExpectedValue,
+  ) as DecimalString;
+  const edgeComparison = compareDecimalStrings(
+    currentValue.probabilityEdge,
+    minimumEdge,
+  );
+  const expectedValueComparison = compareDecimalStrings(
+    currentValue.expectedValue,
+    minimumExpectedValue,
+  );
+
+  return edgeComparison.ok &&
+    expectedValueComparison.ok &&
+    edgeComparison.value >= 0 &&
+    expectedValueComparison.value >= 0
+    ? "STRONG_EDGE"
+    : "EDGE_DISAPPEARED";
+}
 
 function scenarioFor(
   eventId: string,
@@ -148,8 +182,19 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     modelProbability,
     currentOdds: current,
   });
-  const recommendation = (prediction?.prediction.decisionStatus ??
+  const currentValueResult =
+    modelProbability === null || current === null
+      ? null
+      : calculateValue(modelProbability, current);
+  const currentValue =
+    currentValueResult?.ok === true ? currentValueResult.value : null;
+  const persistedRecommendation = (prediction?.prediction.decisionStatus ??
     "INSUFFICIENT_DATA") as CustomerMatchDto["recommendation"];
+  const recommendation = recommendationAtCurrentPrice(
+    persistedRecommendation,
+    freshnessAssessment.freshness,
+    currentValue,
+  );
   const sourceObservationIds =
     outcome?.predictionInputs.map((input) => input.sourceObservationId) ?? [];
   /*
@@ -193,10 +238,9 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     selection: outcome?.outcomeDefinition.code ?? "—",
     recommendation,
     modelProbability,
-    impliedProbability: decimal(
-      prediction?.prediction.marketImpliedProbability,
-    ),
-    fairOdds: decimal(prediction?.prediction.fairOdds),
+    impliedProbability: currentValue?.impliedProbability ?? null,
+    fairOdds:
+      currentValue?.fairOdds ?? decimal(prediction?.prediction.fairOdds),
     currentOdds: decimal(current),
     openingOdds: decimal(opening),
     movementPercent: movementSummary.movementPercent,
@@ -205,8 +249,8 @@ export function mapMatch(raw: CustomerRawMatch): CustomerMatchDto {
     ...(movementSummary.bookmakerCount > 0
       ? { bookmakerCount: movementSummary.bookmakerCount }
       : {}),
-    probabilityEdge: decimal(prediction?.prediction.edge),
-    expectedValue: decimal(prediction?.prediction.expectedValue),
+    probabilityEdge: currentValue?.probabilityEdge ?? null,
+    expectedValue: currentValue?.expectedValue ?? null,
     priceValidity: {
       status: priceValidity.status,
       policyVersion: priceValidity.policyVersion,
@@ -321,8 +365,23 @@ export function secondaryMarketsFor(
       latestObservation,
       raw.asOf,
     );
-    const recommendation = (outcome.prediction?.prediction.decisionStatus ??
+    const persistedRecommendation = (outcome.prediction?.prediction
+      .decisionStatus ??
       "INSUFFICIENT_DATA") as CustomerSecondaryMarketDto["recommendation"];
+    const modelProbability = decimal(
+      outcome.prediction?.prediction.modelProbability,
+    );
+    const currentValueResult =
+      modelProbability === null || current === null
+        ? null
+        : calculateValue(modelProbability, current);
+    const currentValue =
+      currentValueResult?.ok === true ? currentValueResult.value : null;
+    const recommendation = recommendationAtCurrentPrice(
+      persistedRecommendation,
+      freshnessAssessment.freshness,
+      currentValue,
+    );
     const consensus = consensusByMarketCode.get(outcome.marketDefinition.code);
     const riskFlags = deriveRiskFlags({
       freshness: freshnessAssessment.freshness,
@@ -342,13 +401,13 @@ export function secondaryMarketsFor(
       lineValue: outcome.market.lineValue,
       selection: outcome.outcomeDefinition.code,
       recommendation,
-      modelProbability: decimal(
-        outcome.prediction?.prediction.modelProbability,
-      ),
+      modelProbability,
       currentOdds: decimal(current),
-      fairOdds: decimal(outcome.prediction?.prediction.fairOdds),
-      probabilityEdge: decimal(outcome.prediction?.prediction.edge),
-      expectedValue: decimal(outcome.prediction?.prediction.expectedValue),
+      fairOdds:
+        currentValue?.fairOdds ??
+        decimal(outcome.prediction?.prediction.fairOdds),
+      probabilityEdge: currentValue?.probabilityEdge ?? null,
+      expectedValue: currentValue?.expectedValue ?? null,
       freshness: freshnessAssessment.freshness,
       ...(consensus?.dto ? { marketConsensus: consensus.dto } : {}),
       riskFlags,

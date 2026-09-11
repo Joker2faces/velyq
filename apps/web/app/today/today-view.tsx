@@ -45,6 +45,8 @@ import {
   Trend,
 } from "../components/ui";
 import type { TodaySurfaceDto } from "../customer/today-surface";
+import { VelyqOneCard } from "./velyq-one-card";
+import { selectVelyqOne } from "./velyq-one";
 
 /**
  * The Today command centre, rendered in the browser from the protected API.
@@ -116,7 +118,7 @@ export function TodayView({
       match.openingOdds !== null &&
       match.currentOdds !== null,
   );
-  const lead = actionable[0];
+  const velyqOne = selectVelyqOne(matches, today.asOf);
   /* The one list on this page ordered by time rather than signal strength:
      a matchday card, so the reader can see what is still to come. */
   const kickoffs = [...matches]
@@ -170,57 +172,13 @@ export function TodayView({
       </div>
 
       <div className="stack">
-        {/* The page asks a question in its h1; this answers it. */}
-        <div className="lead">
-          {lead ? (
-            <>
-              <div className="lead__verdict">
-                <Badge tone={recommendationTone(lead.recommendation)} dot>
-                  {recommendationLabel(lead.recommendation, locale)}
-                </Badge>
-                <Badge tone={qualityTone(lead.quality.grade)}>
-                  {t("matchGrade")} {lead.quality.grade}
-                </Badge>
-              </div>
-              <p className="lead__headline">
-                {t("todayLeadStrong", {
-                  match: `${lead.homeTeam} — ${lead.awayTeam}`,
-                  selection: selectionLabel(lead.selection, locale),
-                  odds: formatOdds(lead.currentOdds, locale),
-                  model: formatProbability(lead.modelProbability, locale),
-                  implied: formatProbability(lead.impliedProbability, locale),
-                })}
-              </p>
-              <div className="lead__figure">
-                <b>{formatPointsDelta(lead.probabilityEdge, locale)}</b>
-                <span className="lead__meta">
-                  {t("matchProbabilityEdge")} · {t("matchExpectedValue")}{" "}
-                  {formatPercent(lead.expectedValue, 1, locale)}
-                </span>
-              </div>
-              <p className="lead__meta">
-                {t("todayLeadSummary", {
-                  waiting: waiting.length,
-                  blocked: blocked.length,
-                })}
-              </p>
-              <ArrowLink href={`/matches/${lead.eventId}`}>
-                {t("openMatchIntelligence")}
-              </ArrowLink>
-            </>
-          ) : (
-            <>
-              <p className="lead__headline">{t("todayLeadNone")}</p>
-              <p className="lead__meta">
-                {t("todayLeadSummary", {
-                  waiting: waiting.length,
-                  blocked: blocked.length,
-                })}
-              </p>
-              <ArrowLink href="/edge">{t("todayViewEdge")}</ArrowLink>
-            </>
-          )}
-        </div>
+        <VelyqOneCard
+          selection={velyqOne}
+          locale={locale}
+          full={today.full}
+          waiting={waiting.length}
+          blocked={blocked.length}
+        />
 
         {/*
          * A compact summary strip rather than six boxed cards.
