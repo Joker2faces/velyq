@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gte, lt, lte } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { canonicalMarketDefinitions } from "@velyq/market-semantics";
 
 import type { PrivilegedVelyqDatabase } from "../client.js";
@@ -156,82 +167,62 @@ export class DatabaseCustomerQueryAdapter {
     return eq(events.synthetic, this.options.dataOrigin === "SYNTHETIC_DEMO");
   }
 
-  /**
-   * The bounded price history needed by customer opening/current semantics.
-   *
-   * The latest tail alone cannot define "opening": once more than
-   * `MAX_ODDS_HISTORY` eligible rows exist, it becomes a rolling window. Read
-   * the complete first provider instant separately, combine it with the
-   * newest bounded tail, and de-duplicate the overlap for shorter histories.
-   * Both component reads use the same exact outcome, corpus and two-clock
-   * cutoff so neither side can admit evidence the other would reject.
-   */
-  private async getBoundedOddsHistory(
-    eventMarketOutcomeId: string,
-    asOf: Date,
-  ): Promise<(typeof oddsObservations.$inferSelect)[]> {
-    const observationCorpus = eq(
-      oddsObservations.isSynthetic,
-      this.options.dataOrigin === "SYNTHETIC_DEMO",
-    );
-    const eligible = and(
-      eq(oddsObservations.eventMarketOutcomeId, eventMarketOutcomeId),
-      eq(oddsObservations.status, "ACTIVE"),
-      observationCorpus,
-      lte(oddsObservations.providerObservedAt, asOf),
-      lte(oddsObservations.receivedAt, asOf),
-    );
-    const earliestEligible = this.database
-      .select({ providerObservedAt: oddsObservations.providerObservedAt })
+  /** Rank only eligible rows: complete opening instant plus newest 500 per outcome. */
+  private async getBulkOddsHistory(outcomeIds: readonly string[], asOf: Date) {
+    if (outcomeIds.length === 0) return [];
+    const ranked = this.database
+      .select({
+        id: oddsObservations.id,
+        position:
+          sql<number>`row_number() over (partition by ${oddsObservations.eventMarketOutcomeId} order by ${oddsObservations.providerObservedAt} desc, ${oddsObservations.id} desc)`.as(
+            "position",
+          ),
+        opening:
+          sql<Date>`min(${oddsObservations.providerObservedAt}) over (partition by ${oddsObservations.eventMarketOutcomeId})`.as(
+            "opening",
+          ),
+      })
       .from(oddsObservations)
-      .where(eligible)
+      .where(
+        and(
+          inArray(oddsObservations.eventMarketOutcomeId, [...outcomeIds]),
+          eq(oddsObservations.status, "ACTIVE"),
+          eq(
+            oddsObservations.isSynthetic,
+            this.options.dataOrigin === "SYNTHETIC_DEMO",
+          ),
+          lte(oddsObservations.providerObservedAt, asOf),
+          lte(oddsObservations.receivedAt, asOf),
+        ),
+      )
+      .as("ranked_odds");
+    const rows = await this.database
+      .select({ observation: oddsObservations })
+      .from(oddsObservations)
+      .innerJoin(ranked, eq(oddsObservations.id, ranked.id))
+      .where(
+        or(
+          lte(ranked.position, MAX_ODDS_HISTORY),
+          eq(oddsObservations.providerObservedAt, ranked.opening),
+        ),
+      )
       .orderBy(
         asc(oddsObservations.providerObservedAt),
         asc(oddsObservations.id),
-      )
-      .limit(1)
-      .as("earliest_eligible_odds");
-
-    const [openingRows, latestTail] = await Promise.all([
-      this.database
-        .select({ observation: oddsObservations })
-        .from(oddsObservations)
-        .innerJoin(
-          earliestEligible,
-          eq(
-            oddsObservations.providerObservedAt,
-            earliestEligible.providerObservedAt,
-          ),
-        )
-        .where(eligible)
-        .orderBy(
-          asc(oddsObservations.providerObservedAt),
-          asc(oddsObservations.id),
-        ),
-      this.database
-        .select()
-        .from(oddsObservations)
-        .where(eligible)
-        .orderBy(
-          desc(oddsObservations.providerObservedAt),
-          desc(oddsObservations.id),
-        )
-        .limit(MAX_ODDS_HISTORY),
-    ]);
-
-    const byId = new Map<string, typeof oddsObservations.$inferSelect>();
-    for (const observation of [
-      ...openingRows.map((row) => row.observation),
-      ...latestTail,
-    ]) {
-      byId.set(observation.id, observation);
-    }
-    return [...byId.values()].sort((left, right) => {
-      const instant =
-        left.providerObservedAt.getTime() - right.providerObservedAt.getTime();
-      if (instant !== 0) return instant;
-      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
-    });
+      );
+    // PostgreSQL chooses opening/tail at full timestamp precision. Preserve
+    // the legacy public ordering after decoding to millisecond-precision Date:
+    // sub-millisecond observations then tie-break by immutable UUID.
+    return rows
+      .map((row) => row.observation)
+      .sort((left, right) => {
+        const instant =
+          left.providerObservedAt.getTime() -
+          right.providerObservedAt.getTime();
+        return (
+          instant || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+        );
+      });
   }
 
   async getToday(asOf: Date): Promise<CustomerRawToday> {
@@ -245,10 +236,9 @@ export class DatabaseCustomerQueryAdapter {
       .orderBy(asc(events.startsAt), asc(events.id))
       .limit(MAX_TODAY_EVENTS);
 
-    const matches = await Promise.all(
-      rows.map(({ event }) => this.getMatch(event.id, asOf)),
-    ).then((items): CustomerRawMatch[] =>
-      items.filter((item): item is CustomerRawMatch => item !== null),
+    const matches = await this.getMatches(
+      rows.map(({ event }) => event.id),
+      asOf,
     );
     return { asOf, windowStart: start, windowEnd: end, matches };
   }
@@ -257,54 +247,47 @@ export class DatabaseCustomerQueryAdapter {
     eventId: string,
     asOf: Date,
   ): Promise<CustomerRawMatch | null> {
-    const [eventRow] = await this.database
+    return (await this.getMatches([eventId], asOf))[0] ?? null;
+  }
+
+  /** Distinct visible matches in requested order; each batch is at most 100 events. */
+  async getMatches(
+    eventIds: readonly string[],
+    asOf: Date,
+  ): Promise<CustomerRawMatch[]> {
+    const ids = [...new Set(eventIds)];
+    const matches: CustomerRawMatch[] = [];
+    for (let offset = 0; offset < ids.length; offset += MAX_TODAY_EVENTS) {
+      matches.push(
+        ...(await this.getMatchBatch(
+          ids.slice(offset, offset + MAX_TODAY_EVENTS),
+          asOf,
+        )),
+      );
+    }
+    return matches;
+  }
+
+  private async getMatchBatch(
+    eventIds: string[],
+    asOf: Date,
+  ): Promise<CustomerRawMatch[]> {
+    const eventRows = await this.database
       .select({ event: events, sport: sports, competition: competitions })
       .from(events)
       .innerJoin(sports, eq(events.sportId, sports.id))
       .innerJoin(competitions, eq(events.competitionId, competitions.id))
-      /*
-       * The same corpus predicate as `getToday`. Without it a synthetic
-       * fixture stays reachable in LIVE by its own id even once the list
-       * hides it, which is a disclosed URL away from being the same defect.
-       */
-      .where(and(this.corpus, eq(events.id, eventId)))
-      .limit(1);
-    if (!eventRow) return null;
-
-    const participantRows = await this.database
+      .where(and(this.corpus, inArray(events.id, eventIds)));
+    if (eventRows.length === 0) return [];
+    const visibleIds = eventRows.map((row) => row.event.id);
+    // The legacy cap is 100 joined outcome rows per event, not 100 markets globally.
+    const rankedMarkets = this.database
       .select({
-        participant: participants,
-        eventParticipant: eventParticipants,
-      })
-      .from(eventParticipants)
-      .innerJoin(
-        participants,
-        eq(eventParticipants.participantId, participants.id),
-      )
-      .where(eq(eventParticipants.eventId, eventId))
-      .orderBy(asc(eventParticipants.role), asc(participants.id));
-
-    const lineups = await this.database
-      .select()
-      .from(lineupObservations)
-      .where(
-        and(
-          eq(lineupObservations.eventId, eventId),
-          lte(lineupObservations.providerObservedAt, asOf),
-          lte(lineupObservations.receivedAt, asOf),
-        ),
-      )
-      .orderBy(
-        desc(lineupObservations.providerObservedAt),
-        asc(lineupObservations.id),
-      );
-
-    const marketRows = await this.database
-      .select({
-        market: eventMarkets,
-        marketDefinition: marketDefinitions,
-        outcome: eventMarketOutcomes,
-        outcomeDefinition: outcomeDefinitions,
+        id: eventMarketOutcomes.id,
+        position:
+          sql<number>`row_number() over (partition by ${eventMarkets.eventId} order by ${marketDefinitions.familyCode}, ${marketDefinitions.code}, ${eventMarkets.lineValue}, ${eventMarkets.id}, ${outcomeDefinitions.sortOrder})`.as(
+            "position",
+          ),
       })
       .from(eventMarkets)
       .innerJoin(
@@ -319,155 +302,231 @@ export class DatabaseCustomerQueryAdapter {
         outcomeDefinitions,
         eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
       )
-      .where(eq(eventMarkets.eventId, eventId))
-      /*
-       * Ordered by market identity, not by `eventMarkets.id`.
-       *
-       * That id is a random uuid, so ordering by it put the event's markets
-       * in an arbitrary sequence that changed between rows being written --
-       * invisible while one market existed per event, and a match page whose
-       * sections reorder unpredictably as soon as two do. Family then code
-       * then line is a stable, meaningful order, and the trailing id only
-       * breaks ties that identity cannot.
-       */
-      .orderBy(
-        asc(marketDefinitions.familyCode),
-        asc(marketDefinitions.code),
-        asc(eventMarkets.lineValue),
-        asc(eventMarkets.id),
-        asc(outcomeDefinitions.sortOrder),
+      .where(inArray(eventMarkets.eventId, visibleIds))
+      .as("ranked_markets");
+
+    const [participantRows, lineups, marketRows] = await Promise.all([
+      this.database
+        .select({
+          participant: participants,
+          eventParticipant: eventParticipants,
+        })
+        .from(eventParticipants)
+        .innerJoin(
+          participants,
+          eq(eventParticipants.participantId, participants.id),
+        )
+        .where(inArray(eventParticipants.eventId, visibleIds))
+        .orderBy(asc(eventParticipants.role), asc(participants.id)),
+      this.database
+        .select()
+        .from(lineupObservations)
+        .where(
+          and(
+            inArray(lineupObservations.eventId, visibleIds),
+            lte(lineupObservations.providerObservedAt, asOf),
+            lte(lineupObservations.receivedAt, asOf),
+          ),
+        )
+        .orderBy(
+          desc(lineupObservations.providerObservedAt),
+          asc(lineupObservations.id),
+        ),
+      this.database
+        .select({
+          market: eventMarkets,
+          marketDefinition: marketDefinitions,
+          outcome: eventMarketOutcomes,
+          outcomeDefinition: outcomeDefinitions,
+        })
+        .from(eventMarkets)
+        .innerJoin(
+          marketDefinitions,
+          eq(eventMarkets.marketDefinitionId, marketDefinitions.id),
+        )
+        .innerJoin(
+          eventMarketOutcomes,
+          eq(eventMarketOutcomes.eventMarketId, eventMarkets.id),
+        )
+        .innerJoin(
+          outcomeDefinitions,
+          eq(eventMarketOutcomes.outcomeDefinitionId, outcomeDefinitions.id),
+        )
+        .innerJoin(rankedMarkets, eq(eventMarketOutcomes.id, rankedMarkets.id))
+        .where(lte(rankedMarkets.position, MAX_MATCH_MARKETS))
+        .orderBy(
+          asc(marketDefinitions.familyCode),
+          asc(marketDefinitions.code),
+          asc(eventMarkets.lineValue),
+          asc(eventMarkets.id),
+          asc(outcomeDefinitions.sortOrder),
+        ),
+    ]);
+    const outcomeIds = marketRows.map((row) => row.outcome.id);
+    const rankedPredictions = this.database
+      .select({
+        id: predictions.id,
+        position:
+          sql<number>`row_number() over (partition by ${predictions.eventMarketOutcomeId} order by ${predictions.createdAt} desc, ${predictions.id} desc)`.as(
+            "position",
+          ),
+      })
+      .from(predictions)
+      .innerJoin(
+        predictionRuns,
+        eq(predictions.predictionRunId, predictionRuns.id),
       )
-      .limit(MAX_MATCH_MARKETS);
-
-    const outcomes = await Promise.all(
-      marketRows.map(async (row): Promise<CustomerRawOutcome> => {
-        /*
-         * The four queries below have no data dependency on each other (only
-         * predictionInputs depends on predictionRow, and radarEvidence on
-         * score, each its own short chain) -- they used to run six fully
-         * serial awaits per outcome, which is six round-trip latencies for
-         * every outcome of every fixture on a page. Running the independent
-         * chains concurrently does not change which rows are read or their
-         * filters, only when the driver is asked for them.
-         */
-        const predictionChain = (async () => {
-          const [predictionRow] = await this.database
-            .select({ prediction: predictions, run: predictionRuns })
-            .from(predictions)
-            .innerJoin(
-              predictionRuns,
-              eq(predictions.predictionRunId, predictionRuns.id),
-            )
-            .where(
-              and(
-                eq(predictions.eventMarketOutcomeId, row.outcome.id),
-                lte(predictions.createdAt, asOf),
-                lte(predictionRuns.featureCutoff, asOf),
-              ),
-            )
-            .orderBy(desc(predictions.createdAt), desc(predictions.id))
-            .limit(1);
-
-          const predictionInputRows = predictionRow
-            ? await this.database
-                .select()
-                .from(predictionInputs)
-                .where(
-                  eq(
-                    predictionInputs.predictionId,
-                    predictionRow.prediction.id,
-                  ),
-                )
-                .orderBy(
-                  asc(predictionInputs.createdAt),
-                  asc(predictionInputs.sourceObservationId),
-                )
-            : [];
-
-          return { predictionRow, predictionInputRows };
-        })();
-
-        const qualityChain = this.database
-          .select()
-          .from(dataQualityAssessments)
-          .where(
-            and(
-              eq(dataQualityAssessments.eventId, eventId),
-              eq(dataQualityAssessments.marketOutcomeId, row.outcome.id),
-              lte(dataQualityAssessments.asOf, asOf),
-            ),
-          )
-          .orderBy(
-            desc(dataQualityAssessments.asOf),
-            desc(dataQualityAssessments.id),
-          )
-          .limit(1)
-          .then((rows) => rows[0]);
-
-        const scoreChain = (async () => {
-          const [score] = await this.database
+      .where(
+        and(
+          inArray(predictions.eventMarketOutcomeId, outcomeIds),
+          lte(predictions.createdAt, asOf),
+          lte(predictionRuns.featureCutoff, asOf),
+        ),
+      )
+      .as("ranked_predictions");
+    const rankedQuality = this.database
+      .select({
+        id: dataQualityAssessments.id,
+        position:
+          sql<number>`row_number() over (partition by ${dataQualityAssessments.eventId}, ${dataQualityAssessments.marketOutcomeId} order by ${dataQualityAssessments.asOf} desc, ${dataQualityAssessments.id} desc)`.as(
+            "position",
+          ),
+      })
+      .from(dataQualityAssessments)
+      .where(
+        and(
+          inArray(dataQualityAssessments.eventId, visibleIds),
+          inArray(dataQualityAssessments.marketOutcomeId, outcomeIds),
+          lte(dataQualityAssessments.asOf, asOf),
+        ),
+      )
+      .as("ranked_quality");
+    const rankedScores = this.database
+      .select({
+        id: scoreResults.id,
+        position:
+          sql<number>`row_number() over (partition by ${scoreResults.eventMarketOutcomeId} order by ${scoreResults.asOf} desc, ${scoreResults.createdAt} desc, ${scoreResults.id} desc)`.as(
+            "position",
+          ),
+      })
+      .from(scoreResults)
+      .where(
+        and(
+          inArray(scoreResults.eventMarketOutcomeId, outcomeIds),
+          lte(scoreResults.asOf, asOf),
+        ),
+      )
+      .as("ranked_scores");
+    const [predictionRows, qualityRows, scoreRows, odds] = await Promise.all([
+      this.database
+        .select({ prediction: predictions, run: predictionRuns })
+        .from(predictions)
+        .innerJoin(
+          predictionRuns,
+          eq(predictions.predictionRunId, predictionRuns.id),
+        )
+        .innerJoin(rankedPredictions, eq(predictions.id, rankedPredictions.id))
+        .where(eq(rankedPredictions.position, 1)),
+      this.database
+        .select({ quality: dataQualityAssessments })
+        .from(dataQualityAssessments)
+        .innerJoin(
+          rankedQuality,
+          eq(dataQualityAssessments.id, rankedQuality.id),
+        )
+        .where(eq(rankedQuality.position, 1)),
+      this.database
+        .select({ result: scoreResults })
+        .from(scoreResults)
+        .innerJoin(rankedScores, eq(scoreResults.id, rankedScores.id))
+        .where(eq(rankedScores.position, 1)),
+      this.getBulkOddsHistory(outcomeIds, asOf),
+    ]);
+    const [inputs, evidence] = await Promise.all([
+      predictionRows.length
+        ? this.database
             .select()
-            .from(scoreResults)
+            .from(predictionInputs)
             .where(
-              and(
-                eq(scoreResults.eventMarketOutcomeId, row.outcome.id),
-                lte(scoreResults.asOf, asOf),
+              inArray(
+                predictionInputs.predictionId,
+                predictionRows.map((row) => row.prediction.id),
               ),
             )
             .orderBy(
-              desc(scoreResults.asOf),
-              desc(scoreResults.createdAt),
-              desc(scoreResults.id),
+              asc(predictionInputs.createdAt),
+              asc(predictionInputs.sourceObservationId),
             )
-            .limit(1);
+        : [],
+      scoreRows.length
+        ? this.database
+            .select()
+            .from(radarEvidence)
+            .where(
+              inArray(
+                radarEvidence.scoreResultId,
+                scoreRows.map((row) => row.result.id),
+              ),
+            )
+        : [],
+    ]);
 
-          const evidence = score
-            ? ((
-                await this.database
-                  .select()
-                  .from(radarEvidence)
-                  .where(eq(radarEvidence.scoreResultId, score.id))
-                  .limit(1)
-              )[0] ?? null)
-            : null;
-
-          return { score, evidence };
-        })();
-
-        /* Opening plus the bounded latest tail; the helper restores the
-           stable chronological order expected by movement and freshness. */
-        const oddsChain = this.getBoundedOddsHistory(row.outcome.id, asOf);
-
-        const [
-          { predictionRow, predictionInputRows },
-          quality,
-          { score, evidence },
-          odds,
-        ] = await Promise.all([
-          predictionChain,
-          qualityChain,
-          scoreChain,
-          oddsChain,
-        ]);
-
-        return {
-          ...row,
-          prediction: predictionRow ?? null,
-          predictionInputs: predictionInputRows,
-          quality: quality ?? null,
-          score: score ? { result: score, radarEvidence: evidence } : null,
-          odds,
-        };
-      }),
+    const participantsByEvent = groupBy(
+      participantRows,
+      (row) => row.eventParticipant.eventId,
     );
-
-    return {
-      ...eventRow,
-      participants: participantRows,
-      lineups,
-      outcomes,
-      asOf,
-    };
+    const lineupsByEvent = groupBy(lineups, (row) => row.eventId);
+    const inputsByPrediction = groupBy(inputs, (row) => row.predictionId);
+    const oddsByOutcome = groupBy(odds, (row) => row.eventMarketOutcomeId);
+    const predictionByOutcome = new Map(
+      predictionRows.map((row) => [row.prediction.eventMarketOutcomeId, row]),
+    );
+    const qualityByIdentity = new Map(
+      qualityRows.map(({ quality }) => [
+        `${quality.eventId}:${quality.marketOutcomeId}`,
+        quality,
+      ]),
+    );
+    const scoreByOutcome = new Map(
+      scoreRows.map(({ result }) => [result.eventMarketOutcomeId, result]),
+    );
+    const evidenceByScore = new Map(
+      evidence.map((row) => [row.scoreResultId, row]),
+    );
+    const outcomes = marketRows.map((row): CustomerRawOutcome => {
+      const prediction = predictionByOutcome.get(row.outcome.id) ?? null;
+      const result = scoreByOutcome.get(row.outcome.id);
+      return {
+        ...row,
+        prediction,
+        predictionInputs: prediction
+          ? (inputsByPrediction.get(prediction.prediction.id) ?? [])
+          : [],
+        quality:
+          qualityByIdentity.get(`${row.market.eventId}:${row.outcome.id}`) ??
+          null,
+        score: result
+          ? { result, radarEvidence: evidenceByScore.get(result.id) ?? null }
+          : null,
+        odds: oddsByOutcome.get(row.outcome.id) ?? [],
+      };
+    });
+    const outcomesByEvent = groupBy(outcomes, (row) => row.market.eventId);
+    const eventsById = new Map(eventRows.map((row) => [row.event.id, row]));
+    return eventIds.flatMap((id): CustomerRawMatch[] => {
+      const row = eventsById.get(id);
+      return row
+        ? [
+            {
+              ...row,
+              participants: participantsByEvent.get(id) ?? [],
+              lineups: lineupsByEvent.get(id) ?? [],
+              outcomes: outcomesByEvent.get(id) ?? [],
+              asOf,
+            },
+          ]
+        : [];
+    });
   }
 
   async getOddsHistory(
@@ -497,7 +556,7 @@ export class DatabaseCustomerQueryAdapter {
     if (!ownership) return null;
 
     /* Same opening-plus-tail discipline as the match read. */
-    const rows = await this.getBoundedOddsHistory(eventMarketOutcomeId, asOf);
+    const rows = await this.getBulkOddsHistory([eventMarketOutcomeId], asOf);
     return {
       eventId: ownership.eventId,
       eventMarketOutcomeId: ownership.outcomeId,
@@ -505,4 +564,19 @@ export class DatabaseCustomerQueryAdapter {
       observations: rows,
     };
   }
+}
+
+/** Preserve SQL order inside each identity partition. */
+function groupBy<T>(
+  rows: readonly T[],
+  key: (row: T) => string,
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const identity = key(row);
+    const group = groups.get(identity);
+    if (group) group.push(row);
+    else groups.set(identity, [row]);
+  }
+  return groups;
 }
